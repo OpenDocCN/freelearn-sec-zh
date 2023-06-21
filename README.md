@@ -4,22 +4,22 @@
 > 
 > 我生不为逐鹿来，都门懒筑黄金台。状元百官都如狗，总是刀下觳觫材。——《七杀诗》
 
-* [在线阅读](https://sec.apachecn.org)
+* [在线阅读](https://sec.flygon.net)
 ## 下载
 
 ### Docker
 
 ```
-docker pull apachecn0/apachecn-sec-zh
-docker run -tid -p <port>:80 apachecn0/apachecn-sec-zh
+docker pull apachecn0/flygon-sec-zh
+docker run -tid -p <port>:80 apachecn0/flygon-sec-zh
 # 访问 http://localhost:{port} 查看文档
 ```
 
 ### NPM
 
 ```
-npm install -g apachecn-sec-zh
-apachecn-sec-zh <port>
+npm install -g flygon-sec-zh
+flygon-sec-zh <port>
 # 访问 http://localhost:{port} 查看文档
 ```
 
