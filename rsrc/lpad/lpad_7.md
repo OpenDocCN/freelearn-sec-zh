@@ -1,4 +1,4 @@
-# 第七章 不太知名的 Android 漏洞
+# 第七章：不太知名的 Android 漏洞
 
 > 作者：Aditya Gupta
 

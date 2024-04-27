@@ -1,4 +1,4 @@
-# 第六章 玩转 SQLite
+# 第六章：玩转 SQLite
 
 > 作者：Aditya Gupta
 

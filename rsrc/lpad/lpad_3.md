@@ -1,4 +1,4 @@
-# 第三章 Android 应用的逆向和审计
+# 第三章：Android 应用的逆向和审计
 
 > 作者：Aditya Gupta
 
