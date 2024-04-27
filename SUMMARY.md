@@ -7,6 +7,7 @@
 +   [Python 渗透测试实用指南](docs/hsn-pentest-py/README.md)
 +   [渗透测试即时入门](docs/ins-pentest/README.md)
 +   [IOT 渗透测试秘籍](docs/iot-pentest-cb/README.md)
++   [Android 渗透测试学习手册 中文版](docs/lpad/README.md)
 +   [渗透测试学习指南](docs/lrn-pentest/README.md)
 +   [Python 渗透测试学习指南](docs/lrn-pentest-py/README.md)
 +   [Python Web 渗透测试学习手册](docs/lrn-py-web-pentest/README.md)
