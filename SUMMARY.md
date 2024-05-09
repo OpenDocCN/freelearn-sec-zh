@@ -13,6 +13,7 @@
 +   [Python 渗透测试学习指南](docs/lrn-pentest-py/README.md)
 +   [Python Web 渗透测试学习手册](docs/lrn-py-web-pentest/README.md)
 +   [精通机器学习渗透测试](docs/ms-ml-pentest/README.md)
++   [精通 Python 网络安全](docs/ms-py-net-sec/README.md)
 +   [精通高度安全环境下的无线渗透测试](docs/ms-wrls-pentest-hisec-env/README.md)
 +   [BashShell 渗透测试](docs/pentest-bash-sh/README.md)
 +   [树莓派渗透测试](docs/pentest-raspi/README.md)
