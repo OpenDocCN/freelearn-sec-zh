@@ -34,7 +34,9 @@ intitle:"not for distribution"
 
 粗体:表示你在屏幕上看到的一个新词、一个重要的单词或单词。例如，菜单或对话框中的单词出现在文本中，如下所示。下面是一个例子:“ 公司跟踪者 er :公司跟踪者对于收集电子邮件信息很重要。
 
-Warnings or important notes appear like this.Tips and tricks appear like this.# 取得联系
+Warnings or important notes appear like this.Tips and tricks appear like this.
+
+# 取得联系
 
 我们随时欢迎读者的反馈。
 

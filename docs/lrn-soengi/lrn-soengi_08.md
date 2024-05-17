@@ -85,7 +85,9 @@ Maltego 是用于数据挖掘的软件，尤其是在寻找不同信息之间关
 
 当涉及到信息收集时，Maltego 是一个有用的工具，社会工程师发现它是攻击中一个无价的工具。它节省时间，使人们能够收集更准确的数据。当搜索特定类型的数据时，Maltego 可以快速浏览大量数据，如整个域名。该软件还能够访问被普通搜索引擎隐藏的信息。以图表的形式显示所有结果也有助于挑选相关的信息并忽略异常值。
 
-*Maltego CE*, by *Paterva.com*, 2018 available at [`www.paterva.com/web7/buy/maltego-clients/maltego-ce.php`](https://www.paterva.com/web7/buy/maltego-clients/maltego-ce.php). [Accessed on January 13, 2018].# 如何使用 Maltego？
+*Maltego CE*, by *Paterva.com*, 2018 available at [`www.paterva.com/web7/buy/maltego-clients/maltego-ce.php`](https://www.paterva.com/web7/buy/maltego-clients/maltego-ce.php). [Accessed on January 13, 2018].
+
+# 如何使用 Maltego？
 
 Maltego 有各种其他用途，但对于我们的社会工程目标，我们将集中于它的信息收集能力。
 
@@ -122,7 +124,9 @@ Maltego 是一个可扩展的工具，可以在不同的模式下运行。成功
 
 选择机器后，Maltego 会提示用户选择一个目标。这里，为了收集关于一个域的信息，我们需要在输入提示中输入域名。在这个例子中，我们将选择全球知名的社交媒体网络脸书。我们必须输入如下所示的域:
 
-![](img/cb0e2f21-0b35-422e-9e47-701bed4553f5.png)# 第 4 步–结果
+![](img/cb0e2f21-0b35-422e-9e47-701bed4553f5.png)
+
+# 第 4 步–结果
 
 Maltego 将在互联网上搜索与脸书相关的每一条信息和链接，并以泡泡的形式展示出来。这些泡泡都是互联网上的实体，它们越接近中点，包含的信息就越相关。Maltego 将根据这些泡泡所包含的信息对它们进行颜色编码。人、电子邮件地址、网站等等都有颜色代码。人们可以放大以查看每个气泡的更多细节。当一个人放大时，气泡打开以揭示它们包含的细节。气泡越集中在一起，它们包含的信息就越相关。这些浓度中的异常值将具有较少的与其他泡沫相关的数据。
 
@@ -134,7 +138,9 @@ Maltego 将在互联网上搜索与脸书相关的每一条信息和链接，并
 
 就像前面收集域信息的例子一样，必须选择符合用户需求的机器。很容易改变到不同的机器，菜单栏上有一个设置图标，给出了所有可用的机器可以使用。要锁定某个人，最好使用的机器是该人的电子邮件地址，它通常位于列表的第七位，如下图所示:
 
-![](img/f0f5a5d8-9e1a-4df4-ba29-d8ba2551d357.png)# 步骤 2–指定目标
+![](img/f0f5a5d8-9e1a-4df4-ba29-d8ba2551d357.png)
+
+# 步骤 2–指定目标
 
 就像在使用足迹 L3 收集关于域名的数据的过程中一样，该机器也提示用户输入关于目标的一些细节。它请求目标的全名。一旦提供了名称并且用户点击了 OK，该软件就进行基本搜索，以找到与给定名称密切相关的所有电子邮件地址。它会返回一些与该名称相关的电子邮件地址，并提示用户选择相关的电子邮件。这是因为一些电子邮件地址不会与目标相关，挖掘它们是浪费资源。您将能够看到提示用户选择与目标更相关的电子邮件地址的界面。
 
@@ -151,7 +157,9 @@ Maltego 收集的信息在社会工程攻击中非常有用。该工具查找目
 
 然而，这几个缺点并不能抹黑马尔蒂戈的巨大力量。这是渗透测试人员在检查组织面临的漏洞时最常用的工具之一。正如我们前面看到的，Maltego 在收集关于域的信息方面非常有用，这是许多笔测试人员感兴趣的功能。
 
-*Information Gathering: Using Maltego In Kali Linux*, *Sunnyho**i.com*, 2018 available at [`www.sunnyhoi.com/information-gathering-using-maltego-kali-linux/`](https://www.sunnyhoi.com/information-gathering-using-maltego-kali-linux/). [Accessed on January 31, 2018].# 谷歌
+*Information Gathering: Using Maltego In Kali Linux*, *Sunnyho**i.com*, 2018 available at [`www.sunnyhoi.com/information-gathering-using-maltego-kali-linux/`](https://www.sunnyhoi.com/information-gathering-using-maltego-kali-linux/). [Accessed on January 31, 2018].
+
+# 谷歌
 
 正如上一章所讨论的，谷歌也是一个社会工程师手中的好武器。虽然之前已经讨论过，但是很高兴看到谷歌在社会工程方面的实力，尤其是在收集目标数据方面。谷歌是免费开放使用的，而其他提供同样服务的工具可能会收费。在社交工程攻击中，有许多方法可以使用 Google 来收集目标的数据。为了理解 Google 的全部功能，最好了解使这成为可能的高级操作人员。这些用来给世界上最大和最强大的搜索引擎一些特殊的命令来帮助获得想要的数据:
 
@@ -270,7 +278,9 @@ Johndoe2018@gmail.com intitle:hack
 
 从这些结果中你可以看到，谷歌已经给了我们不同网站的 Apache 服务器的链接。为了跟进这些问题，我们先来看第一个环节:
 
-![](img/79d26a45-e763-4443-afe8-8268373dd298.png)# 微软服务器
+![](img/79d26a45-e763-4443-afe8-8268373dd298.png)
+
+# 微软服务器
 
 要侵入微软服务器，我们可以使用以下命令来获取我们可以查看的微软服务器的结果:
 
@@ -400,7 +410,9 @@ social engineer toolkit 可以创建一个恶意文件，该文件可以加载�
 
 这是 SET 提供的另一个有效功能，允许攻击者创建无线网络的副本，当目标加入时，它会将他或她的浏览器定向到恶意站点。该功能利用了多种工具的组合，包括 **AirBase-ng** 和 **DNS 欺骗**。关于该功能的工作原理没有太多解释，因为用户所要做的就是告诉 SET 启动无线接入点，并指定攻击中要使用的设备网卡。做起来很简单，但却非常有效。它可以在组织中用于收集登录凭据。由于组织用户严重依赖组织提供的互联网，如果攻击者建立了与组织同名的恶意无线网络，许多用户将连接到该网络，他们的设备将受到威胁:
 
-![](img/44e3eab7-fa70-414f-8c97-4c82eb5e1086.png)# 二维码攻击载体
+![](img/44e3eab7-fa70-414f-8c97-4c82eb5e1086.png)
+
+# 二维码攻击载体
 
 该攻击模块利用 QR 码而不是恶意链接。因为有时完全屏蔽链接可能很重要，所以寻找可用于将目标转移到恶意站点的替代方法可能是值得的。二维码攻击载体生成一个有效的二维码，将人们重定向到一个攻击载体，在大多数情况下，这是一个恶意网站。二维码攻击模块在社会工程师工具包中被列为选项 8。当打开时，该程序要求用户输入用户扫描二维码后将被定向到的 URL。在设置 QR 码之前建立基于网络的攻击媒介是很有用的。基于 web 的攻击媒介可能是从合法网站克隆而来的恶意网站。QR 码可以通过我们之前访问过的另一个模块(称为鱼叉式网络钓鱼攻击载体)传递给用户。该模块提供向用户发送模板消息或定制要发送给用户的电子邮件消息。该工具非常狡猾，因为它有类似于不同权威机构发送的实际电子邮件和对用户有吸引力的电子邮件的模板:
 
@@ -408,7 +420,9 @@ social engineer toolkit 可以创建一个恶意文件，该文件可以加载�
 
 您可以创建如下二维码(将带您进入我的博客):
 
-![](img/890c7b25-8c70-48f4-812f-ab9a3bebb45a.png)ErdalOzkaya.com QR Code created with SET in Kali# 第三方模块–快速跟踪开发
+![](img/890c7b25-8c70-48f4-812f-ab9a3bebb45a.png)ErdalOzkaya.com QR Code created with SET in Kali
+
+# 第三方模块–快速跟踪开发
 
 这是一个模块，带来了几个额外的利用和攻击媒介设置。原来，它不在 SET 中。这是一个有目的地帮助渗透测试人员进行渗透测试活动的模块。然而，正如我们所说的，仅仅因为一个工具是为渗透测试人员设计的，并不意味着这个工具不能用于执行真正的攻击。快速通道开发模块列在第三方模块下，这是它附带的工具集菜单中的最后一个选项。用户选择打开该模块后，会看到两个选项。第一个是**微软 SQL 生成器**，第二个是**自定义漏洞**。现在，让我们更关注 SQL 暴力攻击，这是第一个选项。在这里，攻击媒介试图识别活动的和在线的 Microsoft SQL 服务器，然后试图用弱登录凭证暴力破解它们。不幸的是，一些管理员让他们的服务器使用默认配置，并且使用弱的和常用的登录凭证。使用单词`admin`作为用户名的管理员数量惊人。这通常与弱密码一起使用。该工具试图找到这些类型的服务器并攻破它们。
 
@@ -458,19 +472,27 @@ social engineer toolkit 可以创建一个恶意文件，该文件可以加载�
 
 我 2011 年博客的快照:
 
-![](img/42e710e8-0565-4247-aec1-ef928991519c.png)# 发言人
+![](img/42e710e8-0565-4247-aec1-ef928991519c.png)
+
+# 发言人
 
 Spokeo 是一个你可以搜索一个人，电话号码，甚至是地址的网站。Spokeo 从电话簿、社交网络、房地产列表、公开调查和许多其他地方收集个人信息。它在美国效果最好。我记得很多年前，当我在美国的一个一级会议上发表社会工程演讲时，我能够找到志愿者与会者的地址、电话号码，甚至他们买房子的价格。值得一看[www.spokeo.com](http://www.spokeo.com):
 
-![](img/93398da6-5f8f-4992-b170-4ca85bdfafb6.png)# Metagoofil
+![](img/93398da6-5f8f-4992-b170-4ca85bdfafb6.png)
+
+# Metagoofil
 
 Edge security 开发的元数据收集器工具。您可以在`.pdf`、`.doc`、`.xls`、`.ppt`中搜索目标域以识别并下载其文件，以此类推:
 
-![](img/51299ebd-5717-4283-b62e-ba0a4a5409fd.png)# 收集档案的组织的指纹(FOCA)
+![](img/51299ebd-5717-4283-b62e-ba0a4a5409fd.png)
+
+# 收集档案的组织的指纹(FOCA)
 
 FOCA 是一种工具，主要用于在其扫描的文档中查找元数据和隐藏信息。这些文件可能在网页上，可以下载和分析 FOCA。与 Metagoofil 一样，它能够分析各种各样的文档:
 
-![](img/841fc483-2945-4241-a481-5f8a26846ccc.png)# 凭证采集器攻击方法
+![](img/841fc483-2945-4241-a481-5f8a26846ccc.png)
+
+# 凭证采集器攻击方法
 
 我们都知道什么是凭证，以及它们如何提供对特定网站、服务或计算机的访问。一旦凭据被盗，就无法检测用户是合法用户还是被黑客攻击的用户。
 
@@ -582,13 +604,17 @@ SET in Kali 拥有帮助你克隆任何网站的工具，还能窃取凭证。�
 
 正如你在模块树中看到的，你可以在 BeEF 中使用许多不同的漏洞。为了专注于社交工程，我分享了一个社交工程可用命令的截图:
 
-![](img/62443d21-c2bc-46d2-b02c-f0a1890db8dd.png)# Zabasearch.com
+![](img/62443d21-c2bc-46d2-b02c-f0a1890db8dd.png)
+
+# Zabasearch.com
 
 这是另一个搜索引擎，包括人，反向电话号码查找，地址，等等。这是找到你想要的信息的好来源。更多信息请参考 www.zabasearch.com 或 www.intelius.com 的网站。
 
 对于这个例子，我将使用我亲爱的朋友和我们的书《网络安全防御和攻击策略》的合著者作为受害者。你所需要的只是一个名字和一个姓氏，其余的由网站负责:
 
-![](img/ac96de74-4d4e-48d0-8f4e-abbea6f20ec3.png)# 职位发布
+![](img/ac96de74-4d4e-48d0-8f4e-abbea6f20ec3.png)
+
+# 职位发布
 
 招聘启事会有什么问题？对于大多数公司来说还不为人知，招聘网站可以帮助我们。每个社会工程师都可以检查他们的目标，看看他们正在招聘什么样的 IT 人员。如果 X 公司正在寻找微软和思科认证的工程师，具有 Pala Alto 防火墙知识和卡巴斯基反病毒经验，这将为我们提供足够的信息。
 
@@ -656,7 +682,9 @@ Shodan 网站也允许你在世界地图上进行搜索。只需点击世界地�
 
 *   参考[`www.routerpasswords.com/`](http://www.routerpasswords.com/)找到密码列表:
 
-![](img/cab1b2c0-3134-4abb-b004-5163b6afa469.png)If you can't find the exact model of the router you are looking for, try a password from an alternative model from the same manufacturer. Usually, vendors use the same or similar passwords across different models.![](img/8878d078-2f92-44d5-9db9-98c3d4e66ea8.png)# 硬件键盘记录器
+![](img/cab1b2c0-3134-4abb-b004-5163b6afa469.png)If you can't find the exact model of the router you are looking for, try a password from an alternative model from the same manufacturer. Usually, vendors use the same or similar passwords across different models.![](img/8878d078-2f92-44d5-9db9-98c3d4e66ea8.png)
+
+# 硬件键盘记录器
 
 硬件键盘记录器是一种能够捕获键盘击键的电子设备。它有不同的格式，可以录制视频，截图，甚至录制语音。
 
@@ -664,7 +692,9 @@ Shodan 网站也允许你在世界地图上进行搜索。只需点击世界地�
 
 此外，最近有报道称，一些笔记本电脑制造商安装了内置键盘记录器，一般用户几乎不可能发现。
 
-*Built-in keylogger found in HP laptops...again* at [`www.techrepublic.com/article/built-in-keylogger-found-in-hp-laptops-again/`](https://www.techrepublic.com/article/built-in-keylogger-found-in-hp-laptops-again/).# 免费号码提供商
+*Built-in keylogger found in HP laptops...again* at [`www.techrepublic.com/article/built-in-keylogger-found-in-hp-laptops-again/`](https://www.techrepublic.com/article/built-in-keylogger-found-in-hp-laptops-again/).
+
+# 免费号码提供商
 
 如前所述，社交工程也可以通过电话完成。这在一些书中被称为语音社会工程。语音社会工程是手动呼叫一个人并试图获得一般信息、财务信息或让他们执行某些操作的过程(请查看*第 11-14 章*、*询问专家(第 1、2、3、4 部分)*部分，在那里您会找到几个语音社会工程及其效果的例子)。
 
@@ -672,7 +702,9 @@ Shodan 网站也允许你在世界地图上进行搜索。只需点击世界地�
 
 这是你可能会发现有用的许多网站之一。它有许多其他供应商的名单和反馈:[`www.voip-info.org/wiki/view/Toll+Free`](https://www.voip-info.org/wiki/view/Toll+Free):
 
-![](img/23615c5b-7dbf-4552-a15f-c53171162e01.png)# Netcraft 网站
+![](img/23615c5b-7dbf-4552-a15f-c53171162e01.png)
+
+# Netcraft 网站
 
 作为社会工程师，你需要尽快找到关于你的目标的信息。Netcraft 网站可以帮助你找到你的目标操作系统是什么。操作系统检测的范围从简单的方法到高度技术性的评估，如抓取横幅或迫使 HTTP 给出错误。
 
@@ -704,7 +736,9 @@ Shodan 网站也允许你在世界地图上进行搜索。只需点击世界地�
 
 当用户点击托管历史部分时，他们将获得如下截图所示的信息:
 
-![](img/6eb1de41-86b0-461b-a136-372387755e6f.png)# 微软 Edge 智能屏幕
+![](img/6eb1de41-86b0-461b-a136-372387755e6f.png)
+
+# 微软 Edge 智能屏幕
 
 信不信由你，微软 Edge 是市场上最安全的浏览器之一，我真的把它作为我的主要浏览器。话虽如此，我仍然安装了 Firefox/Chrome 的一些插件，让我的生活更轻松，但在安全浏览方面，如网上银行，我坚持使用我的微软 Edge。但是*为什么呢？*
 
@@ -734,7 +768,9 @@ Shodan 网站也允许你在世界地图上进行搜索。只需点击世界地�
 
 当然，还有其他方法可以做到这一点。您可以在[`docs . Microsoft . com/en-us/windows/security/threat-protection/device-Guard/deploy-device-Guard-enable-virtual ization-based-security`](https://docs.microsoft.com/en-us/windows/security/threat-protection/device-guard/deploy-device-guard-enable-virtualization-based-security)找到有关应用程序防护以及如何启用它的更多信息。
 
-![](img/c97c1294-c787-48ab-8c42-15494f6ef611.png)# 智能屏幕过滤器
+![](img/c97c1294-c787-48ab-8c42-15494f6ef611.png)
+
+# 智能屏幕过滤器
 
 SmartScreen 过滤器是 Microsoft Edge 浏览器中的一项功能，可自动检测网络钓鱼和恶意网站。它还可以防止边缘用户下载甚至安装恶意应用程序:
 
@@ -758,7 +794,9 @@ Set-MpPreference -EnableNetworkProtection Enabled
 
 如果没有任何问题，Windows Defender 网络保护就可以运行了，然后您将拥有一个通过*模拟网络钓鱼攻击*的浏览器，如下所示:
 
-![](img/a8846577-1405-4a7d-8b70-bb9929e0cc6f.png)# 强烈推荐
+![](img/a8846577-1405-4a7d-8b70-bb9929e0cc6f.png)
+
+# 强烈推荐
 
 我强烈推荐你观看我和我的好朋友雷蒙德·科姆瓦柳斯在一次会议上发表的演讲:
 
@@ -772,7 +810,9 @@ Set-MpPreference -EnableNetworkProtection Enabled
 
 请务必阅读*第 11-14 章*，非常仔细地询问专家(第 1、2、3、4 部分)，因为你将从许多专家的角度学习社会工程，并且写一本社会工程书不会阻止我给予活着的社会工程传奇人物*凯文·米特尼克*巨大的荣誉。请务必阅读他的书籍，并访问他在 www.mitnicksecurity.com[的网站](http://www.mitnicksecurity.com):
 
-![](img/efb32272-d4db-4673-ac05-85d7a03ab29f.png)# 技巧
+![](img/efb32272-d4db-4673-ac05-85d7a03ab29f.png)
+
+# 技巧
 
 *   请务必下载 Kali Linux，并在 https://www.kali.org/尽可能多地学习它
 *   在[`www . Social-engineer . org/Framework/se-tools/computer-based/Social-engineer-toolkit-SET/`](https://www.social-engineer.org/framework/se-tools/computer-based/social-engineer-toolkit-set/)掌握社会工程框架(SET)工具

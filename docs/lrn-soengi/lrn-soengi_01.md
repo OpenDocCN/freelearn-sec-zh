@@ -59,7 +59,9 @@
 
 根据 2015 年威瑞森数据泄露报告，考虑下图:
 
-![](img/067f073a-e28a-4fd4-82fd-5e50e76fded6.png)Social engineering/phishing attacks happen fast and they are hard to stop (based on Verizon's Data Breach report, 2015)# 社会工程的应用
+![](img/067f073a-e28a-4fd4-82fd-5e50e76fded6.png)Social engineering/phishing attacks happen fast and they are hard to stop (based on Verizon's Data Breach report, 2015)
+
+# 社会工程的应用
 
 社会工程实际上被人们和机构用在许多机构和职业中，讨论如下:
 
@@ -96,7 +98,9 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 *   翻垃圾箱:这包括翻遍目标的废纸，找出可能已经被处理掉的有价值的信息。即使有了碎纸机，人类仍然会懒到不小心扔掉一些攻击者可能通过翻垃圾箱找到的有价值的数据。
 *   从身体上跟踪一个目标:这给了攻击者关于目标的日常活动、时间表、喜好、厌恶等等的信息。游戏的最后一步是向目标提出一些问题，然后给出他们无法拒绝的提议。有了这个，一个社会工程师可以潜在地获得大量的信息和访问受限的地方。目标的合理化，一旦被发现，就可能被滥用来得到更多。然而，非技术方法正在被淘汰，如今大多数信息收集都是通过技术方法完成的:
 
-![](img/c8a549c8-aa9c-4ba9-a482-fd83cbb8816d.png)Social media websites are gold mines for many social engineers# 技术的
+![](img/c8a549c8-aa9c-4ba9-a482-fd83cbb8816d.png)Social media websites are gold mines for many social engineers
+
+# 技术的
 
 这些方法包括使用技术产品获取客户信息。其中一种方法是在目标的社交媒体账户上跟踪他们。大多数目标在 LinkedIn、脸书、Twitter、Instagram 或 Snapchat 上都有活跃的个人资料。这些平台上的用户对他们的数据如此粗心，以至于社会工程师在许多情况下不需要寻找太多。即使在反复警告人们改变他们的隐私设置后，目标的账户很可能会被公众看到，因此任何人都可以看到。用户向陌生人展示了他们的整个生活，任何能得到赞的东西都有可能被发布。曾经是私人的信息现在被不加区别地放到公共领域。这使得社会工程师更容易收集关于目标的可用数据。然而，在某些情况下，攻击者可能没有那么幸运，因为给出的数据太少或者帐户被设置为私有。因此，这需要社会工程师创建一个与目标的偏好和喜欢相匹配的假账户。这样，客户可以请求目标成为朋友或追随他们。另一种常见的方法是使用一个以目标认识的人的名字创建的假账户。亲密的朋友、亲戚和工作中的老板被用于许多成功率很高的社会工程攻击。
 
@@ -208,7 +212,9 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 
 劝说将在以后的章节中详细讨论。对于任何社会工程师来说，这都是一个非常有价值的策略。它使攻击持续进行，并确保目标处于只能支持攻击进程的位置。如上所述，它可能不总是如预期的那样成功，因此在所有的说服尝试中都应该有后备计划。社会工程路线图如下图所示:
 
-![](img/6c9484c0-1bf3-44b7-96c8-db3095bbed24.png)Social engineering roadmap# 社会工程中使用的工具
+![](img/6c9484c0-1bf3-44b7-96c8-db3095bbed24.png)Social engineering roadmap
+
+# 社会工程中使用的工具
 
 社会工程最好在工具的帮助下完成，以便使社会工程师更接近成功。需要注意的是，仅仅拥有或使用这些工具是不够的；人们需要了解如何有效使用它们的内在细节。这种知识是成功和失败的区别。社会工程中使用的工具主要有两类——**物理**和**基于软件的**。对于社会工程框架，工具通常是一个受欢迎的补充，因为它们补充了社会工程师的手工工作。
 
@@ -243,7 +249,9 @@ Maltego 能够将关于一个人的最微小的信息捆绑在一起，包括在
 
 来自 Kali Linux 的 SET 截图如下:
 
-![](img/61ccffd4-39f6-4cd5-bba2-e072a28a853f.png)SET screenshot from Kali Linux# 好莱坞的社会工程例子
+![](img/61ccffd4-39f6-4cd5-bba2-e072a28a853f.png)SET screenshot from Kali Linux
+
+# 好莱坞的社会工程例子
 
 真的很难不被一个社会工程师的诡计所迷惑；只要发生在别人身上，就会很尴尬。电影是帮助你更好地理解社会工程的重要资源。以下是我最喜欢的三部好莱坞电影，可以帮助你描绘和了解社会工程是如何工作的:
 
@@ -251,19 +259,25 @@ Maltego 能够将关于一个人的最微小的信息捆绑在一起，包括在
 
 Conmen Roy 和 Frank 通过给受害者打电话并试图以数百美元的价格向他们的客户出售水过滤系统开始了他们的骗局，而在实际商店中仅售 50 美元。这两个骗子使用了许多经典的社会工程手段，例如将电话从弗兰克传给冒充弗兰克老板的罗伊，赋予行动更多的可信度，并玩弄受害者的思想，使一切更加现实，并获得受害者的信任。故事中使用了更多的社会工程技术。这是将你将在本书中读到的一些技巧形象化的好方法。
 
-You can refer to the movie at [www.imdb.com/title/tt0325805/.](http://www.imdb.com/title/tt0325805/)# 如果你能抓住我(2002)
+You can refer to the movie at [www.imdb.com/title/tt0325805/.](http://www.imdb.com/title/tt0325805/)
+
+# 如果你能抓住我(2002)
 
 这是基于弗兰克·阿巴内尔的生活故事，他是最臭名昭著的社会工程师之一。他十几岁时就开始了他的旅程。阿巴戈内尔离家出走，并设法冒充泛美飞行员，在世界各地骗取数千英里的免费航班，让人相信他是一名真正的飞行员。
 
 这还不是全部。阿巴内尔在被联邦调查局抓住之前(多年后)也曾假扮成医生和教师。这部电影是一个很好的例子，说明了社会工程是人类黑客的艺术，以及我们人类是多么的脆弱。
 
-You can refer to the movie at [`www.imdb.com/title/tt0264464/?ref_=nv_sr_2`](http://www.imdb.com/title/tt0264464/?ref_=nv_sr_2).# 十一罗汉(2001)
+You can refer to the movie at [`www.imdb.com/title/tt0264464/?ref_=nv_sr_2`](http://www.imdb.com/title/tt0264464/?ref_=nv_sr_2).
+
+# 十一罗汉(2001)
 
 丹尼·奥逊(乔治·克鲁尼饰)和他的 11 名同伙计划同时抢劫拉斯维加斯的三家赌场。Ocean 先生和他的同谋利用社会工程、技术智慧和策略上安插的内部人员，渗透到 Bellagio 全面的、最先进的安全系统中，带着 1.6 亿美元潜逃。
 
 在这种情况下，即使最好的防御措施也不能使组织免于被一致的对手渗透。
 
-You can refer to the movie at [www.imdb.com/title/tt0240772/?ref_=nv_sr_2.](http://www.imdb.com/title/tt0240772/?ref_=nv_sr_2)# 技巧
+You can refer to the movie at [www.imdb.com/title/tt0240772/?ref_=nv_sr_2.](http://www.imdb.com/title/tt0240772/?ref_=nv_sr_2)
+
+# 技巧
 
 考虑以下提示:
 
@@ -275,7 +289,9 @@ You can refer to the movie at [www.imdb.com/title/tt0240772/?ref_=nv_sr_2.](http
 *   对信息进行分类，防止垃圾搜索攻击。即使是大公司过去也使用过这种攻击。
 *   请记住，根据 2016 年的 ISACA，社会工程是组织面临的最大网络威胁，比例为 52%。无论您何时阅读本节，社会工程仍将是最危险的攻击类型之一
 
-Refer to [www.isaca.org/cyber/Publishingimg/ISACA_CSX_Facts_2016-2-L.jpg](http://www.isaca.org/cyber/Publishingimg/ISACA_CSX_Facts_2016-2-L.jpg) for the top three cyber threats facing organizations in 2016.# 摘要
+Refer to [www.isaca.org/cyber/Publishingimg/ISACA_CSX_Facts_2016-2-L.jpg](http://www.isaca.org/cyber/Publishingimg/ISACA_CSX_Facts_2016-2-L.jpg) for the top three cyber threats facing organizations in 2016.
+
+# 摘要
 
 本章对社会工程的概述表明，这种类型的攻击有很多方面。这些工具从思维技巧和说服策略到在线的、基于软件的社会工程工具。这一概述带来了一个重要的认识，即人类的弱点是可以被利用的。人脑可以像电脑一样被黑客攻击。这使得社会工程师有可能操纵人们采取他们通常不会采取的行动。这种介绍让人们对社会工程师的能力有了一定程度的认识，从读心术到使用 GPS 定位器跟踪运动。未来的章节将进一步详细讨论所有这些。在最后一章的结尾，一个热心的读者将获得社会工程技能，这些技能很可能被用来教你社会工程师如何思考，这样你就可以防范他们。
 

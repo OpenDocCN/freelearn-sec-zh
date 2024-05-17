@@ -28,7 +28,9 @@
 
 前面关于职业银行抢劫犯的例子表明，抢劫银行不仅是可能的，而且有时很容易。目标似乎是敏感数据，一旦社会工程师进入银行，敏感数据似乎永远不会远离。收集的外部存储设备和连接到网络的设备将为社会工程师产生大量信息。这些信息非常敏感，同样也非常昂贵。2015 年，一名黑客获得了属于阿联酋 ( **阿联酋**)一家银行客户的一些客户数据。黑客要求大约 3 美元的赎金，银行拒绝支付。在那次回应之后，黑客继续发布了 500 名客户的银行对账单，并联系客户，威胁说如果他得不到赎金，就发布他们的敏感信息。这损害了银行的声誉，影响是巨大的。因此，如果一名社会工程师走进一家银行，窃取了敏感信息，他们可以要求巨额赎金，就像阿联酋银行的情况一样。因此，从走进银行的简单任务中获取如此巨额资金的能力，使银行成为社会工程师的首要目标。
 
-*Hacker Leaks Customer Data After a United Arab Emirates Bank Fails to Pay Ransom* by *K. Zetter*, *WIRED*, 2017 available at [`www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/`](https://www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/). [Accessed on December 22, 2017].****# 旧组织
+*Hacker Leaks Customer Data After a United Arab Emirates Bank Fails to Pay Ransom* by *K. Zetter*, *WIRED*, 2017 available at [`www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/`](https://www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/). [Accessed on December 22, 2017].****
+
+# 旧组织
 
 社会工程师随时准备扑向的另一个目标是任何古老的组织。大多数年轻的公司都会有新员工，新员工将确保他们制定一些基本原则，如严格的 IT 政策和先进的安全机制，以防止许多网络威胁的发生。另一方面，老公司之所以成为目标，是因为它们可能是使用易受攻击且不断崩溃的遗留 IT 系统的罪魁祸首。他们至少有机会拥有一台已经使用了几十年的电脑，并且通常会定期进行某种维护。因此，社会工程师很容易以被派去修理几台旧电脑的承包商为借口。而在组织中，社会工程师也将很容易收集更多的信息。更有可能的情况是，组织会放松过时的 It 安全策略，而员工很少遵守这些策略。因此，员工的办公桌上会写有密码，机密文件会被不安全地存储，包含备份的外部存储介质会被公开保存。社会工程师可以对这样的组织造成巨大的破坏。这种类型的攻击通常针对那些由于大量故障而与第三方签订维护 IT 设备合同的组织。较新的组织倾向于使用新设备，员工接受更严格的培训以遵守 IT 安全政策。因此，在社会工程师成功进入组织的情况下，他们会更加小心他们留在户外的东西。
 
@@ -44,7 +46,9 @@
 
 这个例子看起来很简单，但是它在现实生活中是有效的。2017 年 7 月，一个名为 Mia Ash 的女孩的假个人资料被用于社会工程师男工人。这个假账户的目标是大公司的男性员工，她的目标是商业间谍。对她的个人资料进行了调查，发现该资料被一个名为 **OilRig** 的黑客组织所控制，据信该组织得到了伊朗的支持。这个假的个人资料被用来用一种叫做 **PupyRAT** 的恶意软件感染目标的电脑，这种恶意软件会给黑客提供远程访问的机会。IT 人员会接触到许多其他类型的社会工程攻击。他们拥有企业中几乎所有东西的钥匙，如果受到攻击，攻击者将获得非常敏感的数据和机密信息。
 
-*Cyber spies stole this woman's image to use in a 'honey pot' scam* by *D. McCauley*, *NewsComAu*, 2017 available at [`www.news.com.au/finance/work/careers/cyber-spies-use-fake-profile-as-a-honey-pot-to-trap-male-workers/news-story/3fed7ec49a4f56ff698b4ca33ca864d6`](http://www.news.com.au/finance/work/careers/cyber-spies-use-fake-profile-as-a-honey-pot-to-trap-male-workers/news-story/3fed7ec49a4f56ff698b4ca33ca864d6). [Accessed on December 22, 2017].# 客户支持代理
+*Cyber spies stole this woman's image to use in a 'honey pot' scam* by *D. McCauley*, *NewsComAu*, 2017 available at [`www.news.com.au/finance/work/careers/cyber-spies-use-fake-profile-as-a-honey-pot-to-trap-male-workers/news-story/3fed7ec49a4f56ff698b4ca33ca864d6`](http://www.news.com.au/finance/work/careers/cyber-spies-use-fake-profile-as-a-honey-pot-to-trap-male-workers/news-story/3fed7ec49a4f56ff698b4ca33ca864d6). [Accessed on December 22, 2017].
+
+# 客户支持代理
 
 客户支持代理也发现自己成为怀有恶意的社会工程师的目标。与 IT 员工不同，这些员工在与假定的客户打交道时往往不会有预防性的疑虑。他们希望保持一个组织的良好形象，并愿意不遗余力地满足客户的需求。由于他们主要处理与外界的通信，他们几乎总是打开发送到公司电子邮件地址的所有电子邮件。这是一种社会工程师毫不犹豫地利用恶意软件进入组织的途径。除非经过培训，否则客户服务代理将会遵从客户的要求，以确保客户满意。因此，如果客户说他们将附加一个文件来更好地解释需求，支持代理将继续下载这样的文件。社会工程师也可以利用这些雇员来获得关于组织内其他目标的更多信息。代理将告诉来电者某个员工是否在附近或不在。既然他们想提供帮助，你所需要做的就是给他们一个想要知道这些信息的合理的借口。如果我们要攻击伪装成签约技术人员的组织，最好避开高级 it 人员。因此，罢工的最佳时间是高级 IT 官员不在的时候，这样就创造了一个完美的场景，一个社会工程师可以说他被高级员工紧急派去查看服务器机房的一些东西。
 
@@ -98,7 +102,9 @@
 
 当骗局被发现时，人们被建议不要向它捐款，社会工程师可能已经赚了数百万美元。在海地 7.0 级地震期间，这是一个特别大的挑战。许多假的慈善机构在网上建立，并向人们做广告。很多钱进入了少数人的口袋，而不是预期的受害者:
 
-![](img/7e178804-88f3-4fff-a172-51ea8c4570a5.png)# 技巧
+![](img/7e178804-88f3-4fff-a172-51ea8c4570a5.png)
+
+# 技巧
 
 瞄准和侦察的技巧如下:
 

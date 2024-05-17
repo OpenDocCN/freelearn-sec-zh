@@ -38,7 +38,9 @@
 
 社会工程师擅长引诱他们的目标。他们能有效地找到让目标摇摆不定的东西。他们发现目标想要的东西，并会欣然上钩。这是一种常见的点对点网站攻击方法，尤其是在人们下载盗版内容的地方。非法下载的版权内容背后是恶意软件，它会在用户不知情的情况下感染他们的机器。2015 年，据估计每月有 1200 万台计算机被恶意软件感染。种子一直是免费下载优质内容和程序的常见方式，因此侵犯了电影、游戏和程序等财产的权利。据估计，在大约 1，000 个 torrent 站点中，有三分之一会被不知情的用户下载恶意软件。有恶意软件的文件是那些高需求的文件。有报道称，当 EA Sports 发布新版 FIFA 时，黑客会向 torrent 网站发送虚假的下载链接，用户最终会将数十亿字节的恶意软件下载到自己的电脑上。搜索流量大的文件通常会被恶意软件利用，因为攻击者知道会有人试图下载它们。其中一些恶意软件用于从计算机中窃取数据，而另一些则打开后端连接，允许黑客将更多恶意软件下载到受害者的计算机上。受害者的数据可以在黑市上出售，他们的电脑可以加入僵尸网络大军。从这种类型的攻击中，据说网络罪犯每年从受害者那里赚取超过 7000 万美元。
 
-*Torrent websites infect 12 million users a month with malware*, by *C. Osborne*, *ZDNet*, 2018 available at [`www.zdnet.com/article/torrent-websites-infect-12-million-users-a-month-with-malware/`](http://www.zdnet.com/article/torrent-websites-infect-12-million-users-a-month-with-malware/). [Accessed on March 16, 2018].# 回答未提出的问题
+*Torrent websites infect 12 million users a month with malware*, by *C. Osborne*, *ZDNet*, 2018 available at [`www.zdnet.com/article/torrent-websites-infect-12-million-users-a-month-with-malware/`](http://www.zdnet.com/article/torrent-websites-infect-12-million-users-a-month-with-malware/). [Accessed on March 16, 2018].
+
+# 回答未提出的问题
 
 有时，为了利用用户，社会工程师会强迫创造某种借口。其中一种方法是重新测试一家大公司的客户支持，该公司拥有数百万用户，他们正在回复一个查询。他们可以假装来自 Gmail、PayPal 或 IRS，以及其他通常拥有大量流量且几乎每个人都拥有账户的组织。当他们瞄准一个用户时，他们假装在提供一个可以获得免费服务或产品的机会。攻击脚本与前面攻击中讨论的脚本非常相似。网络罪犯会告诉目标通过使用某个链接登录系统来验证自己。他们将做好必要的准备，以确保链接指向一个外观和感觉与真实网站相似的网站。如果是 PayPal，一切都会像在 PayPal 官方页面上一样进行布局。
 

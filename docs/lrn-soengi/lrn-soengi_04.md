@@ -23,7 +23,9 @@ LinkedIn 最近被微软收购，拥有大约 1.06 亿月活跃用户。对于�
 
 下图是来自[www.kali.org](http://www.kali.org)网站的截图，你可以在那里下载 Kali Linux 并使用以下工具:
 
-![](img/5f5eae68-f93e-4947-a693-5f8c5339efe9.jpg)# 篮子
+![](img/5f5eae68-f93e-4947-a693-5f8c5339efe9.jpg)
+
+# 篮子
 
 BasKet 是一个免费的开源 Linux 程序，它更像一个高级数据存储工具，在数据收集过程中帮助社会工程师。它有着我们熟悉的记事本的外观，但是有很多功能。它充当社会工程师收集的关于特定目标的文本和图形信息的存储库。在社会工程攻击中，它可能看起来很简单，甚至是不必要的，但它实际上服务于一个很难在字处理器(如 Microsoft Word)中复制的目的。BasKet 使用类似标签的布局，使社会工程师能够以有序的方式放置关于目标的每种类型的信息，以便于阅读或检索。例如，图片可以在一个选项卡中，联系信息在另一个选项卡中，社交媒体信息在第三个选项卡中，物理位置信息在单独的一个选项卡中。社会工程师会不断更新这些标签，只要他们遇到更多的信息。在流程结束时，BasKet 允许社会工程师将这些信息导出为 HTML 页面，从而将所有信息压缩在一起，使其更易于移植、访问和共享。
 
@@ -148,7 +150,9 @@ Site:websitename.com filetype:SQL ("password values" || "passwd" || "old passwor
 
 2016 年 8 月，人们发现，针对在社交媒体上关注了某家银行的客户，存在大规模金融欺诈。据信，攻击者能够控制该银行的社交媒体账户，并向追随者发送欺诈性报价，这些追随者最终只会赔钱。还有许多其他社交媒体介导的社会工程攻击已经发生。这一切都要归咎于社交媒体上私人信息的快速获取。
 
-*The Top 10 Worst Social Media Cyber-Attacks*, by S. Wolfe, *Infosecurity Magazine*, 2017 available at [`www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/`](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/). [Accessed on December 13, 2017].# 网络钓鱼和鱼叉式网络钓鱼
+*The Top 10 Worst Social Media Cyber-Attacks*, by S. Wolfe, *Infosecurity Magazine*, 2017 available at [`www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/`](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/). [Accessed on December 13, 2017].
+
+# 网络钓鱼和鱼叉式网络钓鱼
 
 社会工程师仍然使用网络钓鱼技术来收集目标的信息。他们热衷于利用恐惧和兴奋等情绪，再加上一些压力，如紧迫感，以获得最大的依从率。目前，网络钓鱼和鱼叉式网络钓鱼攻击已经变得很先进，因为攻击者能够完美地克隆信誉良好的网站，并使用它们来窃取客户的数据。缩短这些网站 URL 的能力也有助于攻击者避免被发现，因为如果用户注意到合法网站 URL 与攻击者发送的链接之间的一些差异，他们会感到震惊。攻击者正在利用网上银行系统和社交媒体账户等网站的克隆，从毫无防备的目标那里获取大量数据。例如，如果攻击者发来一封电子邮件，称您的 PayPal 账户遭到入侵，需要紧急更改您的密码，并附带一个更改密码的链接，您会很容易地照办。这个链接会把你带到一个类似 PayPal 的地方，在那里你会被告知输入你当前的密码和新密码。提交此信息后，您的当前密码将被发送给攻击者。他们会利用你害怕赔钱的心理，在很短的时间内从你那里获得非常敏感的信息，然后迫使你迅速做出反应。
 
@@ -170,7 +174,9 @@ Site:websitename.com filetype:SQL ("password values" || "passwd" || "old passwor
 
 这两个截图都是向目标交付零日攻击的第一步，下面的截图将显示初始利用 URL(Flash 0day) 、文件名以及进程名称，例如:
 
-![](img/f9461ad3-df9f-48cc-aa32-c2921f2a4436.jpg)# 水坑
+![](img/f9461ad3-df9f-48cc-aa32-c2921f2a4436.jpg)
+
+# 水坑
 
 这种技术是出于收集目标信息的需要而产生的，这些目标对网络威胁相当敏感，不会上当受骗。在这种情况下，社会工程师会破坏目标经常访问的合法网站的 cod 列表，然后在其中嵌入一些恶意软件。好的网站是论坛、股票交易网站、体育网站和生活网站。当目标访问网站时，恶意软件将感染他们的设备，并从那里开始从浏览器或计算机的硬盘上收集数据。水坑是成功的，因为它们是目标认为他们可能会受到攻击的最后一个地方。
 
@@ -180,7 +186,9 @@ Site:websitename.com filetype:SQL ("password values" || "passwd" || "old passwor
 
 互联网用户总是张贴大量的数据给任何一个有听力的人，以引起他们的注意。有很多博客都是因为这个。心怀不满的员工可能会在博客上发布关于某个组织的令人不安的事实。这样的人对于社会工程师来说是一个很好的信息来源。社会工程师需要做的只是表现出关心，并把前雇员作为公司敏感信息的来源。这样，社会工程师将获得一个有可靠信息来源的新攻击目标，而博客作者将获得有人分享他们的挫折的缓刑。不满的员工在揭露他们合作过的组织时会变得很糟糕。2015 年，爱德华·斯诺登向世界揭露了关于美国国家安全局的深远秘密，以及它如何跟踪每个人，打开电子邮件，强迫运营商与他们分享短信和通话的元数据，并强迫互联网服务提供商向他们提供用户的敏感信息。这些信息非常广泛，对组织造成了损害。对于一个可能想要攻击美国国家安全局的社会工程师来说，斯诺登可能是一个关键的信息来源。所以，竖起耳朵总是好的；一篇有趣的文章可能出现在博客中，它可能是关于一个组织或一个人的信息来源。
 
-Feel free to visit my blog to keep an eye on latest security threats as well as free computer-based videos at [www.erdalozkaya.com](http://www.erdalozkaya.com).![](img/6676b327-2a37-42cd-abea-9128a65b44f7.jpg)# 电话
+Feel free to visit my blog to keep an eye on latest security threats as well as free computer-based videos at [www.erdalozkaya.com](http://www.erdalozkaya.com).![](img/6676b327-2a37-42cd-abea-9128a65b44f7.jpg)
+
+# 电话
 
 尽管电话听起来不像是社会工程的高级工具，但今天它仍然被用来实现社会工程攻击。他们让社会工程师直接对目标说话，并使用特定的语气、用词和强调某些要点，让目标透露特定的信息。如今，电话被用来从某些人群那里获取敏感信息。有多起投诉称，攻击者打电话给老年人，威胁他们如果不透露某些信息或汇款，将被起诉或处以高额罚款。也有投诉称，攻击者假装在网上帮助那些打电话给人们并要求他们提供某些信息的人。电话也被用于呼叫组织和确认某些雇员在工作场所的存在或不存在。
 
@@ -196,7 +204,9 @@ Feel free to visit my blog to keep an eye on latest security threats as well as 
 
 有一部关于渗透测试人员的电视连续剧叫做*老虎队*，展示了组织是如何被攻击的。有一集，他们被符号汽车公司的首席执行官承包了。他们的侦察任务表明，该组织有许多物理安全控制，使其难以间接突破。然而，在侦察任务中，他们得到了这个组织的垃圾，并从中筛选出任何有价值的东西。他们很幸运地找到了该组织签约维护其系统的 IT 团队的详细信息。然后，老虎小组装扮成他们中的一员，充当签约公司的技术支持。被派来的代理人被带了进来，直接被允许进入公司的服务器机房。如果这是一次真正的攻击，代理可能已经进入并植入了恶意软件，以禁用安全系统或从服务器收集敏感信息，为更大规模的攻击做准备。这证明了翻垃圾箱是非常有效的，而且非常容易做到。
 
-*Tiger Team - The Car Dealer Takedown*, *YouTube*, 2017 available at [`www.youtube.com/watch?v=MdQas_We_kI&t=432s`](https://www.youtube.com/watch?v=MdQas_We_kI&t=432s). [Accessed on 13 December, 2017].# 入侵和假冒
+*Tiger Team - The Car Dealer Takedown*, *YouTube*, 2017 available at [`www.youtube.com/watch?v=MdQas_We_kI&t=432s`](https://www.youtube.com/watch?v=MdQas_We_kI&t=432s). [Accessed on 13 December, 2017].
+
+# 入侵和假冒
 
 这是一种风险更大的获取信息的方式，在这种方式中，社会工程师进入目标的建筑物，目的是在伪装成其他人的同时收集信息。社会工程师将扮演雇员、外部承包商、送货员或维修人员。使用第三章、、*中讨论的关于陷害的影响和说服*、等策略，他们将能够穿过警卫进入一栋建筑。在建筑内部，社会工程师将融入其中，表现得就像他们所扮演的人通常会做的那样。信息可能通过窃听、与内部人员交谈或者将加载恶意软件的 USB 驱动器放在显眼的地方来收集，这些设备将被捡起并插入计算机。社会工程师甚至可以通过说服秘书或接待员让他们进入来进入高层人士的办公室。冒充是危险的，因为当他们被发现时，可能会使社会工程师毫无防备。
 
@@ -214,7 +224,9 @@ Feel free to visit my blog to keep an eye on latest security threats as well as 
 
 下图显示了肩部冲浪的一个示例:
 
-![](img/e8d5de3b-ce82-43fc-acdf-86505c7a3b5d.png)# 观察
+![](img/e8d5de3b-ce82-43fc-acdf-86505c7a3b5d.png)
+
+# 观察
 
 听起来很简单，观察可能是收集目标信息的非常有用的技术。一个社会工程师，在确定了一个目标后，可能会选择观察他们的日常生活，以寻找剥削的机会。例如，攻击者可能能够收集诸如目标入睡时间、醒来时间、他们的早晨习惯、上班路径、目标工作场所入口的验证、目标外出吃午饭的时间、目标回家的时间以及目标最喜欢的场所等信息。通过收集所有这些信息，社会工程师将处于更好的位置来与目标进行对话，并建立融洽的关系，以便将目标置于他们可能被利用的地方。观察只需要耐心和时间，它会揭示关于一个目标的许多信息，可用于攻击。
 

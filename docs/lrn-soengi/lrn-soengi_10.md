@@ -53,11 +53,15 @@ For more information on social engineering, please refer to the following link: 
 
 社会工程生命周期如下图所示:
 
-![](img/e329dbdd-1380-45c2-bf3d-52b23d03edb8.png)Social engineering attack cycle# 情报收集
+![](img/e329dbdd-1380-45c2-bf3d-52b23d03edb8.png)Social engineering attack cycle
+
+# 情报收集
 
 社会工程师可以使用许多技术来收集关于他们目标的信息。当他们收集信息时，他们可以利用这些信息与目标或对攻击成功至关重要的人进行交流。信息可以包括电话列表、出生日期、组织的组织结构图等等。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 发展关系
+*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)
+
+# 发展关系
 
 社会工程师可以从目标的信任中受益，与他们建立密切和谐的关系。在发展这种关系时，社会工程师会以一种特殊的方式安排自己以获得信任，然后他会充分利用这种信任。
 
@@ -65,7 +69,9 @@ For more information on social engineering, please refer to the following link: 
 
 然后，受信任的社会工程师可以操纵目标泄露密码、电子邮件凭证、银行信息等信息。这一行动可能是攻击的结束，也可能是下一阶段的开始。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 执行
+*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)
+
+# 执行
 
 一旦目标完成了社会工程师要求的任务，循环就完成了。
 
@@ -105,7 +111,9 @@ CEO 欺诈攻击的一些例子如下:
 
 网络犯罪分子对一名高管进行网络钓鱼攻击，并获得对其收件箱的访问权限，或者从与目标公司的真实域名相差一两个字母的相似域名向员工发送电子邮件。与传统的网络钓鱼攻击不同，CEO 欺诈中使用的欺骗电子邮件很少是垃圾邮件，因为在 CEO 欺诈攻击中，社会工程师会花时间了解目标组织的关系、活动、兴趣、旅行和/或购买计划，并相应地制作他们的电子邮件。他们从目标网站上收集员工的电子邮件地址和其他信息，以帮助使信息更具说服力。一旦网络犯罪分子侵入了目标的收件箱，他们就会通过过滤单词来搜索电子邮件，这些单词可能会告诉他们该公司是否经常处理电汇，如发票、存款或总裁。联邦调查局估计，受到社交工程师利用 CEO 欺诈攻击的组织平均损失在 25，000 美元到 75，000 美元之间。然而，一些 CEO 欺诈事件造成了数百万美元的损失。
 
-*FBI: $2.3 Billion Lost to CEO Email Scams* available at [`bit.ly/1TE1jl6`](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)# 金融网络钓鱼
+*FBI: $2.3 Billion Lost to CEO Email Scams* available at [`bit.ly/1TE1jl6`](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)
+
+# 金融网络钓鱼
 
 使用金融网络钓鱼方法，社会工程师已经瞄准了银行或他们的客户。如今，网上银行等新兴工具为网络犯罪分子打开了新的后门。根据联邦调查局的说法，社会工程师使用的最新趋势是通过使用垃圾邮件和钓鱼电子邮件、击键记录程序和远程访问木马来获取员工登录凭据。这些攻击技术出现在 2012 年 9 月，当时美国银行(Bank of America)和富国银行(Wells Fargo)也遭到了攻击。
 
@@ -157,7 +165,9 @@ CEO 欺诈攻击的一些例子如下:
 
 前面的截图中给出了一个勒索病毒的例子，即 VirLock 勒索病毒，这可能是勒索病毒木马类别下最坏的恶意软件类型之一。它会锁定计算机，这样您就无法使用它。然后，需要付费才能解锁系统/文件。
 
-For more information, please refer to *VirLock Trojan Ransomware - Description and Decryption* by *Bilboa, B*(2015), Sensorstechforum available at [`bit.ly/2B62raS`](http://bit.ly/2B62raS).# 比特币网络钓鱼
+For more information, please refer to *VirLock Trojan Ransomware - Description and Decryption* by *Bilboa, B*(2015), Sensorstechforum available at [`bit.ly/2B62raS`](http://bit.ly/2B62raS).
+
+# 比特币网络钓鱼
 
 比特币等数字加密货币面临网络攻击的危险。严重的网络攻击正在对那些使用数字货币的人的账户进行组织，数字货币已经变得越来越流行。
 
@@ -228,7 +238,9 @@ Keepnet Labs is a cybersecurity awareness firm that has developed a suite of cyb
 
 另外，在网络钓鱼模拟中，点击电子邮件中的链接后提交表单的用户比例为 7.9%。用户总数的%。尽管有大量用户点击电子邮件中的链接，但当用户被重定向到另一个页面输入他们的凭据时，这一比例下降了。尽管如此 7.9 分。%的比率低于 31.5 %的点击量，但仍对公司构成巨大威胁。在现实生活中，即使只有一名员工提供了密码，网络罪犯也可能对所有系统造成威胁。他们可以冒充首席执行官或高级职员来操纵其他用户。雅虎！案例就是一个很好的例子。
 
-*Siber Casuslar: Küresel Firmalara Yönelik Saldırılar* by *Sinara Labs* (2017).# 用户数量最多的前五家公司的社会工程攻击评估
+*Siber Casuslar: Küresel Firmalara Yönelik Saldırılar* by *Sinara Labs* (2017).
+
+# 用户数量最多的前五家公司的社会工程攻击评估
 
 我们分析了属于不同行业的用户数量最多的前五家公司，并根据打开的电子邮件、点击电子邮件中的链接、提交的表单、打开的附件、网络钓鱼报告者和无响应百分比来访问他们的网络钓鱼统计数据。
 

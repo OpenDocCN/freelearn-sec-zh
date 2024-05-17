@@ -98,7 +98,7 @@ Yalkin Demirkaya 先生作为一名侦探调查员和侦探指挥官拥有 20 �
 # 背景
 
 1.  XYZ 公司聘请 Cyber Diligence，Inc .提供与 XYZ 公司网络上的工作站试图连接到东亚某大国 IP 地址的事件相关的数字取证和网络调查服务。
-2.  本报告由 Cyber Diligence 编制，基于 Cyber Diligence 对 John Doe 先生使用的 HP Elitebook(序列号# CCC0000XXX)的取证分析。
+2.  本报告由 Cyber Diligence 编制，基于 Cyber Diligence 对 John Doe 先生使用的 HP Elitebook(序列号 CCC0000XXX)的取证分析。
 3.  法医分析是由 Cyber Diligence 的调查人员在 Yalkin Demirkaya 先生的直接监督下进行的。他的简历见附件 1。
 
 4.  我们的调查方法包括确定是否有任何法医证据表明笔记本电脑:
@@ -141,7 +141,9 @@ Yalkin Demirkaya 先生作为一名侦探调查员和侦探指挥官拥有 20 �
 
 20.  通过检查注册表，我们发现`331aa3f`扩展名仅仅是`33eb18`扩展名的一个转发器，它执行恶意软件，而不管带有`331aa3f`扩展名的文件的内容。这解释了在随机命名的文件中观察到的垃圾数据。见下图:
 
-![](img/3f962541-e7f0-49d3-8280-4f9d1b8dbee2.png)# 恶意软件的执行
+![](img/3f962541-e7f0-49d3-8280-4f9d1b8dbee2.png)
+
+# 恶意软件的执行
 
 21.  每当系统重新启动时，都会执行以下操作:
     1.  LNK 文件由操作系统从启动文件夹执行
@@ -190,7 +192,9 @@ Yalkin Demirkaya 先生作为一名侦探调查员和侦探指挥官拥有 20 �
     1.  偏移量`0x00` : 16 字节长的逆序加密密钥(在下面的截图**中突出显示)**
     2.  偏移`0x10` : RC4 加密/ BASE64 编码配置文件
 
-![](img/e1cebfc1-6149-471f-9db7-085686669168.png)# 配置
+![](img/e1cebfc1-6149-471f-9db7-085686669168.png)
+
+# 配置
 
 32.  我们能够从示例中转储并解密这个配置部分。这是分析过程中最重要的部分，可以让我们深入了解恶意软件的配置目的。
 33.  通过使用 16 字节的密钥对配置文件进行解密，我们能够看到恶意软件正在使用的**命令和控制** ( **C & C** )服务器的列表。见以下截图:
@@ -464,7 +468,9 @@ BEC 并不总是意味着诱骗受害者将资金汇往国外。在美国，另�
 
 Cluley, Graham. *VIDEO: Snapchat data breach shows that sometimes it's good to say no to your CEO*. Published February 29, 2016\. Cluley Associates available at [`www.grahamcluley.com/video-snapchat-data-breach/`](https://www.grahamcluley.com/video-snapchat-data-breach/)
 Ibid. *More companies hit by fake CEO attack to steal employees' payroll information*. Published March 11, 2016\. Cluley Associates available at [`www.grahamcluley.com/companies-hit-fake-ceo-attack-steal-employees-payroll-information/`](https://www.grahamcluley.com/companies-hit-fake-ceo-attack-steal-employees-payroll-information/).
-Krebs, Brian. *Seagate Phish Exposes All Employee W-2's*. Published March 6, 2016\. Krebs on Security available at [`krebsonsecurity.com/2016/03/seagate-phish-exposes-all-employee-w-2s/`](https://krebsonsecurity.com/2016/03/seagate-phish-exposes-all-employee-w-2s/).# 抵御 BEC
+Krebs, Brian. *Seagate Phish Exposes All Employee W-2's*. Published March 6, 2016\. Krebs on Security available at [`krebsonsecurity.com/2016/03/seagate-phish-exposes-all-employee-w-2s/`](https://krebsonsecurity.com/2016/03/seagate-phish-exposes-all-employee-w-2s/).
+
+# 抵御 BEC
 
 虽然这些攻击通常涉及攻击者方面的一些情报收集，攻击者需要识别诸如企业法定名称和地址、应付账款中公司管理人员和员工的姓名、公司内公司电子邮件地址的结构等信息，但是这些信息通常可以从各种公共来源找到。公司网站和社交媒体页面很容易泄露这类信息，在脸书、Twitter 和 LinkedIn 上搜索员工的社交媒体账户，尤其是高管的账户，可以帮助完善目标定位。
 
@@ -622,7 +628,9 @@ WhatsApp 是一个消息平台，最近被脸书以 190 亿美元收购。在被
 
 线条图
 
-![](img/cc5d8278-c1fe-464c-b8a4-7e210cab7b29.png)# 参考
+![](img/cc5d8278-c1fe-464c-b8a4-7e210cab7b29.png)
+
+# 参考
 
 *   *广告和我们的第三方合作伙伴*。(2017).Web.facebook.com*。检索于 2017 年 2 月 1 日，可在[`web . Facebook . com/notes/Facebook-and-privacy/advertising-and-our-third-partners/532721576777729/？_rdr`](https://web.facebook.com/notes/facebook-and-privacy/advertising-and-our-third-party-partners/532721576777729/?_rdr) 。*
 *   安德鲁斯大学(2012 年)。脸书在利用你。检索自[`www . nytimes . com/2012/02/05/opinion/Sunday/Facebook-is-use-you . html`](http://www.nytimes.com/2012/02/05/opinion/sunday/facebook-is-using-you.html)。

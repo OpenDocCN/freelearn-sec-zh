@@ -21,11 +21,15 @@
 
 但是，如果任务是从一个高度安全的组织窃取高度机密的文件，所使用的借口必须是一个复杂的借口，以便能够获得该信息。
 
-*FedEx Fraudulent Email Alert*, by *Fedex.com*, 2018 available at [`www.fedex.com/us/update2.html`](http://www.fedex.com/us/update2.html). [Accessed on January 20, 2018].# 伪装的原则和计划
+*FedEx Fraudulent Email Alert*, by *Fedex.com*, 2018 available at [`www.fedex.com/us/update2.html`](http://www.fedex.com/us/update2.html). [Accessed on January 20, 2018].
+
+# 伪装的原则和计划
 
 伪装，就像任何其他技能一样，有一定的原则，如果使用得当，可以取得良好的效果。每当社会工程师不得不求助于借口时，这些原则就派上了用场，而且总是有所收获。让我们来看看其中的一些:
 
-![](img/e27014df-0167-4474-aac3-83746ca25fc2.png)The principles of Pretexting summarized# 做研究
+![](img/e27014df-0167-4474-aac3-83746ca25fc2.png)The principles of Pretexting summarized
+
+# 做研究
 
 一个借口的成功可以直接归因于研究它所花费的时间。社会工程师对借口了解得越多，它成功的可能性就越大。反之亦然，因为社会工程师对借口了解得越少，出错的几率就越高，最终借口会失败。这项研究的很大一部分将是确定目标的兴趣和关系。这将使社会工程师能够为借口塑造完美的场景，并决定假设的人格借口。人类有几个弱点，这些弱点与他们的个性密切相关。正是这些弱点，社会工程师将寻找和利用。
 
@@ -41,13 +45,17 @@
 
 谷歌黑客是一种技术，它将使用谷歌搜索来帮助你找到你需要的隐藏在互联网中的任何信息。它包括使用特定的文本字符串来查找结果。对于社会工程师来说，这项技术是一座金矿。基于 CSO online，FBI 针对这一众所周知的问题发布了公开警告。FBI 警告告诉各机构，黑客/社会工程师将使用谷歌黑客来定位组织可能无意被公众发现的信息，或找到网站漏洞以用于后续的网络攻击。
 
-*FBI issues warning about creative Google searches* by *Steve Ragan* available at [](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html) [`www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html`](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html).# 谷歌黑客的力量
+*FBI issues warning about creative Google searches* by *Steve Ragan* available at [](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html) [`www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html`](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html).
+
+# 谷歌黑客的力量
 
 2013 年，当我在教授一门认证道德黑客课程时，其中一个章节有一个关于谷歌黑客的话题。在课堂上，我们发现一些非常有趣的细节扫描到互联网上，如澳大利亚护照，驾驶执照，出生证明，以及其他许多机密数据。在内容从半政府所有的网站上删除后，我在我的博客上发表了泄漏的内容。当然，为了保护受害者，所有的图片都被我做了模糊处理，这篇文章在一周内被点击了 20，000 次，被转发了很多次，这篇文章被刊登在很多报纸上。
 
 下面的例子很好地证明了为什么我们在分享我们的 ID 时应该非常小心。让我们来看看一些有用的谷歌搜索字符串，它们可以帮助你找到你需要的信息:
 
-![](img/14a25d8c-7813-4a7a-9cfb-5d0739f09b76.jpg)![](img/f4e6aad0-741e-4624-97c8-7cda1e49b21d.jpg)Examples from the leaked government-issued highly sensitive ID# 受害者的反馈
+![](img/14a25d8c-7813-4a7a-9cfb-5d0739f09b76.jpg)![](img/f4e6aad0-741e-4624-97c8-7cda1e49b21d.jpg)Examples from the leaked government-issued highly sensitive ID
+
+# 受害者的反馈
 
 Erdal 和他的班级发现了一个特殊的网站，该网站通过谷歌提供大量个人身份文件的副本。我的驾照就是其中之一。他试图通过脸书联系我，并提醒其他人注意身份安全。因此，我意识到了安全漏洞，并能够采取必要的预防措施来保护我的身份。我非常感谢 Erdal 和他的同事所给予的帮助。知道有人在为互联网上的其他人的安全着想是非常令人欣慰的:
 
@@ -117,7 +125,9 @@ Site:com filetype:xls "membership list"
 
 如果你希望自己承担风险，甚至可以搜索军事网页甚至机密文件:
 
-![](img/01ea78e6-3415-4132-849c-f1b59867d884.png)# 利用个人兴趣
+![](img/01ea78e6-3415-4132-849c-f1b59867d884.png)
+
+# 利用个人兴趣
 
 借口必须在使用它们的人心中根深蒂固，因此它有助于利用这个人已经拥有的一些属性。为了增加借口的可信度，社会工程师经常利用他们的个人利益。个人兴趣很强，即使有借口，也可能让某人看起来更真实、更真诚。例如，一个热衷于技术的社会工程师可以很容易地以 IT 技术人员为借口。对技术相关主题的兴趣和知识，如网络犯罪、恶意软件、攻击媒介和安全政策，都将在说服目标确实正在与 IT 技术人员互动方面发挥作用。如果一个对此几乎一无所知的人以同样的借口，攻击很可能会失败。例如，当提示给出更新密码时，目标可以询问一些后续问题。其中之一可能是为什么 IT 技术人员希望获得旧密码以便更改它，而不是直接从活动域中更改它。对于一个不了解所有这些行话的人来说，攻击可能会在这一点上失败。然而，一个有见识的人可以想出一个借口，也许会说，目标的计算机似乎是从组织的域断开。
 
@@ -127,7 +137,9 @@ Site:com filetype:xls "membership list"
 
 为了将这一理论付诸实践，让我们从社会工程攻击的角度来检验它。每当一个社会工程师找了一个违背他的信仰、兴趣和态度的借口，矛盾或不和谐就会出现。这种不一致给社会工程师的大脑带来了问题，可能导致建立融洽关系和获得目标信任的失败。这些问题需要用费斯汀格所说的一些方法来解决。其中之一就是获得更多一致的信念。一个社会工程师可能需要对所选择的借口的信念进行更多的研究，以获得更多与该借口一致的知识，从而使其看起来熟悉而不不不和谐。还有另一种选择，将不一致的信念转变为一致的信念。然而，这很棘手，因为借口不应该吸引社会工程师，而是吸引目标。因此，一个社会工程师不能决定在他或她的借口的指导方针之外行动，这样他就不会感到不舒服。在大多数情况下，选择的借口与目标的信仰、态度、行为和行动非常匹配。因此，社会工程师只能塑造出满足期望的托辞。
 
-![](img/4dc970fd-cc72-464e-8aa5-6c1afdb62289.png)A spear-phishing example, where exploits are sent as attachments# 练习方言
+![](img/4dc970fd-cc72-464e-8aa5-6c1afdb62289.png)A spear-phishing example, where exploits are sent as attachments
+
+# 练习方言
 
 出于多种原因，一些借口可能包括使用一些方言。营销行业的一个有趣的统计数据是，几乎 75%的美国人喜欢英国口音。因此，他们会很乐意听有这种口音的人说些什么。一些借口可能需要社会工程师使用这样的口音来吸引目标。问题是，当一个人假装口音时，很容易辨别出来。如果发现了这一点，目标可能会警觉，攻击成功的机会可能会大大下降。让我们举一个例子，一个社会工程师要求某个产品的高价值原型，他打算用于一个总部设在英国的组织。他可能通过一封域名归一家英国公司所有的电子邮件与目标进行交流。当谈到语音通话时，英国口音将有助于增加社会工程师在英国的想法。对于目标来说，如果发现这位社会工程师过于努力地用英国口音说话，那将是令人不安和困惑的。这可能导致目标重新考虑与社会工程师打交道。
 
@@ -171,7 +183,9 @@ Site:com filetype:xls "membership list"
 
 让我们举一个现实生活中的例子来解释这一点。假设我们是一名社会工程师，正试图进入一家公司的服务器机房。我们可以利用观察技巧来了解真正从事网络或计算机维修的公司。从那里，我们可以得到他们的标志，并得到印有他们的名字，标志和口号的衬衫。除此之外，我们还可以制作徽章，在袭击当天大胆佩戴。这将会很有帮助，尤其是有警卫把守入口。入口处的大多数物理控制是安全警卫。挥舞着我们的徽章，穿着标有维修公司名称的衬衫，一个简短的说明，我们已经被 IT 部门叫去了，就很容易被购买，我们将免费进入该组织。在招待会上，我们可以坚持同样的借口，即我们被 IT 部门要求紧急检查一台服务器的问题。此时，接待员可以允许我们进入，或者打电话给 IT 部门的一名员工，让我们进入服务器机房。如果有什么事发生，我们可以坚持简单的借口，直到我们进入服务器室:
 
-![](img/a7c881d1-4704-4de4-b156-1e97e27cc0a7.png)Employee badge examples can be found in any search engine# 自发性
+![](img/a7c881d1-4704-4de4-b156-1e97e27cc0a7.png)Employee badge examples can be found in any search engine
+
+# 自发性
 
 社会工程攻击不应该看起来是脚本化的；社会工程师应该有根据环境变化的自由。脚本攻击看起来不自然，失败的几率比成功的几率大。脚本攻击基于理想条件，而攻击发生在不太理想的条件下。一个社会工程师所应该做的就是提出一个大纲或框架，让事情有条不紊地进行，但要有控制。在与目标的任何互动中，有几种方式可以让一个人变得自发。此外，这些方式可以用于正常的生活场景，而不仅仅是攻击。这些措施如下:
 
@@ -195,7 +209,9 @@ Site:com filetype:xls "membership list"
 
 因为伪装是关于创造和活在谎言中，所以我们最好举一些伪装成功的真实例子。正如本章前面所述，伪装不仅在社会工程中使用，因此如果一个例子不属于恶意攻击的范围，你也不应该感到惊讶。一些著名的借口案件进一步解释。
 
-![](img/08c47a11-1eed-4c9d-bff7-2b22bd04c8c5.png)Living a lie, pretending to be someone else# 惠普信息泄露
+![](img/08c47a11-1eed-4c9d-bff7-2b22bd04c8c5.png)Living a lie, pretending to be someone else
+
+# 惠普信息泄露
 
 2006 年，惠普公司面临着机密信息泄露的问题。有人怀疑泄密者是该组织出席董事会会议的高级官员。当时的董事长帕特里夏·邓恩女士对此感到困扰，并试图获得董事会成员的电话记录。公司抓住了内奸，结果发现他是一名董事。这个内奸向在线新闻公司 CNET 提供董事会议上讨论的敏感内部信息。
 
@@ -221,7 +237,9 @@ Site:com filetype:xls "membership list"
 
 里夫金的故事强调了我们之前在《借口》中讨论过的一些原则。也许我们可以从他的抢劫案中学到的一个重要的补充是，如果一个社会工程师重复使用一个借口，他可能会被抓住。里夫金在第一次保释外出时被捕，当时他正试图用同样的手段进行另一次抢劫。
 
-*Consultant Arrested in Bank Theft* by *J. Berry*,  *Washington Post*, 2018 available at [`www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c`](https://www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c). [Accessed on January 20, 2018].# DHS 黑客
+*Consultant Arrested in Bank Theft* by *J. Berry*,  *Washington Post*, 2018 available at [`www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c`](https://www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c). [Accessed on January 20, 2018].
+
+# DHS 黑客
 
 这是发生在 2016 年的一次严重黑客攻击，导致国土安全部 9000 名员工和与联邦调查局合作的 2 万名官员的个人信息被盗。被盗的个人信息包括全名、职位、电子邮件地址和当前的电话号码。更令人震惊的是，社会工程攻击是直接针对 IT 支持人员进行的，该人员的职位是保护其他员工免受此类和类似类型的攻击。为了展示自己的能力，黑客联系了一家名为 Motherboard 的新闻网站，解释他是如何成功入侵司法部的。
 
@@ -245,7 +263,9 @@ Site:com filetype:xls "membership list"
 
 2017 年可能已经被国税局的骗局所定义，因为许多美国公民都被这些精心策划的攻击所欺骗。据 CNN 报道，所有这些国税局骗局背后的主谋是一名 24 岁的印度男子萨加尔·塔卡尔。他建立了呼叫中心，用来从美国人那里诈骗数百万美元。Thakkar 面临的指控包括勒索、欺骗、冒充和共谋。这是美国有史以来最成功的社会工程攻击之一。他利用了美国人共同的恐惧，报税的负担。让我们敏锐地观察一下 Thakkar 和其他攻击者是如何成为社会工程毫无防备的目标的，并看看他们使用的借口原则。
 
-*IRS scam alleged ringleader arrested in India* by *Z. Alkhalisi*,  *CNNMoney*, 2018 available at [`money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html`](http://money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html). [Accessed on January 20, 2018].# 电话
+*IRS scam alleged ringleader arrested in India* by *Z. Alkhalisi*,  *CNNMoney*, 2018 available at [`money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html`](http://money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html). [Accessed on January 20, 2018].
+
+# 电话
 
 在这种类型的攻击中，呼叫者声称来自国税局。他们的信息是，他们给出了一个到期付款的最后通知。他们会发出逮捕的威胁，如果据称接收人所欠的款项没有支付的话。有些打电话的人听起来不是本地人；因此，他们的骗局并不成功，因为它们会引起怀疑。还有其他呼叫者使用录音信息，但这些听起来也没有创意，因此它们并不总是有效。然而，还有其他人，他们武装到了牙齿，掌握了一些关于他们目标的真实信息。据说，这些打电话的人从侵入政府和健康数据库的黑客那里购买了这类信息。受害者肯定是国税局，因为几乎没有其他人会有这种信息。最后，他们会按照社会工程师的指示支付巨额款项。然而，奇怪的是，大多数打电话的人要求付款的方式是通过 iTunes 礼品卡。因此，这些付款是无法追踪的。然而，受害者此时会太害怕而不敢提出任何问题。
 
@@ -257,21 +277,31 @@ Site:com filetype:xls "membership list"
 
 仔细观察这次攻击，借口仍然是国税局的，但语气更温和。因此，这些邮件是在吸引目标，而不是威胁他们。同样，攻击者利用一些研究来找出关于目标的一些背景信息，从而使攻击更加可信。目标也使用逻辑结论。他们解释说，他们只是需要目标的个人信息来帮助他们完成退款的发放。这次攻击的成功率仍然很高，因为人们很高兴得到国税局承诺的资金:
 
-![](img/fea08ad4-ccc0-4e90-a7a9-088def0f99c7.png)Same tactic, different target (The IRS scam mail)# 商务电子邮件妥协
+![](img/fea08ad4-ccc0-4e90-a7a9-088def0f99c7.png)Same tactic, different target (The IRS scam mail)
+
+# 商务电子邮件妥协
 
 这在 2017 年初很流行，真的很成功。组织中一些重要人物的商业电子邮件地址被盗用，这些人的权限被用来从目标那里获取一些敏感信息。攻击者过去常常查找一些公司的详细信息，并获得在这些公司工作的低层员工的电子邮件地址。重要的是，他们是低级雇员，既是为了攻击，也是为了行使工作权力。攻击者只需伪造人力资源部门人员的电子邮件地址，并使用它们来请求员工发送 W-2 表格的副本。W-2 表格中的信息有些敏感，可以用来报税。攻击者所做的是提交纳税申报表，但以某种方式，他们会吸引退款，他们会只是舀退款。在更恶劣的情况下，攻击者会利用这些信息来申请大学助学金。受害者的信息在这种尝试中终止的人数如此之多，以至于美国教育部关闭了这项服务。它被这些攻击者滥用了很多次。
 
 看一看攻击，可以看出黑客使用了简单性原则。借口只是一个伪造的人力资源电子邮件地址和一个简单的发送 W-2 表格的请求。它也是针对低层员工的，这些人向人力资源人员提出的问题最少。当然，他们大多遵从并寄出了 W-2 表格，这就是为什么这个版本的国税局骗局如此有效。采用的另一个原则是研究原则。这一攻击是有研究支持的。攻击者必须找出某个组织中的低层员工以及人力资源。常见的工作电子邮件格式是由员工的名字和姓氏组成，然后是组织的域。这对于找出目标的工作邮件非常有帮助。欺骗电子邮件地址本身并不难。攻击者通常用数字替换一些单词或添加一些符号来获得几乎与真实地址相匹配的地址。当然，许多人不会检查电子邮件发件人的域等内在细节。一旦他们看到一个熟悉的名字和一个熟悉的电子邮件地址，他们就会相信这就是那个真实的人。这就是攻击如此有效的原因。
 
-![](img/b36851c2-5856-4743-a599-b760086dfa26.png)How an email can get you hacked# 信
+![](img/b36851c2-5856-4743-a599-b760086dfa26.png)How an email can get you hacked
+
+# 信
 
 最后，骗子利用实体信件诈骗美国公民。这仍然是 IRS 联系某人希望发起通信的合法方式。这些信件还被用来要求用户提供他们的个人信息，有时是银行信息。然而，关于这类骗局的报道较少，因为它们涉及太多的工作。但是，他们中的一些人仍然是成功的。这是因为美国公民非常重视国税局，通常不会拒绝来自国税局的任何信息。这种借口使用的原则有两个，研究和简单的借口。必须进行研究，以便找出目标的实际邮箱。同样，这些信息很容易在网上找到。有 Pipl 等网站列出了它们。另一个原则是，借口只是地球上四分之一人口的简单邮政地址。他们只涉及信件，没有电话或电子邮件。如前所述，美国人不会解雇国税局，因此他们会按照信中所说的去读和做。
 
-![](img/151ab326-2af1-4da9-bc07-382e60d0044a.png)The pipl.com website has many real mail addresses; did you check yours? (My one is wrong)*IRS scams 2017: What you need to know now*, by *J. Fruhlinger*, *CSO Online*, 2018 available at [`www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html`](https://www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html). [Accessed on January 20, 2018].# 泛在网络
+![](img/151ab326-2af1-4da9-bc07-382e60d0044a.png)The pipl.com website has many real mail addresses; did you check yours? (My one is wrong)*IRS scams 2017: What you need to know now*, by *J. Fruhlinger*, *CSO Online*, 2018 available at [`www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html`](https://www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html). [Accessed on January 20, 2018].
+
+# 泛在网络
 
 这种攻击在本书中是一个常见的参考，因为它今天在许多关于 CEO 骗局的阐述中被使用。2015 年，在意识到自己成为社会工程的受害者并因黑客损失了 3600 万美元后，Ubiquiti networks 发现自己陷入了一个令人不安的境地。这家总部位于加州的网络设备制造公司证实，在其香港子公司在一次攻击中遭到欺诈后，它已成为社交工程的受害者，这一攻击以首席执行官骗局而闻名。这一章对这次攻击的实现方式很感兴趣。该骗局与 IRS 的一个骗局相匹配，该骗局被称为商业电子邮件妥协骗局，组织中的低层员工从假冒的人力资源电子邮件地址收到电子邮件，要求他们发送 W-2 表格。
 
-*Ubiquiti Networks $46.7 computer fraud hack*, *Forbes.com*, 2018 available at [`www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3`](https://www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3). [Accessed on January 20, 2018].
+*Ubiquiti Networks $46.7 computer fraud hack*, *Forbes.com*, 2018 available at [`www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/
+
+#585e134d50b3`](https://www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/
+
+#585e134d50b3). [Accessed on January 20, 2018].
 
 在 Ubiquiti networks 攻击中，黑客伪造了一名高级职员的电子邮件，并使用它与财务部门的员工进行通信。黑客在电子邮件中解释说，一些供应商已经更改了他们的付款细节，因此将使用海外银行账户付款。美国联邦调查局表示，他们在短短 17 天内追踪到了 14 笔从 Ubiquiti 向东亚某大国和俄罗斯等国的异常汇款。就在此时，调查局向 Ubiquiti 发出警报，称 Ubiquiti 的香港银行账户正在发生可疑交易。这就是母公司介入并阻止财务部进行进一步转账的地方。此时，黑客已经损失了超过 4600 万美元。人们认为，如果联邦调查局没有发出警报，这些交易将继续进行，该公司将遭受更大的损失。该公司跟进此案，只能追回约 800 万美元。该公司创始人兼首席执行官罗伯特·佩拉(Robert Pera)将这一事件归咎于他手下一些会计师的判断力差和无能。
 
