@@ -94,7 +94,7 @@ Bogdanoski 博士组织、协调或作为主旨发言人和特邀发言人参加
 
 近年来，社会工程作为一种攻击技术被大量利用。2017 年公布的上一份威瑞森**数据泄露调查报告** ( **DBIR** )只是证实这些事实的来源之一。R 参考下图:
 
-![](img/c30c6fad-5427-424e-b96f-6e66e142527a.png)Percentage of breaches per threat action category over timeFor more information on some of the facts that show the growing trend of social engineering attacks refer to [https://www.social-engineer.com/2017-verizon-dbir-social-engineering-breakdown/](https://www.social-engineer.com/2017-verizon-dbir-social-engineering-breakdown/)
+![](img/c30c6fad-5427-424e-b96f-6e66e142527a.png)Percentage of breaches per threat action category over timeFor more information on some of the facts that show the growing trend of social engineering attacks refer to [`www.social-engineer.com/2017-verizon-dbir-social-engineering-breakdown/`](https://www.social-engineer.com/2017-verizon-dbir-social-engineering-breakdown/)
 
 此外，正如在 Verison DBIR 中可以看到的，社会工程与其他类型的网络攻击相结合的趋势持续存在，并且它正在成为恶意程序传播的攻击载体。
 
@@ -156,7 +156,7 @@ Bogdanoski 博士组织、协调或作为主旨发言人和特邀发言人参加
 
 有关合规原则的示例，请参考:
 
-[https://web cache . Google user content . com/search？q =高速缓存:wx dijuzz9oj:https://pdfs . semantics holar . org/6486/78 f1 edab 0d 21399587744 b 826 D2 b24 c79 e . pdf+&CD = 2&HL = ru&CT = clnk&GL = in](https://webcache.googleusercontent.com/search?q=cache:WXdIjuszF9oJ:https://pdfs.semanticscholar.org/6486/78f1edab0d2139958070744b826d2b24c79e.pdf+&cd=2&hl=ru&ct=clnk&gl=in)
+[`web cache . Google user content . com/search？q =高速缓存:wx dijuzz9oj:https://pdfs . semantics holar . org/6486/78 f1 edab 0d 21399587744 b 826 D2 b24 c79 e . pdf+&CD = 2&HL = ru&CT = clnk&GL = in`](https://webcache.googleusercontent.com/search?q=cache:WXdIjuszF9oJ:https://pdfs.semanticscholar.org/6486/78f1edab0d2139958070744b826d2b24c79e.pdf+&cd=2&hl=ru&ct=clnk&gl=in)
 
 一旦选择了遵从原则、技术和媒介，就可以建立攻击媒介，社会工程师可以继续实际的攻击阶段。
 
@@ -182,13 +182,13 @@ APT 是指长期的、主要基于互联网的间谍攻击，由有能力和意�
 
 逆向社会工程是一种攻击，通常在攻击者和受害者之间建立信任。攻击者创造一种情况，让受害者需要帮助，然后将自己装扮成受害者认为可以解决他们的问题并且值得信任的人，以接收特权信息。当然，攻击者试图选择一个他们认为有信息可以帮助他们的人。
 
-逆向社会工程主要包括三个部分。更多信息，请参考[http://offensivecommunity.net/thread-80.html](http://offensivecommunity.net/thread-80.html)
+逆向社会工程主要包括三个部分。更多信息，请参考[`offensivecommunity.net/thread-80.html`](http://offensivecommunity.net/thread-80.html)
 
 # 下料
 
 诱饵在许多方面都类似于网络钓鱼攻击。
 
-关于诱饵的更多信息，请参考:[https://darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-they-victims . html](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
+关于诱饵的更多信息，请参考:[`darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-they-victims . html`](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
 
 # 水线
 
@@ -198,27 +198,27 @@ Waterholing 是一种有针对性的社会工程策略，利用用户对他们�
 
 另一种社会工程攻击类型被称为尾随或捎带。
 
-有关尾随的更多信息，请参考:[https://darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-they-victims . html](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
+有关尾随的更多信息，请参考:[`darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-they-victims . html`](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
 
 # 木马
 
 这是目前黑客使用的最主要的方法之一。
 
-有关更多信息，请参考:[http://offensivecommunity.net/thread-80.html](http://offensivecommunity.net/thread-80.html)
+有关更多信息，请参考:[`offensivecommunity.net/thread-80.html`](http://offensivecommunity.net/thread-80.html)
 
 # 浏览在线内容
 
-有关网上冲浪内容的更多信息，请参见:[http://offensivecommunity.net/thread-80.html](http://offensivecommunity.net/thread-80.html)
+有关网上冲浪内容的更多信息，请参见:[`offensivecommunity.net/thread-80.html`](http://offensivecommunity.net/thread-80.html)
 
 # 角色扮演
 
-有关角色扮演的更多信息，请参考:[http://offensivecommunity.net/thread-80.html](http://offensivecommunity.net/thread-80.html)
+有关角色扮演的更多信息，请参考:[`offensivecommunity.net/thread-80.html`](http://offensivecommunity.net/thread-80.html)
 
 # 抗议
 
 伪装是另一种形式的社会工程，攻击者专注于创建一个好的借口或虚构的场景，他们可以使用它来尝试和窃取受害者的个人信息。
 
-欲了解更多信息，请参考:[https://darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims . html](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
+欲了解更多信息，请参考:[`darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims . html`](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
 
 # 鱼叉网络钓鱼
 
@@ -228,7 +228,7 @@ Waterholing 是一种有针对性的社会工程策略，利用用户对他们�
 
 与诱饵相似，交换攻击承诺以信息交换利益。
 
-欲了解更多信息，请参考:[https://darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims . html](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
+欲了解更多信息，请参考:[`darkinfosec . blogspot . in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims . html`](https://darkinfosec.blogspot.in/2017/04/common-attack-types-that-social-engineers-use-to-target-their-victims.html)
 
 # 视觉
 
@@ -266,29 +266,29 @@ Waterholing 是一种有针对性的社会工程策略，利用用户对他们�
 
 # 参考
 
-1.  威瑞森 2017 年数据泄露调查报告第 10 期<sup>第</sup> 第版 2017 年 4 月 27 日检索 05.02.2018，[http://www . verizone enterprise . com/Verizon-insights-lab/dbir/2017/](http://www.verizonenterprise.com/verizon-insights-lab/dbir/2017/)
-2.  卡巴斯基，社会工程-定义，2018 年 2 月 10 日检索，[https://USA . Kaspersky . com/resource-center/definitions/Social-Engineering](https://usa.kaspersky.com/resource-center/definitions/social-engineering)
+1.  威瑞森 2017 年数据泄露调查报告第 10 期<sup>第</sup> 第版 2017 年 4 月 27 日检索 05.02.2018，[`www . verizone enterprise . com/Verizon-insights-lab/dbir/2017/`](http://www.verizonenterprise.com/verizon-insights-lab/dbir/2017/)
+2.  卡巴斯基，社会工程-定义，2018 年 2 月 10 日检索，[`USA . Kaspersky . com/resource-center/definitions/Social-Engineering`](https://usa.kaspersky.com/resource-center/definitions/social-engineering)
 3.  CEH <sup>TM</sup>
 4.  米（meter 的缩写））贝祖伊登胡特、f .木桐和 H. S .文特尔，“社会工程攻击检测模型:Seadm”，载于 2010 年**南非信息安全** ( **伊萨**)。IEEE，2010 年，第 1-8 页。
 5.  K.d .米特尼克和 W. L .西蒙,《欺骗的艺术:控制安全中人的因素》。约翰威利父子公司，2011 年。
 6.  米（meter 的缩写））入侵人类:社会工程技术和安全对策。高尔出版公司，2012 年。
 7.  木桐·f .、利能·l .、马兰·m . m .、文特尔·h . s .(2014)建立一个定义社会工程领域的本体模型。载于:Kimppa K .、Whitehouse D .、Kuusela T .、Phahlamohlaka J .(编辑)《信息和通信技术与社会》。HCC 青奥会。IFIP 信息和通信技术进展，第 431 卷。斯普林格，柏林，海德堡。
 
-8.  弗朗索瓦·木桐，路易斯·李宁，H.S .文特尔，社会工程攻击示例，模板和场景，计算机与安全(2016)，[http://dx.doi.org/doi:10.1016/j.cose.2016.03.004](http://dx.doi.org/doi:10.1016/j.cose.2016.03.004)。
+8.  弗朗索瓦·木桐，路易斯·李宁，H.S .文特尔，社会工程攻击示例，模板和场景，计算机与安全(2016)，[`dx.doi.org/doi:10.1016/j.cose.2016.03.004`](http://dx.doi.org/doi:10.1016/j.cose.2016.03.004)。
 9.  K.Krombholz，H. Hobel，M. Huber，E. Weippl:《高级社会工程攻击》；《信息安全与应用学报》，22(2015)，S. 113 - 122。
-10.  社会工程框架，社会工程工具，2018 年 2 月 10 日检索，[https://www.social-engineer.org/framework/se-tools/](https://www.social-engineer.org/framework/se-tools/)。
-11.  Lewis Morgan，社会工程的真实实例-第二部分，2016 年 8 月 1 日，2018 年 2 月 10 日检索，[https://www . it governance . co . uk/blog/Real-life-examples-of-social-engineering-part-2/](https://www.itgovernance.co.uk/blog/real-life-examples-of-social-engineering-part-2/)
-12.  罗伯特·阿贝尔，卡巴纳克团伙利用社会工程传播宏，SCMagazine，2016 年 11 月，检索到 10.02.2018，[https://www . sc magazine . com/researchers-spot-clever-social-engineering-tactic-used-to-spread-macros/article/573181/](https://www.scmagazine.com/researchers-spot-clever-social-engineering-tactic-used-to-spread-macros/article/573181/)
-13.  约翰·赫尔曼(John Herrman)，纽约时报黑客始于一个简单的电子邮件骗局，2013 年 1 月 31 日，检索 2018 年 2 月 10 日，[https://www . BuzzFeed . com/jwherrman/New-York-Times-Hack-start-With-A-Simple-Email？UTM _ term = . xr 07 gwex # . nu 6 ypp2q](https://www.buzzfeed.com/jwherrman/new-york-times-hack-started-with-a-simple-email?utm_term=.xr07gwEX#.nu6YpP2q)
-14.  鱼叉式网络钓鱼简史，2015 年 9 月 4 日，2018 年 2 月 10 日检索，[http://resources . infosec institute . com/a-Brief-History-of-Spear-Phishing/# gref](http://resources.infosecinstitute.com/a-brief-history-of-spear-phishing/#gref)
-15.  莎拉·彼得斯(Sara Peters)，有史以来最好的 7 次社会工程攻击，DarkReading，2015 年 3 月，2018 年 2 月 10 日检索，[https://www . dark reading . com/The-7-Best-Social-Engineering-Attacks-Ever/d/d-id/1319411？](https://www.darkreading.com/the-7-best-social-engineering-attacks-ever/d/d-id/1319411?)
-16.  Brian Honan，Ubiquiti Networks 万美元社会工程攻击的受害者，CSO，2015 年 8 月，检索到 2018 年 2 月 10 日，[https://www . csoonline . com/article/2961066/supply-chain-management/Ubiquiti-Networks-victim-of-3900 万-social-engineering-attack . html](https://www.csoonline.com/article/2961066/supply-chain-management/ubiquiti-networks-victim-of-39-million-social-engineering-attack.html)
-17.  有史以来排名前 5 的社交工程攻击，网络安全硕士学位，2018 年 2 月 10 日检索，[https://www . cybersecuritymastersdegree . org/2017/11/top-5-Social-Engineering-Attacks-of-All-Time/](https://www.cybersecuritymastersdegree.org/2017/11/top-5-social-engineering-attacks-of-all-time/)
-18.  Jamie Condliffe，麻省理工科技评论，雅虎黑客的历史，2016 年 12 月 15 日，检索 2018 年 2 月 10 日，[https://www . Technology Review . com/s/603157/A-History-of-Yahoo-Hacks/](https://www.technologyreview.com/s/603157/a-history-of-yahoo-hacks/)。
-19.  卢西恩·康斯坦丁(Lucian Constantin)，攻击推特、脸书、苹果和微软的黑客组织加强攻击，2015 年 7 月，检索到 10.02.2018，[https://www . PC world . IDG . com . au/article/579233/Hacker-group-hit-Twitter-Facebook-Apple-Microsoft-intensives-attacks/](https://www.pcworld.idg.com.au/article/579233/hacker-group-hit-twitter-facebook-apple-microsoft-intensifies-attacks/)
+10.  社会工程框架，社会工程工具，2018 年 2 月 10 日检索，[`www.social-engineer.org/framework/se-tools/`](https://www.social-engineer.org/framework/se-tools/)。
+11.  Lewis Morgan，社会工程的真实实例-第二部分，2016 年 8 月 1 日，2018 年 2 月 10 日检索，[`www . it governance . co . uk/blog/Real-life-examples-of-social-engineering-part-2/`](https://www.itgovernance.co.uk/blog/real-life-examples-of-social-engineering-part-2/)
+12.  罗伯特·阿贝尔，卡巴纳克团伙利用社会工程传播宏，SCMagazine，2016 年 11 月，检索到 10.02.2018，[`www . sc magazine . com/researchers-spot-clever-social-engineering-tactic-used-to-spread-macros/article/573181/`](https://www.scmagazine.com/researchers-spot-clever-social-engineering-tactic-used-to-spread-macros/article/573181/)
+13.  约翰·赫尔曼(John Herrman)，纽约时报黑客始于一个简单的电子邮件骗局，2013 年 1 月 31 日，检索 2018 年 2 月 10 日，[`www . BuzzFeed . com/jwherrman/New-York-Times-Hack-start-With-A-Simple-Email？UTM _ term = . xr 07 gwex # . nu 6 ypp2q`](https://www.buzzfeed.com/jwherrman/new-york-times-hack-started-with-a-simple-email?utm_term=.xr07gwEX#.nu6YpP2q)
+14.  鱼叉式网络钓鱼简史，2015 年 9 月 4 日，2018 年 2 月 10 日检索，[`resources . infosec institute . com/a-Brief-History-of-Spear-Phishing/# gref`](http://resources.infosecinstitute.com/a-brief-history-of-spear-phishing/#gref)
+15.  莎拉·彼得斯(Sara Peters)，有史以来最好的 7 次社会工程攻击，DarkReading，2015 年 3 月，2018 年 2 月 10 日检索，[`www . dark reading . com/The-7-Best-Social-Engineering-Attacks-Ever/d/d-id/1319411？`](https://www.darkreading.com/the-7-best-social-engineering-attacks-ever/d/d-id/1319411?)
+16.  Brian Honan，Ubiquiti Networks 万美元社会工程攻击的受害者，CSO，2015 年 8 月，检索到 2018 年 2 月 10 日，[`www . csoonline . com/article/2961066/supply-chain-management/Ubiquiti-Networks-victim-of-3900 万-social-engineering-attack . html`](https://www.csoonline.com/article/2961066/supply-chain-management/ubiquiti-networks-victim-of-39-million-social-engineering-attack.html)
+17.  有史以来排名前 5 的社交工程攻击，网络安全硕士学位，2018 年 2 月 10 日检索，[`www . cybersecuritymastersdegree . org/2017/11/top-5-Social-Engineering-Attacks-of-All-Time/`](https://www.cybersecuritymastersdegree.org/2017/11/top-5-social-engineering-attacks-of-all-time/)
+18.  Jamie Condliffe，麻省理工科技评论，雅虎黑客的历史，2016 年 12 月 15 日，检索 2018 年 2 月 10 日，[`www . Technology Review . com/s/603157/A-History-of-Yahoo-Hacks/`](https://www.technologyreview.com/s/603157/a-history-of-yahoo-hacks/)。
+19.  卢西恩·康斯坦丁(Lucian Constantin)，攻击推特、脸书、苹果和微软的黑客组织加强攻击，2015 年 7 月，检索到 10.02.2018，[`www . PC world . IDG . com . au/article/579233/Hacker-group-hit-Twitter-Facebook-Apple-Microsoft-intensives-attacks/`](https://www.pcworld.idg.com.au/article/579233/hacker-group-hit-twitter-facebook-apple-microsoft-intensifies-attacks/)
 
-20.  斯潘塞·沃尔夫，2017 年 10 月十大最糟糕的社交媒体网络攻击，检索 2018 年 2 月 10 日，[https://www . info security-magazine . com/blogs/Top-10-Worst-Social-Media-Cyber](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber)
-21.  [1] Nate Lord，社会工程攻击:常见技术&如何防止攻击，2015 年 10 月 21 日，2018 年 2 月 10 日检索，[https://digital guardian . com/blog/Social-Engineering-Attacks-Common-Techniques-How-Prevent-Attack](https://digitalguardian.com/blog/social-engineering-attacks-common-techniques-how-prevent-attack)
+20.  斯潘塞·沃尔夫，2017 年 10 月十大最糟糕的社交媒体网络攻击，检索 2018 年 2 月 10 日，[`www . info security-magazine . com/blogs/Top-10-Worst-Social-Media-Cyber`](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber)
+21.  [1] Nate Lord，社会工程攻击:常见技术&如何防止攻击，2015 年 10 月 21 日，2018 年 2 月 10 日检索，[`digital guardian . com/blog/Social-Engineering-Attacks-Common-Techniques-How-Prevent-Attack`](https://digitalguardian.com/blog/social-engineering-attacks-common-techniques-how-prevent-attack)
 
 # 奥赞·乌卡尔和奥尔罕·萨里
 
@@ -505,4 +505,4 @@ Keepnet Labs 网络钓鱼测试软件，即网络钓鱼模拟器，是执行模�
 
 对于贿赂，我真的没有什么好的建议，除了让你记住，如果有人给你很多钱来获取信息，通常是出于非法目的。
 
-Please refer to the link [https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.*******
+Please refer to the link [`www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf`](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.*******

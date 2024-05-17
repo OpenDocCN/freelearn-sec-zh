@@ -29,7 +29,7 @@ BasKet 是一个免费的开源 Linux 程序，它更像一个高级数据存储
 
 # 德拉迪斯
 
-dradis([https://dradisframework.com/ce/](https://dradisframework.com/ce/))是一个免费的开源 Linux、Windows 和 macOS 应用程序，用于存储信息。它有一个更先进的外观，有篮子的记事本一样的外观。Dradis 在功能上也更先进，因为它充当了一个集中的存储库，并使用基于 web 的 UI 使用户能够与它进行交互。Dradis 使用分支代替选项卡(如 BasKet ),允许用户将不同类型的信息添加在一起。Dradis 可以处理大量数据，否则 BasKet 会有问题。因此，当有大量信息需要由目标进行排序时，通常使用这种方法。
+dradis([`dradisframework.com/ce/`](https://dradisframework.com/ce/))是一个免费的开源 Linux、Windows 和 macOS 应用程序，用于存储信息。它有一个更先进的外观，有篮子的记事本一样的外观。Dradis 在功能上也更先进，因为它充当了一个集中的存储库，并使用基于 web 的 UI 使用户能够与它进行交互。Dradis 使用分支代替选项卡(如 BasKet ),允许用户将不同类型的信息添加在一起。Dradis 可以处理大量数据，否则 BasKet 会有问题。因此，当有大量信息需要由目标进行排序时，通常使用这种方法。
 
 完成了两个主要的数据存储工具之后，现在是时候看看社会工程师收集信息的方式了。以下是对这些问题的讨论:
 
@@ -148,7 +148,7 @@ Site:websitename.com filetype:SQL ("password values" || "passwd" || "old passwor
 
 2016 年 8 月，人们发现，针对在社交媒体上关注了某家银行的客户，存在大规模金融欺诈。据信，攻击者能够控制该银行的社交媒体账户，并向追随者发送欺诈性报价，这些追随者最终只会赔钱。还有许多其他社交媒体介导的社会工程攻击已经发生。这一切都要归咎于社交媒体上私人信息的快速获取。
 
-*The Top 10 Worst Social Media Cyber-Attacks*, by S. Wolfe, *Infosecurity Magazine*, 2017 available at [https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/). [Accessed on December 13, 2017].# 网络钓鱼和鱼叉式网络钓鱼
+*The Top 10 Worst Social Media Cyber-Attacks*, by S. Wolfe, *Infosecurity Magazine*, 2017 available at [`www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/`](https://www.infosecurity-magazine.com/blogs/top-10-worst-social-media-cyber/). [Accessed on December 13, 2017].# 网络钓鱼和鱼叉式网络钓鱼
 
 社会工程师仍然使用网络钓鱼技术来收集目标的信息。他们热衷于利用恐惧和兴奋等情绪，再加上一些压力，如紧迫感，以获得最大的依从率。目前，网络钓鱼和鱼叉式网络钓鱼攻击已经变得很先进，因为攻击者能够完美地克隆信誉良好的网站，并使用它们来窃取客户的数据。缩短这些网站 URL 的能力也有助于攻击者避免被发现，因为如果用户注意到合法网站 URL 与攻击者发送的链接之间的一些差异，他们会感到震惊。攻击者正在利用网上银行系统和社交媒体账户等网站的克隆，从毫无防备的目标那里获取大量数据。例如，如果攻击者发来一封电子邮件，称您的 PayPal 账户遭到入侵，需要紧急更改您的密码，并附带一个更改密码的链接，您会很容易地照办。这个链接会把你带到一个类似 PayPal 的地方，在那里你会被告知输入你当前的密码和新密码。提交此信息后，您的当前密码将被发送给攻击者。他们会利用你害怕赔钱的心理，在很短的时间内从你那里获得非常敏感的信息，然后迫使你迅速做出反应。
 
@@ -196,7 +196,7 @@ Feel free to visit my blog to keep an eye on latest security threats as well as 
 
 有一部关于渗透测试人员的电视连续剧叫做*老虎队*，展示了组织是如何被攻击的。有一集，他们被符号汽车公司的首席执行官承包了。他们的侦察任务表明，该组织有许多物理安全控制，使其难以间接突破。然而，在侦察任务中，他们得到了这个组织的垃圾，并从中筛选出任何有价值的东西。他们很幸运地找到了该组织签约维护其系统的 IT 团队的详细信息。然后，老虎小组装扮成他们中的一员，充当签约公司的技术支持。被派来的代理人被带了进来，直接被允许进入公司的服务器机房。如果这是一次真正的攻击，代理可能已经进入并植入了恶意软件，以禁用安全系统或从服务器收集敏感信息，为更大规模的攻击做准备。这证明了翻垃圾箱是非常有效的，而且非常容易做到。
 
-*Tiger Team - The Car Dealer Takedown*, *YouTube*, 2017 available at [https://www.youtube.com/watch?v=MdQas_We_kI&t=432s](https://www.youtube.com/watch?v=MdQas_We_kI&t=432s). [Accessed on 13 December, 2017].# 入侵和假冒
+*Tiger Team - The Car Dealer Takedown*, *YouTube*, 2017 available at [`www.youtube.com/watch?v=MdQas_We_kI&t=432s`](https://www.youtube.com/watch?v=MdQas_We_kI&t=432s). [Accessed on 13 December, 2017].# 入侵和假冒
 
 这是一种风险更大的获取信息的方式，在这种方式中，社会工程师进入目标的建筑物，目的是在伪装成其他人的同时收集信息。社会工程师将扮演雇员、外部承包商、送货员或维修人员。使用第三章、、*中讨论的关于陷害的影响和说服*、等策略，他们将能够穿过警卫进入一栋建筑。在建筑内部，社会工程师将融入其中，表现得就像他们所扮演的人通常会做的那样。信息可能通过窃听、与内部人员交谈或者将加载恶意软件的 USB 驱动器放在显眼的地方来收集，这些设备将被捡起并插入计算机。社会工程师甚至可以通过说服秘书或接待员让他们进入来进入高层人士的办公室。冒充是危险的，因为当他们被发现时，可能会使社会工程师毫无防备。
 

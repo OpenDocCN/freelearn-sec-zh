@@ -102,11 +102,11 @@ Trull 已经成为一名创新的安全领导者，最近被 SANS Institute 提�
 
 *   确保他们限制在社交媒体上分享的信息量。
 
-使用一些模拟，如:[http://pleaserobme.com](http://pleaserobme.com)，用户可以检查他们是否公开分享他们的位置:
+使用一些模拟，如:[`pleaserobme.com`](http://pleaserobme.com)，用户可以检查他们是否公开分享他们的位置:
 
 ![](img/49a11dcc-a9ea-4673-8260-46a885267ca1.png)
 
-*   确保他们意识到互联网是公开的，并确保他们知道如果有东西在线，即使你删除了它，它也很可能保持在线。请参考以下链接[https://archive.org/](https://archive.org/)
+*   确保他们意识到互联网是公开的，并确保他们知道如果有东西在线，即使你删除了它，它也很可能保持在线。请参考以下链接[`archive.org/`](https://archive.org/)
 
 ![](img/57c47510-6cd3-4c18-8387-486858b06f85.png)
 
@@ -478,4 +478,4 @@ Milad Aslaner 是一名专注于任务的安全专家，在产品工程、产品
 *   **黑色警报行动**:2016 年，一个威胁行动组织将东欧的一家银行作为目标。目标是危害 web 开发团队的端点，允许他们在在线银行门户网站中植入恶意代码。威胁行动者小组通过专业网络上的条目发现，该银行正在进行一项可访问性测试。作为其中的一部分，IT 部门会将不同型号的键盘发送给最终用户进行评估。威胁参与者行动迅速，将键盘记录器硬连线到新键盘上，准备了一份似乎由 CTO 签署的支持文件，以感谢 web 开发团队对该计划和整体业务的贡献，并将其中七个被操纵的键盘发送到了公司的主地址。仅仅过了两天，该银行内部开发人员的前两个端点就向威胁参与者 C2C 服务器报告了情况。
 *   **紫色警报行动**:2015 年，一个被怀疑以朝鲜为基地的威胁行动组织将一家美国科技公司作为目标。那次网络攻击的目标是确定几项关键技术的产品路线图。在侦察阶段，威胁参与者扫描组织结构图、自动电子邮件模板和新闻稿，并了解不同部门的内部缩写。一旦确定了所有这些内容，威胁参与者就会准备一封复杂的网络钓鱼电子邮件，在普通用户看来，这就像是自动计费系统发送的常规费用支付确认。该网络钓鱼电子邮件的附件包含恶意宏，一旦启用，就会将恶意有效负载加载到终端上，从而允许与威胁参与者进行 C2C 通信。
 
-Please refer to the link [https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.***
+Please refer to the link [`www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf`](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.***

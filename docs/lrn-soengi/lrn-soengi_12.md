@@ -442,4 +442,4 @@ Dan 也是演讲巡回赛的常客，在各种关于网络安全、网络犯罪�
 
 我们也成功地使用了 USB 插座。在过去，以及 Windows 的早期版本中，我们可以使用自己的代理和自动运行程序，但现在我们利用诸如橡皮鸭这样的工具来生成自己的外壳代码，并绕过 https://hakshop.com/products/usb-rubber-ducky-deluxe 的限制。
 
-Please refer to the link [https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.*****
+Please refer to the link [`www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf`](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf) for the images of this chapter.*****

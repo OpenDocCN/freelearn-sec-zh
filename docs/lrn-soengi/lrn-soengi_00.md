@@ -17,7 +17,7 @@
 
 # 下载彩色图像
 
-我们还提供了一个 PDF 文件，其中有本书中使用的截图/图表的彩色图像。可以从[https://www . packtpub . com/sites/default/files/downloads/learnsocialengeineering _ color images . pdf](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf)下载。
+我们还提供了一个 PDF 文件，其中有本书中使用的截图/图表的彩色图像。可以从[`www . packtpub . com/sites/default/files/downloads/learnsocialengeineering _ color images . pdf`](https://www.packtpub.com/sites/default/files/downloads/LearnSocialEngineering_ColorImages.pdf)下载。
 
 # 使用的惯例
 

@@ -4,7 +4,7 @@
 
 安全是关于知道谁和什么可以信任，以及知道什么时候，什么时候不相信一个人的话。
 
-For more information on social engineering, please refer to the link *What is Social Engineering?*, *Webroot* at [http://bit.ly/2cdYuYZ](http://bit.ly/2cdYuYZ).
+For more information on social engineering, please refer to the link *What is Social Engineering?*, *Webroot* at [`bit.ly/2cdYuYZ`](http://bit.ly/2cdYuYZ).
 
 社会工程师主要利用这个基本现象——信任。因此，如今许多公司都希望将针对员工的社会工程测试(网络钓鱼和其他模拟)作为其整体信息安全计划的一部分。
 
@@ -45,11 +45,11 @@ For more information on social engineering, please refer to the following link: 
 
 例如，SANS 将其描述为用于攻击信息系统的非技术或低技术手段的委婉语，如谎言、假冒、诡计、贿赂、勒索和威胁，而社会工程师是使用大脑而不是计算机肌肉的黑客。黑客给数据中心打电话，假装是丢失了密码的客户，或者出现在网站上，然后简单地等待有人为他们开门。其他形式的社会工程并不那么明显。众所周知，黑客会创建虚假网站、抽奖或问卷，要求用户输入密码。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 4 available at [https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by *Sans Institute* (2007).
+*Social Engineering: A Means To Violate A Computer System,* p. 4 available at [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by *Sans Institute* (2007).
 
 这些定义描述了通过撒谎和不道德行为来获取信息的多阶段互动。正如 SANS 研究所揭示的那样，社会工程攻击有一个共同的模式。这种模式被称为**周期**，由四个阶段组成(信息收集、关系发展、开发和执行)。每个社会工程攻击都是独特的，它可能涉及多个阶段/周期，甚至可能结合使用其他更传统的攻击技术来实现预期的最终结果。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)
+*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)
 
 社会工程生命周期如下图所示:
 
@@ -57,7 +57,7 @@ For more information on social engineering, please refer to the following link: 
 
 社会工程师可以使用许多技术来收集关于他们目标的信息。当他们收集信息时，他们可以利用这些信息与目标或对攻击成功至关重要的人进行交流。信息可以包括电话列表、出生日期、组织的组织结构图等等。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 发展关系
+*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 发展关系
 
 社会工程师可以从目标的信任中受益，与他们建立密切和谐的关系。在发展这种关系时，社会工程师会以一种特殊的方式安排自己以获得信任，然后他会充分利用这种信任。
 
@@ -65,7 +65,7 @@ For more information on social engineering, please refer to the following link: 
 
 然后，受信任的社会工程师可以操纵目标泄露密码、电子邮件凭证、银行信息等信息。这一行动可能是攻击的结束，也可能是下一阶段的开始。
 
-*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 执行
+*Social Engineering: A Means To Violate A Computer System,* p. 6 available at  [`www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529`](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529), by [*Sans Institute* (2007).](https://www.sans.org/reading-room/whitepapers/engineering/social-engineering-means-violate-computer-system-529)# 执行
 
 一旦目标完成了社会工程师要求的任务，循环就完成了。
 
@@ -77,7 +77,7 @@ For more information on social engineering, please refer to the following link: 
 
 2017 年，50%的黑帽调查受访者提到了**网络钓鱼、社交网络利用或其他形式的社交工程**，高于 2016 年的 46%。45%的人提到了直接针对组织的**复杂攻击**，高于 2016 年的 43%。然而，除了这两类威胁，受访者的担忧也不尽相同——**意外数据泄露** (21%)排在第三位，高于 2016 年的 15%，而**多态恶意软件** (20%)排在第四位，高于去年的 15%。在调查中，受访者将复杂、有针对性的攻击列为第二大担忧。
 
-*2017 Black Hat Attendee Survey Portrait of an Imminent Cyberthreat* available at [http://ubm.io/2viIk7g](http://ubm.io/2viIk7g), [*Black Hat* (2017).](http://ubm.io/2viIk7g)
+*2017 Black Hat Attendee Survey Portrait of an Imminent Cyberthreat* available at [`ubm.io/2viIk7g`](http://ubm.io/2viIk7g), [*Black Hat* (2017).](http://ubm.io/2viIk7g)
 
 这些关键发现表明，今天网络安全的主要问题之一主要源于人的因素。鉴于社会工程是让人们遵从意图或愿望的艺术，因此必须加强网络安全链中最薄弱的环节，即人的因素，以抵御各种社会工程攻击。
 
@@ -97,7 +97,7 @@ For more information on social engineering, please refer to the following link: 
 
 当社会工程师冒充公司高管并操纵其他员工转移未经授权的资金或信息时，就会发生 CEO 欺诈。根据美国联邦调查局的数据，自 2015 年 1 月以来，已确认的 CEO 欺诈受害者增加了 270 %，CEO 欺诈损失了 23 亿美元。
 
-*FBI: $2.3 Billion Lost to CEO Email Scams* available at [http://bit.ly/1TE1jl6](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)
+*FBI: $2.3 Billion Lost to CEO Email Scams* available at [`bit.ly/1TE1jl6`](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)
 
 CEO 欺诈攻击的一些例子如下:
 
@@ -105,27 +105,27 @@ CEO 欺诈攻击的一些例子如下:
 
 网络犯罪分子对一名高管进行网络钓鱼攻击，并获得对其收件箱的访问权限，或者从与目标公司的真实域名相差一两个字母的相似域名向员工发送电子邮件。与传统的网络钓鱼攻击不同，CEO 欺诈中使用的欺骗电子邮件很少是垃圾邮件，因为在 CEO 欺诈攻击中，社会工程师会花时间了解目标组织的关系、活动、兴趣、旅行和/或购买计划，并相应地制作他们的电子邮件。他们从目标网站上收集员工的电子邮件地址和其他信息，以帮助使信息更具说服力。一旦网络犯罪分子侵入了目标的收件箱，他们就会通过过滤单词来搜索电子邮件，这些单词可能会告诉他们该公司是否经常处理电汇，如发票、存款或总裁。联邦调查局估计，受到社交工程师利用 CEO 欺诈攻击的组织平均损失在 25，000 美元到 75，000 美元之间。然而，一些 CEO 欺诈事件造成了数百万美元的损失。
 
-*FBI: $2.3 Billion Lost to CEO Email Scams* available at [http://bit.ly/1TE1jl6](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)# 金融网络钓鱼
+*FBI: $2.3 Billion Lost to CEO Email Scams* available at [`bit.ly/1TE1jl6`](http://bit.ly/1TE1jl6), [Krebs, B.(2016).](http://bit.ly/1TE1jl6)# 金融网络钓鱼
 
 使用金融网络钓鱼方法，社会工程师已经瞄准了银行或他们的客户。如今，网上银行等新兴工具为网络犯罪分子打开了新的后门。根据联邦调查局的说法，社会工程师使用的最新趋势是通过使用垃圾邮件和钓鱼电子邮件、击键记录程序和远程访问木马来获取员工登录凭据。这些攻击技术出现在 2012 年 9 月，当时美国银行(Bank of America)和富国银行(Wells Fargo)也遭到了攻击。
 
-*Banks likely to remain top cybercrime targets*, by *Executive Report: Financial Services* at [https://www.symantec.com/content/en/us/enterprise/other_resources/b_Financial_Attacks_Exec_Report.pdf](https://www.symantec.com/content/en/us/enterprise/other_resources/b_Financial_Attacks_Exec_Report.pdf).
+*Banks likely to remain top cybercrime targets*, by *Executive Report: Financial Services* at [`www.symantec.com/content/en/us/enterprise/other_resources/b_Financial_Attacks_Exec_Report.pdf`](https://www.symantec.com/content/en/us/enterprise/other_resources/b_Financial_Attacks_Exec_Report.pdf).
 
 如今，网络犯罪分子大多以金融机构为目标，几乎一半的网络钓鱼攻击都是为了获取经济利益。在所有类型的金融网络钓鱼中，银行网络钓鱼是绝对的领导者。
 
-*Financial threats 2016: Every second phishing attack aims to steal your money* available at[http://bit.ly/2DgSnAP](http://bit.ly/2DgSnAP).
+*Financial threats 2016: Every second phishing attack aims to steal your money* available at[`bit.ly/2DgSnAP`](http://bit.ly/2DgSnAP).
 
 在线访问，以及让客户轻松访问他们的帐户，也为网络犯罪分子提供了进入我们的银行门户网站的途径。Carbanak 等案例是金融网络钓鱼的另一个例子。它发生在 2014 年底，是一次重大的银行网络抢劫，导致全球 100 家金融机构的账户被盗超过 10 亿美元。Carbanak 抢劫案是使用标准的电子邮件钓鱼技术进行的，这种技术安装了旨在窃取登录凭证和其他数据的恶意软件。
 
-*Banking and Phishing: The Perfect Storm*, United Security Providers available at [http://bit.ly/2DyZi6s](http://bit.ly/2DyZi6s).
+*Banking and Phishing: The Perfect Storm*, United Security Providers available at [`bit.ly/2DyZi6s`](http://bit.ly/2DyZi6s).
 
 2014 年摩根大通违约事件是这种成功方法的又一个实例。摩根大通的违规事件是有史以来最大的银行违规事件之一，8300 万客户账户被黑。该攻击通过使用一种社会工程技术，即针对已知用户的鱼叉式网络钓鱼电子邮件，成功窃取了登录凭据。一旦凭据被盗，网络罪犯就会访问摩根大通的服务器及其客户账户数据。由于服务器仅使用用户名和密码来访问系统，网络罪犯更容易得手。如果实现了双因素身份认证，网络罪犯早就失败了。
 
-*Banking and Phishing: The Perfect Storm*, United Security Providers available at [http://bit.ly/2DyZi6s](http://bit.ly/2DyZi6s).
+*Banking and Phishing: The Perfect Storm*, United Security Providers available at [`bit.ly/2DyZi6s`](http://bit.ly/2DyZi6s).
 
 德国邮政银行遭到大规模网络钓鱼攻击。在这种情况下，社会工程师精心制作的电子邮件和钓鱼网站看起来非常类似于合法的邮政银行网站，因此普通用户很难看出这实际上是一个网络钓鱼骗局。不知情的访问者被要求确认他们的登录凭证。一旦用户在虚假网站上提交了登录凭据，网络犯罪分子就会获取用户凭据来窃取他们的身份或出售他们的信息。
 
-*Phishing attack on popular German bank* available at [http://bit.ly/2D5Y7Kw](http://bit.ly/2D5Y7Kw).![](img/c85a22c5-1b29-4292-9394-e5db3b8994ad.png)Fake E-mail
+*Phishing attack on popular German bank* available at [`bit.ly/2D5Y7Kw`](http://bit.ly/2D5Y7Kw).![](img/c85a22c5-1b29-4292-9394-e5db3b8994ad.png)Fake E-mail
 
 无意中的电子邮件用户相信了这封假邮件，因为它包括一个合法的标志以及一个签名。一旦用户点击了电子邮件中的虚假链接，他们就会被重定向到以下虚假登录页面:
 
@@ -139,7 +139,7 @@ CEO 欺诈攻击的一些例子如下:
 
 他们可以使用虚假网站的链接，窃取登录和密码信息或其他个人信息，或者他们可以获得社交媒体上不经意分享的所谓不重要的个人信息。
 
-*Phishing on Social Networks - Gathering information* available [http://bit.ly/2nu8BO5](http://bit.ly/2nu8BO5).
+*Phishing on Social Networks - Gathering information* available [`bit.ly/2nu8BO5`](http://bit.ly/2nu8BO5).
 
 社交工程师使用虚假网站地址操纵用户输入他们的凭据:
 
@@ -153,11 +153,11 @@ CEO 欺诈攻击的一些例子如下:
 
 社会工程师成功地用勒索软件感染了好莱坞长老会医学中心的计算机系统。一旦一名员工打开了一份看起来像医院发票的文档(这是一个网络钓鱼骗局)，它就会迅速蔓延到系统中，并导致整个医院网络瘫痪。医院网络中断了一个多星期。
 
-*Case Study Of Phishing For Data Theft/Ransom: Locky Ransomware,* by *Infosecinstitute* available at [http://bit.ly/2Df2OFX](http://bit.ly/2Df2OFX).![](img/ae813e66-555a-47fa-8361-b3145a02560c.png)VirLock Trojan Ransomware
+*Case Study Of Phishing For Data Theft/Ransom: Locky Ransomware,* by *Infosecinstitute* available at [`bit.ly/2Df2OFX`](http://bit.ly/2Df2OFX).![](img/ae813e66-555a-47fa-8361-b3145a02560c.png)VirLock Trojan Ransomware
 
 前面的截图中给出了一个勒索病毒的例子，即 VirLock 勒索病毒，这可能是勒索病毒木马类别下最坏的恶意软件类型之一。它会锁定计算机，这样您就无法使用它。然后，需要付费才能解锁系统/文件。
 
-For more information, please refer to *VirLock Trojan Ransomware - Description and Decryption* by *Bilboa, B*(2015), Sensorstechforum available at [http://bit.ly/2B62raS](http://bit.ly/2B62raS).# 比特币网络钓鱼
+For more information, please refer to *VirLock Trojan Ransomware - Description and Decryption* by *Bilboa, B*(2015), Sensorstechforum available at [`bit.ly/2B62raS`](http://bit.ly/2B62raS).# 比特币网络钓鱼
 
 比特币等数字加密货币面临网络攻击的危险。严重的网络攻击正在对那些使用数字货币的人的账户进行组织，数字货币已经变得越来越流行。
 
@@ -216,13 +216,13 @@ Keepnet Labs is a cybersecurity awareness firm that has developed a suite of cyb
 *   **基于规则的错误**:遵循了常规，但是错误地使用了好的流程或者应用了坏的规则
 *   **基于知识的错误**:没有可用的程序，应用知识和经验不足以安全地执行行动
 
-*Human Errors in Cyber Security - A Swiss Cheese of Failures* by *ERLEND ANDREAS GJÆRE* (2017) available at [http://bit.ly/2COFmv9](http://bit.ly/2COFmv9).
+*Human Errors in Cyber Security - A Swiss Cheese of Failures* by *ERLEND ANDREAS GJÆRE* (2017) available at [`bit.ly/2COFmv9`](http://bit.ly/2COFmv9).
 
 然而，当考虑到社会工程的方法时，正是由于疏忽错误的后果，许多公司成为网络攻击的受害者。网络犯罪分子使用社会工程策略来利用人们的健忘或他们天生的人类忙乱倾向，以说服他们以冲动的方式行事。而且，在线运营中，员工普遍容易产生一种虚假的安全感。
 
 此外，点击模拟电子邮件中链接的用户占 Keepnet Labs 钓鱼模拟平台注册用户总数的 31.5 %。这一统计显示，16.7 %的用户打开过假邮件，但他们没有点击链接，这是用户点击量高的另一个原因，根源在于钓鱼模板和钓鱼主题。公司的高管为他们的员工选择了网络钓鱼内容，因为他们知道员工缺乏网络安全最佳实践的知识，他们按照自己的意愿编辑了网络钓鱼电子邮件，使其更加真实，以社会工程师的方式思考。事实上，如今 91%的成功攻击都是鱼叉式网络钓鱼，这是指网络犯罪分子收集目标的信息，并伪造电子邮件来引诱他们。
 
-*91% Of Cyber Attacks Start With A Phishing Email: Here's How To Protect Against Phishing* by *Guardian* (2017) [http://bit.ly/2mf56to](http://bit.ly/2mf56to).
+*91% Of Cyber Attacks Start With A Phishing Email: Here's How To Protect Against Phishing* by *Guardian* (2017) [`bit.ly/2mf56to`](http://bit.ly/2mf56to).
 
 根据这些发现，我们可以看到公司面临着巨大的风险。因为，在现实生活中，一个链接要么将用户带到一个看起来真实的虚假网站，并要求他们使用自己的用户名和密码登录，要么可能将员工带到一个用勒索软件或键盘记录器等恶意软件感染整个计算机系统的网站，或者它甚至可以直接下载病毒，而不进入网页。
 

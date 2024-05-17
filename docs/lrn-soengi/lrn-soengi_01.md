@@ -12,11 +12,11 @@
 
 本世纪最大的网络攻击之一发生在雅虎！据信，攻击者能够在 2014 年侵入其系统，窃取超过 5 亿用户的账户信息。美国联邦调查局(FBI)证实，攻击中使用了社会工程，让攻击者通过了用于保护此类数据的安全工具和系统的层层审查。对雅虎的攻击。因此，科技巨头谷歌证实，社会工程比人们想象的更加危险。如果一家在网络安全工具上投入巨资的历史最悠久的电子邮件服务提供商可以使用这种技术如此轻松地被攻破，那么没有人是安全的。
 
-*Tech: FBI: Russian hackers likely used a simple phishing email on a Yahoo employee to hack 500 million user accounts (YHOO, VZ)*, by *Steve Kovach* at Pulselive.co.ke, 2017 available at [http://www.pulselive.co.ke/bi/tech/tech-fbi-russian-hackers-likely-used-a-simple-phishing-email-on-a-yahoo-employee-to-hack-500-million-user-accounts-yhoo-vz-id6380434.html](http://www.pulselive.co.ke/bi/tech/tech-fbi-russian-hackers-likely-used-a-simple-phishing-email-on-a-yahoo-employee-to-hack-500-million-user-accounts-yhoo-vz-id6380434.html). [Accessed on November 8, 2017].
+*Tech: FBI: Russian hackers likely used a simple phishing email on a Yahoo employee to hack 500 million user accounts (YHOO, VZ)*, by *Steve Kovach* at Pulselive.co.ke, 2017 available at [`www.pulselive.co.ke/bi/tech/tech-fbi-russian-hackers-likely-used-a-simple-phishing-email-on-a-yahoo-employee-to-hack-500-million-user-accounts-yhoo-vz-id6380434.html`](http://www.pulselive.co.ke/bi/tech/tech-fbi-russian-hackers-likely-used-a-simple-phishing-email-on-a-yahoo-employee-to-hack-500-million-user-accounts-yhoo-vz-id6380434.html). [Accessed on November 8, 2017].
 
 社会工程师也能够利用简单的社会工程攻击获得巨额资金。2015 年，一家名为 Ubiquiti Networks 的网络设备制造商遭到了一项社会工程技术的攻击。攻击者能够收集有关首席执行官的信息，并有效地冒充他的人格。他们利用这种冒充来指示财务部向某个海外公司输送巨额资金，该公司已经通知他他们的支付偏好发生了变化。毫无疑问，一名财务部门的工作人员转移了这笔钱，但后来却发现这些命令并非来自真正的首席执行官，攻击者已经卷走了该组织数百万的血汗钱。进一步的调查显示，安全系统仍然存在，没有受到损害，盗窃只是通过一个社会工程骗局完成的。
 
-*Fraudsters duped this company into handing over $40 million* by *Robert Hackett*, *Fortune, 2017* available at [http://fortune.com/2015/08/10/ubiquiti-networks-email-scam-40-million/](http://fortune.com/2015/08/10/ubiquiti-networks-email-scam-40-million/). [Accessed on November 8, 2017].
+*Fraudsters duped this company into handing over $40 million* by *Robert Hackett*, *Fortune, 2017* available at [`fortune.com/2015/08/10/ubiquiti-networks-email-scam-40-million/`](http://fortune.com/2015/08/10/ubiquiti-networks-email-scam-40-million/). [Accessed on November 8, 2017].
 
 这两起事件都强调了一个事实，即人类的弱点在网络安全链中不容忽视。它正迅速成为攻击组织的广泛使用的方法:
 
@@ -26,19 +26,19 @@
 
 社交媒体上使用的另一种方法是创建不存在的人的**蜜罐账户**，用于攻击真实的人。2017 年 7 月，**一家中东电信公司** ( **【美科】** ) 的一名高级 IT 运营员工在批准蜜罐账户的好友请求后不久侥幸逃脱。这次袭击似乎是高度针对一名男性业余摄影师。这是因为攻击者创建了一个名叫 Mia 的年轻女孩的吸引人的个人资料，称她是伦敦即将到来的摄影师，她与目标有很多共同的爱好。目标显然很快就接受了好友请求，认为他们之间有很强的联系。经过几周的聊天，米娅给这个男人发了一份摄影调查。IT 人员不知道，该调查是一个文件，其中包含一个名为 **Pupy RAT，**的恶意软件，当它被打开时，用于窃取登录凭据。幸运的是，该公司的计算机安装了有效的终端主机防病毒程序，可以在造成任何损害之前快速检测并清除恶意软件。进一步的调查能够揭示企图社会工程攻击背后的黑客组织。据证实，该集团此前曾试图利用网络钓鱼电子邮件攻击该公司，但均未成功。这些员工接受了关于虚假邮件、点击可疑链接或打开电子邮件附件的教育。似乎黑客组织能够想出社会工程攻击，并通过脸书锁定一名员工。
 
-*Iranian hackers used female 'honey pot' to lure targets: researchers* by *Dustin Volz*, *US*, 2017 available at [https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L). [](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L) [Accessed on November 8, 2017[].](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L)
+*Iranian hackers used female 'honey pot' to lure targets: researchers* by *Dustin Volz*, *US*, 2017 available at [`www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L`](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L). [](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L) [Accessed on November 8, 2017[].](https://www.reuters.com/article/us-cyber-conference-iran/iranian-hackers-used-female-honey-pot-to-lure-targets-researchers-idUSKBN1AC28L)
 
 这一事件证实，无论用户在哪个部门工作，都容易受到社会工程攻击。这里的目标是它-知识渊博，但伪装成一个年轻，有吸引力的女士分享他的兴趣，能够让他放松警惕。他打开了组织网络中的一个文件，该文件可能窃取了登录凭证，甚至通过网络传播并感染了其他计算机。如果使用了更强的恶意软件，攻击可能已经完成。当涉及到社会工程时，用户都面临着同样的弱点。攻击者只需要找到一个人的弱点。这可能是对任何权威、孤独、财务需求或投资需求等的盲目服从。
 
 奥肯伊和托马斯进行了一项关于人体黑客行为的解剖学研究，这项研究可以转化为社会工程。
 
-*On the Anatomy of Human Hacking*, by *P. Okenyi* and *T. Owens* at *Taylor & Francis Online* available at [http://www.tandfonline.com/doi/abs/10.1080/10658980701747237](http://www.tandfonline.com/doi/abs/10.1080/10658980701747237). [Accessed on November 8, 2017].
+*On the Anatomy of Human Hacking*, by *P. Okenyi* and *T. Owens* at *Taylor & Francis Online* available at [`www.tandfonline.com/doi/abs/10.1080/10658980701747237`](http://www.tandfonline.com/doi/abs/10.1080/10658980701747237). [Accessed on November 8, 2017].
 
 他们说人类总是对被社会工程师操纵持开放态度；只需要转动正确的旋钮。他们发现，人类服从高于他们的权威，因此愿意执行上级传下来的命令。这是社会工程师经常使用的一个弱点，他们试图使用组织中高级管理人员的虚假档案来传递恶意命令。两位作者还意识到，人类同情并信任陌生人。人类是有爱心的，愿意帮助陌生人，这使他们处于被普通骗子操纵的不幸境地。礼貌、信任和同情被用来让人们向黑客提供他们个人设备上包含非常敏感数据的详细信息。然后，这些黑客能够在目标意识到这一点之前安装恶意软件或复制敏感数据。女性，尤其是怀孕或残疾女性，已经被用来让目标给出她们设备的详细信息，只是为了植入恶意软件或复制或删除数据。作者发现，人类总是对某些奖励感兴趣，并愿意采取据称会为他们赢得奖励的行动。
 
 一种常用的网络钓鱼策略是告诉用户，如果他们点击某些链接，就有机会赢得巨额奖金。许多人想要奖品，因此会点击链接，这些链接可能会引导他们进入赠品页面，但却发现这些链接指向恶意网站。人类也有负罪感、取悦他人的欲望和道德责任感。这些都是将在接下来的章节中讨论的心理学问题。
 
-*Why We're Vulnerable to Social Engineering Attacks* by  *Becky Metivier*, at *Sage Data Security a*vailable at [https://www.sagedatasecurity.com/blog/why-we-are-vulnerable-to-social-engineering-attacks](https://www.sagedatasecurity.com/blog/why-we-are-vulnerable-to-social-engineering-attacks). [Accessed on November 8, 2017].
+*Why We're Vulnerable to Social Engineering Attacks* by  *Becky Metivier*, at *Sage Data Security a*vailable at [`www.sagedatasecurity.com/blog/why-we-are-vulnerable-to-social-engineering-attacks`](https://www.sagedatasecurity.com/blog/why-we-are-vulnerable-to-social-engineering-attacks). [Accessed on November 8, 2017].
 
 理解社会工程通常不是一个坏的实践是很好的；它有好的和恶意的应用程序。这两种方式都是有效的，因为目标具有前面详述的相同特征，因此总是容易受到攻击。社会工程在社会中起着关键作用；它能让人得到恩惠。不管它们是好是坏，它让人们做出有利于请求他们的人的决定。只是社会工程现在被坏人用来犯下巨大的罪行。在犯罪行为中用于操纵他人的策略框架与用于积极结果的策略框架相同。被利用的弱点是相对相同的，所有人类都有。
 
@@ -114,7 +114,7 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 
 ![](img/b3ca3d74-ab92-4320-ac83-4cf820d52c26.png)Search results from Bing
 
-一个名为**Pipl**([https://pipl.com](https://pipl.com))的网站是关于大量人的信息的最大档案库之一。对于其数据库中的每个人，该网站都保留了该人的电子邮件地址、社交媒体账户、电话号码和实际地址。该网站声称拥有超过 30 亿人的详细信息:
+一个名为**Pipl**([`pipl.com`](https://pipl.com))的网站是关于大量人的信息的最大档案库之一。对于其数据库中的每个人，该网站都保留了该人的电子邮件地址、社交媒体账户、电话号码和实际地址。该网站声称拥有超过 30 亿人的详细信息:
 
 ![](img/3c8602ec-f933-4707-9f2c-1d3be82c8c84.png)A screenshot from pipl.com
 
@@ -173,7 +173,7 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 
 整个社会工程攻击是基于心理诡计，所以这是社会工程攻击框架的许多其他部分使用的一个步骤。社会工程攻击的这一部分包括使用特制的技巧来改变受害者的思维模式。在生活中的许多其他领域，心理技巧在某种程度上也被使用，例如在销售中使产品价格看起来更便宜，在审讯室中让嫌疑人认罪。心理诡计更多的是一种心理事件，它们被用来打开目标的思想，使他们暴露在社会工程师的控制之下。一个优秀的社会工程师是一个很好的读心术者，这是通过掌握一些思维技巧来实现的。
 
-心理技巧始于融洽的关系。这是用来获得目标的信任和信心的主要努力。从那里，社会工程师使用几个旨在改变目标大脑正常思维的技巧。只能比喻成一种叫做**缓冲区溢出**的黑客技术。这是一个程序被提供了比它的缓冲区所能容纳的更多的数据的地方。因此，由于信息溢出，程序开始表现不稳定。人类大脑的推理能力也同样不堪重负，这使得它容易受到社会工程师的操纵。人类有三种可以利用的思维模式，这将在[第二章](02.html)、*社会工程心理学——使用的思维技巧*中看到。这些措施如下:
+心理技巧始于融洽的关系。这是用来获得目标的信任和信心的主要努力。从那里，社会工程师使用几个旨在改变目标大脑正常思维的技巧。只能比喻成一种叫做**缓冲区溢出**的黑客技术。这是一个程序被提供了比它的缓冲区所能容纳的更多的数据的地方。因此，由于信息溢出，程序开始表现不稳定。人类大脑的推理能力也同样不堪重负，这使得它容易受到社会工程师的操纵。人类有三种可以利用的思维模式，这将在第二章、*社会工程心理学——使用的思维技巧*中看到。这些措施如下:
 
 *   视觉思维:视觉思考者是视觉处理信息的人。他们擅长描绘事物，他们的决策通常基于他们在大脑中创造的整体形象。因此，视觉思考者的目标是视觉上吸引人的东西，而不是对他们有益的东西。男性倾向于视觉思考，这就是为什么他们的产品在广告中具有视觉吸引力。为了进入视觉思考者的头脑，社会工程师也专注于给他们视觉输入。
 *   **听觉思维**:听觉思维者非常擅长根据事物的声音进行推理。他们很容易被声音说服，因为他们对如何处理来自不同声音的信息有偏见。他们很容易被声音触动，也很容易用声音创造记忆。值得注意的是，他们不一定要通过身体交流。他们可以进入一种思考状态，在这种状态下，当他们阅读任何文本时，他们可以假设某种声音。他们更关心谨慎的选词，很少注意低努力的选词。
@@ -194,7 +194,7 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 说服会在目标的头脑中产生不容置疑的影响。为了攻击成功，社会工程师完善了他们的说服技巧。他们确保他们对目标的影响是无法察觉的，但却是深远的。通过社会工程师首先用来灌输给目标头脑的五个基本要素，可以最好地理解说服。它们包括:
 
 *   **明确的目标**:这被定义为一个目标可能无助地落入社会工程师的控制之下；他或她在参与过程中必须表现出有明确的目标。归根结底，如果你专注于某件事，你就有可能成为它。一个社会工程师将会有已经建立的清晰的目标，并且他们都将会有逻辑的结构。这些目标应该有助于实现随后的目标。因此，在社会工程师与目标的任何接触中，比如说在咖啡店偶遇他们，已经有了一个预先定义的目标，这个目标的实现将促进另一个目标的实现。没有目标是孤独的；如果是，可以忽略它，因为它不会影响攻击的成功。
-*   融洽关系:融洽关系的建立是为了确保目标信任社会工程师。为了建立融洽的关系，使社会工程师能够说服目标，社会工程师必须了解目标的想法。上一节已经讨论了不同的思维模式。这些对于建立这种融洽关系非常重要。关于了解目标大脑的额外信息将在[第二章](02.html)、*社会工程心理学-使用的思维技巧*中讨论。
+*   融洽关系:融洽关系的建立是为了确保目标信任社会工程师。为了建立融洽的关系，使社会工程师能够说服目标，社会工程师必须了解目标的想法。上一节已经讨论了不同的思维模式。这些对于建立这种融洽关系非常重要。关于了解目标大脑的额外信息将在第二章、*社会工程心理学-使用的思维技巧*中讨论。
 *   协调一致:社会工程师总是意识到他们自己和他们周围的环境。这使得社会工程师能够有一个外部的视角，并注意到攻击何时按预期进行或不进行。对于任何想要变得非常有说服力的社会工程师来说，成为一个既善于观察又善于倾听的大师是至关重要的。社会工程师也是人，自然会向目标发出一些交流或信号。然而，一个社会工程师应该能够根据攻击的进展，掩盖真实的面部表情，手势，微表情，甚至他们的呼吸频率，并用伪造的来代替。因此，社会工程师应该学会如何作为一个外部实体来观察这些信号，并判断他或她对目标的吸引力。他或她应该意识到身体给出的非语言暗示，并调整它们以适应攻击环境。这种意识将使他或她能够不断地吸引目标人物。
 
 *   灵活性:说服并不是达成目标的可靠方法。它不是某种反应物会导致某种结果或解决方案的化学反应。有时，即使有最好的技巧，目标也可能看起来没有被说服或被说服。这可能会让社会工程师放弃照本宣科的攻击，并想出其他可能最终赢得目标的技巧。因此，提前计划并不总是攻击成功的保证，在许多情况下，社会工程师需要调整他或她的方法。
@@ -229,7 +229,7 @@ The social engineering cycle is shown in the following figure:![](img/16737993-7
 *   **GPS 追踪器** : 其中一个是 GPS 追踪器。*除了跟踪目标的所有活动并准确知道在哪里可以找到他们，还有什么更好的方法可以意外撞上他们吗？*一个很好的例子是一辆价值 200 美元的 SpyHawk，它被磁性吸附在目标的汽车上，并使用 GPS 发回车辆的准确坐标。今天，大多数基于软件的社会工程工具都是在线的。他们可以从网上收集目标的信息。
 *   这是一个在线网站，对域名、IP 地址、组织和人员等信息进行分类。这是每个社会工程师的梦想成真。
 
-*Using penetration testing feedback to cultivate an atmosphere of proactive security amongst end-users*, by *M. Styles and T. Tryfonas,* *Information Management & Computer Security,* Volume 17, Issue *1,* pp. 44-52, 2009 available at [http://dx.doi.org/10.1108/09685220910944759](http://dx.doi.org/10.1108/09685220910944759).
+*Using penetration testing feedback to cultivate an atmosphere of proactive security amongst end-users*, by *M. Styles and T. Tryfonas,* *Information Management & Computer Security,* Volume 17, Issue *1,* pp. 44-52, 2009 available at [`dx.doi.org/10.1108/09685220910944759`](http://dx.doi.org/10.1108/09685220910944759).
 
 Maltego 能够将关于一个人的最微小的信息捆绑在一起，包括在不太知名的电子商务商店上写的评论。它可以找出一个人的信息，家庭成员，亲戚，亲密朋友，以及许多其他细节，这将很容易找到一个弱点来击中目标。从社会工程师的角度来看，主要目标是给目标一个他或她无法拒绝的提议。天生的贪婪会解决剩下的问题，很快目标就会乞求出价:
 
@@ -239,7 +239,7 @@ Maltego 能够将关于一个人的最微小的信息捆绑在一起，包括在
 
 其他基于软件的工具包括**欺骗器**和**密码剖析器**等等。
 
-*Thoughts on techno-social engineering of humans and the freedom to be off (or free from such engineering)*, by *Brett Frischmann* at *Theoretical Inquiries in Law,* *Volume 17*, *Issue 2,* pp. 535-561, 2016 available at : [http://dx.doi.org/10.1515/til-2016-0020](http://dx.doi.org/10.1515/til-2016-0020).
+*Thoughts on techno-social engineering of humans and the freedom to be off (or free from such engineering)*, by *Brett Frischmann* at *Theoretical Inquiries in Law,* *Volume 17*, *Issue 2,* pp. 535-561, 2016 available at : [`dx.doi.org/10.1515/til-2016-0020`](http://dx.doi.org/10.1515/til-2016-0020).
 
 来自 Kali Linux 的 SET 截图如下:
 
@@ -257,7 +257,7 @@ You can refer to the movie at [www.imdb.com/title/tt0325805/.](http://www.imdb.c
 
 这还不是全部。阿巴内尔在被联邦调查局抓住之前(多年后)也曾假扮成医生和教师。这部电影是一个很好的例子，说明了社会工程是人类黑客的艺术，以及我们人类是多么的脆弱。
 
-You can refer to the movie at [http://www.imdb.com/title/tt0264464/?ref_=nv_sr_2](http://www.imdb.com/title/tt0264464/?ref_=nv_sr_2).# 十一罗汉(2001)
+You can refer to the movie at [`www.imdb.com/title/tt0264464/?ref_=nv_sr_2`](http://www.imdb.com/title/tt0264464/?ref_=nv_sr_2).# 十一罗汉(2001)
 
 丹尼·奥逊(乔治·克鲁尼饰)和他的 11 名同伙计划同时抢劫拉斯维加斯的三家赌场。Ocean 先生和他的同谋利用社会工程、技术智慧和策略上安插的内部人员，渗透到 Bellagio 全面的、最先进的安全系统中，带着 1.6 亿美元潜逃。
 

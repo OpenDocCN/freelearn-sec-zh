@@ -21,7 +21,7 @@
 
 但是，如果任务是从一个高度安全的组织窃取高度机密的文件，所使用的借口必须是一个复杂的借口，以便能够获得该信息。
 
-*FedEx Fraudulent Email Alert*, by *Fedex.com*, 2018 available at [http://www.fedex.com/us/update2.html](http://www.fedex.com/us/update2.html). [Accessed on January 20, 2018].# 伪装的原则和计划
+*FedEx Fraudulent Email Alert*, by *Fedex.com*, 2018 available at [`www.fedex.com/us/update2.html`](http://www.fedex.com/us/update2.html). [Accessed on January 20, 2018].# 伪装的原则和计划
 
 伪装，就像任何其他技能一样，有一定的原则，如果使用得当，可以取得良好的效果。每当社会工程师不得不求助于借口时，这些原则就派上了用场，而且总是有所收获。让我们来看看其中的一些:
 
@@ -41,7 +41,7 @@
 
 谷歌黑客是一种技术，它将使用谷歌搜索来帮助你找到你需要的隐藏在互联网中的任何信息。它包括使用特定的文本字符串来查找结果。对于社会工程师来说，这项技术是一座金矿。基于 CSO online，FBI 针对这一众所周知的问题发布了公开警告。FBI 警告告诉各机构，黑客/社会工程师将使用谷歌黑客来定位组织可能无意被公众发现的信息，或找到网站漏洞以用于后续的网络攻击。
 
-*FBI issues warning about creative Google searches* by *Steve Ragan* available at [](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html) [https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html).# 谷歌黑客的力量
+*FBI issues warning about creative Google searches* by *Steve Ragan* available at [](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html) [`www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html`](https://www.csoonline.com/article/2597556/social-engineering/fbi-issues-warning-about-creative-google-searches.html).# 谷歌黑客的力量
 
 2013 年，当我在教授一门认证道德黑客课程时，其中一个章节有一个关于谷歌黑客的话题。在课堂上，我们发现一些非常有趣的细节扫描到互联网上，如澳大利亚护照，驾驶执照，出生证明，以及其他许多机密数据。在内容从半政府所有的网站上删除后，我在我的博客上发表了泄漏的内容。当然，为了保护受害者，所有的图片都被我做了模糊处理，这篇文章在一周内被点击了 20，000 次，被转发了很多次，这篇文章被刊登在很多报纸上。
 
@@ -199,7 +199,7 @@ Site:com filetype:xls "membership list"
 
 2006 年，惠普公司面临着机密信息泄露的问题。有人怀疑泄密者是该组织出席董事会会议的高级官员。当时的董事长帕特里夏·邓恩女士对此感到困扰，并试图获得董事会成员的电话记录。公司抓住了内奸，结果发现他是一名董事。这个内奸向在线新闻公司 CNET 提供董事会议上讨论的敏感内部信息。
 
-*Hewlett-Packard Spied on Writers in Leaks,* by *D. Darlin*,  *Nytimes.com*, 2018 available at [http://www.nytimes.com/2006/09/08/technology/08hp.html](http://www.nytimes.com/2006/09/08/technology/08hp.html). [Accessed on January 20, 2018].
+*Hewlett-Packard Spied on Writers in Leaks,* by *D. Darlin*,  *Nytimes.com*, 2018 available at [`www.nytimes.com/2006/09/08/technology/08hp.html`](http://www.nytimes.com/2006/09/08/technology/08hp.html). [Accessed on January 20, 2018].
 
 这个例子中有趣的一点是他们如何捕获鼹鼠的细节。为了获取董事会成员的电话记录，使用了可疑的策略，而且他们不知道自己受到了监视。惠普承认，为了追踪到内奸，它使用了一种名为“伪装”的非书本技术。然而，随着包括董事长在内的几名惠普员工被指控欺诈性获取他人个人信息，这种技术的使用开始困扰他们。这种掩饰的方式有点可疑。我们已经讨论过，借口包括创造一个虚假的场景和/或假设一个不同的身份，以便让他人透露敏感信息或同意做某些事情。
 
@@ -221,11 +221,11 @@ Site:com filetype:xls "membership list"
 
 里夫金的故事强调了我们之前在《借口》中讨论过的一些原则。也许我们可以从他的抢劫案中学到的一个重要的补充是，如果一个社会工程师重复使用一个借口，他可能会被抓住。里夫金在第一次保释外出时被捕，当时他正试图用同样的手段进行另一次抢劫。
 
-*Consultant Arrested in Bank Theft* by *J. Berry*,  *Washington Post*, 2018 available at [https://www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c](https://www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c). [Accessed on January 20, 2018].# DHS 黑客
+*Consultant Arrested in Bank Theft* by *J. Berry*,  *Washington Post*, 2018 available at [`www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c`](https://www.washingtonpost.com/archive/politics/1978/11/07/consultant-arrested-in-bank-theft/8deb849b-df94-445a-92a6-bcff5fe8cae9/?utm_term=.6923978c7a7c). [Accessed on January 20, 2018].# DHS 黑客
 
 这是发生在 2016 年的一次严重黑客攻击，导致国土安全部 9000 名员工和与联邦调查局合作的 2 万名官员的个人信息被盗。被盗的个人信息包括全名、职位、电子邮件地址和当前的电话号码。更令人震惊的是，社会工程攻击是直接针对 IT 支持人员进行的，该人员的职位是保护其他员工免受此类和类似类型的攻击。为了展示自己的能力，黑客联系了一家名为 Motherboard 的新闻网站，解释他是如何成功入侵司法部的。
 
-*Justice, DHS Probe Hack Allegedly Made Possible By DOJ Help Desk*, by *Nextgov.com*, 2018 available at [http://www.nextgov.com/cybersecurity/2016/02/justice-dhs-probe-hack-allegedly-made-possible-doj-help-desk/125831/](http://www.nextgov.com/cybersecurity/2016/02/justice-dhs-probe-hack-allegedly-made-possible-doj-help-desk/125831/). [Accessed on January 20, 2018].
+*Justice, DHS Probe Hack Allegedly Made Possible By DOJ Help Desk*, by *Nextgov.com*, 2018 available at [`www.nextgov.com/cybersecurity/2016/02/justice-dhs-probe-hack-allegedly-made-possible-doj-help-desk/125831/`](http://www.nextgov.com/cybersecurity/2016/02/justice-dhs-probe-hack-allegedly-made-possible-doj-help-desk/125831/). [Accessed on January 20, 2018].
 
 黑客试图使用其他技术攻击登录表单来突破该部门，但这没有产生任何积极的结果。这是他转向社会工程的地方。他打电话给 IT 支持办公室，说他是新来的，无法进入门户。他们询问他是否有访问令牌，他回答说没有。支持办公室告诉他不要担心，他们会给他一个用于登录。这是攻击的一个决定性时刻，IT 支持人员向黑客提供了一个能够进入门户的访问令牌。该部门的后续报告称，安全政策禁止 IT 人员向未经验证的人分发令牌。验证将通过亲自到 it 办公室或通过回答一些秘密问题在电话上验证自己来完成。当然，这些都被帮助黑客的 IT 人员忽视了。
 
@@ -233,7 +233,7 @@ Site:com filetype:xls "membership list"
 
 黑客需要做的只是让支持人员相信他或她是他们中的一员。在转向社会工程之前，黑客曾试图直接侵入门户网站。这并不成功。大多数系统都可以抵御常见类型的黑客攻击。从这个场景中可以看出，弱点在于用户。
 
-![](img/d92ff3e1-4f77-475e-82a9-4be761d79eb7.png)The tactics and techniques used by ATP28 and 29 to conduct cyber intrusions against targeted systems; screenshot through FBI/DHS*Here's the evidence U.S. intelligence has on Russia's election hacking* by *Andrew Couts at* [](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/) [https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/)[.](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/)
+![](img/d92ff3e1-4f77-475e-82a9-4be761d79eb7.png)The tactics and techniques used by ATP28 and 29 to conduct cyber intrusions against targeted systems; screenshot through FBI/DHS*Here's the evidence U.S. intelligence has on Russia's election hacking* by *Andrew Couts at* [](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/) [`www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/`](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/)[.](https://www.dailydot.com/layer8/fbi-dhs-russia-election-hack-full-report/)
 
 让我们来看看使这个借口成功的原则。首先，黑客选择了一个非常简单的借口。黑客只说他是新来的，他正试图进入司法部的门户网站。这个借口没什么意思。如果他被问到任何问题，黑客可以简单地说他不知道。这可能是人员更愿意帮助黑客的原因。他没有开始验证过程，这也给他带来了好处。这次攻击的借口选择得非常完美。如果黑客声称自己是一名高级职员，事情就会有所不同，因为所有的 IT 人员可能都认识这名高级职员，这可能会带来诸如验证之类的问题。正如《借口的原则》中所讨论的，借口越简单越好。
 
@@ -245,7 +245,7 @@ Site:com filetype:xls "membership list"
 
 2017 年可能已经被国税局的骗局所定义，因为许多美国公民都被这些精心策划的攻击所欺骗。据 CNN 报道，所有这些国税局骗局背后的主谋是一名 24 岁的印度男子萨加尔·塔卡尔。他建立了呼叫中心，用来从美国人那里诈骗数百万美元。Thakkar 面临的指控包括勒索、欺骗、冒充和共谋。这是美国有史以来最成功的社会工程攻击之一。他利用了美国人共同的恐惧，报税的负担。让我们敏锐地观察一下 Thakkar 和其他攻击者是如何成为社会工程毫无防备的目标的，并看看他们使用的借口原则。
 
-*IRS scam alleged ringleader arrested in India* by *Z. Alkhalisi*,  *CNNMoney*, 2018 available at [http://money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html](http://money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html). [Accessed on January 20, 2018].# 电话
+*IRS scam alleged ringleader arrested in India* by *Z. Alkhalisi*,  *CNNMoney*, 2018 available at [`money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html`](http://money.cnn.com/2017/04/09/news/tax-scam-india-arrest-ringleader/index.html). [Accessed on January 20, 2018].# 电话
 
 在这种类型的攻击中，呼叫者声称来自国税局。他们的信息是，他们给出了一个到期付款的最后通知。他们会发出逮捕的威胁，如果据称接收人所欠的款项没有支付的话。有些打电话的人听起来不是本地人；因此，他们的骗局并不成功，因为它们会引起怀疑。还有其他呼叫者使用录音信息，但这些听起来也没有创意，因此它们并不总是有效。然而，还有其他人，他们武装到了牙齿，掌握了一些关于他们目标的真实信息。据说，这些打电话的人从侵入政府和健康数据库的黑客那里购买了这类信息。受害者肯定是国税局，因为几乎没有其他人会有这种信息。最后，他们会按照社会工程师的指示支付巨额款项。然而，奇怪的是，大多数打电话的人要求付款的方式是通过 iTunes 礼品卡。因此，这些付款是无法追踪的。然而，受害者此时会太害怕而不敢提出任何问题。
 
@@ -267,11 +267,11 @@ Site:com filetype:xls "membership list"
 
 最后，骗子利用实体信件诈骗美国公民。这仍然是 IRS 联系某人希望发起通信的合法方式。这些信件还被用来要求用户提供他们的个人信息，有时是银行信息。然而，关于这类骗局的报道较少，因为它们涉及太多的工作。但是，他们中的一些人仍然是成功的。这是因为美国公民非常重视国税局，通常不会拒绝来自国税局的任何信息。这种借口使用的原则有两个，研究和简单的借口。必须进行研究，以便找出目标的实际邮箱。同样，这些信息很容易在网上找到。有 Pipl 等网站列出了它们。另一个原则是，借口只是地球上四分之一人口的简单邮政地址。他们只涉及信件，没有电话或电子邮件。如前所述，美国人不会解雇国税局，因此他们会按照信中所说的去读和做。
 
-![](img/151ab326-2af1-4da9-bc07-382e60d0044a.png)The pipl.com website has many real mail addresses; did you check yours? (My one is wrong)*IRS scams 2017: What you need to know now*, by *J. Fruhlinger*, *CSO Online*, 2018 available at [https://www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html](https://www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html). [Accessed on January 20, 2018].# 泛在网络
+![](img/151ab326-2af1-4da9-bc07-382e60d0044a.png)The pipl.com website has many real mail addresses; did you check yours? (My one is wrong)*IRS scams 2017: What you need to know now*, by *J. Fruhlinger*, *CSO Online*, 2018 available at [`www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html`](https://www.csoonline.com/article/3234469/phishing/irs-scams-2017-what-you-need-to-know-now.html). [Accessed on January 20, 2018].# 泛在网络
 
 这种攻击在本书中是一个常见的参考，因为它今天在许多关于 CEO 骗局的阐述中被使用。2015 年，在意识到自己成为社会工程的受害者并因黑客损失了 3600 万美元后，Ubiquiti networks 发现自己陷入了一个令人不安的境地。这家总部位于加州的网络设备制造公司证实，在其香港子公司在一次攻击中遭到欺诈后，它已成为社交工程的受害者，这一攻击以首席执行官骗局而闻名。这一章对这次攻击的实现方式很感兴趣。该骗局与 IRS 的一个骗局相匹配，该骗局被称为商业电子邮件妥协骗局，组织中的低层员工从假冒的人力资源电子邮件地址收到电子邮件，要求他们发送 W-2 表格。
 
-*Ubiquiti Networks $46.7 computer fraud hack*, *Forbes.com*, 2018 available at [https://www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3](https://www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3). [Accessed on January 20, 2018].
+*Ubiquiti Networks $46.7 computer fraud hack*, *Forbes.com*, 2018 available at [`www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3`](https://www.forbes.com/sites/nathanvardi/2016/02/08/how-a-tech-billionaires-company-misplaced-46-7-million-and-didnt-know-it/#585e134d50b3). [Accessed on January 20, 2018].
 
 在 Ubiquiti networks 攻击中，黑客伪造了一名高级职员的电子邮件，并使用它与财务部门的员工进行通信。黑客在电子邮件中解释说，一些供应商已经更改了他们的付款细节，因此将使用海外银行账户付款。美国联邦调查局表示，他们在短短 17 天内追踪到了 14 笔从 Ubiquiti 向东亚某大国和俄罗斯等国的异常汇款。就在此时，调查局向 Ubiquiti 发出警报，称 Ubiquiti 的香港银行账户正在发生可疑交易。这就是母公司介入并阻止财务部进行进一步转账的地方。此时，黑客已经损失了超过 4600 万美元。人们认为，如果联邦调查局没有发出警报，这些交易将继续进行，该公司将遭受更大的损失。该公司跟进此案，只能追回约 800 万美元。该公司创始人兼首席执行官罗伯特·佩拉(Robert Pera)将这一事件归咎于他手下一些会计师的判断力差和无能。
 
@@ -301,7 +301,7 @@ Site:com filetype:xls "membership list"
 
 ![](img/7fe6ba4f-6bbe-430c-93aa-11514e6e3a42.png)A modern business card, personal blog, where social engineers can reach victims very easily (or social media accounts)![](img/4a40cd31-0095-40ed-b1e5-93fba076bcc5.png)
 
-可以使用 Kali Linux 内的**社会工程工具** ( **SET** )。我们已经在[第 8 章](10.html)、*社会工程工具中涵盖了关于 SET 的更多细节。*
+可以使用 Kali Linux 内的**社会工程工具** ( **SET** )。我们已经在第八章、*社会工程工具中涵盖了关于 SET 的更多细节。*
 
 # 技巧
 

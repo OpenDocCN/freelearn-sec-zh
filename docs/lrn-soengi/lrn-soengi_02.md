@@ -2,7 +2,7 @@
 
 整个社会工程攻击都是心理上的，之所以有效，是因为攻击者在目标身上玩了心理把戏。这些心理技巧旨在改变受害者的思维模式，使他们更符合社会工程师的要求，无论他们看起来多么不寻常。看看娱乐产业，尤其是电视节目和电影，头脑戏法被描绘成神秘的力量。那些拥有它们的人被证明可以毫不费力地锁定目标，让他们交出他们的财产和金钱以及其他东西。2016 年的一部名为 *The Catch* 的系列电影就是其中之一。它向观众介绍了一个以克里斯托弗·霍尔闻名的罪犯的生活。他被认为是社会工程学的专家。在系列中，他能够在重新考虑和翻开新的一页之前，骗走他的未婚妻一生的积蓄和一位阿拉伯公主 1500 万美元。这位演员表演骗局时的轻松自如最能吸引人们的注意力。他能够扮演多重人格，对目标人物玩心理战，从而让他们不问问题就给他钱或财物。
 
-*The Catch*, at *TV Guide 2016* available at [http://www.tvguide.com/tvshows/the-catch/episodes-season-1/799838/](http://www.tvguide.com/tvshows/the-catch/episodes-season-1/799838/). [Accessed on November 20, 2017].
+*The Catch*, at *TV Guide 2016* available at [`www.tvguide.com/tvshows/the-catch/episodes-season-1/799838/`](http://www.tvguide.com/tvshows/the-catch/episodes-season-1/799838/). [Accessed on November 20, 2017].
 
 问题是，一个人在现实生活中有可能获得这样的能力吗？本章深入探讨了这一点，并在结束时；你会和好莱坞角色一样是个好骗子。当然，这里的主要意图是让您深入了解社会工程师的想法，以便帮助您抵御社会工程师的攻击。本章介绍了以下主题:
 
@@ -23,7 +23,7 @@
 
 决定一个人思维模式的唯一途径是通过感官。大脑只不过是一个神经元网络，从身体的其他部分接收和发送感觉脉冲。因此，思维方式与一个人的主要感官密切相关。人们会很自然地偏爱某种特定类型的感官输入。因此，它将成为储存事物、人物、事件等记忆的主要方式。有些人有很好的嗅觉，有些人有声音，有些人有触觉，有些人有味觉。正是这些感官可以清楚地表明一个人的主要思维方法。
 
-*Thinking styles and modes of thinking: Implications for education and research*, by *Z. Li-Fang*, *J. Psychol,* Volume 136, Issue *3,* pp. 245-61, 2002 available at [https://search.proquest.com/docview/213835818?accountid=45049](https://search.proquest.com/docview/213835818?accountid=45049).
+*Thinking styles and modes of thinking: Implications for education and research*, by *Z. Li-Fang*, *J. Psychol,* Volume 136, Issue *3,* pp. 245-61, 2002 available at [`search.proquest.com/docview/213835818?accountid=45049`](https://search.proquest.com/docview/213835818?accountid=45049).
 
 人类表现出五种感官和三种思维模式。根据人们表现出来的思维方式，他们可以被分为三种类型。这些是:
 
@@ -71,7 +71,7 @@
 
 很长一段时间以来，医生、研究人员和人类行为专家一直在研究微表情，最终目标是知道他们何时被欺骗。社会工程师擅长理解他们目标的微表情，并能发现欺骗的迹象。微表情研究的权威之一是保罗·艾克曼博士，他写了许多关于这个主题的书，包括*情感流露*和*揭开面孔*。
 
-*Evidence for training the ability to read microexpressions of emotion*, by *D. Matsumoto and H. S. Hwang*, *Motivation and Emotion*, Volume 35, Issue 2, pp 181-191, 2011 available at [http://dx.doi.org/10.1007/s11031-011-9212-2](http://dx.doi.org/10.1007/s11031-011-9212-2).
+*Evidence for training the ability to read microexpressions of emotion*, by *D. Matsumoto and H. S. Hwang*, *Motivation and Emotion*, Volume 35, Issue 2, pp 181-191, 2011 available at [`dx.doi.org/10.1007/s11031-011-9212-2`](http://dx.doi.org/10.1007/s11031-011-9212-2).
 
 埃克曼博士在他的书中指出了七种主要的微表情，我们将逐一介绍。
 
@@ -167,7 +167,7 @@
 
 NLP 研究人类思考和体验周围环境的方式。它导致一些原理如何工作的模型的形成。然而，这是有争议的，因为它是公认的不精确。自然语言处理的历史可以追溯到 20 世纪 70 年代。它是由 Bandler 和 Grinder 开发的。他们是第一批想出 NLP 代码的研究人员。他们还开发了一种被称为**元模型**的治疗模型，他们多年来一直在为 NLP 改进这个模型。
 
-*Neurolinguistic programming*, by *E. H. Marcus*, Personnel Journal (Pre-1986), Volume 62, (000012), pp. 972, 1983 available at [https://search.proquest.com/docview/203642455?accountid=45049](https://search.proquest.com/docview/203642455?accountid=45049).# 自然语言处理代码
+*Neurolinguistic programming*, by *E. H. Marcus*, Personnel Journal (Pre-1986), Volume 62, (000012), pp. 972, 1983 available at [`search.proquest.com/docview/203642455?accountid=45049`](https://search.proquest.com/docview/203642455?accountid=45049).# 自然语言处理代码
 
 当 Bandler 和 Grinder 提出 NLP 时，它并不像现在这样定义。随着时间的推移，它收到了许多旨在帮助人们理解人类思维模式的贡献。这些被编成了代码。随着时间的推移，Grinder 发现了最初代码的缺点，并决定制定一个新的代码，该代码更加关注人们的信仰以及如何改变这些信仰。新的守则侧重于感知，克服思维模式的技术，以及如何改变旧习惯。新法典还包括一个人的精神状态和对这些状态的感知。目前制定的新代码专注于通过针对无意识大脑来改变一个人的思维模式，而不是直接试图改变一个人的行为。销售人员是如何做到这一点的例子。为了增加他们的销售，他们可以首先让潜在的买家谈论他们的生活梦想和目标。有了这些，销售人员可以把他们的产品作为实现这些目标的手段。
 
@@ -247,7 +247,7 @@ NLP 是强大的，它与潜意识相一致。所做的决定受到潜意识的�
 
 在概述中，有人说人脑可以像电脑一样被黑客攻击。前面几节已经说明了情绪可以在目标中被侵入。本节讨论了一种更强大的人脑黑客方法。计算机程序已经被黑客利用这种技术入侵，在这种技术中，它们被给予比通常情况下更大尺寸的输入以保存在它们的缓冲区中。缓冲区是用来保存特定数据的内存存储区域。当提供的数据超出限制时，会导致溢出。这使程序不堪重负，导致错误和不良行为。这也方便了黑客在计算机程序无法控制自己的执行时发出一些恶意命令。
 
-*Study on estimating probabilities of buffer overflow in high-speed communication networks* by *Izabella Lokshin*, *Telecommunication Systems,* Volume 62, Isssue *2,* pp. 289-302, 2016 available at [http://dx.doi.org/10.1007/s11235-015-0055-0](http://dx.doi.org/10.1007/s11235-015-0055-0).
+*Study on estimating probabilities of buffer overflow in high-speed communication networks* by *Izabella Lokshin*, *Telecommunication Systems,* Volume 62, Isssue *2,* pp. 289-302, 2016 available at [`dx.doi.org/10.1007/s11235-015-0055-0`](http://dx.doi.org/10.1007/s11235-015-0055-0).
 
 人脑就像一个计算机程序。它是用多年的指令、存储器和硬编码的缓冲区建成的。人类大脑有一些空间分配给临时保存数据。当呈现的数据超过可以容纳的数量时，就会出现一个记忆缺口，允许社会工程师将某些命令注入大脑。例如，人类的大脑知道颜色，可以轻松识别单个色块。然而，如果颜色块与单词交换，比如说像*红色*这样的单词以黄色字体显示，就会发生缓冲区溢出。有两种颜色回到大脑，而不是一种。书写中的红色和着色中的黄色相互竞争处理。
 
