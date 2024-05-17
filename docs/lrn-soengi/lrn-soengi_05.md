@@ -18,7 +18,7 @@
 
 # 班克斯
 
-信息收集可以通过两大类方法进行——技术方法**和非技术方法**。顾名思义，技术方法依赖于收集信息的计算机辅助技术。然而，不能保证特定的工具或电子设备将获得关于目标的足够信息。因此，可以混合使用下列工具和设备来收集目标信息。社会工程师将使用多种信息收集工具/技术，合并他们获得的信息，为他们的目标建立一个档案。****
+信息收集可以通过两大类方法进行——技术方法**和非技术方法**。顾名思义，技术方法依赖于收集信息的计算机辅助技术。然而，不能保证特定的工具或电子设备将获得关于目标的足够信息。因此，可以混合使用下列工具和设备来收集目标信息。社会工程师将使用多种信息收集工具/技术，合并他们获得的信息，为他们的目标建立一个档案。
 
  **毫不奇怪，名单上的第一个目标将是存放钱的地方。在大多数情况下，社会工程师追求的是金钱，因此，银行是首要目标。现在已经不是过去的时代了，那时钱只能以现金的形式存在，人们必须亲自抢劫银行才能非法获得。钱是流动的，并且通过互联网转移。因此，银行主要因其网上银行功能而成为攻击目标。此外，银行是敏感机构，保存着客户的敏感信息。这些信息是有价值的，如果一个社会工程师可以访问它，他们可以得到一大笔赎金，或者在黑市上以高价出售。总会有买家愿意得到这类信息。正是出于这个原因，银行采用了一些最严密的安全系统，包括物理和在线系统，以保护他们保存的资金和客户的敏感信息。然而，社会工程是一种不同类型的攻击。它并不试图攻击系统，而是攻击使用或控制系统的人。因此，银行人员都是社会工程攻击的目标。
 
@@ -28,7 +28,7 @@
 
 前面关于职业银行抢劫犯的例子表明，抢劫银行不仅是可能的，而且有时很容易。目标似乎是敏感数据，一旦社会工程师进入银行，敏感数据似乎永远不会远离。收集的外部存储设备和连接到网络的设备将为社会工程师产生大量信息。这些信息非常敏感，同样也非常昂贵。2015 年，一名黑客获得了属于阿联酋 ( **阿联酋**)一家银行客户的一些客户数据。黑客要求大约 3 美元的赎金，银行拒绝支付。在那次回应之后，黑客继续发布了 500 名客户的银行对账单，并联系客户，威胁说如果他得不到赎金，就发布他们的敏感信息。这损害了银行的声誉，影响是巨大的。因此，如果一名社会工程师走进一家银行，窃取了敏感信息，他们可以要求巨额赎金，就像阿联酋银行的情况一样。因此，从走进银行的简单任务中获取如此巨额资金的能力，使银行成为社会工程师的首要目标。
 
-*Hacker Leaks Customer Data After a United Arab Emirates Bank Fails to Pay Ransom* by *K. Zetter*, *WIRED*, 2017 available at [`www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/`](https://www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/). [Accessed on December 22, 2017].****
+*Hacker Leaks Customer Data After a United Arab Emirates Bank Fails to Pay Ransom* by *K. Zetter*, *WIRED*, 2017 available at [`www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/`](https://www.wired.com/2015/12/hacker-leaks-customer-data-after-a-united-arab-emirates-bank-fails-to-pay-ransom/). [Accessed on December 22, 2017].
 
 # 旧组织
 
