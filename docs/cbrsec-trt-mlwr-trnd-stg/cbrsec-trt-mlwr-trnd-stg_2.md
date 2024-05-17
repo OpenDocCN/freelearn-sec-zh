@@ -95,7 +95,7 @@ CVSS 随着时间的推移不断发展，至今已有三个版本。最新版本
 
 重新启动是组织决定接受某些风险，每季度或每半年打一次补丁的首要原因，以至于我与之密切合作了十多年的 MSRC 过去常常试图将需要系统重新启动的安全更新次数减少到每两个月一次。为此，在可能的情况下，他们会尝试在一个月内发布所有需要重启的更新，然后在下个月发布不需要重启的更新。当这个计划起作用时，每月修补系统的组织至少可以避免每两个月重启一次系统。但是“带外”更新，即计划外的更新，似乎经常破坏这些计划。
 
-当您看到漏洞披露随着时间推移的趋势时，组织在利用风险和正常运行时间之间做出的权衡可能更有意义。在云中运行服务器可以极大地改变这个等式——我将在第 8 章“云——实现安全性和合规性的现代方法”中对此进行更详细的介绍。
+当您看到漏洞披露随着时间推移的趋势时，组织在利用风险和正常运行时间之间做出的权衡可能更有意义。在云中运行服务器可以极大地改变这个等式——我将在第八章“云——实现安全性和合规性的现代方法”中对此进行更详细的介绍。
 
 关于 NVD、CVE 和 CVSS，还有许多其他方面和细节我没有在这里介绍，但是我已经提供了足够的基础知识，您将能够理解我接下来提供的漏洞披露趋势。
 
@@ -103,7 +103,7 @@ CVSS 随着时间的推移不断发展，至今已有三个版本。最新版本
 
 在我们深入研究漏洞披露数据之前，让我告诉你数据来自哪里，并提供一些关于数据有效性和可靠性的警告。我在本章中使用的数据有两个主要来源:
 
-1.  [https://nvd.nist.gov/vuln/searchNVD](https://nvd.nist.gov/vuln/search)
+1.  [`nvd.nist.gov/vuln/searchNVD`](https://nvd.nist.gov/vuln/search)
 2.  CVE 详细资料:https://www . CVE details . com/
 
 NVD 是该行业漏洞披露的事实上的权威来源，但这并不意味着 NVD 的数据是完美的，CVSS 也是如此。我参加了 2013 年黑帽美国会议的一个会议，名为“购买偏见:为什么脆弱性统计很糟糕”(Brian Martian，2013)。
@@ -144,7 +144,7 @@ CNAs 的出现意味着 2016 年后将有更多的组织分配 CVE 标识符。�
 
 图 2.3 列出了 2020 年 1 月 1 日《CVE 细节》50 大供应商名单(CVE 细节，2020)中 CVE 最多的供应商和 Linux 发行版。这个列表并不令人惊讶，因为这个列表中的一些供应商也是过去 20 年中他们在市场上拥有的产品数量最多的供应商。您编写的代码越多，潜在的漏洞就越多，尤其是在 2003 年之前的几年里，那时大蠕虫攻击(SQL Slammer、MS Blaster 等)时有发生。
 
-2004 年后，像这份名单上的那些行业领导者开始更加关注这些攻击后的安全漏洞。我将在第 3 章、*中进一步讨论恶意软件——恶意软件*。此外，操作系统和 web 浏览器供应商由于其无处不在而对其产品给予了不成比例的关注。操作系统或浏览器中一个新的严重或高评级漏洞的价值远远超过一个模糊应用程序中的漏洞。
+2004 年后，像这份名单上的那些行业领导者开始更加关注这些攻击后的安全漏洞。我将在第三章、*中进一步讨论恶意软件——恶意软件*。此外，操作系统和 web 浏览器供应商由于其无处不在而对其产品给予了不成比例的关注。操作系统或浏览器中一个新的严重或高评级漏洞的价值远远超过一个模糊应用程序中的漏洞。
 
 <figure class="mediaobject">![](img/B16177_02_04.png)</figure>
 
@@ -608,7 +608,7 @@ Mozilla Firefox 是一款流行的网络浏览器，最初发布于 2002 年。C
 
 所有这些漏洞扫描产生的数据对 CISOs 来说都是金粉，尤其是对于相对不成熟的安全程序。向首席执行官和董事会提供该计划的数据可以帮助首席信息官获得他们需要的资源，并传达他们在安全计划方面取得的进展。提供清单中资产数量的细目分类、他们实际上可以管理多少个漏洞、存在的严重和高严重性漏洞的数量，以及解决所有这些漏洞所需时间的估计，可以帮助构建有效的业务案例，从而增加对漏洞管理计划的投资。向高级管理层提供这样的定量数据有助于他们理解现实与观点。如果没有这些数据，就很难做出令人信服的业务案例，也很难根据安全计划的目标交流进展情况。
 
-云可以以非常积极的方式改变与漏洞管理相关的成本和工作。我将在第 8 章、*云——安全和合规性的现代方法*中讨论这一点。
+云可以以非常积极的方式改变与漏洞管理相关的成本和工作。我将在第八章、*云——安全和合规性的现代方法*中讨论这一点。
 
 # 章节总结
 
@@ -629,13 +629,13 @@ Mozilla Firefox 是一款流行的网络浏览器，最初发布于 2002 年。C
 1.  南卡罗来纳州布莱恩·马丁(2013 年 12 月 3 日)。 *Black Hat USA 2013 -接受偏见:为什么漏洞统计如此糟糕*。从 YouTube 上检索到:[T3】https://www.youtube.com/watch?time_continue=20&v = 3s 0x 0 ujgrq 4sT5】](https://www.youtube.com/watch?time_continue=20&v=3Sx0uJGRQ4s)
 2.  常见漏洞和暴露。(未注明日期)。 *CVE 编号机关*。从常见漏洞和暴露中检索到:【https://cve.mitre.org/cve/cna.html】[T3T5】](https://cve.mitre.org/cve/cna.html)
 3.  CVE 细节。(2020 年 1 月 1 日)。*按“独特”漏洞总数排名前 50 的供应商*。从 https://www.cvedetails.com/top-50-vendors.php 检索到的详细信息:[T3T5】](https://www.cvedetails.com/top-50-vendors.php)
-4.  CVE 细节。(未注明日期)。*苹果产品清单*。检索自 CVE 详情:[https://www . CVE Details . com/product-list/vendor _ id-49/apple . html](https://www.cvedetails.com/product-list/vendor_id-49/Apple.html)
+4.  CVE 细节。(未注明日期)。*苹果产品清单*。检索自 CVE 详情:[`www . CVE Details . com/product-list/vendor _ id-49/apple . html`](https://www.cvedetails.com/product-list/vendor_id-49/Apple.html)
 5.  CVE 细节。(未注明日期)。*苹果 Mac OS X 漏洞详情*。从 https://www.cvedetails.com/product/156/Apple-Mac-Os-X.html?取回[细节:vendor _ id = 49](https://www.cvedetails.com/product/156/Apple-Mac-Os-X.html?vendor_id=49)
 6.  CVE 细节。(未注明日期)。*苹果 Safari 漏洞统计*。从 https://www.cvedetails.com/product/2935/Apple-Safari.html?取回[细节:vendor _ id = 49](https://www.cvedetails.com/product/2935/Apple-Safari.html?vendor_id=49)
 7.  CVE 细节。(未注明日期)。*苹果漏洞统计*。从 https://www.cvedetails.com/vendor/49/Apple.html 检索到的详细信息:[T3T5】](https://www.cvedetails.com/vendor/49/Apple.html )
 8.  CVE 细节。(未注明日期)。*谷歌 Android 漏洞统计*。检索自 CVE 详情:[T3】https://www . CVE Details . com/product/19997/Google-Android . html？vendor _ id = 1224T5】](https://www.cvedetails.com/product/19997/Google-Android.html?vendor_id=1224 )
 9.  CVE 细节。(未注明日期)。*谷歌 Chrome 漏洞详情*。检索自 CVE 详情:[T3】https://www . CVE Details . com/product/15031/Google-chrome . html？vendor _ id = 1224T5】](https://www.cvedetails.com/product/15031/Google-Chrome.html?vendor_id=1224 )
-10.  CVE 细节。(未注明)。*谷歌产品列表*。检索自 CVE 详情:[https://www . CVE Details . com/product-list/vendor _ id-1224/Google . html](https://www.cvedetails.com/product-list/vendor_id-1224/Google.html)
+10.  CVE 细节。(未注明)。*谷歌产品列表*。检索自 CVE 详情:[`www . CVE Details . com/product-list/vendor _ id-1224/Google . html`](https://www.cvedetails.com/product-list/vendor_id-1224/Google.html)
 11.  CVE 细节。(未注明日期)。*谷歌漏洞统计*。从 https://www.cvedetails.com/vendor/1224/Google.html 检索到的详细信息:[T3T5】](https://www.cvedetails.com/vendor/1224/Google.html)
 12.  CVE 细节。(未注明日期)。它是如何工作的？从 CVE 取回详情:[T3【https://www.cvedetails.com/how-does-it-work.php】T5】](https://www.cvedetails.com/how-does-it-work.php)
 13.  CVE 细节。(未注明日期)。 *IBM 产品清单*。检索自 CVE 详情:[T3】https://www . CVE Details . com/product-list/product _ type-/first char-/vendor _ id-14/page-1/products-by-name . html？sha = 6d 92323 b7a 6590 a46e 9131 E6 E1 f 4a 17 a 96434 ea 7&order = 3&TRC = 1056T5】](https://www.cvedetails.com/product-list/product_type-/firstchar-/vendor_id-14/page-1/products-by-name.html?sha=6d92323b7a6590a46e9131e6e1f4a17a96434ea7&order=3&trc=1056)
@@ -657,14 +657,14 @@ Mozilla Firefox 是一款流行的网络浏览器，最初发布于 2002 年。C
 29.  CVE 细节。(未注明日期)。 *Windows Server 2016 漏洞详情*。检索自 CVE 详情:[T3】https://www . CVE Details . com/product/34965/Microsoft-Windows-Server-2016 . html？vendor _ id = 26](https://www.cvedetails.com/product/34965/Microsoft-Windows-Server-2016.html?vendor_id=26)
 30.  CVE 细节。(未注明日期)。 *Windows XP 漏洞统计*。检索自 CVE 详情:[T3】https://www . CVE Details . com/product/739/Microsoft-Windows-XP . html？vendor _ id = 26](https://www.cvedetails.com/product/739/Microsoft-Windows-Xp.html?vendor_id=26)
 31.  马特·米勒，男(2019 年 2 月 14 日)。 *BlueHat IL 2019 -马特米勒*。从 YouTube 上检索到:[T3【https://www.youtube.com/watch?v=PjbGojjnBZQ】T5】](https://www.youtube.com/watch?v=PjbGojjnBZQ)
-32.  微软公司。(2020 年 1 月)。*对 Windows 7 的支持已经结束*。从微软公司检索:[https://www . Microsoft . com/en-us/windows/windows-7-end-of-life-support-information](https://www.microsoft.com/en-us/windows/windows-7-end-of-life-support-information )
-33.  微软公司。(未注明日期)。*微软 Edge:打造更安全的浏览器*。检索自微软:[https://blogs . windows . com/msedgedev/2015/05/11/Microsoft-edge-building-a-safer-browser/# tfljzdzg 1 lorhcy 3.97](https://blogs.windows.com/msedgedev/2015/05/11/microsoft-edge-building-a-safer-browser/#tFLjZDzG1LORHcy3.97 )
-34.  微软公司。(未注明日期)。*微软 Edge:通过更多开源合作让网络变得更好*。检索自微软:[https://blogs . windows . com/windows experience/2018/12/06/Microsoft-edge-making-the-web-better-through-more-open-source-collaboration/# 53 ueshz 9 btu HB 1g . 97](https://blogs.windows.com/windowsexperience/2018/12/06/microsoft-edge-making-the-web-better-through-more-open-source-collaboration/#53oueSHZ9BtuhB1G.97)
+32.  微软公司。(2020 年 1 月)。*对 Windows 7 的支持已经结束*。从微软公司检索:[`www . Microsoft . com/en-us/windows/windows-7-end-of-life-support-information`](https://www.microsoft.com/en-us/windows/windows-7-end-of-life-support-information )
+33.  微软公司。(未注明日期)。*微软 Edge:打造更安全的浏览器*。检索自微软:[`blogs . windows . com/msedgedev/2015/05/11/Microsoft-edge-building-a-safer-browser/# tfljzdzg 1 lorhcy 3.97`](https://blogs.windows.com/msedgedev/2015/05/11/microsoft-edge-building-a-safer-browser/#tFLjZDzG1LORHcy3.97 )
+34.  微软公司。(未注明日期)。*微软 Edge:通过更多开源合作让网络变得更好*。检索自微软:[`blogs . windows . com/windows experience/2018/12/06/Microsoft-edge-making-the-web-better-through-more-open-source-collaboration/# 53 ueshz 9 btu HB 1g . 97`](https://blogs.windows.com/windowsexperience/2018/12/06/microsoft-edge-making-the-web-better-through-more-open-source-collaboration/#53oueSHZ9BtuhB1G.97)
 35.  微软。(未注明日期)。*安防工程*。从微软检索到:【https://www.microsoft.com/en-us/securityengineering/sdl】[T3T5】](https://www.microsoft.com/en-us/securityengineering/sdl)
-36.  NIST。(未注明日期)。从国家漏洞数据库中检索:[https://nvd.nist.gov/vuln](https://nvd.nist.gov/vuln)
+36.  NIST。(未注明日期)。从国家漏洞数据库中检索:[`nvd.nist.gov/vuln`](https://nvd.nist.gov/vuln)
 37.  NIST。(未注明日期)。*常见漏洞评分系统计算器*。从国家漏洞数据库中检索到:【https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator】
 38.  NIST。(未注明日期)。 *CVE-2018-8653 详情*。从国家漏洞数据库中检索到:【https://nvd.nist.gov/vuln/detail/CVE-2018-8653】
 39.  NIST。(未注明日期)。*漏洞度量*。从国家漏洞数据库中检索到:【https://nvd.nist.gov/vuln-metrics/cvss】
-40.  里贝罗河(未标明)。*了解 Windows 10 的安全优势*。检索自 BizTech:[https://BizTech magazine . com/article/2016/04/understanding-security-benefits-windows-10](https://biztechmagazine.com/article/2016/04/understanding-security-benefits-windows-10)
-41.  维基百科。(未注明日期)。*常见漏洞评分系统*。从维基百科检索:[https://en . Wikipedia . org/wiki/Common _ Vulnerability _ Scoring _ System](https://en.wikipedia.org/wiki/Common_Vulnerability_Scoring_System)
+40.  里贝罗河(未标明)。*了解 Windows 10 的安全优势*。检索自 BizTech:[`BizTech magazine . com/article/2016/04/understanding-security-benefits-windows-10`](https://biztechmagazine.com/article/2016/04/understanding-security-benefits-windows-10)
+41.  维基百科。(未注明日期)。*常见漏洞评分系统*。从维基百科检索:[`en . Wikipedia . org/wiki/Common _ Vulnerability _ Scoring _ System`](https://en.wikipedia.org/wiki/Common_Vulnerability_Scoring_System)
 42.  维基百科。(未注明日期)。*零项目*。从维基百科检索:【https://en.wikipedia.org/wiki/Project_Zero】[T3T5】](https://en.wikipedia.org/wiki/Project_Zero)

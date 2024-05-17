@@ -30,7 +30,7 @@
 
 在这一章中，我会给你一个稍微相反的观点，意在引起思考。如果你的组织已经有了一个网络安全策略，并且使用了行业框架，本章将会给你一些问题来问你自己关于你当前策略的有效性。如果您的组织没有一个可以清晰表达的网络安全策略，本章将向您介绍其他组织已经使用的一些策略、它们的优点、缺点以及衡量它们潜在有效性的方法。
 
-正如你在*第 1 章*、*成功网络安全策略的要素*中看到的，我在那里描述了什么是网络安全策略，我有意简化了这些策略的描述。我和一些 CISOs 谈过，他们的网络安全策略非常密集，很少有人能完全理解或重复。不幸的是，这些组织中的大多数都出现过数据泄露。最终，在所有这些案例中，最初的妥协都是由于缺乏对网络安全基础的关注或管理失误。保持策略的简单性使得涉众社区和从事这项工作的人更容易理解策略，并向他们的团队解释它(重复一遍)。It 部门和网络安全小组中可能只有几个团队负责理解和执行完整的策略。您可以保留超级复杂的策略版本，覆盖治理、风险、合规性、产品开发、招聘、支持当地网络安全教育计划、继任规划和其他组件，供需要并理解所有细节和抱负的利益相关方使用。
+正如你在*第一章*、*成功网络安全策略的要素*中看到的，我在那里描述了什么是网络安全策略，我有意简化了这些策略的描述。我和一些 CISOs 谈过，他们的网络安全策略非常密集，很少有人能完全理解或重复。不幸的是，这些组织中的大多数都出现过数据泄露。最终，在所有这些案例中，最初的妥协都是由于缺乏对网络安全基础的关注或管理失误。保持策略的简单性使得涉众社区和从事这项工作的人更容易理解策略，并向他们的团队解释它(重复一遍)。It 部门和网络安全小组中可能只有几个团队负责理解和执行完整的策略。您可以保留超级复杂的策略版本，覆盖治理、风险、合规性、产品开发、招聘、支持当地网络安全教育计划、继任规划和其他组件，供需要并理解所有细节和抱负的利益相关方使用。
 
 不管网络安全策略有多复杂，它的成功依赖于我在第一章中描述的要素，最重要的是，它如何很好地解决网络安全的基本问题。衡量该策略在一段时间内的表现非常重要，这样就可以进行调整来改进它。接下来，让我们看看如何衡量功效。
 
@@ -66,7 +66,7 @@
 
 一些企业文化不会容忍失败，因此他们为失败做计划的想法对他们来说毫无意义；这就像承认他们不够好，不能胜任自己的工作。在其他组织中，高级管理人员不会支持失败的计划。我遇到过许多高管，他们不明白自己身处一艘承受巨大压力、被恶劣环境包围的潜艇中。我交谈过的一些高管认为，他们在一场可以打赢的战斗中。他们相信，如果他们足够聪明，雇用正确的人，并购买正确的保护能力，他们将赢得这场战斗。但网络安全是一个旅程，而不是目的地。它不像战争那样有开始和结束。它是恒定的，就像潜艇船体上的压力。为失败做准备是他们世界观的对立面，因此他们拒绝支持那些知道他们需要采用更现代的网络安全方法的 CISOs。这就是为什么我总是试图花时间与网络安全策略利益相关者，而不是 CISO 和安全团队在一起的原因之一。通常，安全团队理解我在这里写的一切，但一两个高管或董事会成员有不知情的观点。
 
-高级网络安全能力是您的策略的一部分，将帮助您识别、保护、检测、响应和恢复(NIST，未标明)。这是您的策略的一部分，有助于增强和识别网络安全基础中的缺点。你需要这两者来使策略成功。策略的**高价值资产** ( **HVAs** )组成部分承认 HVAs 的重要性。正如我在*第 1 章*、*成功网络安全策略的要素*中提到的，如果 HVA 的保密性、完整性或可用性受到损害，这通常意味着组织本身将会失败。HVA 的持续妥协可能是一个公司的灭绝事件(Ashford，2016 年)，并促使公共部门组织重新使用铅笔、纸张和他们在投资之前使用的流程。
+高级网络安全能力是您的策略的一部分，将帮助您识别、保护、检测、响应和恢复(NIST，未标明)。这是您的策略的一部分，有助于增强和识别网络安全基础中的缺点。你需要这两者来使策略成功。策略的**高价值资产** ( **HVAs** )组成部分承认 HVAs 的重要性。正如我在*第一章*、*成功网络安全策略的要素*中提到的，如果 HVA 的保密性、完整性或可用性受到损害，这通常意味着组织本身将会失败。HVA 的持续妥协可能是一个公司的灭绝事件(Ashford，2016 年)，并促使公共部门组织重新使用铅笔、纸张和他们在投资之前使用的流程。
 
 除了网络安全基础知识和高级网络安全能力之外，专门针对 HVAs 的安全规划和投资将有助于组织管理其最重要资产的风险。
 
@@ -121,7 +121,7 @@
 
 顾名思义，这种策略的重点是通过投资防火墙、**非军事区** ( **非军事区**)、代理服务器和微分段等保护技术来防止攻击者得逞。让我们回到 2003 年，看看为什么这种策略如此流行的一个很好的例子。到 2003 年，互联网上已经出现了成功的大规模蠕虫攻击，如 Code Red 和 Nimda。这种攻击的风险不再是理论上的，因为当时许多人认为是理论上的。业界刚刚开始认识到软件有漏洞，其中一些是可利用的。当时，我在微软面向客户的安全事件响应团队工作。我帮助过的许多组织指责微软没有采取更多措施来保护 Windows 免受此类攻击。
 
-企业客户普遍认为，如果他们用另一个操作系统替换他们的微软视窗系统，他们就安全了。他们是世界上最常用的操作系统的制造商，随后获得了合法安全研究人员和攻击者的大量关注。当然，现在，这么多年过去了，我想大家都明白，所有厂商的软件和硬件都有漏洞。如果你对此仍有任何疑问，请返回并重新阅读*第 2 章*、*利用漏洞趋势降低风险和成本*。在 2003 年，未打补丁的漏洞所带来的风险的缓解手段是防火墙。当微软在 Windows XP Service Pack 2 中默认打开 Windows 防火墙时，人们希望这可以防止利用 Windows 服务和监听网络的应用程序中的漏洞。
+企业客户普遍认为，如果他们用另一个操作系统替换他们的微软视窗系统，他们就安全了。他们是世界上最常用的操作系统的制造商，随后获得了合法安全研究人员和攻击者的大量关注。当然，现在，这么多年过去了，我想大家都明白，所有厂商的软件和硬件都有漏洞。如果你对此仍有任何疑问，请返回并重新阅读*第二章*、*利用漏洞趋势降低风险和成本*。在 2003 年，未打补丁的漏洞所带来的风险的缓解手段是防火墙。当微软在 Windows XP Service Pack 2 中默认打开 Windows 防火墙时，人们希望这可以防止利用 Windows 服务和监听网络的应用程序中的漏洞。
 
 Windows 防火墙和其他一些安全缓解措施，包括自动更新，成功地抵御了那个时代的大规模蠕虫攻击。2003 年，许多企业规模的组织已经在其网络外围安装了公司防火墙。但是大多数都有例外，允许所有流量进出端口 80 和 443，以便 HTTP 和 HTTPS 流量可以自由流动；这些就是所谓的“通用防火墙旁路端口”在接下来的几年里，还没有 dmz 的企业建立了 dmz，以便更好地控制进出互联网的网络流量。
 
@@ -195,7 +195,7 @@ CFSS 总分为 25 分(满分为 100 分),显然，该策略必须与其他策略
 
 在这场游戏中，比赛场地从来都不公平。攻击者可以购买市场上所有可用的终端解决方案，并在攻击之前测试他们的恶意软件和工具，以确保没有解决方案可以检测或清除它们。终端保护供应商没有同样的优势。但更根本的是，病人真的可以被信任治愈自己吗？一些组织将使用端点解决方案清理受损系统，并允许它们在生产中继续运行，而其他组织则制定了策略来消除和重建任何受损系统。虚拟化使这变得更容易，而云，正如我将在后面详细讨论的，使这变得更加容易和有效。但是这种方法的关键仍然是准确的威胁检测。请记住，尽管所有这些解决方案的理想目标是检测、阻止并在必要时清除 100%的威胁，但这是不现实的。研究和响应实验室的内部目标通常更加现实和可实现。例如，对“动物园”(他们的私人恶意软件库)中的威胁进行 100%的检测，或者对“野外”恶意软件(常见威胁)进行 100%的检测，可能是这些供应商的共同目标。但是对新出现的威胁的检测目标可能是 80%。毕竟，研究和响应实验室需要时间来获取威胁样本、处理它们并为客户部署适当的保护措施，特别是当攻击者使用大规模自动化不断生成数百万个威胁时。
 
-你会乘坐一艘目标是将 80%的水保持在船体外部的潜艇出航吗？可能不会。但是正如我在*第 3 章*、*威胁格局的演变——恶意软件*中所写的，如果您不使用终端保护，因为它不能保护终端免受 100%的威胁，那么您就不能保护终端免受终端保护解决方案所能保护的数百万威胁的侵害。
+你会乘坐一艘目标是将 80%的水保持在船体外部的潜艇出航吗？可能不会。但是正如我在*第三章*、*威胁格局的演变——恶意软件*中所写的，如果您不使用终端保护，因为它不能保护终端免受 100%的威胁，那么您就不能保护终端免受终端保护解决方案所能保护的数百万威胁的侵害。
 
 ### 网络安全基础评分系统分数
 
@@ -389,7 +389,7 @@ CFSS 总分为 25 分(满分为 100 分),显然，该策略必须与其他策略
 
 这种策略的另一个缺点是，尽管更少的漏洞和更低严重性的漏洞是可衡量的指标，但它们很难转化为商业价值，我已经多次看到组织在努力解决这个问题。对于 CISOs 和开发组织领导人来说，辩称攻击不是因为应用程序安全投资而发生的，这可能是一个难以理解的论点，其他高管也难以理解。对 CISOs 和漏洞管理团队来说似乎是常识的东西，对其他利益相关者来说可能仍然模糊不清。
 
-正如我在*第 2 章*、*中所写的那样，利用漏洞趋势降低风险和成本*，利用来自漏洞管理程序的关于环境状态的数据，可以帮助您证明应用程序安全性的合理性。尝试将未修补漏洞的数量降至零，并使用数据来帮助其他高管了解实现这一目标的进度和相关成本，可以帮助他们理解为什么防止新的漏洞通过第三方和内部应用程序被引入环境非常重要。
+正如我在*第二章*、*中所写的那样，利用漏洞趋势降低风险和成本*，利用来自漏洞管理程序的关于环境状态的数据，可以帮助您证明应用程序安全性的合理性。尝试将未修补漏洞的数量降至零，并使用数据来帮助其他高管了解实现这一目标的进度和相关成本，可以帮助他们理解为什么防止新的漏洞通过第三方和内部应用程序被引入环境非常重要。
 
 ### 网络安全基础评分系统分数
 
@@ -515,7 +515,7 @@ CFSS 总分为 25 分(满分为 100 分),显然，该策略必须与其他策略
 
 从高层次来看，用于支持这些功能的技术包括客户端或服务器端加密库或应用程序、**公钥基础设施**(**PKI**)、具有授权功能的联合身份系统，以及日志和报告功能。结合所有这些组件的服务的一个很好的例子是**Azure Rights Management**(**Azure RMS**)(微软公司，2019)。让我举一个例子，从较高的层面说明这项服务是如何工作的。
 
-一家公司需要保护机密信息不落入他人之手，但需要以仍能保护数据机密性和完整性的方式与外部律师事务所共享这些信息。他们使用 Azure RMS 加密文件，并为其分配一个策略，定义谁有权打开和解密文件。他们通过 Office 365 电子邮件将文件发送给律师事务所。当律师事务所的工作人员试图打开文件时，他们会被提示输入他们的 Azure Active Directory 凭据。因为他们也是 Office 365 企业用户，并且使用该公司的帐户配置了身份联盟，所以当他们输入凭据时，Azure Active Directory 会对他们进行身份验证，并读取策略以确定允许他们对文件执行的操作类型。该政策允许律师事务所打开文件、解密并阅读。如果文件被转发给没有这些权限的人，他们将无法打开或解密它。同时，公司可以跟踪打开文件的身份验证请求来自何处，身份验证请求中使用了哪些凭据，打开文件的尝试成功与否，等等。相当酷。我将在*第 8 章*、*云——实现安全性和合规性的现代方法*中讨论云提供的其他超酷功能。
+一家公司需要保护机密信息不落入他人之手，但需要以仍能保护数据机密性和完整性的方式与外部律师事务所共享这些信息。他们使用 Azure RMS 加密文件，并为其分配一个策略，定义谁有权打开和解密文件。他们通过 Office 365 电子邮件将文件发送给律师事务所。当律师事务所的工作人员试图打开文件时，他们会被提示输入他们的 Azure Active Directory 凭据。因为他们也是 Office 365 企业用户，并且使用该公司的帐户配置了身份联盟，所以当他们输入凭据时，Azure Active Directory 会对他们进行身份验证，并读取策略以确定允许他们对文件执行的操作类型。该政策允许律师事务所打开文件、解密并阅读。如果文件被转发给没有这些权限的人，他们将无法打开或解密它。同时，公司可以跟踪打开文件的身份验证请求来自何处，身份验证请求中使用了哪些凭据，打开文件的尝试成功与否，等等。相当酷。我将在*第八章*、*云——实现安全性和合规性的现代方法*中讨论云提供的其他超酷功能。
 
 您可能已经注意到，支持我描述的示例场景的一个关键组件是身份。这种以数据为中心的策略要取得成功，需要一种身份策略，就像我在本章前面描述的以身份为中心的策略。如果没有身份验证和授权功能，以数据为中心的策略是不可扩展的。
 
@@ -569,7 +569,7 @@ CFSS 总分为 25 分(满分为 100 分),显然，该策略必须与其他策略
 
 同样，米特 ATT&CK 被设计成攻击者 TTP 的知识库。目前有三种口味的 ATT & CK，即前 ATT & CK，企业版 ATT & CK，移动版 ATT&CK(MITRE ATT&CK)。预 ATT & CK 专注于攻击的最初阶段，在受害者妥协之前。
 
-按照入侵杀伤链的说法，前 ATT 和 CK 涵盖了攻击利用之前的所有阶段。ATT 和 CK 然后涵盖了攻击的其余阶段，但在一个较低的水平，比入侵杀伤链方法描述的方式更精细。例如，ATT&CK 帮助防御者设计跨初始访问、执行、持久性、权限提升、防御规避、凭证访问、发现、横向移动、收集、命令和控制、渗透和影响(MITRE)的功能层。这种方法对我来说很有意义，因为它与我在*第 1 章*、*成功网络安全策略的要素、*中介绍的策略非常一致，其中包括网络安全基础知识和高级网络安全能力。基于此，让我们看看以攻击为中心的策略如何使用 CFSS 得分。
+按照入侵杀伤链的说法，前 ATT 和 CK 涵盖了攻击利用之前的所有阶段。ATT 和 CK 然后涵盖了攻击的其余阶段，但在一个较低的水平，比入侵杀伤链方法描述的方式更精细。例如，ATT&CK 帮助防御者设计跨初始访问、执行、持久性、权限提升、防御规避、凭证访问、发现、横向移动、收集、命令和控制、渗透和影响(MITRE)的功能层。这种方法对我来说很有意义，因为它与我在*第一章*、*成功网络安全策略的要素、*中介绍的策略非常一致，其中包括网络安全基础知识和高级网络安全能力。基于此，让我们看看以攻击为中心的策略如何使用 CFSS 得分。
 
 ### 网络安全基础评分系统分数
 
@@ -624,7 +624,7 @@ CFSS 总分为 25 分(满分为 100 分),显然，该策略必须与其他策略
 
 表 5.12: CFSS 分数估计汇总
 
-现实情况是，我见过的大多数组织都使用了其中一些策略的组合。例如，即使行业提供更新、更好的技术，企业不同时拥有外围安全策略和终端安全策略也是大胆的。许多组织都有一些必须注意的法规遵从性要求。对于那些已经使用这些方法中的一些方法的组织来说，有意和深思熟虑地调和过度投资和投资不足以及当前存在的差距可能会有所帮助。这是以攻击为中心的策略相对于其他策略及其组合的另一个优势——投资和差距分析内置于其中。我将在*第 7 章*、*衡量表现和有效性*中对此进行更详细的讨论。
+现实情况是，我见过的大多数组织都使用了其中一些策略的组合。例如，即使行业提供更新、更好的技术，企业不同时拥有外围安全策略和终端安全策略也是大胆的。许多组织都有一些必须注意的法规遵从性要求。对于那些已经使用这些方法中的一些方法的组织来说，有意和深思熟虑地调和过度投资和投资不足以及当前存在的差距可能会有所帮助。这是以攻击为中心的策略相对于其他策略及其组合的另一个优势——投资和差距分析内置于其中。我将在*第七章*、*衡量表现和有效性*中对此进行更详细的讨论。
 
 你可能不同意我对部分或全部策略的 CFSS 评分估计。很好。我鼓励你使用 CFS 对我在本章中研究的所有方法和我没有涉及的其他方法进行评分评估。安全专业人员都有不同的经历，这可能导致他们对其中一个或多个策略的评分比我高或低。坦率地说，这是意料之中的事，因为我从未见过没有自己观点的安全专家。尽管如此，大多数组织并没有一个他们的首席信息安全官或其他高管可以阐明的网络安全策略。我本章的目的是引发对组织处理网络安全的方式的批判性思考，并为 CISOs 和安全团队提供借鉴。
 
@@ -680,21 +680,21 @@ DevOps 是一种全面的方法，它为采用它的组织带来了开发哲学�
 
 # 参考
 
-1.  华盛顿州阿什福德市(2016 年 8 月 3 日)。研究显示，五分之一受到勒索软件攻击的企业被迫关闭。检索自《计算机周刊:[https://www . computer weekly . com/news/450301845/One-in-five-business-hit-by-ransomware-forced-to-close-study-shows](https://www.computerweekly.com/news/450301845/One-in-five-businesses-hit-by-ransomware-are-forced-to-close-study-shows)
+1.  华盛顿州阿什福德市(2016 年 8 月 3 日)。研究显示，五分之一受到勒索软件攻击的企业被迫关闭。检索自《计算机周刊:[`www . computer weekly . com/news/450301845/One-in-five-business-hit-by-ransomware-forced-to-close-study-shows`](https://www.computerweekly.com/news/450301845/One-in-five-businesses-hit-by-ransomware-are-forced-to-close-study-shows)
 2.  Eric M. Hutchins，Michael J. Cloppert，Rohan M. Amin，博士(未注明)。*情报驱动的计算机网络防御，通过对手活动和入侵杀伤链分析提供信息*。检索自洛克希德·马丁:[T3【https://Lockheed Martin . com/content/dam/Lockheed-Martin/rms/documents/cyber/LM-White-Paper-Intel-Driven-defense . pdfT5】](https://lockheedmartin.com/content/dam/lockheed-martin/rms/documents/cyber/LM-White-Paper-Intel-Driven-Defense.pdf)
 3.  欧洲数据保护委员会。(2019).*首先概述 GDPR 的实现情况以及国家监督机构的作用和手段*。布鲁塞尔:欧洲数据保护委员会。
 4.  ISO。(未注明日期)。 *ISO/IEC 27001 信息安全管理*。从 ISO 检索:【https://www.iso.org/isoiec-27001-information-security.html】[T3T5】](https://www.iso.org/isoiec-27001-information-security.html)
 5.  微软公司。(2017 年 5 月 31 日)。*保护活动目录的最佳实践*。从微软检索:[T3】https://docs . Microsoft . com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/best-practices-for-securing-active-directoryT5】](https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/best-practices-for-securing-active-directory)
-6.  微软公司。(2019 年 10 月 19 日)。 *Office 365 人员控制*。检索自微软公司:[https://docs . Microsoft . com/en-us/office 365/enterprise/office-365-personal-controls](https://docs.microsoft.com/en-us/office365/enterprise/office-365-personnel-controls)
-7.  微软公司。(2019 年 11 月 30 日)。*什么是 Azure 权限管理？*从微软公司检索:[https://docs . Microsoft . com/en-us/azure/information-protection/what-is-azure-rms](https://docs.microsoft.com/en-us/azure/information-protection/what-is-azure-rms)
+6.  微软公司。(2019 年 10 月 19 日)。 *Office 365 人员控制*。检索自微软公司:[`docs . Microsoft . com/en-us/office 365/enterprise/office-365-personal-controls`](https://docs.microsoft.com/en-us/office365/enterprise/office-365-personnel-controls)
+7.  微软公司。(2019 年 11 月 30 日)。*什么是 Azure 权限管理？*从微软公司检索:[`docs . Microsoft . com/en-us/azure/information-protection/what-is-azure-rms`](https://docs.microsoft.com/en-us/azure/information-protection/what-is-azure-rms)
 8.  微软公司。(未注明)。*活动目录管理层级模型*。检索自微软:[T3【https://docs . Microsoft . com/en-us/windows-server/identity/securing-privileged-access/securing-privileged-access-reference-materialT5】](https://docs.microsoft.com/en-us/windows-server/identity/securing-privileged-access/securing-privileged-access-reference-material)
 9.  微软公司。(未注明日期)。*微软安全工程*。从微软公司检索:【https://www.microsoft.com/en-us/securityengineering/sdl/】[T3T5】](https://www.microsoft.com/en-us/securityengineering/sdl/ )
 10.  米特 ATT 和 CK。(未注明日期)。*米特 ATT & CK 常见问题*。从米特里取回 ATT&CK:[T3】https://attack.mitre.org/resources/faq/T5】](https://attack.mitre.org/resources/faq/)
 11.  米特雷。(未注明日期)。ATT & CK 。从米特里取回 ATT&CK:[T3】https://attack.mitre.org/T5】](https://attack.mitre.org/)
-12.  NIST。(未注明日期)。*网络安全框架*。检索自 NIST:[https://www . NIST . gov/cyber framework/online-learning/five-functions](https://www.nist.gov/cyberframework/online-learning/five-functions)
+12.  NIST。(未注明日期)。*网络安全框架*。检索自 NIST:[`www . NIST . gov/cyber framework/online-learning/five-functions`](https://www.nist.gov/cyberframework/online-learning/five-functions)
 13.  NIST。(未注明日期)。*网络安全框架*。从 https://www.nist.gov/cyberframework 取回:[T3T5】](https://www.nist.gov/cyberframework)
-14.  PA 咨询公司。(未注明日期)。*橡木门数据二极管*。检索自 PA 咨询:[https://www . PA Consulting . com/services/product-design-and-engineering/data-diode/](https://www.paconsulting.com/services/product-design-and-engineering/data-diode/)
-15.  英国内阁办公室。(2013 年 10 月)。*介绍政府安全等级*。检索自 GOV . UK:[https://assets . publishing . service . GOV . UK/Government/uploads/system/uploads/attachment _ data/file/251481/Government-Security-Classifications-Supplier-Briefing-Oct-2013 . pdf](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/251481/Government-Security-Classifications-Supplier-Briefing-Oct-2013.pdf)
+14.  PA 咨询公司。(未注明日期)。*橡木门数据二极管*。检索自 PA 咨询:[`www . PA Consulting . com/services/product-design-and-engineering/data-diode/`](https://www.paconsulting.com/services/product-design-and-engineering/data-diode/)
+15.  英国内阁办公室。(2013 年 10 月)。*介绍政府安全等级*。检索自 GOV . UK:[`assets . publishing . service . GOV . UK/Government/uploads/system/uploads/attachment _ data/file/251481/Government-Security-Classifications-Supplier-Briefing-Oct-2013 . pdf`](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/251481/Government-Security-Classifications-Supplier-Briefing-Oct-2013.pdf)
 16.  美国政府出版办公室。(二 00 九年十二月二十九日)。*2009 年 12 月 29 日第 13526 号行政命令*。检索自 gov info:[T3】https://www . gov info . gov/content/pkg/CFR-2010-title 3-vol 1/pdf/CFR-2010-title 3-vol 1-EO 13526 . pdfT5】](https://www.govinfo.gov/content/pkg/CFR-2010-title3-vol1/pdf/CFR-2010-title3-vol1-eo13526.pdf)
 17.  病毒公告。(未注明日期)。*病毒公告*。从病毒公告中检索到:【https://www.virusbulletin.com/】[T3T5】](https://www.virusbulletin.com/)
 18.  维基百科。(未注明日期)。*彩虹表*。从维基百科检索:【https://en.wikipedia.org/wiki/Rainbow_table】[T3T5】](https://en.wikipedia.org/wiki/Rainbow_table)

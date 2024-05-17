@@ -263,9 +263,9 @@ CSP 提供丰富的自动化功能。这些功能分布在不同的云服务上�
 
 ### 缓解未打补丁的漏洞
 
-让我们看看如何使用自动化来帮助管理我们使用的虚拟机上的漏洞。正如我们在*第 2 章*、*利用漏洞趋势降低风险和成本*中所看到的，漏洞管理团队每天都要面对多达 45 个新的漏洞披露，这些漏洞可能会影响他们的系统。云中的自动化有助于减少与清点系统、扫描系统和修补系统相关的工作量。
+让我们看看如何使用自动化来帮助管理我们使用的虚拟机上的漏洞。正如我们在*第二章*、*利用漏洞趋势降低风险和成本*中所看到的，漏洞管理团队每天都要面对多达 45 个新的漏洞披露，这些漏洞可能会影响他们的系统。云中的自动化有助于减少与清点系统、扫描系统和修补系统相关的工作量。
 
-例如，回想一下我在第 2 章中写的，准确的清单对漏洞管理团队至关重要。在云中，因为不使用 API 就不会供应或取消供应，所以 API 和自动化有助于快速提供准确的清单。像这样清点环境不需要几个小时或几天，几乎可以瞬间完成。
+例如，回想一下我在第二章中写的，准确的清单对漏洞管理团队至关重要。在云中，因为不使用 API 就不会供应或取消供应，所以 API 和自动化有助于快速提供准确的清单。像这样清点环境不需要几个小时或几天，几乎可以瞬间完成。
 
 有许多方法可以用来扫描和修补云中的虚拟机。在我们的 AWS 示例中，AWS 系统管理器可用于修补系统。此外，您的组织在内部 IT 环境中用于漏洞管理软件的供应商也有可能拥有为云构建的类似功能。这使您的组织能够利用其在内部 it 环境中管理漏洞所积累的专业知识，并继续在云中利用它。
 
@@ -281,7 +281,7 @@ CSP 提供丰富的自动化功能。这些功能分布在不同的云服务上�
 
 ### 减少安全错误配置
 
-正如我在*第 1 章*、*成功网络安全策略的要素*中所写的那样，安全错误配置可能是硬件、操作系统和应用程序中糟糕的默认设置，也可能随着时间的推移而发生，因为系统根据管理员或软件更新引入的调整“偏离”了其组织的标准。此外，在大型 IT 环境中，废弃的技术可能会很快成为被遗忘的风险，得不到积极的管理。由于大型企业一直在努力保持事物按照他们需要的方式配置，变更管理成为一门成熟的 IT 学科，受到整个行业供应商的支持。这一点很重要，不仅是出于安全目的，也是出于合规目的。确保系统符合监管标准、行业标准和内部 IT 标准非常重要，在许多情况下也是必需的。
+正如我在*第一章*、*成功网络安全策略的要素*中所写的那样，安全错误配置可能是硬件、操作系统和应用程序中糟糕的默认设置，也可能随着时间的推移而发生，因为系统根据管理员或软件更新引入的调整“偏离”了其组织的标准。此外，在大型 IT 环境中，废弃的技术可能会很快成为被遗忘的风险，得不到积极的管理。由于大型企业一直在努力保持事物按照他们需要的方式配置，变更管理成为一门成熟的 IT 学科，受到整个行业供应商的支持。这一点很重要，不仅是出于安全目的，也是出于合规目的。确保系统符合监管标准、行业标准和内部 IT 标准非常重要，在许多情况下也是必需的。
 
 在我们的示例场景中，组织可以选择在他们部署在云中的服务器上安装管理软件。他们可以像在本地 IT 环境中一样，继续测量和修复配置更改。
 
@@ -301,7 +301,7 @@ CSP 提供丰富的自动化功能。这些功能分布在不同的云服务上�
 
 通信服务提供商和众多第三方供应商为云和混合环境提供身份和访问管理解决方案。例如，微软通过 Azure Active Directory **特权身份管理** ( **PIM** )(微软公司，2020 年)提供 Azure Active Directory 和支持服务，如即时特权访问能力。第三方，如 Aporeto、Centrify、CyberArk 和许多其他公司也提供服务，可以在不同的情况下帮助一些人。Google Cloud 提供云身份和访问管理，AWS 提供 AWS 身份和访问管理。
 
-通信服务提供商提供 MFA，正如我在*第 1 章*、*成功网络安全策略的要素*中所讨论的，这是一种非常有效的控制，可以在很大程度上减少脆弱、泄露和被盗的密码。利用 MFA 并限制用户在两次身份认证请求之间访问资源的时间，可以使攻击者更难成功使用窃取和泄露的凭据。使用秘密管理器来管理访问密钥、证书和凭证以便定期自动改变和轮换它们也是有效的。为此，谷歌提供了谷歌云秘密管理器(Google，2020)，微软提供了 Azure Key Vault(微软公司，2020)，AWS 提供了 AWS 秘密管理器(AWS，2020)。同样，有许多第三方供应商也提供解决方案，包括 Docker Secrets、SecretHub、知己等。
+通信服务提供商提供 MFA，正如我在*第一章*、*成功网络安全策略的要素*中所讨论的，这是一种非常有效的控制，可以在很大程度上减少脆弱、泄露和被盗的密码。利用 MFA 并限制用户在两次身份认证请求之间访问资源的时间，可以使攻击者更难成功使用窃取和泄露的凭据。使用秘密管理器来管理访问密钥、证书和凭证以便定期自动改变和轮换它们也是有效的。为此，谷歌提供了谷歌云秘密管理器(Google，2020)，微软提供了 Azure Key Vault(微软公司，2020)，AWS 提供了 AWS 秘密管理器(AWS，2020)。同样，有许多第三方供应商也提供解决方案，包括 Docker Secrets、SecretHub、知己等。
 
 事实上，在身份和访问服务和解决方案中有如此多的能力和功能，整本书都致力于这一主题领域。身份是安全的关键。我强烈建议花些时间了解 CSP 和其他供应商提供的强大的身份和访问功能。
 
@@ -327,11 +327,11 @@ API 的强大功能和云中的自动化是安全和法规遵从性专业人员�
 
 通信服务提供商提供精细的防火墙和网络控制，可以帮助组织采用和实现保护和恢复策略。API 和云中自动化的强大功能使网络团队和安全团队能够供应和操作 Web 应用程序防火墙，以及位于云资产边缘的网络防火墙，并构建和操作 dmz。除了网络 ACL、路由表、子网规则、基于主机的防火墙等之外，它们还提供虚拟私有云或虚拟网络，为网络流量增加了另一层控制。通信服务提供商通常提供令人眼花缭乱的网络控制。
 
-由于所有这些控制都可以通过代码和自动化来供应和监控，因此在云中执行这种策略比在内部执行要容易得多。在云中，不需要订购和接收硬件，不需要在数据中心进行机架安装和堆叠，也不需要更多机架空间、电力或冷却。你只需要运行代码，CSP 会做所有其他的事情。如果你需要扩大或缩小你的基础设施，只需要更多的代码和自动化。您只需为您所使用的内容付费，并且可以在您的组织决定关闭时随时关闭它。正如我们在*第 5 章*、*网络安全策略*中所讨论的，保护和恢复策略是一种糟糕的评分策略。它可以与其他策略结合使用，以更全面地解决网络安全的基本问题。在云中扩展这种策略也更容易，因为一切都是代码。现在让我们来看看更好的得分策略。
+由于所有这些控制都可以通过代码和自动化来供应和监控，因此在云中执行这种策略比在内部执行要容易得多。在云中，不需要订购和接收硬件，不需要在数据中心进行机架安装和堆叠，也不需要更多机架空间、电力或冷却。你只需要运行代码，CSP 会做所有其他的事情。如果你需要扩大或缩小你的基础设施，只需要更多的代码和自动化。您只需为您所使用的内容付费，并且可以在您的组织决定关闭时随时关闭它。正如我们在*第五章*、*网络安全策略*中所讨论的，保护和恢复策略是一种糟糕的评分策略。它可以与其他策略结合使用，以更全面地解决网络安全的基本问题。在云中扩展这种策略也更容易，因为一切都是代码。现在让我们来看看更好的得分策略。
 
 ## 合规性是云中的一种网络安全策略
 
-让我们看看*第 5 章*、*网络安全策略*中的另一个策略，合规作为一种网络安全策略。在本章的前面，我们看到了云中的 API 和自动化如何帮助减少安全错误配置。这些相同的功能可以帮助组织持续遵守安全标准，无论是监管标准、行业标准还是内部标准。我已经讨论了 API 和自动化如何确保系统得到正确配置，并持续监控配置变化。然而，在执行这一策略时，需要注意一个重要的细微差别。
+让我们看看*第五章*、*网络安全策略*中的另一个策略，合规作为一种网络安全策略。在本章的前面，我们看到了云中的 API 和自动化如何帮助减少安全错误配置。这些相同的功能可以帮助组织持续遵守安全标准，无论是监管标准、行业标准还是内部标准。我已经讨论了 API 和自动化如何确保系统得到正确配置，并持续监控配置变化。然而，在执行这一策略时，需要注意一个重要的细微差别。
 
 许多第一次考虑使用云的安全团队和合规团队想知道他们如何证明他们符合标准，也就是说，当他们不拥有运行基础架构的数据中心，并且随后无法让他们的审计员访问这些设施时。不管谁拥有数据中心，许多组织仍然必须向他们的审计员和监管者证明他们符合要求的标准。
 
@@ -357,11 +357,11 @@ API、自动化和 CSP 提供的认证和证明的结合可以帮助希望将合
 
 ## 在云中使用以攻击为中心的策略
 
-在我们研究的所有策略中，得分最高的是以攻击为中心的策略。在*第 6 章*、*策略实现*中，我们深入探讨了这个策略，并举例说明了它的一种实现方式。在*第 7 章*、*衡量表现和有效性*中，我们研究了一种衡量该策略有效性的方法。然而，这种策略能在云中实现吗？
+在我们研究的所有策略中，得分最高的是以攻击为中心的策略。在*第六章*、*策略实现*中，我们深入探讨了这个策略，并举例说明了它的一种实现方式。在*第七章*、*衡量表现和有效性*中，我们研究了一种衡量该策略有效性的方法。然而，这种策略能在云中实现吗？
 
 这个问题的简短答案是，是的，它可以在云中实现。在某些情况下，想要在云环境中实现这一策略的组织已经完成了一些工作。例如，MITRE 提供了“战术和技术[原文如此],代表了涵盖基于云技术的企业的 MITRE ATT 和 CK 矩阵。该矩阵包含以下平台的信息:AWS、GCP、Azure、Azure AD、Office 365、SaaS。”(MITRE，2019 年 10 月 9 日)。
 
-我在*第六章*、*策略实现*中提到，米特 ATT & CK 框架可以补充我们深入研究过的入侵杀伤链模型(Eric M. Hutchins、Michael J. Cloppert、Rohan M. Amin 博士)。杀伤链方法也可以在云中实现。要做到这一点，您可能需要像我们在*第 6 章*中所做的那样，为您在云中实现的解决方案制定一个行动方案矩阵(Eric M. Hutchins、Michael J. Cloppert、Rohan M. Amin 博士)。换句话说，由于这可能是一项耗时的工作，正如您所看到的，您不需要为 CSP 提供的每个云服务构建一个行动方案矩阵，只需为您计划使用的云服务构建即可。
+我在*第六章*、*策略实现*中提到，米特 ATT & CK 框架可以补充我们深入研究过的入侵杀伤链模型(Eric M. Hutchins、Michael J. Cloppert、Rohan M. Amin 博士)。杀伤链方法也可以在云中实现。要做到这一点，您可能需要像我们在*第六章*中所做的那样，为您在云中实现的解决方案制定一个行动方案矩阵(Eric M. Hutchins、Michael J. Cloppert、Rohan M. Amin 博士)。换句话说，由于这可能是一项耗时的工作，正如您所看到的，您不需要为 CSP 提供的每个云服务构建一个行动方案矩阵，只需为您计划使用的云服务构建即可。
 
 在某些方面，为针对 IaaS 环境开发的解决方案执行此操作类似于为内部 IT 环境执行此映射。这是因为许多硬件和软件可能是相同或相似的。例如，为运行在 Linux 或 Windows 上的解决方案确定的操作系统缓解措施将非常相似，无论该操作系统是运行在云中还是内部。然而，正如我们之前所讨论的，除了这些操作系统缓解措施之外，云原生控件和第三方解决方案也可以分层部署到环境中，以实现一组使攻击者更难得逞的控件。例如，帮助我们检测配置更改的相同服务将帮助我们近乎实时地检测云中的危害迹象。我们讨论的相同身份和访问能力将使攻击者更难使用窃取的凭据横向移动。我们谈到的帮助系统保持最新的技术将使攻击者更难找到和利用未打补丁的漏洞。
 
@@ -389,7 +389,7 @@ API、自动化和 CSP 提供的认证和证明的结合可以帮助希望将合
 
 这样，只有通过所有安全和合规性检查的产品才能进入生产。这意味着安全和法规遵从性团队可以对引入其生产环境的所有内容都满足其所有安全和法规遵从性要求，并且不会给该环境带来更多风险充满信心。要做到这一点，一切都必须通过 CI/CD 管道。换句话说，将应用程序或基础设施项目投入生产的唯一方法是通过 CI/CD 管道。为了获得最大的成功机会，组织需要有规程以及治理机制来强制执行这个需求。管理多个 CI/CD 管道是一种可预测的常见结果，尤其是对于大型分布式组织。一些组织面临的风险是，CI/CD 管道的数量激增，开始危及最初管道所要求的高安全性和合规性标准；太多的管道可能会变成一个治理问题。
 
-另外，请注意，一些攻击者已经发现越来越多的组织正在使用 DevOps 和 CI/CD 管道。这使得 CI/CD 管道本身成为攻击者的潜在目标。了解您的组织用于管道的技术和自动化堆栈，并采取措施保护它们是非常重要的。对于一些组织来说，CI/CD 渠道可以成为高价值资产，值得特别关注，正如我在*第 1 章*、*中讨论的成功网络安全策略的要素*。
+另外，请注意，一些攻击者已经发现越来越多的组织正在使用 DevOps 和 CI/CD 管道。这使得 CI/CD 管道本身成为攻击者的潜在目标。了解您的组织用于管道的技术和自动化堆栈，并采取措施保护它们是非常重要的。对于一些组织来说，CI/CD 渠道可以成为高价值资产，值得特别关注，正如我在*第一章*、*中讨论的成功网络安全策略的要素*。
 
 现在，安全和法规遵从性团队对他们的部署充满信心，他们如何长期保持这些环境的原始状态呢？他们可以使用我们在本章前面讨论的服务和自动化来监控配置更改。当配置发生变化时，他们可以使用自动化使其恢复合规性，或者对其变化的方式和原因进行更深入的调查。
 
@@ -472,17 +472,17 @@ API、自动化和 CSP 提供的认证和证明的结合可以帮助希望将合
 
 # 参考
 
-1.  AICPA。(2020 年 4 月)。 *SOC 2 -服务机构 SOC:信任服务标准*。检索自 AICPA:[https://www . AICPA . org/interest areas/frc/assuranceadvisoryservices/aicpaso C2 report . html](https://www.aicpa.org/interestareas/frc/assuranceadvisoryservices/aicpasoc2report.html)
+1.  AICPA。(2020 年 4 月)。 *SOC 2 -服务机构 SOC:信任服务标准*。检索自 AICPA:[`www . AICPA . org/interest areas/frc/assuranceadvisoryservices/aicpaso C2 report . html`](https://www.aicpa.org/interestareas/frc/assuranceadvisoryservices/aicpasoc2report.html)
 2.  亚马逊网络服务。(2020 年 3 月)。*采用 AWS 的云计算*。从自动气象站检索到:【https://aws.amazon.com/what-is-aws】
 3.  Ansible。(2020 年 4 月)。*红帽 Ansible* 。检索自红帽 Ansible:【https://www.ansible.com/】
-4.  AWS。(2016 年 10 月 20 日)。*通过自动扩展简化车队管理*。检索自 AWS 计算博客:[https://AWS . Amazon . com/blogs/Compute/fleet-management-made-easy-with-auto-scaling/](https://aws.amazon.com/blogs/compute/fleet-management-made-easy-with-auto-scaling/)
+4.  AWS。(2016 年 10 月 20 日)。*通过自动扩展简化车队管理*。检索自 AWS 计算博客:[`AWS . Amazon . com/blogs/Compute/fleet-management-made-easy-with-auto-scaling/`](https://aws.amazon.com/blogs/compute/fleet-management-made-easy-with-auto-scaling/)
 5.  AWS。(2020 年 4 月)。*亚马逊弹性计算云 API 参考*。从 AWS 检索:[T3】https://docs . AWS . Amazon . com/AWS C2/latest/API reference/API _ run instances . htmlT5】](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html)
 6.  AWS。(2020 年 4 月)。自动气象站云形成。从自动气象站检索到:【https://aws.amazon.com/cloudformation/】
 7.  AWS。(2020 年 4 月)。 *AWS CloudTrail* 。从自动气象站检索到:【https://aws.amazon.com/cloudtrail/】
 8.  AWS。(2020 年 4 月)。 *AWS 密钥管理服务(KMS)* 。从自动气象站检索到:【https://aws.amazon.com/kms/】
 9.  AWS。(2020 年 4 月)。 *AWS 秘密管理器*。从自动气象站检索到:【https://aws.amazon.com/secrets-manager/】
-10.  AWS。(2020 年 4 月)。*用 AWS CloudTrail 记录 AWS 系统管理器 API 调用*。从 AWS 检索:[https://docs . AWS . Amazon . com/systems-manager/latest/user guide/monitoring-cloud trail-logs . htmlT5】](https://docs.aws.amazon.com/systems-manager/latest/userguide/monitoring-cloudtrail-logs.html)
-11.  AWS。(2020 年 4 月)。*在 EC2 实例上远程运行命令*。从 AWS 检索:[https://AWS . Amazon . com/getting-started/hands-on/remote-run-commands-ec2-instance-systems-manager/](https://aws.amazon.com/getting-started/hands-on/remotely-run-commands-ec2-instance-systems-manager/)
+10.  AWS。(2020 年 4 月)。*用 AWS CloudTrail 记录 AWS 系统管理器 API 调用*。从 AWS 检索:[`docs . AWS . Amazon . com/systems-manager/latest/user guide/monitoring-cloud trail-logs . htmlT5】`](https://docs.aws.amazon.com/systems-manager/latest/userguide/monitoring-cloudtrail-logs.html)
+11.  AWS。(2020 年 4 月)。*在 EC2 实例上远程运行命令*。从 AWS 检索:[`AWS . Amazon . com/getting-started/hands-on/remote-run-commands-ec2-instance-systems-manager/`](https://aws.amazon.com/getting-started/hands-on/remotely-run-commands-ec2-instance-systems-manager/)
 12.  AWS。(2020 年 4 月)。使用 AWS CLI 。从 AWS 检索:[T3】https://docs . AWS . Amazon . com/CLI/latest/user guide/CLI-chap-using . htmlT5】](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-using.html )
 13.  主厨。(2020 年 4 月)。*厨师*。从厨师处取回:[T3【https://www.chef.io/products/chef-infra/】T5](https://www.chef.io/products/chef-infra/ )
 14.  Eric M. Hutchins，Michael J. Cloppert，Rohan M. Amin，博士(未注明)。*情报驱动的计算机网络防御，通过对手活动和入侵杀伤链分析提供信息*。检索自洛克希德·马丁:[T3【https://Lockheed Martin . com/content/dam/Lockheed-Martin/rms/documents/cyber/LM-White-Paper-Intel-Driven-defense . pdfT5】](https://lockheedmartin.com/content/dam/lockheed-martin/rms/documents/cyber/LM-White-Paper-Intel-Driven-Defense.pdf)
@@ -490,17 +490,17 @@ API、自动化和 CSP 提供的认证和证明的结合可以帮助希望将合
 16.  谷歌。(2020 年 4 月)。*云审计日志*。从谷歌云检索:【https://cloud.google.com/logging/docs/audit】[T3T5】](https://cloud.google.com/logging/docs/audit)
 17.  谷歌。(2020 年 4 月)。*云密钥管理服务*。从谷歌云检索:【https://cloud.google.com/kms/】[T3T5】](https://cloud.google.com/kms/)
 18.  谷歌。(2020 年 4 月)。*云作曲*。从谷歌云检索:【https://cloud.google.com/composer】[T3T5】](https://cloud.google.com/composer)
-19.  谷歌。(2020 年 4 月)。*介绍谷歌云的秘密管理器*。检索自谷歌云博客:[https://Cloud . Google . com/Blog/products/identity-security/introducing-Google-clouds-secret-manager](https://cloud.google.com/blog/products/identity-security/introducing-google-clouds-secret-manager)
+19.  谷歌。(2020 年 4 月)。*介绍谷歌云的秘密管理器*。检索自谷歌云博客:[`Cloud . Google . com/Blog/products/identity-security/introducing-Google-clouds-secret-manager`](https://cloud.google.com/blog/products/identity-security/introducing-google-clouds-secret-manager)
 20.  谷歌。(未注明日期)。*g 云计算实例创建*。从谷歌检索:[T3】https://cloud . Google . com/SDK/g cloud/reference/compute/instances/createT5】](https://cloud.google.com/sdk/gcloud/reference/compute/instances/create)
 21.  哈希公司。(2020 年 4 月)。*地形*。哈希公司从 Terraform 取回:[T3【https://www.terraform.io/】T5](https://www.terraform.io/)
 22.  微软公司。(2018 年 10 月 18 日)。*Azure 自动化简介*。从微软 Azure 检索:[T3】https://docs . Microsoft . com/en-us/Azure/automation/automation-introT5】](https://docs.microsoft.com/en-us/azure/automation/automation-intro)
-23.  微软公司。(2019 年 10 月 7 日)。 *Azure Monitor 概述*。从微软 Azure 检索:[https://docs . Microsoft . com/en-us/Azure/Azure-monitor/overview](https://docs.microsoft.com/en-us/azure/azure-monitor/overview)
+23.  微软公司。(2019 年 10 月 7 日)。 *Azure Monitor 概述*。从微软 Azure 检索:[`docs . Microsoft . com/en-us/Azure/Azure-monitor/overview`](https://docs.microsoft.com/en-us/azure/azure-monitor/overview)
 24.  微软公司。(2020 年 3 月)。*天蓝色产品*。从微软 Azure 检索到:【https://azure.microsoft.com/en-us/services/】[T3T5】](https://azure.microsoft.com/en-us/services/)
 25.  微软公司。(2020 年 4 月)。*密钥库*。从微软 Azure 检索到:【https://azure.microsoft.com/en-us/services/key-vault/】[T3T5】](https://azure.microsoft.com/en-us/services/key-vault/ )
-26.  微软公司。(2020 年 4 月)。*使用 Azure Key Vault* 管理服务器应用中的机密。从微软学习检索:[https://docs . Microsoft . com/en-us/Learn/modules/manage-secrets-with-azure-key-vault/](https://docs.microsoft.com/en-us/learn/modules/manage-secrets-with-azure-key-vault/)
-27.  微软公司。(2020 年 4 月)。*虚拟机-启动*。检索自微软公司:[https://docs . Microsoft . com/en-us/rest/API/compute/virtual machines/start](https://docs.microsoft.com/en-us/rest/api/compute/virtualmachines/start)
-28.  微软公司。(2020 年 4 月)。*什么是 Azure AD 特权身份管理？*从微软 Azure 检索:[https://docs . Microsoft . com/en-us/Azure/active-directory/privileged-identity-management/PIM-configure](https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-configure)
+26.  微软公司。(2020 年 4 月)。*使用 Azure Key Vault* 管理服务器应用中的机密。从微软学习检索:[`docs . Microsoft . com/en-us/Learn/modules/manage-secrets-with-azure-key-vault/`](https://docs.microsoft.com/en-us/learn/modules/manage-secrets-with-azure-key-vault/)
+27.  微软公司。(2020 年 4 月)。*虚拟机-启动*。检索自微软公司:[`docs . Microsoft . com/en-us/rest/API/compute/virtual machines/start`](https://docs.microsoft.com/en-us/rest/api/compute/virtualmachines/start)
+28.  微软公司。(2020 年 4 月)。*什么是 Azure AD 特权身份管理？*从微软 Azure 检索:[`docs . Microsoft . com/en-us/Azure/active-directory/privileged-identity-management/PIM-configure`](https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-configure)
 29.  米特雷。(2019 年 10 月 9 日)。*云矩阵*。从米特里取回 ATT&CK:[T3】https://attack.mitre.org/matrices/enterprise/cloud/T5】](https://attack.mitre.org/matrices/enterprise/cloud/)
 30.  OWASP。(2020 年 4 月)。*十大 Web 应用安全风险*。从 OWASP 检索到:[T3【https://owasp.org/www-project-top-ten/】T5】](https://owasp.org/www-project-top-ten/)
 31.  木偶。(2020 年 4 月)。*傀儡企业*。从傀儡中取回:[T3【https://puppet.com/products/puppet-enterprise/】T5](https://puppet.com/products/puppet-enterprise/)
-32.  英国标准协会。(2020 年 4 月)。*标准目录 C5* 。从联邦信息安全办公室检索:[https://www . BSI . bund . de/EN/Topics/cloud computing/Compliance _ Criteria _ catalog/Compliance _ Criteria _ catalog _ node . html](https://www.bsi.bund.de/EN/Topics/CloudComputing/Compliance_Criteria_Catalogue/Compliance_Criteria_Catalogue_node.html)
+32.  英国标准协会。(2020 年 4 月)。*标准目录 C5* 。从联邦信息安全办公室检索:[`www . BSI . bund . de/EN/Topics/cloud computing/Compliance _ Criteria _ catalog/Compliance _ Criteria _ catalog _ node . html`](https://www.bsi.bund.de/EN/Topics/CloudComputing/Compliance_Criteria_Catalogue/Compliance_Criteria_Catalogue_node.html)

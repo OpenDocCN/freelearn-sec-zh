@@ -56,7 +56,7 @@
 
 网络钓鱼攻击可能涉及多个技术组件，包括受害者的客户端和用于攻击受害者的基础设施。例如，发送网络钓鱼邮件的电子邮件服务器或托管网络钓鱼页面的 web 服务器。通常，这些电子邮件服务器和 web 服务器托管在合法的系统上，这些系统已经被入侵，并随后被用于网络钓鱼活动。僵尸网络是被非法远程控制的潜在大型受损系统网络，通常用于网络钓鱼活动。将受损系统用于网络钓鱼活动基础设施可降低攻击者的成本，保护他们的身份，并帮助他们达到其他方式无法达到的规模。网络钓鱼工具包的存在使得几乎任何人都可以轻松发起网络钓鱼攻击。
 
-让我们仔细看看钓鱼网站托管在哪里，它们的受害者在哪里。首先，认识到这个问题的严重性很重要。就数量而言，网络钓鱼和木马(正如我在*第 3 章*、*威胁格局的演变-恶意软件*中讨论的)是攻击者使用最多的战术。到底有多少钓鱼网站？
+让我们仔细看看钓鱼网站托管在哪里，它们的受害者在哪里。首先，认识到这个问题的严重性很重要。就数量而言，网络钓鱼和木马(正如我在*第三章*、*威胁格局的演变-恶意软件*中讨论的)是攻击者使用最多的战术。到底有多少钓鱼网站？
 
 网络钓鱼网站的良好数据来源是互联网搜索引擎和网络浏览器。毕竟，谷歌和必应一直在为互联网上的数十亿网页编制索引，这样搜索就能产生快速、准确的结果。此外，数百万人使用谷歌 Chrome 和微软网络浏览器上网。浏览器允许用户报告可疑或完全不安全的网站。谷歌和微软在他们的浏览器和搜索引擎中使用功能来寻找钓鱼网站、恶意软件托管网站和其他类型的恶意网站。然后，他们通过将不断更新的恶意 URL 和 IP 地址列表集成到他们的产品和服务中，帮助他们的产品和服务用户避开他们发现的恶意网站。除其他服务外，浏览器和搜索引擎都可以在用户试图访问已知的恶意网站(如钓鱼网站)时发出警告。这就产生了谷歌和微软定期发布的恶意网站数据。
 
@@ -114,7 +114,7 @@
 
 你会注意到有些地方不止一次出现在这个列表上，比如保加利亚、印度尼西亚、南非和乌克兰。2015 年第一季度，与全球平均水平差距最大的是保加利亚，该国的钓鱼网站数量是平均水平的近 20 倍。
 
-回想一下从*第 3 章*、*到 2017 年下半年，印尼的恶意软件感染率几乎是全球平均水平的三倍。在某些情况下，大量被入侵的系统可以部分解释为什么印度尼西亚有这么多钓鱼网站。保加利亚和乌克兰也有类似的情况，尽管他们在那段时间没有印度尼西亚那么高的恶意软件感染率和遭遇率。*
+回想一下从*第三章*、*到 2017 年下半年，印尼的恶意软件感染率几乎是全球平均水平的三倍。在某些情况下，大量被入侵的系统可以部分解释为什么印度尼西亚有这么多钓鱼网站。保加利亚和乌克兰也有类似的情况，尽管他们在那段时间没有印度尼西亚那么高的恶意软件感染率和遭遇率。*
 
 但是，并不总是这样，有更多被入侵系统的位置也有更高水平的恶意网站。事实上，这有太多的例外，不能称之为规则。例如，以*表 4.1* 中 2016 年上半年(1H16)钓鱼网站数量最多的地点为例。这些地方包括乌克兰、南非和澳洲。在此期间，南非的恶意软件感染率(CCM)是全球平均水平的近两倍；每 1，000 台互联网主机中钓鱼网站的数量也几乎是全球平均水平的两倍。然而，乌克兰和澳大利亚的数字与南非不一致。他们都拥有高于平均水平的钓鱼网站，但恶意软件感染率低于平均水平:
 
@@ -168,7 +168,7 @@
 
 让恶意网站的潜在受害者处于攻击者的控制之下是攻击的第一步。下一步是利用受害者系统上未打补丁的漏洞。为此，攻击者将试图运行嵌入了 URL 的脚本，或者他们将使用**内嵌框架** ( **IFrame** )来加载另一个用户不知道的 HTML 文档页面。Iframes 有合法的用途，这使得区分好的和恶意的 Iframes 变得很复杂。攻击者会在他们的恶意网页上放置像素大小的 IFrames，这样用户就看不到它们了。当加载这些 HTML 文档时，它们可以运行脚本来检测受害者的操作系统和浏览器版本，选择和下载这些版本的常见漏洞的相应利用，并最终下载和安装其他恶意软件，使攻击者非法控制受损系统。这种恶意的 IFrames 可以被放置在合法网站的网页上。这意味着使用未完全修补的系统访问受信任的网站，可能会导致系统受损，攻击者可以远程控制该系统，使用勒索软件使其瘫痪，等等。
 
-如*图 4.4* 所示，在 2012 年 7 月至 2020 年 1 月期间，互联网上发现的驾车下载页面数量最多的是在 2013 年，在微软必应搜索引擎索引的每 1000 个网址中发现超过一个驾车下载页面。然而，更最近，2018 年和 2019 年，全球平均每 1000 个网址中分别有 0.09 个和 0.08 个恶意网站。这是 2013 年和 2019 年之间驾车下载网站数量的 173%的差异。*图 4.4* 中的数据整理自微软的安全情报报告和交互式微软安全情报报告([https://www.microsoft.com/securityinsights/Driveby](https://www.microsoft.com/securityinsights/Driveby))。
+如*图 4.4* 所示，在 2012 年 7 月至 2020 年 1 月期间，互联网上发现的驾车下载页面数量最多的是在 2013 年，在微软必应搜索引擎索引的每 1000 个网址中发现超过一个驾车下载页面。然而，更最近，2018 年和 2019 年，全球平均每 1000 个网址中分别有 0.09 个和 0.08 个恶意网站。这是 2013 年和 2019 年之间驾车下载网站数量的 173%的差异。*图 4.4* 中的数据整理自微软的安全情报报告和交互式微软安全情报报告([`www.microsoft.com/securityinsights/Driveby`](https://www.microsoft.com/securityinsights/Driveby))。
 
 <figure class="mediaobject">![](img/B16177_04_05.png)</figure>
 
@@ -250,7 +250,7 @@
 
 ## 减轻恶意软件的传播
 
-合法网站受到威胁，然后被用来传播恶意软件，这可能会给消费者和组织带来许多不良后果。因此，运营网站的组织了解并关注网络安全基础知识非常重要。回想一下*第 1 章*、*成功的网络安全策略的要素*，网络安全基础是网络安全策略的一部分，其重点是减少网络安全常见的疑点。网络安全的常见嫌疑包括未打补丁的漏洞、安全错误配置、薄弱、泄露和被盗的凭证、内部威胁和社会工程。管理网络安全基础对于防止网站成为恶意软件分发网站至关重要。每个在互联网上建立网站的人都必须承担这个责任。
+合法网站受到威胁，然后被用来传播恶意软件，这可能会给消费者和组织带来许多不良后果。因此，运营网站的组织了解并关注网络安全基础知识非常重要。回想一下*第一章*、*成功的网络安全策略的要素*，网络安全基础是网络安全策略的一部分，其重点是减少网络安全常见的疑点。网络安全的常见嫌疑包括未打补丁的漏洞、安全错误配置、薄弱、泄露和被盗的凭证、内部威胁和社会工程。管理网络安全基础对于防止网站成为恶意软件分发网站至关重要。每个在互联网上建立网站的人都必须承担这个责任。
 
 搜索因特网寻找恶意软件分发站点的厂商和组织通常会联系他们发现分发恶意软件的站点的网站管理员。根据谷歌公布的关于他们通知活动的数据，他们在 2020 年 1 月 12 日这一周通知的网站管理员的平均响应时间是 20 天；这是自 2014 年 7 月 20 日(谷歌，2020 年)那一周以来的最低平均响应时间。数据显示，典型的平均响应时间为 60 或 90 天(Google，2020)。
 
@@ -262,7 +262,7 @@
 
 当然，对于使用云的组织来说，他们可以简单地每隔几个小时关闭系统并自动重建它们。像这样的短命系统给攻击者提供了很少的时间来利用受损的系统。
 
-然而，即使在短暂的环境中，运行良好的漏洞管理程序和反恶意软件解决方案也是有用的。我将在第 8 章、*云——安全和合规性的现代方法*中进一步讨论这一点。
+然而，即使在短暂的环境中，运行良好的漏洞管理程序和反恶意软件解决方案也是有用的。我将在第八章、*云——安全和合规性的现代方法*中进一步讨论这一点。
 
 但是现在，让我们看看本章开始时典型攻击模式的最后阶段，一些典型的攻击后活动。
 
@@ -286,7 +286,7 @@ DDoS 攻击能有多大？迄今为止最大的有记录的攻击发生在 2018 
 
 当然，并不是所有的 DDoS 攻击都需要那么大或者创新才能有效。但是组织可以选择帮助他们减轻这种攻击。有许多供应商提供 DDoS 保护服务，其中一些包括 AWS Shield、Amazon CloudFront、Google Cloud Armor、Microsoft Azure DDoS Protection、Cloudflare、Akamai 等。除了保护服务，云还提供了可用于在 DDoS 攻击期间根据需要自动扩展基础设施的技术(亚马逊网络服务，2019 年 12 月)。
 
-总而言之，关键是要关注网络安全基础，这样你的系统才不会成为僵尸网络的一部分，被用来攻击无数其他组织和消费者。正如我们将在*第 5 章*、*中讨论的，网络安全策略*、投资检测和响应能力将帮助组织最大限度地减少与僵尸网络相关的损失和成本，以及它们给互联网带来的灾难。
+总而言之，关键是要关注网络安全基础，这样你的系统才不会成为僵尸网络的一部分，被用来攻击无数其他组织和消费者。正如我们将在*第五章*、*中讨论的，网络安全策略*、投资检测和响应能力将帮助组织最大限度地减少与僵尸网络相关的损失和成本，以及它们给互联网带来的灾难。
 
 # 章节总结
 
@@ -300,16 +300,16 @@ DDoS 攻击能有多大？迄今为止最大的有记录的攻击发生在 2018 
 
 受到网络钓鱼攻击、偷渡式下载和其他恶意网站危害的系统最终可能会加入僵尸网络，并被用于攻击其他组织和消费者，包括参与 DDoS 攻击。
 
-这就是我们对基于互联网的威胁的看法。接下来，在*第 5 章*、*网络安全策略*中，我们将研究组织可以用来缓解这些威胁的网络安全策略。
+这就是我们对基于互联网的威胁的看法。接下来，在*第五章*、*网络安全策略*中，我们将研究组织可以用来缓解这些威胁的网络安全策略。
 
 # 参考
 
-1.  亚马逊网络服务(2019 年 12 月)。*AWS DDoS 弹性最佳实践*。从亚马逊网络服务检索:[https://D1 . AWS static . com/whites/Security/DDoS _ White _ paper . pdf](https://d1.awsstatic.com/whitepapers/Security/DDoS_White_Paper.pdf)
-2.  新泽西州安德森(2007 年 5 月 14 日)。*针对爱沙尼亚的大规模 DDoS 攻击；俄罗斯指责*。检索自 Ars Technica:[https://Ars Technica . com/information-technology/2007/05/massive-DDOS-attacks-target-爱沙尼亚-俄国-被告/T5】](https://arstechnica.com/information-technology/2007/05/massive-ddos-attacks-target-estonia-russia-accused/)
+1.  亚马逊网络服务(2019 年 12 月)。*AWS DDoS 弹性最佳实践*。从亚马逊网络服务检索:[`D1 . AWS static . com/whites/Security/DDoS _ White _ paper . pdf`](https://d1.awsstatic.com/whitepapers/Security/DDoS_White_Paper.pdf)
+2.  新泽西州安德森(2007 年 5 月 14 日)。*针对爱沙尼亚的大规模 DDoS 攻击；俄罗斯指责*。检索自 Ars Technica:[`Ars Technica . com/information-technology/2007/05/massive-DDOS-attacks-target-爱沙尼亚-俄国-被告/T5】`](https://arstechnica.com/information-technology/2007/05/massive-ddos-attacks-target-estonia-russia-accused/)
 3.  谷歌(2020 年 5 月)。*谷歌安全浏览*。检索自谷歌透明报告:[T3】https://Transparency Report . Google . com/safe-browsing/overview？不安全=数据集:0；系列:恶意软件、网络钓鱼；开始:1148194800000；end:1587279600000&Lu =不安全](https://transparencyreport.google.com/safe-browsing/overview?unsafe=dataset:0;series:malware,phishing;start:1148194800000;end:1587279600000&lu=unsafe)
 4.  谷歌(2020 年 5 月)。*安全浏览网站状态*。从谷歌透明报告中检索:【https://transparencyreport.google.com/safe-browsing/search?】T3[HL = enT5】](https://transparencyreport.google.com/safe-browsing/search?hl=en)
-5.  谷歌(2020 年 5 月 9 日)。*恶意软件源自何处*。检索自谷歌透明报告:[https://Transparency Report . Google . com/archive/safe-browsing/malware？autonomous _ scan _ history = systemId:18779；dataset:0&Lu = global _ malware&global _ malware = time:qT5】](https://transparencyreport.google.com/archive/safe-browsing/malware?autonomous_scan_history=systemId:18779;dataset:0&lu=global_malware&global_malware=time:q)
-6.  琼斯 j .(2011 年 3 月 17 日)。*微软拿下 Rustock 僵尸网络*。检索自微软:[https://www . Microsoft . com/security/blog/2011/03/17/Microsoft-take-down-of-rustock-botnet/](https://www.microsoft.com/security/blog/2011/03/17/microsoft-takedown-of-rustock-botnet/)
+5.  谷歌(2020 年 5 月 9 日)。*恶意软件源自何处*。检索自谷歌透明报告:[`Transparency Report . Google . com/archive/safe-browsing/malware？autonomous _ scan _ history = systemId:18779；dataset:0&Lu = global _ malware&global _ malware = time:qT5】`](https://transparencyreport.google.com/archive/safe-browsing/malware?autonomous_scan_history=systemId:18779;dataset:0&lu=global_malware&global_malware=time:q)
+6.  琼斯 j .(2011 年 3 月 17 日)。*微软拿下 Rustock 僵尸网络*。检索自微软:[`www . Microsoft . com/security/blog/2011/03/17/Microsoft-take-down-of-rustock-botnet/`](https://www.microsoft.com/security/blog/2011/03/17/microsoft-takedown-of-rustock-botnet/)
 7.  科特勒，s .(2018 年 3 月 1 日)。*2 月 28 日 DDoS 事件报告*。从 GitHub 博客中检索到:【https://github.blog/2018-03-01-ddos-incident-report/】
 8.  微软公司(2012-2017 年)。*微软安全情报报告*。雷蒙德:微软公司。
 9.  微软公司(2012-2017 年)。*微软安全情报报告第 14–21 卷*。雷蒙德:微软公司。
@@ -320,11 +320,11 @@ DDoS 攻击能有多大？迄今为止最大的有记录的攻击发生在 2018 
 14.  微软公司(2020 年 5 月 8 日)。*路过式下载页面*。从微软检索到:【https://www.microsoft.com/securityinsights/Driveby】[T3T5】](https://www.microsoft.com/securityinsights/Driveby)
 15.  微软公司(2020 年 5 月 15 日)。*使用 Microsoft Defender Offline 帮助保护我的电脑*。检索自微软:[T3】https://support . Microsoft . com/en-us/help/17466/windows-defender-offline-help-protect-my-PCT5】](https://support.microsoft.com/en-us/help/17466/windows-defender-offline-help-protect-my-pc)
 16.  微软公司(2020 年 5 月 8 日)。*恶意软件遭遇率*。从微软检索到:【https://www.microsoft.com/securityinsights/Malware】[T3T5】](https://www.microsoft.com/securityinsights/Malware)
-17.  微软防御者 ATP 研究团队(2018 年 8 月 9 日)。*保护保护者:强化机器学习防御敌对攻击*。检索自微软:[https://www . Microsoft . com/security/blog/2018/08/09/protecting-the-protector-hardening-machine-learning-defenses-against-adversarial-attacks/](https://www.microsoft.com/security/blog/2018/08/09/protecting-the-protector-hardening-machine-learning-defenses-against-adversarial-attacks/)
-18.  Pegoraro 河(2019 年 8 月 9 日)。*我们不断受到钓鱼邮件的困扰，谷歌刚刚揭示了原因*。检索自 Fast Company:[https://www . Fast Company . com/90387855/we-keep-falling-for-phishing-email-and-Google-just-discovered-why](https://www.fastcompany.com/90387855/we-keep-falling-for-phishing-emails-and-google-just-revealed-why)
-19.  (2020) *网络钓鱼活动趋势报告 2019 年第四季度*。反网络钓鱼工作组。检索自[https://docs . apwg . org/reports/apwg _ trends _ report _ Q4 _ 2019 . pdf](https://docs.apwg.org/reports/apwg_trends_report_q4_2019.pdf)
-20.  h .所罗门(2017 年 12 月 11 日)。*在黑暗网络上发现的 14 亿份被盗凭证的可搜索数据库*。从加拿大 IT 世界检索:[https://www . itworld Canada . com/article/searchable-database-of-1-40 亿-stocked-credentials-found-on-dark-web/399810](https://www.itworldcanada.com/article/searchable-database-of-1-4-billion-stolen-credentials-found-on-dark-web/399810)
-21.  t .春天(2016 年 3 月 14 日)。*域名抢注者瞄准 Mac 用户。‘om’域名骗局*。检索自 Threatpost:[https://Threatpost . com/typosquaters-target-apple-MAC-users-with-new-om-domain-scam/116768/T5】](https://threatpost.com/typosquatters-target-apple-mac-users-with-new-om-domain-scam/116768/)
+17.  微软防御者 ATP 研究团队(2018 年 8 月 9 日)。*保护保护者:强化机器学习防御敌对攻击*。检索自微软:[`www . Microsoft . com/security/blog/2018/08/09/protecting-the-protector-hardening-machine-learning-defenses-against-adversarial-attacks/`](https://www.microsoft.com/security/blog/2018/08/09/protecting-the-protector-hardening-machine-learning-defenses-against-adversarial-attacks/)
+18.  Pegoraro 河(2019 年 8 月 9 日)。*我们不断受到钓鱼邮件的困扰，谷歌刚刚揭示了原因*。检索自 Fast Company:[`www . Fast Company . com/90387855/we-keep-falling-for-phishing-email-and-Google-just-discovered-why`](https://www.fastcompany.com/90387855/we-keep-falling-for-phishing-emails-and-google-just-revealed-why)
+19.  (2020) *网络钓鱼活动趋势报告 2019 年第四季度*。反网络钓鱼工作组。检索自[`docs . apwg . org/reports/apwg _ trends _ report _ Q4 _ 2019 . pdf`](https://docs.apwg.org/reports/apwg_trends_report_q4_2019.pdf)
+20.  h .所罗门(2017 年 12 月 11 日)。*在黑暗网络上发现的 14 亿份被盗凭证的可搜索数据库*。从加拿大 IT 世界检索:[`www . itworld Canada . com/article/searchable-database-of-1-40 亿-stocked-credentials-found-on-dark-web/399810`](https://www.itworldcanada.com/article/searchable-database-of-1-4-billion-stolen-credentials-found-on-dark-web/399810)
+21.  t .春天(2016 年 3 月 14 日)。*域名抢注者瞄准 Mac 用户。‘om’域名骗局*。检索自 Threatpost:[`Threatpost . com/typosquaters-target-apple-MAC-users-with-new-om-domain-scam/116768/T5】`](https://threatpost.com/typosquatters-target-apple-mac-users-with-new-om-domain-scam/116768/)
 22.  乌尔豪斯(2020 年 5 月 9 日)。*关于*。从乌尔豪斯检索到:[T3【https://urlhaus.abuse.ch/about/】T5】](https://urlhaus.abuse.ch/about/)
 23.  乌尔豪斯(2020 年 5 月 9 日)。*统计*。从乌尔豪斯检索到:[T3【https://urlhaus.abuse.ch/statistics/】T5】](https://urlhaus.abuse.ch/statistics/)
-24.  a . weinert(2019 年 7 月 9 日)。*你的 Pa $ $字不重要*。检索自微软公司:[https://tech community . Microsoft . com/T5/azure-active-directory-identity/your-pa-word-does-t-matter/ba-p/731984 #](https://techcommunity.microsoft.com/t5/azure-active-directory-identity/your-pa-word-doesn-t-matter/ba-p/731984#)
+24.  a . weinert(2019 年 7 月 9 日)。*你的 Pa $ $字不重要*。检索自微软公司:[`tech community . Microsoft . com/T5/azure-active-directory-identity/your-pa-word-does-t-matter/ba-p/731984 #`](https://techcommunity.microsoft.com/t5/azure-active-directory-identity/your-pa-word-doesn-t-matter/ba-p/731984#)
