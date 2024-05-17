@@ -2,6 +2,7 @@
 +   [高度安全环境下的高级渗透测试](docs/adv-pentest-hisec-env/README.md)
 +   [AWS 渗透测试](docs/aws-pentest/README.md)
 +   [为高级渗透测试构建虚拟渗透实验室](docs/bd-vrt-pentest-lab/README.md)
++   [网络安全威胁、恶意软件趋势和策略](docs/cbrsec-trt-mlwr-trnd-stg/README.md)
 +   [Python 高效渗透测试](docs/eff-py-pentest/README.md)
 +   [BurpSuite 秘籍](docs/hk-andr/README.md)
 +   [Python 密码学实用指南](docs/hsn-crpt-py/README.md)
