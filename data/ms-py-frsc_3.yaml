@@ -1,0 +1,2525 @@
+- en: Chapter 3. Using Python for Windows and Linux Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第三章：使用 Python 进行 Windows 和 Linux 取证
+- en: In this chapter, we will focus on the parts of the forensic investigation that
+    are specific to the operating systems. We chose the most widely used operating
+    systems on the desktop and server systems—Microsoft Windows and Linux.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将重点介绍与操作系统特定的取证调查部分。我们选择了桌面和服务器系统中最广泛使用的操作系统——微软 Windows 和 Linux。
+- en: 'For both operating systems, we selected examples of interesting evidence and
+    how to automate its analysis using Python. Consequently, in this chapter, you
+    will learn the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这两种操作系统，我们选择了一些有趣的证据示例以及如何使用 Python 自动化分析它们。因此，在本章中，您将学习以下内容：
+- en: Analyzing the foundations of the Windows event log, selecting interesting parts,
+    and automatically parsing them
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析 Windows 事件日志的基础，选择有趣的部分并自动解析它们
+- en: Organizing the Windows Registry and efficiently searching for **Indicators of
+    Compromise** (**IOC**)
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 组织 Windows 注册表并高效地搜索 **妥协指示器**（**IOC**）
+- en: Searching Linux local account information for IOC
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 搜索 Linux 本地账户信息以查找 IOC
+- en: Understanding, using, and parsing Linux file metadata with POSIX ACL and file
+    based capabilities as the most prominent extensions to the standard metadata
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解、使用和解析 Linux 文件元数据，使用 POSIX ACL 和文件基础功能作为标准元数据的最显著扩展
+- en: Analyzing the Windows Event Log
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析 Windows 事件日志
+- en: Windows includes many monitoring and logging capabilities and traces data and
+    events for a large amount and variety of activities occurring in the operating
+    system. The vast number of events, which can be logged, does neither make it easy
+    for an administrator to identify the specific important events nor helps a forensic
+    investigator to find Indicators of Compromise. Therefore, we will start this section
+    with a small introduction to the Windows Event Log and the changes in its format
+    over time, followed by a description of the important event types that should
+    help an investigator to quickly find suspicious actions in the large amount of
+    other events. In the last section of this chapter, we will demonstrate how to
+    parse the Event Log and automatically find the potential IOCs (e.g., user logons,
+    service creation, and so on).
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 包含许多监控和日志记录功能，并跟踪操作系统中大量和多样化活动的数据和事件。事件数量庞大，这些事件的记录既使管理员难以识别具体的重要事件，也不利于取证调查员找到妥协指示器。因此，我们将从本节开始，简要介绍
+    Windows 事件日志及其格式随时间的变化，接着描述应帮助调查员快速在大量其他事件中找到可疑行为的关键事件类型。在本章的最后一节中，我们将演示如何解析事件日志并自动找到潜在的
+    IOC（例如，用户登录、服务创建等）。
+- en: The Windows Event Log
+  id: totrans-9
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Windows 事件日志
+- en: According to Microsoft, Windows Event Log files are special files that record
+    significant events, such as when a user logs on to the computer or when a program
+    encounters an error, (refer to [http://windows.microsoft.com/en-us/windows/what-information-event-logs-event-viewer#1TC=windows-7](http://windows.microsoft.com/en-us/windows/what-information-event-logs-event-viewer#1TC=windows-7)).
+    Whenever these types of events occur, Windows records the event in an event log
+    that can be read using Event Viewer or similar tools.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据微软的说法，Windows 事件日志文件是特殊的文件，用于记录重要事件，例如用户登录计算机时或程序发生错误时（参考[http://windows.microsoft.com/en-us/windows/what-information-event-logs-event-viewer#1TC=windows-7](http://windows.microsoft.com/en-us/windows/what-information-event-logs-event-viewer#1TC=windows-7)）。每当这些类型的事件发生时，Windows
+    会在事件日志中记录该事件，可以通过事件查看器或类似工具读取。
+- en: With the release of Windows 7 and Windows Server 2008, Microsoft has performed
+    a major change in their Event Log technique. They changed from the classical **Windows
+    Event Log** (**EVT**) to the newer **Windows XML Event Log** (**EVTX**). In the
+    following paragraphs, we will explain some of the main differences between these
+    two log file types.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着 Windows 7 和 Windows Server 2008 的发布，微软对其事件日志技术进行了重大改变。他们从经典的 **Windows 事件日志**（**EVT**）转变为较新的
+    **Windows XML 事件日志**（**EVTX**）。在接下来的段落中，我们将解释这两种日志文件类型之间的一些主要区别。
+- en: Due to the fact that Microsoft no longer supports Windows XP and Server 2003
+    is in the extended support stage at present (meaning that it will go out of support
+    very soon), there are XP and 2003 systems still out there. Thus, some investigators
+    are still going to need to know the difference between the older EVT and the new
+    EVTX and the possible problems arising during analysis of these files.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于微软不再支持 Windows XP，并且 Windows Server 2003 正处于扩展支持阶段（这意味着它很快将停止支持），现在仍然存在一些
+    XP 和 2003 系统。因此，一些调查人员仍然需要了解旧版 EVT 和新版 EVTX 之间的差异，以及在分析这些文件时可能出现的问题。
+- en: 'Besides the binary differences in the records and the Event Log files themselves,
+    the amount of these log files differs too. On a Windows XP/2003 system, there
+    were three main Event Log files: **System**, **Application**, and **Security**.
+    They are stored in the `C:\Windows\system32\config` directory. The server versions
+    of the OS may maintain additional Event Logs (DNS Server, Directory Service, File
+    Replication Service, and so on) depending upon the functionality of the server.
+    On a current Windows 7 system, you can find more than 143 files full of event
+    logs. This gets even more if you compare it to the newer server versions of Microsoft
+    Windows.'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了记录本身和事件日志文件中的二进制差异外，这些日志文件的数量也有所不同。在 Windows XP/2003 系统中，有三个主要的事件日志文件：**系统**、**应用程序**和**安全性**。它们存储在
+    `C:\Windows\system32\config` 目录下。操作系统的服务器版本可能会根据服务器的功能维护额外的事件日志（如 DNS 服务器、目录服务、文件复制服务等）。在当前的
+    Windows 7 系统中，你可以找到超过 143 个充满事件日志的文件。如果与 Microsoft Windows 的较新服务器版本进行比较，这个数字会更多。
+- en: The EVT log records only contain a very small amount of human-readable content
+    and are made human readable through tools such as the event viewer at analysis
+    time. These tools combine the predefined log templates that are commonly stored
+    in the system's DLL or EXE files with the data stored in the EVT file itself.
+    When one of the various log viewing tools displays log records, it has to determine
+    which DLL files will store the message templates. This meta-information is stored
+    in the Windows Registry and is specific to each type of the previously mentioned
+    three main Event Log files (System, Application, and Security).
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: EVT 日志记录只包含非常少量的可读内容，通过分析时使用的工具（如事件查看器）使其变得人类可读。这些工具将通常存储在系统 DLL 或 EXE 文件中的预定义日志模板与
+    EVT 文件本身存储的数据结合起来。当其中的某个日志查看工具显示日志记录时，它必须确定哪些 DLL 文件会存储消息模板。这个元信息存储在 Windows 注册表中，并且对之前提到的三种主要事件日志文件（系统、应用程序和安全性）中的每一种都是特定的。
+- en: 'All of the earlier mentioned details follow the fact that the EVT files aren''t
+    really useful without their corresponding metafiles, which store the core meaning
+    of the log. This creates two major analysis problems:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面提到的所有细节都表明，EVT 文件在没有对应的元文件时并不真正有用，因为元文件存储了日志的核心意义。这就产生了两个主要的分析问题：
+- en: First, an attacker could modify DLL files or the Windows Registry in order to
+    change the meaning of event logs without having to touch the EVT file.
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 首先，攻击者可以修改 DLL 文件或 Windows 注册表，以改变事件日志的含义，而不必触及 EVT 文件。
+- en: Second, when the software is uninstalled on a system, it could result in the
+    EVT records losing their context.
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 其次，当系统上的软件被卸载时，可能会导致 EVT 记录失去其上下文。
+- en: As an investigator, one must carefully keep these issues in mind when analyzing
+    EVT logs and also when writing those logs to remote systems for later analysis.
+    An even more detailed analysis of the EVT records can be found in the ForensicsWiki,
+    [http://forensicswiki.org/wiki/Windows_Event_Log_(EVT)](http://forensicswiki.org/wiki/Windows_Event_Log_(EVT)).
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为调查人员，在分析 EVT 日志以及将这些日志写入远程系统以便稍后分析时，必须仔细考虑这些问题。关于 EVT 记录的更详细分析可以在 ForensicsWiki
+    上找到，[http://forensicswiki.org/wiki/Windows_Event_Log_(EVT)](http://forensicswiki.org/wiki/Windows_Event_Log_(EVT))。
+- en: 'In comparison to EVT, the EVTX files are stored as a binary XML file format.
+    On the newer Windows systems, the event logs can be viewed and analyzed with either
+    the Event Viewer or a vast number of other programs and tools (in the following
+    sections, we will describe some Python scripts that can be used too). When using
+    the Event Viewer, one has to bear in mind that this program can represent the
+    EVTX files in two different formats: **general** and **detailed**. The general
+    (sometimes called formatted) view can hide significant event data that is stored
+    in the event record and can only be seen in the detailed view. Thus, if you are
+    planning to use the Event Viewer for analyzing the EVTX files, always use the
+    detailed option to display the files.'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 EVT 文件相比，EVTX 文件以二进制 XML 文件格式存储。在较新的 Windows 系统中，可以通过事件查看器或大量其他程序和工具查看和分析事件日志（在接下来的章节中，我们也会描述一些可以使用的
+    Python 脚本）。在使用事件查看器时，必须记住该程序可以以两种不同的格式显示 EVTX 文件：**常规**和**详细**。常规（有时称为格式化）视图可能会隐藏存储在事件记录中的重要事件数据，而这些数据只能在详细视图中看到。因此，如果你计划使用事件查看器分析
+    EVTX 文件，请始终选择详细选项来显示文件。
+- en: If you are interested in a more detailed analysis of the EVTX file format, you
+    should take a look at the ForensicsWiki, [http://forensicswiki.org/wiki/Windows_XML_Event_Log_(EVTX)](http://forensicswiki.org/wiki/Windows_XML_Event_Log_(EVTX)).
+    Another great explanation of the deeper EVTX file format details has been presented
+    by *Andreas Schuster* at DFRWS 2007, refer to [http://www.dfrws.org/2007/proceedings/p65-schuster_pres.pdf](http://www.dfrws.org/2007/proceedings/p65-schuster_pres.pdf).
+    This presentation can be very helpful if you want to understand the details of
+    the binary XML format or write your own parsers of EVTX files.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你对 EVTX 文件格式的详细分析感兴趣，可以查看 ForensicsWiki，[http://forensicswiki.org/wiki/Windows_XML_Event_Log_(EVTX)](http://forensicswiki.org/wiki/Windows_XML_Event_Log_(EVTX))。另一个对
+    EVTX 文件格式细节的精彩解释是 *Andreas Schuster* 在 DFRWS 2007 上提供的，参考 [http://www.dfrws.org/2007/proceedings/p65-schuster_pres.pdf](http://www.dfrws.org/2007/proceedings/p65-schuster_pres.pdf)。如果你想理解二进制
+    XML 格式的细节或编写自己的 EVTX 文件解析器，这个演讲非常有帮助。
+- en: If you need to open the EVT files on a Windows 7 or newer system, it's best
+    to convert the older EVT file to the EVTX syntax before opening it. This can be
+    done in several ways as described in a technet.com blog post, [http://blogs.technet.com/b/askperf/archive/2007/10/12/windows-vista-and-exported-event-log-files.aspx](http://blogs.technet.com/b/askperf/archive/2007/10/12/windows-vista-and-exported-event-log-files.aspx).
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你需要在 Windows 7 或更高版本的系统上打开 EVT 文件，最好在打开之前将旧的 EVT 文件转换为 EVTX 语法。可以通过多种方式完成此操作，具体方法可参考
+    technet.com 博客文章，[http://blogs.technet.com/b/askperf/archive/2007/10/12/windows-vista-and-exported-event-log-files.aspx](http://blogs.technet.com/b/askperf/archive/2007/10/12/windows-vista-and-exported-event-log-files.aspx)。
+- en: Interesting Events
+  id: totrans-22
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 有趣的事件
+- en: 'A full list of Windows events on the newer system can be found in a knowledge
+    base article of Microsoft at, [https://support.microsoft.com/en-us/kb/947226](https://support.microsoft.com/en-us/kb/947226).
+    As the number of these events is getting bigger with every new version of the
+    system and every newly installed application, you can easily find more than several
+    hundreds of different event types on a single Windows system. Due to this fact,
+    we tried to sort out some interesting event types that can be helpful when analyzing
+    a system or reconstructing user events (a more detailed explanation of which Event
+    Logs can be helpful under what conditions can also be found in TSA-13-1004-SG,
+    [https://www.nsa.gov/ia/_files/app/spotting_the_adversary_with_windows_event_log_monitoring.pdf](https://www.nsa.gov/ia/_files/app/spotting_the_adversary_with_windows_event_log_monitoring.pdf)):'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以在 Microsoft 的知识库文章中找到 Windows 系统中新版本事件的完整列表，[https://support.microsoft.com/en-us/kb/947226](https://support.microsoft.com/en-us/kb/947226)。随着每个新版本的系统和每个新安装的应用程序，事件数量不断增加，你可以在单个
+    Windows 系统上找到几百种不同的事件类型。鉴于这一事实，我们尝试筛选出一些在分析系统或重建用户事件时可能有用的有趣事件类型（关于在什么情况下哪些事件日志有用的更详细解释也可以在
+    TSA-13-1004-SG 中找到，[https://www.nsa.gov/ia/_files/app/spotting_the_adversary_with_windows_event_log_monitoring.pdf](https://www.nsa.gov/ia/_files/app/spotting_the_adversary_with_windows_event_log_monitoring.pdf)）。
+- en: '**EMET (1, 2)**: If the organization is actively using the Microsoft **Enhanced
+    Mitigation Experience Toolkit** (**EMET**), then these logs can be very helpful
+    during investigation.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**EMET（1，2）**：如果组织正在积极使用 Microsoft **增强型缓解体验工具包**（**EMET**），则这些日志在调查过程中非常有用。'
+- en: '**Windows-Update-Failure (20, 24, 25, 31, 34, 35)**: The failure to update
+    issues should be addressed to avoid prolonging the existence of an application
+    issue or vulnerability in the operating system or an application. Sometimes, this
+    also helps in identifying infections of a system.'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Windows-Update-Failure (20, 24, 25, 31, 34, 35)**：更新失败问题应得到解决，以避免操作系统或应用程序中存在的问题或漏洞被延长。有时，这也有助于识别系统感染。'
+- en: '**Microsoft-Windows-Eventlog (104, 1102)**: It is unlikely that event log data
+    would be cleared during normal operations and it is more likely that a malicious
+    attacker may try to cover their tracks by clearing an event log. When an event
+    log gets cleared, it is suspicious.'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Microsoft-Windows-Eventlog (104, 1102)**：在正常操作过程中，事件日志数据被清除的可能性较小，更可能的是恶意攻击者会尝试通过清除事件日志来掩盖其痕迹。当事件日志被清除时，这是可疑的。'
+- en: '**Microsoft-Windows-TaskScheduler (106)**: It displays newly registered Scheduled
+    Tasks. This can be very helpful if you are searching for signs of malware infections.'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Microsoft-Windows-TaskScheduler (106)**：它显示新注册的计划任务。如果你正在寻找恶意软件感染的迹象，这可能非常有帮助。'
+- en: '**McAfee-Log-Event (257)**: McAfee malware detection—McAfee AntiVirus may detect
+    malware behaviors without actually detecting the EXE file itself. This can be
+    very valuable in determining how the malware got into a system. In general, the
+    event logs of the installed AV solution are very valuable logs when starting an
+    analysis of a potentially compromised system. Therefore, you should remind yourself
+    where to find those logs in the Event Log.'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**McAfee-Log-Event (257)**：McAfee恶意软件检测—McAfee杀毒软件可能检测到恶意软件行为，而不一定检测到EXE文件本身。这对于确定恶意软件是如何进入系统非常有价值。一般来说，已安装的AV解决方案的事件日志在开始分析潜在被破坏的系统时非常有价值。因此，你应该记得在哪里找到这些日志。'
+- en: '**Microsoft-Windows-DNS-Client (1014)**: DNS name resolution timeout; this
+    event type can also be very helpful when searching for malware or when trying
+    to find out whether a user has tried to connect to a specific website or service.'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Microsoft-Windows-DNS-Client (1014)**：DNS名称解析超时；这一事件类型在搜索恶意软件时非常有用，或者在试图找出用户是否尝试连接到特定网站或服务时。'
+- en: '**Firewall-Rule-Add/Change/Delete (2004, 2005, 2006, 2033)**: If the client
+    workstations are taking advantage of the built-in host-based Windows Firewall,
+    then there is value in collecting events to track the firewall status. Normal
+    users should not be modifying the firewall rules of their local machine.'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Firewall-Rule-Add/Change/Delete (2004, 2005, 2006, 2033)**：如果客户端工作站利用内置的主机防火墙，则收集事件以跟踪防火墙状态非常有价值。普通用户不应该修改本地计算机的防火墙规则。'
+- en: '**Microsoft-Windows-Windows Defender (3004)**: Windows Defender malware detection
+    logs.'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Microsoft-Windows-Windows Defender (3004)**：Windows Defender恶意软件检测日志。'
+- en: '**Microsoft-Windows-Security-Auditing (4720, 4724, 4725, 4728, 4732, 4635,
+    4740, 4748, 4756)**: In these logs, you can find information such as remote desktop
+    logins and users that have been added to privileged groups, and account lockouts
+    can also be tracked. User accounts that are being promoted to the privileged groups
+    should be audited very closely to ensure that the users are, in fact, supposed
+    to be in a privileged group. Unauthorized membership of the privileged groups
+    is a strong indicator that a malicious activity has occurred.'
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Microsoft-Windows-Security-Auditing (4720, 4724, 4725, 4728, 4732, 4635,
+    4740, 4748, 4756)**：在这些日志中，你可以找到诸如远程桌面登录、被添加到特权组的用户、账户锁定等信息。应该非常密切地审计被提升到特权组的用户，以确保这些用户确实应该在特权组中。未授权的特权组成员身份是发生恶意活动的强烈迹象。'
+- en: '**Service-Control-Manager (7030, 7045)**: It monitors whether a service is
+    configured to interact with the desktop or has been installed on the system in
+    general.'
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Service-Control-Manager (7030, 7045)**：它监控服务是否被配置为与桌面交互，或者是否已在系统上安装。'
+- en: '**App-Locker-Block/Warning (8003, 8004, 8006, 8007)**: Application whitelisting
+    events should be collected to look for the applications that have been blocked
+    from execution. Any blocked application could be malware or the users trying to
+    run an unapproved software.'
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**App-Locker-Block/Warning (8003, 8004, 8006, 8007)**：应收集应用程序白名单事件，查看哪些应用程序被阻止执行。任何被阻止的应用程序可能是恶意软件，或者用户尝试运行未批准的软件。'
+- en: '*Harlan Carvey* stated in one of his blog posts ([http://windowsir.blogspot.de/2014/10/windows-event-logs.html](http://windowsir.blogspot.de/2014/10/windows-event-logs.html))
+    that beyond individual event records (source/ID pairs), one of the aspects of
+    the newer versions of Windows (in particular, Windows 7) is that there are a lot
+    of events that are being recorded by default across multiple Event Log files.
+    Thus, when some events occur, multiple event records are stored in different Event
+    Log types and often across different Event Log files. For example, when a user
+    logs in to a system on the console, there will be an event recorded in the security
+    event log, a couple of events will be recorded in the `Microsoft-Windows-TerminalServices-LocalSessionManager/Operational`
+    log, and a couple of events will also be recorded in the `Microsoft-Windows-TaskScheduler/Operational`
+    log.'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*哈兰·卡维* 在他的博客文章中指出（[http://windowsir.blogspot.de/2014/10/windows-event-logs.html](http://windowsir.blogspot.de/2014/10/windows-event-logs.html)），在新版
+    Windows（特别是 Windows 7）中，除了单独的事件记录（来源/ID 配对）之外，还有一个特点就是默认会记录许多事件，且跨多个事件日志文件进行记录。因此，当一些事件发生时，多个事件记录会存储在不同类型的事件日志中，并且通常跨不同的事件日志文件。例如，当用户在控制台登录到系统时，安全事件日志中会记录一个事件，一些事件会记录在
+    `Microsoft-Windows-TerminalServices-LocalSessionManager/Operational` 日志中，还有一些事件会记录在
+    `Microsoft-Windows-TaskScheduler/Operational` 日志中。'
+- en: The Event Log can also be used to detect whether an attacker has used some kind
+    of anti-forensic techniques. One of those techniques would be to change the system
+    time in order to mislead an investigator. To detect this kind of modification,
+    an investigator has to list all the available Event Log records by the sequence
+    number and generated time. If the system time has been rolled back, there would
+    be a point where the time an event has been generated was before the previous
+    event. Some more examples of detecting anti-forensic techniques with the help
+    of Windows Event Log can be found in a blog post by *Harlan Carvey*, at [http://windowsir.blogspot.de/2013/07/howto-determinedetect-use-of-anti.html](http://windowsir.blogspot.de/2013/07/howto-determinedetect-use-of-anti.html).
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件日志还可以用来检测攻击者是否使用了某种反取证技术。其中一种技术是通过改变系统时间来误导调查人员。为了检测这种修改，调查人员必须按顺序号和生成时间列出所有可用的事件日志记录。如果系统时间被回滚，某个事件的生成时间将会早于前一个事件。关于如何通过
+    Windows 事件日志检测反取证技术的更多示例，可以参考 *哈兰·卡维* 的博客文章，地址是 [http://windowsir.blogspot.de/2013/07/howto-determinedetect-use-of-anti.html](http://windowsir.blogspot.de/2013/07/howto-determinedetect-use-of-anti.html)。
+- en: Parsing the Event Log for IOC
+  id: totrans-37
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 解析事件日志以获取IOC
+- en: When talking about Event Logs and analyzing these logs with Python, there is
+    no way to get around **python-evtx**. These scripts ([https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx))
+    have been developed using the 2.7+ tags of the Python programming language. As
+    it is purely Python, the module works equally well across the platforms. The code
+    does not depend on any modules that require separate compilation and operates
+    on the event log files from the Windows operating systems that are newer than
+    Windows Vista that is EVTX.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在谈论事件日志并使用 Python 分析这些日志时，**python-evtx** 是绕不开的。这些脚本（[https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx)）是使用
+    Python 编程语言的 2.7+ 标签开发的。由于它完全是用 Python 编写的，这个模块在不同平台上都能很好地工作。该代码不依赖于任何需要单独编译的模块，能够在
+    Windows 操作系统上运行，特别是 Windows Vista 及以后版本的事件日志文件 EVTX。
+- en: The second tool that we want to bring to your attention is **plaso**, (refer
+    to [http://plaso.kiddaland.net/](http://plaso.kiddaland.net/)). This tool set
+    has evolved from **log2timeline** and is now build in Python. With the help of
+    this tool set, you can create meaningful timelines of the system events and other
+    log files (for example, Apache). There is also a very good cheat sheet, [http://digital-forensics.sans.org/media/log2timeline_cheatsheet.pdf](http://digital-forensics.sans.org/media/log2timeline_cheatsheet.pdf),
+    for log2timeline that demonstrates the real power of this tool. One of the big
+    advantages of this tool set is the fact that you can even run it on a full image
+    of a system to generate a timeline of all actions that the users performed on
+    that system before creating the image.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们想要介绍的第二个工具是**plaso**，（参见 [http://plaso.kiddaland.net/](http://plaso.kiddaland.net/)）。该工具集源自
+    **log2timeline**，现在构建于 Python 之上。借助这个工具集，你可以创建系统事件和其他日志文件（例如 Apache）的有意义时间轴。log2timeline
+    也有一份非常好的备忘单，[http://digital-forensics.sans.org/media/log2timeline_cheatsheet.pdf](http://digital-forensics.sans.org/media/log2timeline_cheatsheet.pdf)，它展示了这个工具的真正威力。该工具集的一个大优势是，你甚至可以在系统的完整镜像上运行它，以生成所有用户在该系统上执行的操作的时间轴，之后再创建镜像。
+- en: In the following sections, we will show some examples of how to use python-evtx
+    to find IOC in the Windows Event Log and how plaso will help you identify more
+    IOCs and display them in a nicely formatted timeline.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将展示如何使用 python-evtx 查找 Windows 事件日志中的IOC，以及 plaso 如何帮助你识别更多 IOC 并以良好的格式展示它们的时间轴。
+- en: The python-evtx parser
+  id: totrans-41
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: python-evtx 解析器
+- en: 'First of all, we want to start with a basic conversion of the binary XML format
+    of EVTX files to the readable XML files. This can be done using `evtxdump.py`,
+    [https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx),
+    which will also be the basis of our following scripts:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们要从将 EVTX 文件的二进制 XML 格式转换为可读的 XML 文件开始。这可以通过使用 `evtxdump.py`，[https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx)
+    实现，这也将是我们接下来脚本的基础：
+- en: '[PRE0]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'When dumping a logon event (event id 4724) with the help of the previously
+    mentioned script, the result will look similar to the following:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用之前提到的脚本帮助下转储登录事件（事件ID 4724），结果将类似于以下内容：
+- en: '[PRE1]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'When using `evtxdump.py`, [https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx),
+    with a large Windows Event Log file, the output will be very large as you will
+    find all the recorded logs in the generated XML file. For an analyst, it is often
+    important to perform a fast triage or search for specific events quickly. Due
+    to this, we modify the script in a way that it is possible to extract only specific
+    events, as shown in the following:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当使用`evtxdump.py`，[https://github.com/williballenthin/python-evtx](https://github.com/williballenthin/python-evtx)，处理一个大型
+    Windows 事件日志文件时，输出将非常庞大，因为你将会在生成的 XML 文件中找到所有记录的日志。对于分析师来说，通常需要快速进行筛查或快速搜索特定事件。因此，我们修改了脚本，使其可以仅提取特定事件，具体如下所示：
+- en: '[PRE2]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'If you now want to extract all logon events from the security event log of
+    a Windows system in a given XML file, you just have to execute the script as follows:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你现在想从 Windows 系统的安全事件日志中提取所有登录事件，只需按如下方式执行脚本：
+- en: '[PRE3]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The plaso and log2timeline tools
+  id: totrans-50
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: plaso 和 log2timeline 工具
+- en: 'In this section, we will demonstrate how to find logon and logoff events on
+    a Terminal Server. The Terminal Services logon and logoff events can be tagged
+    using `plasm` and filtered using `psort` to get a quick overview of which users
+    have been logging in to a machine and when and where from. This information can
+    be very helpful when searching for compromises. To start with plaso**,** you first
+    need to tag all your data. Tagging with plaso is as easy as shown in the following:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将演示如何在终端服务器上查找登录和注销事件。可以使用`plasm`标记终端服务的登录和注销事件，并使用`psort`进行过滤，以便快速查看哪些用户何时何地登录了机器。这些信息在寻找安全漏洞时非常有用。首先，你需要使用
+    plaso 标记所有数据。使用 plaso 标记非常简单，具体如下所示：
+- en: '[PRE4]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'After successful tagging, you can search the storage file for tags with the
+    following command:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 标记成功后，你可以使用以下命令在存储文件中搜索标签：
+- en: '[PRE5]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The result of this command execution will show you all the successful logon
+    events on a given system. Similar commands can be executed when searching for
+    the services that are started or EMET failures.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行此命令后，将显示系统上所有成功的登录事件。在搜索已启动的服务或 EMET 故障时，可以执行类似的命令。
+- en: Now, that you have seen the kind of data that you are able to extract from Windows
+    Event Log, we will show you a second component of Microsoft Windows that is really
+    helpful when searching for IOC or when trying to reconstruct the user behavior.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，您已经看到从 Windows 事件日志中能够提取的数据，我们将展示 Microsoft Windows 的第二个组件，这在搜索 IOC 或试图重建用户行为时非常有帮助。
+- en: Analyzing the Windows Registry
+  id: totrans-57
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析 Windows 注册表
+- en: 'The Windows Registry is one of the essential components of the current Microsoft
+    Windows operating systems and thus also a very important point in a forensic investigation.
+    It performs two critical tasks for the Windows operating system. First, it is
+    the repository of settings for the Windows operating system and the applications
+    that are installed on the system. Second, it is the database of the configuration
+    of all installed hardware. Microsoft defines the registry as follows:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 注册表是当前 Microsoft Windows 操作系统的核心组件之一，因此也是法医调查中非常重要的一个点。它为 Windows 操作系统执行两个关键任务。首先，它是
+    Windows 操作系统和安装在系统上的应用程序的设置存储库。其次，它是所有已安装硬件的配置数据库。微软对注册表的定义如下：
+- en: '*"A central hierarchical database used in Microsoft Windows 98, Windows CE,
+    Windows NT, and Windows 2000 used to store information that is necessary to configure
+    the system for one or more users, applications and hardware devices." (Microsoft
+    Computer Dictionary)*'
+  id: totrans-59
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*“一个在 Microsoft Windows 98、Windows CE、Windows NT 和 Windows 2000 中使用的中央层次数据库，用于存储配置一个或多个用户、应用程序和硬件设备所必需的信息。”（微软计算机词典）*'
+- en: In the following sections, we will explain several elements of the Windows Registry
+    that may be important to a forensics investigator and that help in understanding
+    where to find the most valuable indicators. We will start with an overview of
+    the structure to help you find your way through the large amount of data in the
+    registry. Afterwards, we will demonstrate some helpful scripts to extract indicators
+    of compromise (IOC).
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将解释 Windows 注册表中的几个重要元素，这些元素可能对法医调查员很有帮助，并有助于理解在哪里找到最有价值的指示器。我们将从注册表结构的概述开始，帮助您在大量数据中找到正确的方向。之后，我们将演示一些有用的脚本来提取妥协指示器（IOC）。
+- en: Windows Registry Structure
+  id: totrans-61
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Windows 注册表结构
+- en: 'In the Windows operating system, the Windows Registry is organized logically
+    in a number of root keys. There are five logical root keys in the Windows Registry
+    of a Windows 7 system, as shown in the following:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 操作系统中，Windows 注册表逻辑地组织为多个根键。Windows 7 系统中的 Windows 注册表有五个逻辑根键，如下所示：
+- en: '![Windows Registry Structure](img/2087_03_01.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Windows 注册表结构](img/2087_03_01.jpg)'
+- en: The previous figure shows the five root keys of the Registry in a Windows 7
+    system that are displayed by the Windows Registry Editor (one of the most common
+    tools to view and examine the Windows Registry).
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上图显示了 Windows 7 系统中通过 Windows 注册表编辑器（这是最常用的查看和检查 Windows 注册表的工具）显示的五个根键。
+- en: 'There are two kinds of root keys: volatile and nonvolatile. There are only
+    two root keys that are stored on the hard disk of the system and are nonvolatile
+    data held in the main memory: **HKEY_LOCAL_MACHINE** and **HKEY_USERS**. The other
+    root keys are either the subsets of these keys or are the volatile keys that can
+    only be examined during the runtime or when dumping the memory of a system before
+    starting the analysis of its image.'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根键有两种类型：易失性和非易失性。只有两个根键存储在系统的硬盘上，并且是主存储器中持久存在的数据：**HKEY_LOCAL_MACHINE** 和 **HKEY_USERS**。其他根键要么是这些键的子集，要么是只能在运行时或在开始分析系统镜像之前转储系统内存时检查的易失性键。
+- en: 'The Windows operating system organizes the Registry in a number of hive files.
+    According to Microsoft, (refer to [https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx)),
+    the hive is defined as follows:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 操作系统将注册表组织在多个 hive 文件中。根据微软的定义（参考 [https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx)），hive
+    的定义如下：
+- en: '*A hive is a logical group of keys, sub keys, and values in the registry that
+    has a set of supporting files containing backups of its data.*'
+  id: totrans-67
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*Hive 是注册表中键、子键和值的逻辑分组，具有一组包含其数据备份的支持文件。*'
+- en: If a new user logs on a Windows machine, a User Profile Hive is created. This
+    hive contains specific registry information (for example, application settings,
+    desktop environment, network connections, and printers) and is located in the
+    **HKEY_USERS** key.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果新用户登录到 Windows 机器，将创建一个用户配置文件 hive。此 hive 包含特定的注册表信息（例如，应用程序设置、桌面环境、网络连接和打印机），并位于
+    **HKEY_USERS** 键下。
+- en: 'Each hive has additional supporting files that are stored in the `%SystemRoot%\System32\Config`
+    directory. These files are updated each time a user logs on and the filename extensions
+    of the files in these directories indicate the type of data that they contain.
+    Refer to the following table for more details (reference taken from [https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx)):'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个 hive 都有额外的支持文件，这些文件存储在 `%SystemRoot%\System32\Config` 目录中。每次用户登录时，这些文件都会被更新，这些目录中文件的扩展名表示它们所包含的数据类型。更多详细信息请参阅下表（参考来源：[https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724877%28v=vs.85%29.aspx)）：
+- en: '| Extension | Description |'
+  id: totrans-70
+  prefs: []
+  type: TYPE_TB
+  zh: '| 扩展名 | 描述 |'
+- en: '| --- | --- |'
+  id: totrans-71
+  prefs: []
+  type: TYPE_TB
+  zh: '| --- | --- |'
+- en: '| none | A complete copy of the hive data. |'
+  id: totrans-72
+  prefs: []
+  type: TYPE_TB
+  zh: '| none | hive 数据的完整副本。 |'
+- en: '| `.alt` | A backup copy of the critical `HKEY_LOCAL_MACHINE\System` hive.
+    Only the System key has an `.alt` file. |'
+  id: totrans-73
+  prefs: []
+  type: TYPE_TB
+  zh: '| `.alt` | 关键 `HKEY_LOCAL_MACHINE\System` hive 的备份副本。只有 System 键具有 `.alt` 文件。
+    |'
+- en: '| `.log` | A transaction log of changes to the keys and value entries in the
+    hive. |'
+  id: totrans-74
+  prefs: []
+  type: TYPE_TB
+  zh: '| `.log` | 对 hive 中键和值条目的更改的事务日志。 |'
+- en: '| `.sav` | A backup copy of a hive. |'
+  id: totrans-75
+  prefs: []
+  type: TYPE_TB
+  zh: '| `.sav` | hive 的备份副本。 |'
+- en: In the following section, we will discuss where to find interesting hives and
+    how to analyze them with the help of the Python tools.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分中，我们将讨论在哪里找到有趣的 hive，并如何借助 Python 工具进行分析。
+- en: Parsing the Registry for IOC
+  id: totrans-77
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 解析注册表以获取 IOC
+- en: 'In this section, we will discuss which registry hives are important when searching
+    for IOC. These subsections include the following topics:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将讨论在搜索 IOC 时哪些注册表 hive 是重要的。以下子节将包括以下主题：
+- en: '**Connected USB Devices**: This section will show which devices had been connected
+    to a system and when. This helps in identifying the possible ways of data leakage
+    or exfiltration through a system user.'
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**连接的 USB 设备**：本节将展示哪些设备曾经连接到系统以及何时连接。这有助于识别通过系统用户进行数据泄露或外泄的可能途径。'
+- en: '**User Histories**: This section will show where to find histories of the opened
+    files.'
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户历史**：本节将展示如何找到已打开文件的历史记录。'
+- en: '**Startup Programs**: This section will show which programs will be executed
+    on system start. This can be very helpful when trying to identify the infected
+    systems.'
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**启动程序**：本节将展示系统启动时将执行哪些程序。这在尝试识别受感染的系统时非常有帮助。'
+- en: '**System Information**: This section will show where to find important information
+    of the system in question (for example, usernames).'
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**系统信息**：本节将展示如何找到目标系统的重要信息（例如，用户名）。'
+- en: '**Shim Cache Parser**: This section will show how to get important IOC with
+    the help of common Python tools such as Mandiant''s **Shim Cache Parser**, refer
+    to [https://www.mandiant.com/blog/leveraging-application-compatibility-cache-forensic-investigations/](https://www.mandiant.com/blog/leveraging-application-compatibility-cache-forensic-investigations/).'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Shim Cache 解析器**：本节将展示如何通过常见的 Python 工具（如 Mandiant 的 **Shim Cache 解析器**）来获取重要的
+    IOC，参考 [https://www.mandiant.com/blog/leveraging-application-compatibility-cache-forensic-investigations/](https://www.mandiant.com/blog/leveraging-application-compatibility-cache-forensic-investigations/)。'
+- en: Connected USB Devices
+  id: totrans-84
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 连接的 USB 设备
+- en: One of the most common questions that an incident response person has to answer
+    is whether a user has exfiltrated confidential data from a system or whether a
+    system compromise has been initiated by a rogue USB device that a user connected
+    to the system. To answer this question, the Windows Registry is a good point to
+    start.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件响应人员最常遇到的一个问题是，是否有用户从系统中外泄了机密数据，或者系统是否因用户连接的恶意 USB 设备而遭到入侵。为了回答这个问题，Windows
+    注册表是一个很好的起点。
+- en: 'Any time a new USB device is connected to the system, it will leave information
+    in the registry. This information can uniquely identify each USB device that has
+    been connected to the system. The registry stores the vendor ID, product ID, revision
+    and serial numbers of each connected USB device. This information can be found
+    in the `HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Enum\USBSTOR` registry hive, *Windows
+    Forensic Analysis*, *Harlan Carvey*, *Dave Kleiman*, *Syngress Publishing*, which
+    is also shown in the following screenshot:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当一个新的 USB 设备连接到系统时，它会在注册表中留下信息。这些信息可以唯一标识每个已连接的 USB 设备。注册表会存储每个已连接 USB 设备的供应商
+    ID、产品 ID、修订版和序列号。这些信息可以在`HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Enum\USBSTOR`注册表蜂巢中找到，*Windows
+    法医分析*，*Harlan Carvey*，*Dave Kleiman*，*Syngress Publishing*，这也可以在以下截图中查看：
+- en: '![Connected USB Devices](img/2087_03_02.jpg)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![已连接的 USB 设备](img/2087_03_02.jpg)'
+- en: User histories
+  id: totrans-88
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 用户历史
+- en: 'On a Windows system, there are several lists in the Registry that help in identifying
+    the recent user activity (for example, recently visited web pages or recently
+    opened Microsoft Word files). The following table shows some of these lists with
+    the corresponding Windows Registry subkeys, for all lists and their Windows Registry
+    subkeys refer to [http://ro.ecu.edu.au/cgi/viewcontent.cgi?article=1071&context=adf](http://ro.ecu.edu.au/cgi/viewcontent.cgi?article=1071&context=adf):'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 系统中，注册表中有多个列表可以帮助识别最近的用户活动（例如，最近访问的网页或最近打开的 Microsoft Word 文件）。下表展示了其中一些列表及其对应的
+    Windows 注册表子键，所有列表及其 Windows 注册表子键请参考[http://ro.ecu.edu.au/cgi/viewcontent.cgi?article=1071&context=adf](http://ro.ecu.edu.au/cgi/viewcontent.cgi?article=1071&context=adf)：
+- en: '| History list | Related windows registry sub key |'
+  id: totrans-90
+  prefs: []
+  type: TYPE_TB
+  zh: '| 历史列表 | 相关的 Windows 注册表子键 |'
+- en: '| --- | --- |'
+  id: totrans-91
+  prefs: []
+  type: TYPE_TB
+  zh: '| --- | --- |'
+- en: '| Typed URLs in Microsoft Internet Explorer | HKEY_USERS\S-1-5-21-[User Identifier]
+    \Software\Microsoft\Internet Explorer\TypedURLs |'
+  id: totrans-92
+  prefs: []
+  type: TYPE_TB
+  zh: '| 在 Microsoft Internet Explorer 中输入的 URL | HKEY_USERS\S-1-5-21-[用户标识符]\Software\Microsoft\Internet
+    Explorer\TypedURLs |'
+- en: '| Most recently used Microsoft Office files | HKEY_USERS\S-1-5-21-[User Identifier]
+    \Software \Microsoft\Office\12.0\Office_App_Name\File MRU |'
+  id: totrans-93
+  prefs: []
+  type: TYPE_TB
+  zh: '| 最近使用的 Microsoft Office 文件 | HKEY_USERS\S-1-5-21-[用户标识符]\Software\Microsoft\Office\12.0\Office_App_Name\File
+    MRU |'
+- en: '| Most recently mapped network drives | HKEY_USERS\S-1-5-21-[User Identifier]
+    \Software \Microsoft\Windows\CurrentVersion\Explorer\Map Network Drive MRU |'
+  id: totrans-94
+  prefs: []
+  type: TYPE_TB
+  zh: '| 最近映射的网络驱动器 | HKEY_USERS\S-1-5-21-[用户标识符]\Software\Microsoft\Windows\CurrentVersion\Explorer\Map
+    Network Drive MRU |'
+- en: '| Most recently typed command on the RUN dialog | HKEY_USERS\S-1-5-21-[User
+    Identifier] \Software \Microsoft\Windows\CurrentVersion\Explorer\RunMRU |'
+  id: totrans-95
+  prefs: []
+  type: TYPE_TB
+  zh: '| 在 RUN 对话框中最近输入的命令 | HKEY_USERS\S-1-5-21-[用户标识符]\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU
+    |'
+- en: '| Recent folders | HKEY_USERS\S-1-5-21-[User Identifier] \Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\Folder
+    |'
+  id: totrans-96
+  prefs: []
+  type: TYPE_TB
+  zh: '| 最近的文件夹 | HKEY_USERS\S-1-5-21-[用户标识符]\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\Folder
+    |'
+- en: Startup programs
+  id: totrans-97
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 启动程序
+- en: 'During some investigations, it is important to find out which software was
+    automatically run at startup and which software was manually started by a user.
+    To help answer this question, the Windows Registry `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
+    can help again. The list of startup programs is shown in the following figure
+    and is listed within the *Windows Register hive*, which is taken from *A Windows
+    Registry Quick Reference*, *Farmer, D. J*:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些调查中，重要的是找出哪些软件是在启动时自动运行的，哪些软件是用户手动启动的。为了解答这个问题，Windows 注册表中的`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`可以再次提供帮助。启动程序列表如下图所示，并列在*Windows
+    注册表蜂巢*中，图表来自*《Windows 注册表快速参考》*，*Farmer, D. J*：
+- en: '![Startup programs](img/2087_03_03.jpg)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![启动程序](img/2087_03_03.jpg)'
+- en: System Information
+  id: totrans-100
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 系统信息
+- en: 'In this section, we will see some registry hives that can be important when
+    analyzing a system. First of all, there is a large amount of information about
+    the user account that is stored in the registry, as follows:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将看到一些在分析系统时可能非常重要的注册表蜂巢。首先，注册表中存储了大量关于用户账户的信息，如下所示：
+- en: A list of user accounts
+  id: totrans-102
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户账户列表
+- en: Last login time of each account
+  id: totrans-103
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 每个账户的最后登录时间
+- en: Whether the account requires a password
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 账户是否需要密码
+- en: Whether a specific account is disabled or enabled
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 账户是否被禁用或启用
+- en: The hash technique that is used for calculating the password hash
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用于计算密码哈希值的哈希技术
+- en: 'All of this information is held in the following registry key:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有这些信息都保存在以下注册表键中：
+- en: '`HKEY_LOCAL_MACHINE\SAM\Domains\Account\Users`'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SAM\Domains\Account\Users`'
+- en: 'There is a lot more interesting data in the Windows Registry; however, one
+    type of information can be very helpful during a forensic investigation: the time
+    of the last shutdown of the system. This information is stored in the `ShutdownTime`
+    value in the following hive:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows注册表中有许多其他有趣的数据；然而，有一种信息在法医调查中可能非常有用：系统最后一次关机的时间。该信息存储在以下哈希中的`ShutdownTime`值中：
+- en: '`HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Windows`'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Windows`'
+- en: This information is often interesting on server systems as it could be a hint
+    as to when the last updates had been applied or whether there had been any unplanned
+    reboots of a system, which also could have been caused by an attacker.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个信息通常在服务器系统中很有趣，因为它可能表明上次更新的时间，或者是否有任何系统的非计划重启，这也可能是攻击者导致的。
+- en: Shim Cache Parser
+  id: totrans-112
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Shim缓存解析器
+- en: The Windows Registry contains application compatibility issues and a large amount
+    of metadata (such as file size, file's last modified time, and last execution
+    time depending on the operating system version) that could be important for the
+    application runtime in **Application Compatibility Shim Cache**.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows注册表包含应用兼容性问题和大量元数据（如文件大小、文件的最后修改时间以及最后执行时间，这取决于操作系统版本），这些可能对**应用兼容性Shim缓存**中的应用运行时非常重要。
+- en: Tip
+  id: totrans-114
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: The implementation and structure of the Application Compatibility Shim Cache
+    can vary per operating system. Thus, check your findings thoroughly.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用兼容性Shim缓存的实现和结构可能因操作系统而异。因此，请彻底检查您的发现。
+- en: 'Data about application compatibility and runtime issues can be very useful
+    during an incident response or any other kind of forensic investigation in order
+    to identify the potentially infected systems and to create a timeline of when
+    the potential infection took place. Mandiant has released a tool to extract this
+    kind of evidence: **Shim Cache Parser**, (for more information refer to [https://github.com/mandiant/ShimCacheParser](https://github.com/mandiant/ShimCacheParser))'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关应用兼容性和运行时问题的数据，在事件响应或其他类型的法医调查中非常有用，可以帮助识别潜在感染的系统，并创建潜在感染发生的时间线。Mandiant发布了一款提取这种证据的工具：**Shim缓存解析器**，（更多信息请参阅[https://github.com/mandiant/ShimCacheParser](https://github.com/mandiant/ShimCacheParser)）
+- en: '*Shim Cache Parser will automatically determine the format of the cached data
+    and output their contents. It supports a number of inputs including system registry
+    hives, raw binary, or the current system''s registry.*'
+  id: totrans-117
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*Shim缓存解析器将自动确定缓存数据的格式并输出其内容。它支持多种输入，包括系统注册表哈希、原始二进制数据或当前系统的注册表。*'
+- en: 'The tool can be used against an exported registry hive or against the running
+    system. When using it against a running system, you just need to execute the following
+    command:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具可以用于导出的注册表哈希或正在运行的系统。使用时，只需执行以下命令：
+- en: '[PRE6]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'When looking at the generated CSV output, you can find installed applications
+    and first runtime of these files, as follows:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在查看生成的CSV输出时，您可以找到已安装的应用程序及其首次运行时间，具体如下：
+- en: '[PRE7]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Looking at the previous data, one can see that the user installed or updated
+    Avira AntiVir on 2015-05-24 and KeePass on 2014-07-10\. Also, you can find some
+    hints that the system seems to be a virtual system as you can see the hints of
+    Parallels, a Mac OS X virtualization platform.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过查看之前的数据，可以发现用户在2015-05-24安装或更新了Avira AntiVir，并在2014-07-10安装了KeePass。此外，您还可以找到一些线索，表明该系统似乎是一个虚拟系统，因为可以看到Parallels的线索，这是一个Mac
+    OS X虚拟化平台。
+- en: If one considers the tools that have been described previously and the information
+    that the Windows Event Log and Windows Registry contain, it is clear that in a
+    forensic investigation, not all questions concerning a system can be answered
+    without these sources of information.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果考虑到前面描述的工具以及Windows事件日志和Windows注册表中包含的信息，就会发现，在法医调查中，并非所有关于系统的问题都可以通过这些信息源来回答。
+- en: Implementing Linux specific checks
+  id: totrans-124
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 实施特定于Linux的检查
+- en: In this section, we will describe how to implement some integrity checks to
+    support the finding signs of system manipulation in Linux and similar (for example,
+    BSD) systems.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将描述如何实施一些完整性检查，以帮助发现Linux和类似系统（例如，BSD系统）中的系统操作迹象。
+- en: 'These checks include the following:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些检查包括以下内容：
+- en: Searching for anomalies in the local user management
+  id: totrans-127
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在本地用户管理中搜索异常
+- en: Understanding and analyzing file metadata for special permissions and privileges
+  id: totrans-128
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解和分析文件元数据中的特殊权限和特权
+- en: Using clustering algorithms on file metadata to get indicators on where to look
+    deeper
+  id: totrans-129
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用文件元数据的聚类算法获取进一步检查的指示
+- en: Checking the integrity of local user credentials
+  id: totrans-130
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检查本地用户凭据的完整性
+- en: 'The information about local users in Linux is mostly stored in two files: `/etc/passwd`
+    and `/etc/shadow`. The latter is optional and all the information about local
+    users—including the hashed password—was originally stored in `/etc/passwd`. Soon,
+    it was considered a security issue to store the password information in a file
+    that is readable by every user. Therefore, the password hashes in `/etc/passwd`
+    were replaced by a single x denoting that the corresponding password hash has
+    to be looked up in `/etc/shadow`.'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 中的本地用户信息大多数存储在两个文件中：`/etc/passwd` 和 `/etc/shadow`。后者是可选的，所有关于本地用户的信息，包括哈希密码，最初都存储在
+    `/etc/passwd` 中。很快，将密码信息存储在所有用户可读的文件中被认为是一个安全问题。因此，`/etc/passwd` 中的密码哈希被一个表示密码哈希需要在
+    `/etc/shadow` 中查找的 x 字符所替代。
+- en: The side effect of this evolutionary process is that the password hashes in
+    `/etc/passwd` are still supported and all the settings in `/etc/passwd` may override
+    the credentials in `/etc/shadow`.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一演变过程的副作用是 `/etc/passwd` 中的密码哈希仍然被支持，并且 `/etc/passwd` 中的所有设置可能会覆盖 `/etc/shadow`
+    中的凭据。
+- en: Both files are text files with one entry per line. An entry consists of multiple
+    fields separated by colons.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这两个文件都是文本文件，每行包含一个条目。一个条目由多个字段组成，字段之间用冒号分隔。
+- en: 'The format of `/etc/passwd` is as follows:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/etc/passwd` 的格式如下：'
+- en: '**username**: This field contains the human-readable username. It is not required
+    for the username to be unique. However, most user management tools enforce unique
+    usernames.'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户名**：此字段包含人类可读的用户名。用户名不必唯一。然而，大多数用户管理工具会强制要求用户名唯一。'
+- en: '**password hash**: This field contains the password in an encoded form according
+    to the Posix `crypt()` function. If this field is empty, then the corresponding
+    user does not require a password to log on to the system. If this field contains
+    a value that cannot be generated by the hash algorithm, for example, an exclamation
+    mark, then the user cannot log on using a password. However, this condition does
+    not render the account useless. A user with a locked password can still log on
+    using other authentication mechanisms, for example, SSH keys.'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**密码哈希**：此字段包含根据 Posix `crypt()` 函数对密码进行编码后的形式。如果此字段为空，则对应的用户无需密码即可登录系统。如果此字段包含无法通过哈希算法生成的值，例如感叹号，那么该用户无法使用密码登录。然而，这种情况并不会使账户失效。即便密码被锁定，用户仍然可以使用其他认证机制登录，例如
+    SSH 密钥。'
+- en: As mentioned earlier, the special value x means that the password hash has to
+    be found in the shadow file.
+  id: totrans-137
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如前所述，特殊值 x 表示密码哈希必须在 shadow 文件中查找。
+- en: 'Starting with the system library `glibc2`, the `crypt()` function supports
+    multiple hash algorithms. In that case, the password hash has the following format:'
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 从系统库 `glibc2` 开始，`crypt()` 函数支持多种哈希算法。在这种情况下，密码哈希具有以下格式：
+- en: '[PRE8]'
+  id: totrans-139
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: The ID designates the hash algorithm that has been used to encode the password,
+    for example, 1 for md5, 5 for sha256, and 6 for sha512\. The salt is a randomly
+    generated string in order to modify the hash algorithm. Consequently, even identical
+    passwords result in different hash sums. The subfield "encrypted" holds the actual
+    hash of the password (modified by the influence of the salt).
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 该 ID 标识已用于对密码进行编码的哈希算法，例如，1 表示 md5，5 表示 sha256，6 表示 sha512。盐是一个随机生成的字符串，用来修改哈希算法。因此，即使密码相同，也会产生不同的哈希值。子字段“加密”保存了密码的实际哈希（经过盐的影响进行修改）。
+- en: '**numerical user ID**: This field denotes the ID of the user. Internally, the
+    Linux kernel uses only this numerical ID. The special ID 0 is assigned to the
+    administrative root user. Per default, user ID 0 is granted unlimited privileges
+    on the system.'
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数字用户 ID**：此字段表示用户的 ID。内核内部仅使用此数字 ID。特殊的 ID 0 分配给具有管理权限的 root 用户。默认情况下，用户
+    ID 为 0 的用户拥有系统上的无限制权限。'
+- en: '**numerical group ID**: This field refers to the primary group of the user.'
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数字组 ID**：此字段指的是用户的主组。'
+- en: '**comment field**: This field can contain the arbitrary information about the
+    user and is mostly used to hold the full name of the user. Sometimes, it also
+    contains a comma-separated list of the full username, phone number, and so on'
+  id: totrans-143
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**备注字段**：此字段可以包含关于用户的任意信息，通常用于存储用户的全名。有时，它还包含以逗号分隔的全名、电话号码等信息。'
+- en: '**user home directory**: The user home directory is a directory on the system''s
+    file system. After logging on, new processes are started with this directory as
+    the working directory.'
+  id: totrans-144
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户主目录**：用户主目录是系统文件系统中的一个目录。登录后，新的进程会以此目录作为工作目录启动。'
+- en: '**default command shell**: This optional field denotes the default shell that
+    is to be started after a successful logon.'
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**默认命令 shell**：此可选字段表示成功登录后将启动的默认 shell。'
+- en: 'The format of `/etc/shadow` is as follows:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/etc/shadow` 的格式如下：'
+- en: The **username** field links the entry to the `passwd` entry with the same username.
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户名**字段将条目与具有相同用户名的 `passwd` 条目关联起来。'
+- en: The **password hash** field contains the encoded password in the same format
+    as described for the `passwd` file.
+  id: totrans-148
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**密码哈希**字段包含以与 `passwd` 文件相同的格式编码的密码。'
+- en: The next five fields contain the information about the password aging, such
+    as the date of the last password change, minimum password age, maximum password
+    age, password warning period, and password inactivity period.
+  id: totrans-149
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 接下来的五个字段包含关于密码过期的信息，例如上次密码更改的日期、密码的最小使用期限、最大使用期限、密码警告期和密码非活动期。
+- en: If the **account expiration date** field is nonempty, it will be interpreted
+    as the account expiration date. This date is expressed in days since January 1st,
+    1970.
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果**账户过期日期**字段不为空，它将被解释为账户的过期日期。这个日期是自 1970 年 1 月 1 日以来的天数。
+- en: 'With this format description, a small Python routine is sufficient to parse
+    the file into a list of entries, each containing a list of fields as shown in
+    the following:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这种格式描述，一个简单的 Python 脚本就足以将文件解析成一个包含多个条目的列表，每个条目包含一组字段，如下所示：
+- en: '[PRE9]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: On using this routine, typical manipulations in these files may be detected.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用此脚本时，可能会检测到这些文件中的典型操控。
+- en: The first manipulation technique that we want to describe is the creation of
+    *multiple users who share the same numerical id*. This technique can be used by
+    attackers to plant a backdoor into the system. By creating an additional user
+    for an existing ID, an attacker can create an alias with a separate password.
+    The legitimate account owner would not be aware that there is an additional combination
+    of username/password to log in to the account.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们要描述的第一个操控技巧是*创建多个共享相同数字 ID 的用户*。攻击者可以使用这种技巧将后门植入系统。通过为现有的 ID 创建一个额外的用户，攻击者可以创建一个带有单独密码的别名。合法账户的拥有者并不会意识到存在另一个用户名/密码组合可以登录该账户。
+- en: 'A small Python routine can detect this kind of manipulation, as follows:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个简单的 Python 脚本可以检测这种操作，如下所示：
+- en: '[PRE10]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'During normal operation, the information in `/etc/passwd` and `/etc/shadow`
+    is synced, that is, every user should appear in both the files. If there *are
+    users appearing in only one of these files*, it is an indicator that the user
+    management of the operating system has been bypassed. A manipulation like this
+    can be detected with a similar script:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在正常操作中，`/etc/passwd` 和 `/etc/shadow` 文件中的信息是同步的，也就是说，每个用户应该出现在这两个文件中。如果*有用户只出现在其中一个文件中*，那么这表明操作系统的用户管理机制可能被绕过了。类似的操作可以通过以下脚本检测到：
+- en: '[PRE11]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'Just like the first function, this function should not produce any output on
+    a normal system. If there is an output similar to `Users missing in shadow: backdoor`
+    then there is a user account "backdoor" in the system without a record in the
+    `shadow` file.'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '就像第一个函数一样，正常系统中这个函数不应产生任何输出。如果输出类似于 `Users missing in shadow: backdoor`，那么系统中有一个名为“backdoor”的用户账户，但在
+    `shadow` 文件中没有相关记录。'
+- en: 'Users without a password should not exist in a normal system. Furthermore,
+    all the password hashes should reside in the `shadow` file and all entries in
+    the `passwd` file should refer to the corresponding shadow entry. The following
+    script detects deviations from this rule:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在正常系统中，不应该存在没有密码的用户。此外，所有密码哈希应保存在 `shadow` 文件中，而 `passwd` 文件中的所有条目应指向对应的 `shadow`
+    条目。以下脚本检测违反这一规则的情况：
+- en: '[PRE12]'
+  id: totrans-161
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Our last example of bypassing the operating system in the creation and manipulation
+    of user accounts is the *detection of non-standard hash algorithms* and *reusing
+    salts for multiple user accounts*. While a Linux system allows specifying the
+    hash algorithm for every entry in the `shadow` file, normally all user passwords
+    are hashed using the same algorithm. A deviating algorithm is a signal for an
+    entry being written to the `shadow` file without using the operating system tools,
+    meaning, system manipulation. If a salt is reused across multiple password hashes,
+    then the salt is either hardcoded into a manipulation tool or the cryptographic
+    routines of the system have been compromised, for example, by manipulating the
+    entropy source of the salt generation.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们最后一个绕过操作系统进行用户帐户创建和操作的示例是 *检测非标准哈希算法* 和 *在多个用户帐户间重用盐值*。虽然 Linux 系统允许为 `shadow`
+    文件中的每个条目指定哈希算法，但通常所有用户的密码都是使用相同的算法进行哈希的。偏离的算法是一个信号，表示该条目被写入 `shadow` 文件时未使用操作系统工具，这意味着系统被篡改。如果一个盐值在多个密码哈希中被重用，则该盐值可能被硬编码到操作工具中，或者系统的加密例程可能已被破坏，例如通过篡改盐值生成的熵源。
+- en: 'The following Python script is capable of detecting this kind of manipulation:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下 Python 脚本能够检测这种类型的操作：
+- en: '[PRE13]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Tip
+  id: totrans-165
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Regular expressions**'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**正则表达式**'
+- en: The last example uses the `re` module for **regular expression** matching to
+    extract the algorithm specification and salt from the password hash. Regular expressions
+    provide a fast and powerful way of text searching, matching, splitting, and replacing.
+    Therefore, we highly recommend getting familiar with regular expressions. The
+    documentation of the `re` module is available online at [https://docs.python.org/2/library/re.html](https://docs.python.org/2/library/re.html).
+    The book *Mastering Python Regular Expressions*, *Felix Lopez* and *Victor Romero*,
+    *Packt Publishing* provides further insights and examples on how to use regular
+    expressions.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一个示例使用 `re` 模块进行 **正则表达式** 匹配，以从密码哈希中提取算法规范和盐值。正则表达式提供了一种快速而强大的文本搜索、匹配、拆分和替换方法。因此，我们强烈建议熟悉正则表达式。`re`
+    模块的文档可以在线访问 [https://docs.python.org/2/library/re.html](https://docs.python.org/2/library/re.html)。书籍《精通
+    Python 正则表达式》由 *Felix Lopez* 和 *Victor Romero* 编著，*Packt Publishing* 出版，提供了更多的见解和关于如何使用正则表达式的示例。
+- en: All of the detection methods in this section are examples of anomaly detection
+    methods. Depending on the system environment, more specific anomaly detections
+    can be used and implemented by following the schema of the examples. For example,
+    on a server system, the number of users having a password set should be small.
+    Therefore, counting all the users with passwords can be a reasonable step in the
+    analysis of such systems.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节中的所有检测方法都是异常检测方法的示例。根据系统环境，可以通过遵循示例的模式，使用和实现更具体的异常检测方法。例如，在服务器系统中，设置密码的用户数量应该较少。因此，统计所有设置了密码的用户，可以作为分析此类系统的合理步骤。
+- en: Analyzing file meta information
+  id: totrans-169
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析文件元信息
+- en: In this section, we will discuss file meta information and provide examples
+    on how it can be used in forensic analysis.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节将讨论文件元信息，并提供如何在取证分析中使用它的示例。
+- en: Understanding inode
+  id: totrans-171
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 理解 inode
+- en: 'Linux systems store file meta information in structures called **inodes** (**index
+    nodes**). In a Linux filesystem, every object is represented by an inode. The
+    data stored per inode depends on the actual filesystem type. Typical contents
+    of an inode are as follows:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 系统将文件元信息存储在称为 **inode**（**索引节点**）的结构中。在 Linux 文件系统中，每个对象都由一个 inode 表示。每个
+    inode 存储的数据取决于实际的文件系统类型。inode 的典型内容如下：
+- en: The **index number** is the identifier of an inode. The index number is unique
+    per file system. If two files share the same index number, then these files are
+    **hard-linked**. Consequently, hard-linked files only differ in their filename
+    and always have the same contents as well as the same meta information.
+  id: totrans-173
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**索引号**是 inode 的标识符。索引号在每个文件系统中都是唯一的。如果两个文件共享相同的索引号，那么这两个文件是 **硬链接**。因此，硬链接文件仅在文件名上有所不同，内容和元信息始终相同。'
+- en: The **file owner** is defined by the numerical ID of the user (UID). There can
+    be only one owner per file. The user IDs should correspond to the entries in `/etc/passwd`.
+    However, it is not guaranteed that there are only files with existing entries
+    in `/etc/passwd`. Files can be transferred to the nonexisting users with administrative
+    privileges. Furthermore, the owner of the file may have been removed from the
+    system, making the file orphaned. For files on transportable media, for example,
+    USB drives, there is no mechanism of mapping the user ID from one system to another.
+    Consequently, the file owner seems to change when a USB drive is attached to a
+    new system with different `/etc/passwd`. Furthermore, this can also lead to orphaned
+    files if a UID does not exist on the system where the USB drive is attached.
+  id: totrans-174
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件所有者**由用户的数字 ID（UID）定义。每个文件只能有一个所有者。用户 ID 应该与`/etc/passwd`中的条目对应。然而，并不保证所有文件都对应于`/etc/passwd`中现有的条目。文件可以通过管理员权限转移给不存在的用户。此外，文件的所有者可能已经从系统中删除，这会导致文件成为孤儿文件。对于可移动介质上的文件，例如
+    USB 驱动器，并没有将用户 ID 从一个系统映射到另一个系统的机制。因此，当 USB 驱动器连接到具有不同`/etc/passwd`的新系统时，文件的所有者似乎发生了变化。此外，如果在连接
+    USB 驱动器的系统中不存在该 UID，这也可能导致孤儿文件的出现。'
+- en: The **file group** is defined by the numerical ID of the corresponding group
+    (GID). A file is always assigned to exactly one group. All groups of a system
+    should be defined in `/etc/groups`. However, files with group IDs that are not
+    listed in `/etc/groups` may exist. This indicates that the corresponding group
+    has been deleted from the system, the medium has been transferred from another
+    system where that group exists, or a user with administrative privileges reassigned
+    the file to a nonexisting group.
+  id: totrans-175
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件组**由相应组的数字 ID（GID）定义。一个文件始终分配给恰好一个组。系统的所有组应该在`/etc/groups`中定义。然而，可能存在组
+    ID 不在`/etc/groups`中列出的文件。这表明对应的组已经从系统中删除，介质已经从另一个系统转移过来（该系统上该组仍然存在），或者具有管理员权限的用户将文件重新分配给了一个不存在的组。'
+- en: 'The **file mode** (**also known as "protection bits"**) defines a simple form
+    of access rights to the corresponding file. It is a bit mask defining the access
+    rights for the file owner, for users belonging to the group that the file is assigned
+    to, and for all other users. For each of these cases, the following bits are defined:'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件模式**（**也称为“保护位”**）定义了对相应文件的一种简单的访问权限形式。它是一个位掩码，用于定义文件所有者、属于文件分配的组的用户以及所有其他用户的访问权限。对于这几种情况，定义了以下位：'
+- en: '**read** (**r**): If this bit is set on a regular file, the affected user is
+    allowed to read the file contents. If the bit is set on a directory, the affected
+    user is allowed to list the names of the contents of the directory. The read access
+    does not include the meta-information, which is the inode data of the directory
+    entries. Consequently, the read permission to a directory is not sufficient to
+    read files in that directory as this would require access to the file''s inode
+    data.'
+  id: totrans-177
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**读取**（**r**）：如果这个位在常规文件上设置，则受影响的用户被允许读取文件内容。如果这个位在目录上设置，则受影响的用户被允许列出该目录中内容的名称。读取访问不包括元信息，即目录条目的
+    inode 数据。因此，目录的读取权限不足以读取该目录中的文件，因为这需要访问文件的 inode 数据。'
+- en: '**write** (**w**): If this bit is set on a regular file, the affected user
+    is allowed to modify the contents of the file in arbitrary ways including manipulation
+    and deletion of the content. If this bit is set on a directory entry, then the
+    affected user is allowed to create, remove, and rename the entries in that directory.
+    The existing files in the directory have their own protection bits that define
+    their access rights.'
+  id: totrans-178
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**写入**（**w**）：如果这个位在常规文件上设置，则受影响的用户被允许以任意方式修改文件内容，包括操纵和删除内容。如果这个位在目录条目上设置，则受影响的用户被允许在该目录中创建、删除和重命名条目。目录中的现有文件有自己的保护位，用于定义它们的访问权限。'
+- en: '**execute** (**x**): For regular files, this allows the affected user to start
+    the file as a program. If the file is a compiled binary, for example, in the ELF
+    format, then the execute privileges are sufficient to run the program. If the
+    file is a script that has to be interpreted, then read permission (r) is also
+    required to run the script. The reason is that the Linux kernel determines how
+    to load the program. If it detects that the file contains a script, it loads the
+    script interpreter with the current user''s privileges. For directories, this
+    flag grants permission to read the meta-information of the directory contents,
+    except the names of the entries. Therefore, this allows the affected user to change
+    the working directory to this directory.'
+  id: totrans-179
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**执行**（**x**）：对于常规文件，此标志允许受影响的用户将文件作为程序启动。如果文件是编译后的二进制文件，例如ELF格式，那么执行权限足以运行该程序。如果文件是必须解释的脚本，则运行脚本时还需要读取权限（r）。原因是Linux内核会确定如何加载程序。如果它检测到文件包含脚本，它会以当前用户的权限加载脚本解释器。对于目录，此标志授予权限读取目录内容的元信息，但不包括条目的名称。因此，这允许受影响的用户将工作目录更改为该目录。'
+- en: '**sticky** (**t**): This bit exists only once per inode. When it is set on
+    directories, it limits the right to delete and rename entries to the user owning
+    the entry. On regular files, this flag is ignored or has a file system specific
+    effect. When set on executables, this flag is used to prevent the resulting process
+    from being swapped out from RAM. However, this purpose of the sticky bit is deprecated
+    and Linux systems do not obey the sticky bit on executables.'
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**粘滞**（**t**）：此位每个inode仅存在一次。当它在目录上设置时，它限制删除和重命名条目的权限，仅限于拥有该条目的用户。在常规文件上，此标志被忽略或具有文件系统特定的效果。当设置在可执行文件上时，此标志用于防止生成的进程从RAM中被交换出去。然而，粘滞位的这一用途已经被弃用，Linux系统不再遵守可执行文件上的粘滞位。'
+- en: '**set id on execution** (**s**): This bit exists for the user and for the group.
+    When set for the user (SUID bit) on an executable file, the corresponding file
+    is always run with its owner as the effective user. Therefore, the program is
+    run with the privileges of the user owning the executable that is independent
+    from the user that is actually starting the program. If the file is owned by the
+    root user (UID 0), then the executable always runs with unlimited privileges.
+    When the bit is set for the group (SGID bit), the executable is always started
+    with the group of the file as effective group.'
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**执行时设置标识**（**s**）：这个位存在于用户和组上。当在可执行文件上为用户设置（SUID位）时，相关文件总是以其所有者作为有效用户运行。因此，程序以拥有可执行文件的用户权限运行，而不依赖于实际启动程序的用户。如果文件属于root用户（UID
+    0），则该可执行文件始终以无限权限运行。当为组设置该位（SGID位）时，程序始终以文件的组作为有效组启动。'
+- en: The size of the file in bytes.
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件的大小（以字节为单位）。
+- en: The number of blocks that are allocated for that file.
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为该文件分配的块数。
+- en: A timestamp denoting the last change of the file content (**mtime**).
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 标记文件内容最后一次更改的时间戳（**mtime**）。
+- en: A timestamp denoting the last read access to the file content (**atime**).
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 标记最后一次读取文件内容的时间戳（**atime**）。
+- en: Access time stamp tracking can be disabled by the mount option **noatime** to
+    limit write access to the media (for example, to extend the lifetime of the SD
+    cards). Furthermore, read-only access (mount option **ro**) to the file system
+    prevents atime tracking. Therefore, before analysis of atime information, it should
+    be checked whether atime tracking was enabled for that file system. The corresponding
+    initial mount options can be found in `/etc/fstab`.
+  id: totrans-186
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 通过挂载选项**noatime**可以禁用访问时间戳跟踪，以限制对媒体的写访问（例如，延长SD卡的使用寿命）。此外，文件系统的只读访问（挂载选项**ro**）会阻止atime跟踪。因此，在分析atime信息之前，应检查是否为该文件系统启用了atime跟踪。相应的初始挂载选项可以在`/etc/fstab`中找到。
+- en: A timestamp denoting the last change of the inode data (**ctime**).
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 标记文件inode数据最后一次更改的时间戳（**ctime**）。
+- en: Notable extensions to these standard entries are **POSIX Access Control Lists**
+    (**POSIX ACLs**). These access control lists are supported by the major Linux
+    file systems and allow specifying additional access entries besides the three
+    classes (user, group, and others). These entries allow defining the additional
+    access rights (the previously listed bits r, w and x) for additional users and
+    groups. Evaluating POSIX ACLs will be discussed in detail in a separate section.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用Python读取基本文件元数据
+- en: Another extension consists of the specification of **capability flags** to an
+    executable. This is used for a more granular specification of privileges than
+    using the SUID bit. Instead of giving an executable owned by the root user the
+    SUID bit and allowing it unlimited privileges, a set of required privileges can
+    be specified. Capabilities will also be handled in detail in a separate section.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://docs.python.org/2/library/os.html#os.stat](https://docs.python.org/2/library/os.html#os.stat)上提供了关于`os.stat()`和`os.lstat()`的详细说明。这还包括平台相关属性的示例。'
+- en: Reading basic file metadata with Python
+  id: totrans-190
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 结果对象是平台相关的；然而，以下信息始终可用：`st_mode`（保护位）、`st_ino`（inode号）、`st_dev`（包含文件系统对象的设备标识符）、`st_nlink`（硬链接数）、`st_uid`（所有者用户ID）、`st_gid`（所有者组ID）、`st_size`（文件大小，以字节为单位）、`st_mtime`（最后修改时间）、`st_atime`（最后访问时间）、`st_ctime`（最后inode更改时间）。这些信息对应于前面部分描述的inode数据。
+- en: Python provides built-in functionality to read the file status information with
+    the `os` module. The standard function to retrieve metadata from a file that is
+    specified by its name is `os.lstat()`. In contrast to the more commonly used `os.stat()`,
+    this function does not evaluate the targets of symbolic links but retrieves the
+    information about the link itself. Therefore, it is not prone to run into infinite
+    loops that are caused by circular symbolic links. Furthermore, it does not cause
+    any errors on links that lack the link target.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些标准条目的显著扩展是**POSIX访问控制列表**（**POSIX ACLs**）。这些访问控制列表受到主要Linux文件系统的支持，并允许指定除了三个类（用户、组和其他）之外的额外访问条目。这些条目允许为额外的用户和组定义额外的访问权限（先前列出的位r、w和x）。将详细讨论评估POSIX
+    ACLs的内容。
+- en: 'The resulting object is platform dependent; however, the following information
+    is always available: `st_mode` (protection bits), `st_ino` (inode number), `st_dev`
+    (identifier of the device containing the file system object), `st_nlink` (number
+    of hard links), `st_uid` (user ID of owner), `st_gid` (group ID of owner), `st_size`
+    (file size in bytes), `st_mtime` (last modification), `st_atime` (last read access),
+    `st_ctime` (last inode change). This information corresponds to the inode data
+    that is described in the previous section.'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此代码清单输出`lstat`调用的常见返回值。典型输出类似于以下内容：
+- en: Note
+  id: totrans-193
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 另一个扩展包括向可执行文件添加**能力标志**的规范。这用于比使用SUID位更细粒度地指定权限。而不是给根用户拥有的可执行文件设置SUID位并允许它拥有无限的权限，可以指定一组所需的权限。能力标志也将在单独的部分详细处理。
+- en: A detailed description about `os.stat()` and `os.lstat()` is available at [https://docs.python.org/2/library/os.html#os.stat](https://docs.python.org/2/library/os.html#os.stat).
+    This also includes the examples of platform-dependent attributes.
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Python 提供了内置功能来使用`os`模块读取文件状态信息。通过文件名指定的标准功能来检索元数据是`os.lstat()`。与更常用的`os.stat()`相比，此函数不评估符号链接的目标，而是检索有关链接本身的信息。因此，它不容易遇到由循环符号链接引起的无限循环。此外，它不会在缺少链接目标的链接上引发任何错误。
+- en: 'The `st_mtime`, `st_atime`, and `st_ctime` time stamps are specified in the
+    Unix timestamp format, that is, the number of seconds since January 1st 1970\.
+    With the datetime module, this time format can be converted into a human readable
+    form, using the following script:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`st_mtime`、`st_atime`和`st_ctime`时间戳采用Unix时间戳格式，即自1970年1月1日以来的秒数。使用datetime模块，可以将此时间格式转换为人类可读的形式，如以下脚本所示：'
+- en: '[PRE14]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'This code listing outputs the common return values of the `lstat` call. A typical
+    output looks similar to the following:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '[PRE15]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: This sample output denotes that on the lab system, `/etc/passwd` is a regular
+    file with read permission for all users. This information is derived from the
+    `st_mode` member of the result. On using Python's `oct()` function, it is converted
+    in its octal representation, that is, *one decimal digit of the output represents
+    exactly three bits of the protection bits*. The leading zero in the output is
+    a common indicator for the octal representation.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该示例输出表示在实验室系统中，`/etc/passwd` 是一个常规文件，所有用户都有读取权限。此信息来自结果的 `st_mode` 成员。在使用 Python
+    的 `oct()` 函数时，它被转换为八进制表示，即 *输出的每个十进制数字恰好表示保护位的三位二进制数字*。输出中的前导零是八进制表示的常见标志。
+- en: The lower three digits (`644` in the example output) always denote the access
+    rights for the owner of the file (`6` in the example), for users belonging to
+    the group of the file (left `4` in the example), and all other users (last digit).
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出中的后三个数字（示例中的 `644`）始终表示文件所有者的访问权限（示例中的 `6`），属于文件所在组的用户的权限（示例中的左 `4`），以及所有其他用户的权限（最后一位）。
+- en: Tip
+  id: totrans-201
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**How to interpret the file mode bits?**'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**如何解读文件模式位？**'
+- en: In its octal form, the bit values of the three least significant digits represent
+    the access rights for the owner, group, and other users (last digit). For every
+    digit, the read access (r) has bit value 4, write access (w) has bit value 2,
+    and execution (x) has bit value 1.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在其八进制形式中，三个最不重要的数字的位值表示文件所有者、组和其他用户（最后一位）的访问权限。对于每一位，读权限（r）具有位值 4，写权限（w）具有位值
+    2，执行权限（x）具有位值 1。
+- en: Therefore, in our example, the digit `6` denotes read and write access (4 +
+    2) for the owner of the file. Members of the group 0 and all other users only
+    have read access (4).
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，在我们的示例中，数字 `6` 表示文件所有者的读写权限（4 + 2）。组 0 的成员和所有其他用户只有读权限（4）。
+- en: The next digit from the right denotes the sticky bit (value 1), the SGID bit
+    (value 2), and the SUID bit (value 4).
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从右侧起的下一个数字表示粘滞位（值为 1）、SGID 位（值为 2）和 SUID 位（值为 4）。
+- en: Note
+  id: totrans-206
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: The `stat` module defines the constants for all bits of `st_mode`. Its documentation
+    is available at [https://docs.python.org/2/library/stat.html](https://docs.python.org/2/library/stat.html).
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`stat` 模块定义了 `st_mode` 所有位的常量。其文档可以在 [https://docs.python.org/2/library/stat.html](https://docs.python.org/2/library/stat.html)
+    查看。'
+- en: 'These constants can be used as a bit mask to retrieve information from `st_mode`.
+    The earlier example could be extended to detect SGID, SUID, and sticky mode, as
+    follows:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些常量可以作为位掩码从 `st_mode` 中检索信息。之前的示例可以扩展以检测 SGID、SUID 和粘滞模式，如下所示：
+- en: '[PRE16]'
+  id: totrans-209
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: For testing the code, you may use the example to evaluate the mode of `/etc/passwd`,
+    `/tmp`, and `/usr/bin/sudo` on a standard Linux system. Typically, `/tmp` has
+    the sticky flag set, `/usr/bin/sudo` has SUID set, and `/etc/password` has none
+    of the special bits set.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要测试代码，可以使用示例来评估标准 Linux 系统上 `/etc/passwd`、`/tmp` 和 `/usr/bin/sudo` 的模式。通常，`/tmp`
+    设置了粘滞标志，`/usr/bin/sudo` 设置了 SUID，而 `/etc/passwd` 没有设置任何特殊位。
+- en: 'The remaining bits denote the type of the file. The following file types may
+    appear on a standard Linux filesystem:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 剩余的位表示文件类型。标准 Linux 文件系统上可能出现以下文件类型：
+- en: '| File type | Check function in module `stat` | Description |'
+  id: totrans-212
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | `stat` 模块中的检查函数 | 描述 |'
+- en: '| --- | --- | --- |'
+  id: totrans-213
+  prefs: []
+  type: TYPE_TB
+  zh: '| --- | --- | --- |'
+- en: '| regular | S_ISREG() | This is used to store arbitrary data |'
+  id: totrans-214
+  prefs: []
+  type: TYPE_TB
+  zh: '| 常规 | S_ISREG() | 用于存储任意数据 |'
+- en: '| directory | S_ISDIR() | This is used to store lists of other files |'
+  id: totrans-215
+  prefs: []
+  type: TYPE_TB
+  zh: '| 目录 | S_ISDIR() | 用于存储其他文件的列表 |'
+- en: '| soft link | S_ISLNK() | This references one destination file via name |'
+  id: totrans-216
+  prefs: []
+  type: TYPE_TB
+  zh: '| 符号链接 | S_ISLNK() | 这是通过名称引用一个目标文件 |'
+- en: '| character device | S_ISCHR() | This is the interface in the filesystem to
+    access the character-oriented hardware, for example, terminals |'
+  id: totrans-217
+  prefs: []
+  type: TYPE_TB
+  zh: '| 字符设备 | S_ISCHR() | 这是文件系统中用于访问字符型硬件的接口，例如终端 |'
+- en: '| block device | S_ISBLK() | This is the interface in the filesystem to access
+    the block-oriented hardware, for example, disk partitions |'
+  id: totrans-218
+  prefs: []
+  type: TYPE_TB
+  zh: '| 块设备 | S_ISBLK() | 这是文件系统中用于访问块设备的接口，例如磁盘分区 |'
+- en: '| fifo | S_ISFIFO() | This is the representation of a named, unidirectional
+    interprocess interface in the filesystem |'
+  id: totrans-219
+  prefs: []
+  type: TYPE_TB
+  zh: '| fifo | S_ISFIFO() | 这是文件系统中命名的单向进程间接口的表示 |'
+- en: '| socket | S_ISSOCK() | This is the representation of a named, bidirectional
+    interprocess interface in the filesystem |'
+  id: totrans-220
+  prefs: []
+  type: TYPE_TB
+  zh: '| 套接字 | S_ISSOCK() | 这是文件系统中命名的双向进程间接口的表示 |'
+- en: Hard links are not represented by a special file type but are merely multiple
+    directory entries in the same filesystem sharing the same inode.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 硬链接不是由特殊的文件类型表示的，而只是同一文件系统中多个共享相同inode的目录项。
+- en: 'Unlike the tests for SGID, SUID, and sticky bit, the file type checks are implemented
+    as functions of the `stat` module. These functions require the file mode bits
+    as the parameter, for example:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与SGID、SUID和粘滞位的测试不同，文件类型检查作为`stat`模块的函数实现。这些函数需要文件模式位作为参数，例如：
+- en: '[PRE17]'
+  id: totrans-223
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: In this example, the `os.readlink()` function is used to extract the target
+    filename if a symbolic link is encountered. Symbolic links may refer to an absolute
+    path or a relative path starting from the location of the symbolic link in the
+    filesystem. Absolute symbolic links have a target starting with the character
+    `/`, that is, the target is to be searched starting with the root directory of
+    the system.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此示例中，`os.readlink()`函数用于提取目标文件名，如果遇到符号链接。符号链接可以指向绝对路径或从符号链接在文件系统中的位置开始的相对路径。绝对符号链接的目标以字符`/`开头，即目标从系统的根目录开始搜索。
+- en: Note
+  id: totrans-225
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注释
+- en: If you mount your copy of the evidence in your lab environment for analysis,
+    the absolute symbolic links are either broken or they point to a file in your
+    lab workstation! The relative symbolic links remain intact as long as their destination
+    resides in the same partition as the link.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你在实验环境中挂载了证据的副本进行分析，绝对符号链接要么损坏，要么指向你的实验工作站中的一个文件！只要它们的目标位于与链接相同的分区中，相对符号链接将保持完整。
+- en: 'A possible output of the previous example code could be `- File type: symbolic
+    link pointing to ../init.d/rc.local -` , which is an example of a relative link.'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述示例代码的可能输出为`- 文件类型：指向../init.d/rc.local的符号链接 -`，这是一个相对链接的示例。
+- en: Evaluating POSIX ACLs with Python
+  id: totrans-228
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用Python评估POSIX ACLs
+- en: 'The file mode bits, which are defined in the file''s inode, only allow three
+    addressees for permissions: the file owner, the users belonging to the file''s
+    group, and everybody else.'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件模式位在文件的inode中定义，只允许三个权限接收者：文件所有者、属于文件组的用户以及其他所有人。
+- en: If a more granular set of permissions is required, the traditional solution
+    will be to create a group that consists of all the users who should have access
+    and transfer the file to that group. However, the creation of such groups has
+    major disadvantages. First, the list of groups can become unnecessarily large.
+    Second, the creation of such groups requires administrative privileges and therefore,
+    breaks the Linux/Unix concept of **discretionary access control**.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果需要更细粒度的权限设置，传统的解决方案是创建一个包含所有应有访问权限的用户的组，并将文件转移到该组。然而，创建此类组存在重大缺点。首先，组的列表可能变得过于庞大。其次，创建此类组需要管理员权限，因此会破坏Linux/Unix的**自主访问控制**概念。
+- en: Note
+  id: totrans-231
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注释
+- en: '**Discretionary access control** is the concept of allowing the owner of the
+    information, that is, the file owner, to decide who should be allowed the access.
+    In discretionary access control, ownership is the sole requirement for being allowed
+    to grant or revoke access to a resource.'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**自主访问控制**是指允许信息的拥有者，即文件拥有者，决定谁应被允许访问该信息。在自主访问控制中，拥有权是授予或撤销访问资源的唯一要求。'
+- en: Last but not least, file owners may just open up files and directories for everyone
+    on the system if there is no group that is matching to the list of the users to
+    authorize. This breaks the *concept of least privilege*, that is, not granting
+    more permissions on a system than required for its operation.
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后但同样重要的是，如果没有匹配的组来授权用户，文件所有者可能会将文件和目录开放给系统上的所有人。这破坏了*最小权限原则*，即不授予系统操作所需的权限以外的任何权限。
+- en: 'To maintain the discretionary access control as well as the concept of least
+    privilege, an optional extension to the file access mode was specified, that is,
+    **POSIX ACL**. Besides allowing read, write, and execute permissions for the file
+    owner, group, and others, POSIX ACLs allow to specify the following:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了保持自主访问控制以及最小权限原则，文件访问模式定义了一个可选扩展，即**POSIX ACL**。除了允许文件所有者、组和其他人对文件进行读、写和执行权限外，POSIX
+    ACL还允许指定以下内容：
+- en: Specific read, write, and execute permissions for arbitrary users
+  id: totrans-235
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 任意用户的特定读、写和执行权限
+- en: Specific read, write, and execute permissions for arbitrary groups
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 任意组的特定读、写和执行权限
+- en: Every privilege that is not set in the access mask is not granted. Only the
+    permissions of the file owner and others are not affected by the access mask.
+  id: totrans-237
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 访问掩码中未设置的每个权限都不会被授予。只有文件所有者和其他用户的权限不会受到访问掩码的影响。
+- en: 'On the command line, the `getfacl` and `setfacl` tools can be used to read
+    and modify the POSIX ACL entries respectively:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在命令行中，可以使用 `getfacl` 和 `setfacl` 工具分别读取和修改 POSIX ACL 条目：
+- en: '[PRE18]'
+  id: totrans-239
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: This example also shows that the standard permission set is reflected in the
+    POSIX ACL. Consequently, if POSIX ACLs are supported on a filesystem, then the
+    complete permission set is contained in POSIX ACLs.
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此示例还表明，标准权限集在 POSIX ACL 中得到了反映。因此，如果文件系统支持 POSIX ACL，则完整的权限集包含在 POSIX ACL 中。
+- en: 'Let''s revoke the read access to `other` users and add read/write access to
+    the user `games`, as shown here:'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们撤销对 `other` 用户的读取访问，并为用户 `games` 添加读取/写入访问，如下所示：
+- en: '[PRE19]'
+  id: totrans-242
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: The `-m o::0` parameter removes all the privileges from `other` users while
+    `–m u:games:rw` grants read/write access to the user `games`. The subsequent call
+    to `getfacls` shows the additional entry for `user:games` and the changed entry
+    for `other`. Furthermore, a `mask` entry is automatically created to limit the
+    access from all the listed groups and users (except the file owner) to read/write.
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`-m o::0` 参数删除了 `other` 用户的所有权限，而 `–m u:games:rw` 为用户 `games` 授予了读取/写入权限。随后的
+    `getfacl` 调用显示了 `user:games` 的附加条目和 `other` 的更改条目。此外，`mask` 条目会自动创建，以限制所有列出组和用户（除了文件所有者）的读取/写入访问权限。'
+- en: The output of the `ls` command shows a plus sign `+` to indicate the existence
+    of the additional ACL entries. As also indicated by the output of `ls`, tools
+    that only evaluate the mode bits of a file are unaware of the additional permissions,
+    for example, the additional access privileges for the user `games` do not show
+    up in the standard output of `ls` or other file management applications.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`ls` 命令的输出通过加号 `+` 来表示存在额外的 ACL 条目。正如 `ls` 输出所示，只有评估文件模式位的工具无法识别这些额外的权限。例如，用户
+    `games` 的附加访问权限在 `ls` 或其他文件管理应用的标准输出中不会显示。'
+- en: Note
+  id: totrans-245
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Forensic tools that do not look for and interpret POSIX ACL entries may miss
+    the additional access rights that are introduced by the ACL entries! Consequently,
+    the investigator may get a false impression of strict, effective privileges.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果取证工具没有查找和解释 POSIX ACL 条目，可能会错过 ACL 条目所引入的附加访问权限！因此，调查员可能会对严格的有效权限产生错误印象。
+- en: Fortunately, the Python library **pylibacl** can be used to read and evaluate
+    POSIX ACLs and hence, avoid that pitfall. The library introduces the `posix1e`
+    module, that is, a reference to the initial draft first mentioning POSIX ACLs.
+    The detailed documentation about this library is available at [http://pylibacl.k1024.org/](http://pylibacl.k1024.org/).
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，Python 库 **pylibacl** 可以用来读取和评估 POSIX ACL，从而避免这个陷阱。该库引入了 `posix1e` 模块，这是首次提到
+    POSIX ACL 的初稿的参考。关于此库的详细文档可以在 [http://pylibacl.k1024.org/](http://pylibacl.k1024.org/)
+    查阅。
+- en: 'The following script is an example of how to look for files with the additional
+    ACL entries:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下脚本是一个示例，演示如何查找具有额外 ACL 条目的文件：
+- en: '[PRE20]'
+  id: totrans-249
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: The `posix1e.ACL` class represents all the permissions set on a specific object
+    on the filesystem. When its constructor is called with a filename as the `file`
+    parameter, it represents ACL of that file. In the `acls_from_file()` function,
+    a regular expression is used to detect and optionally filter out the standard
+    permissions from the text representation of the ACL set.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`posix1e.ACL` 类表示文件系统中某个特定对象的所有权限。当其构造函数以文件名作为 `file` 参数被调用时，它表示该文件的 ACL。在
+    `acls_from_file()` 函数中，使用正则表达式来检测并可选地从 ACL 集的文本表示中过滤掉标准权限。'
+- en: 'The `os.walk()` function is used to iterate over a subtree of the filesystem.
+    If you iterate over `os.walk()` like in the example, you get a triple in each
+    iteration denoting the following:'
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`os.walk()` 函数用于遍历文件系统的子树。如果像示例中那样遍历 `os.walk()`，你会在每次迭代中得到一个三元组，表示以下内容：'
+- en: The currently visited directory
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当前访问的目录
+- en: A list with all of its subdirectories (relative to the currently visited directory)
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 包含所有子目录的列表（相对于当前访问的目录）
+- en: A list with all of its nondirectory entries, for example, files and soft links
+    (relative to the currently visited directory)
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 包含所有非目录条目的列表，例如文件和软链接（相对于当前访问的目录）
+- en: The check in the last highlighted line of the script is an example of the evaluating
+    file type information as described in the previous section. It is used to detect
+    and skip symbolic links. The symbolic links always use ACLs of their target and
+    consequently, POSIX ACLs on symbolic links are not supported.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本中最后一行的检查是评估文件类型信息的一个例子，如前一节所述。它用于检测并跳过符号链接。符号链接始终使用其目标的 ACL，因此，符号链接上的 POSIX
+    ACL 不被支持。
+- en: 'When invoked with `/tmp` as the parameter on our lab machine, it generates
+    the following output:'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们在实验机器上使用 `/tmp` 作为参数调用时，它生成以下输出：
+- en: '[PRE21]'
+  id: totrans-257
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'This output shows that the script detected the leftovers from our first tests
+    with POSIX ACLs: An additional read/write permission for user (u) ID 5 (that is,
+    user `games` on the lab machine) and a mask (m) entry that limits the effective
+    privileges to read/write. The script outputs the numerical user IDs because pylibacl
+    would otherwise use your workstation''s `/etc/passwd` to look up the usernames.'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该输出显示脚本检测到了我们第一次使用 POSIX ACL 进行测试时的剩余信息：为用户（u）ID 5（即实验机器上的 `games` 用户）提供的额外的读/写权限，以及限制有效权限为读/写的掩码（m）条目。脚本输出数值型的用户
+    ID，因为如果不这样做，pylibacl 会使用你工作站的 `/etc/passwd` 来查找用户名。
+- en: If you run this script on a copy of the filesystem that contains your evidence,
+    it will list every filesystem object with permissions beyond the Linux standard
+    permission set.
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你在包含证据的文件系统副本上运行此脚本，它将列出所有超出 Linux 标准权限集的文件系统对象。
+- en: Note
+  id: totrans-260
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Most standard Linux systems and their applications do not use POSIX ACLs. Therefore,
+    if you encounter any additional POSIX ACL entries during your investigation, it
+    is a good idea to thoroughly check whether these POSIX ACLs were the result of
+    a legitimate and benign system operation.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数标准 Linux 系统及其应用程序不使用 POSIX ACL。因此，如果在调查过程中遇到任何额外的 POSIX ACL 条目，建议彻底检查这些 POSIX
+    ACL 是否是合法且无害的系统操作的结果。
+- en: Reading file capabilities with Python
+  id: totrans-262
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用 Python 读取文件能力
+- en: 'Traditionally, in Linux, there are two types of administrative privileges:
+    root and non-root. If a process is granted the root privileges, that is, it runs
+    with UID 0, then it may bypass every security restriction of the Linux kernel.
+    On the other hand, if a process does not run with these root privileges, then
+    all security restrictions of the kernel apply.'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 中，传统上有两种类型的管理员权限：root 权限和非 root 权限。如果一个进程被授予 root 权限，即它以 UID 0 运行，那么它可以绕过
+    Linux 内核的所有安全限制。另一方面，如果一个进程没有这些 root 权限，那么所有内核的安全限制都适用。
+- en: 'In order to replace this **all or nothing** mechanism with a more fine-grained
+    system, the **Linux capabilities** were introduced. The corresponding man page
+    describes it as the following:'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了用更精细的系统替代这种**全有或全无**的机制，引入了**Linux 能力**。相应的手册页面描述如下：
+- en: '*For the purpose of performing permission checks, traditional UNIX implementations
+    distinguish two categories of processes: privileged processes (whose effective
+    user ID is 0, referred to as superuser or root), and unprivileged processes (whose
+    effective UID is nonzero).*'
+  id: totrans-265
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*为了执行权限检查，传统的 UNIX 实现将进程分为两类：特权进程（其有效用户 ID 为 0，称为超级用户或 root），以及非特权进程（其有效 UID
+    非零）。*'
+- en: ''
+  id: totrans-266
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '*Privileged processes bypass all kernel permission checks, while unprivileged
+    processes are subject to full permission checking based on the process''s credentials
+    (usually: effective UID, effective GID, and supplementary group list).*'
+  id: totrans-267
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*特权进程绕过所有内核权限检查，而非特权进程则根据进程的凭证（通常是：有效 UID、有效 GID 和补充组列表）接受完全的权限检查。*'
+- en: ''
+  id: totrans-268
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '*Starting with kernel 2.2, Linux divides the privileges traditionally associated
+    with superuser into distinct units, known as capabilities, which can be independently
+    enabled and disabled. Capabilities are a per-thread attribute.*'
+  id: totrans-269
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*从内核 2.2 开始，Linux 将传统上与超级用户相关联的权限划分为独立的单元，称为能力，这些能力可以独立启用或禁用。能力是每个线程的属性。*'
+- en: Tip
+  id: totrans-270
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**What capabilities exist?**'
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**有哪些能力存在？**'
+- en: The list of Linux capabilities can be found in the `/usr/include/linux/capability.h`
+    file on a standard Linux system. A more human-readable form is provided in the
+    capabilities man page. It can be viewed via `man 7 capabilities`. The Linux capabilities
+    include every special permission granted to the root user, for example, overriding
+    file permissions, using raw network connections, and so on.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 能力的列表可以在标准 Linux 系统的`/usr/include/linux/capability.h`文件中找到。更易读的形式可以通过能力的
+    man 页面查看。可以通过`man 7 capabilities`命令查看。Linux 能力包括授予 root 用户的每项特殊权限，例如，覆盖文件权限、使用原始网络连接等。
+- en: 'Capabilities can be assigned to the threads of processes during the execution
+    and to the executables on the filesystem. In either case, there are always three
+    sets of capabilities:'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 能力可以在进程执行期间分配给线程，也可以分配给文件系统中的可执行文件。在这两种情况下，总是有三组能力：
+- en: '**permitted set** (**p**): The permitted set contains all capabilities that
+    a thread may request. If an executable is started, its permitted set is used to
+    initialize the permitted set of the process.'
+  id: totrans-274
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**允许集** (**p**): 允许集包含线程可能请求的所有能力。如果一个可执行文件被启动，它的允许集将用于初始化进程的允许集。'
+- en: '**inheritable set** (**i**): The inheritable set of an execution set defines
+    the capabilities that may be forwarded from the thread to a child process. However,
+    only capabilities that are defined in the inheritable set of the executable file
+    of the child process are forwarded to the child process. Therefore, a capability
+    is only inherited if it is in the inheritable set of the parent process and in
+    the file attribute of the child executable.'
+  id: totrans-275
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**可继承能力集** (**i**): 执行集的可继承能力集定义了哪些能力可以从线程转发给子进程。然而，只有在子进程的可执行文件的可继承能力集中定义的能力才会被转发给子进程。因此，只有当能力存在于父进程的可继承能力集和子进程可执行文件的文件属性中时，这个能力才会被继承。'
+- en: '**effective set** (**e**): This is the set of capabilities that the Linux kernel
+    actually checks when a privileged operation is requested from an execution thread.
+    By calling `cap_set_proc()`, a process can disable or enable the capabilities.
+    Only capabilities in the permitted set (p) may be enabled. On the filesystem,
+    the effective set is represented by only one bit. If this bit is set, the executable
+    is started with all of its permitted capabilities also being effective. If the
+    bit is not set, the new process starts without the effective capabilities.'
+  id: totrans-276
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**有效能力集** (**e**): 这是 Linux 内核在请求特权操作时，实际检查的能力集。通过调用`cap_set_proc()`，进程可以禁用或启用这些能力。只有在允许集(p)中的能力才能被启用。在文件系统中，有效能力集由一个位表示。如果这个位被设置，执行文件将以所有允许的能力为有效能力启动。如果该位未设置，新进程将启动时没有有效能力。'
+- en: Note
+  id: totrans-277
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Capabilities grant administrative privileges to executables without requiring
+    the SUID bit in the file mode. Therefore, during a forensic investigation, all
+    the file capabilities should be documented.
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 能力赋予可执行文件管理员特权，而无需在文件模式中设置 SUID 位。因此，在进行取证调查时，所有文件能力应该被记录。
+- en: 'Using Python''s ctypes, the shared `libcap.so.2` library can be utilized to
+    retrieve all the file capabilities from a directory tree, as follows:'
+  id: totrans-279
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Python 的 ctypes，可以利用共享的`libcap.so.2`库来检索来自目录树的所有文件能力，如下所示：
+- en: '[PRE22]'
+  id: totrans-280
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'The first highlighted line loads the `libcap.so.2` library for direct use in
+    Python. As the memory for the text representation of the capabilities is allocated
+    in this library, it is the responsibility of the caller, that is, our script,
+    to deallocate this memory after usage. The solution for this task, which was chosen
+    here, is to extend the `ctype` default representation of **pointer to character**,
+    that is, `ctype.c_char_p`. The resulting `cap2_smart_char_p` class is a simple
+    version of the so-called **smart pointer**: If the Python representation of objects
+    of this class is being destroyed, the objects will automatically call `cap_free()`
+    to free the corresponding resources that are previously allocated by `libcap.so.2`.'
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一行突出显示加载了`libcap.so.2`库，以便在 Python 中直接使用。由于能力的文本表示的内存是在这个库中分配的，因此由调用者——也就是我们的脚本——负责在使用后释放这块内存。为此任务选择的解决方案是扩展`ctype`默认表示的**字符指针**，即`ctype.c_char_p`。最终的`cap2_smart_char_p`类是所谓**智能指针**的简单版本：如果该类对象的
+    Python 表示被销毁，对象将自动调用`cap_free()`来释放之前由`libcap.so.2`分配的相应资源。
+- en: With the `cap_get_file()`library function, the capabilities of a file can be
+    retrieved. The subsequent call to `cap_to_text()` transforms this internal representation
+    into human-readable text.
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`cap_get_file()`库函数，可以获取文件的能力。随后的调用`cap_to_text()`将这种内部表示转换为人类可读的文本。
+- en: 'If the script is saved to `chap03_capabilities.py`, then it can be called on
+    the lab machine as shown in the following:'
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果脚本保存为`chap03_capabilities.py`，则可以按照如下方式在实验室机器上调用：
+- en: '[PRE23]'
+  id: totrans-284
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'Of course, the output is highly dependent on the Linux version and distribution.
+    It may look similar to the following:'
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，输出结果高度依赖于Linux版本和发行版。它可能看起来像以下内容：
+- en: '[PRE24]'
+  id: totrans-286
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'This output means that only one executable in `/usr` has the special capabilities
+    set: `/usr/bin/gnome-keyring-daemon`. The name of the capability is given by the
+    constant `cap_ipc_lock`, this capability is in the permitted set and is immediately
+    effective on starting this program as denoted by `+ep`.'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该输出意味着只有一个可执行文件在`/usr`中设置了特殊能力：`/usr/bin/gnome-keyring-daemon`。该能力的名称由常量`cap_ipc_lock`给出，这项能力在许可集内，并在启动该程序时立即生效，表示为`+ep`。
+- en: 'To resolve the meaning of `cap_ipc_lock`, we will call the following:'
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了理解`cap_ipc_lock`的含义，我们将调用以下内容：
+- en: '[PRE25]'
+  id: totrans-289
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Then we will search for CAP_IPC_LOCK. This reveals that the capability grants
+    the right to lock the parts or all of a process memory in RAM and prevent the
+    swapping of that process. As `gnome-keyring-daemon` stores user credentials in
+    RAM, having the privilege to prevent these credentials from being written to the
+    swap is highly advisable from a security perspective.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们将搜索CAP_IPC_LOCK。这表明该能力赋予了锁定进程内存部分或全部到RAM中的权限，并防止该进程被换出。由于`gnome-keyring-daemon`将用户凭证存储在RAM中，从安全角度看，具有防止这些凭证写入交换空间的权限是非常建议的。
+- en: Note
+  id: totrans-291
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Currently, most of the standard Linux distributions make little use of the file
+    capability feature. Therefore, the discovered file capabilities—especially those
+    that are not required for normal operation—may be the first indicator of system
+    manipulation.
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 目前，大多数标准Linux发行版几乎不使用文件能力功能。因此，发现的文件能力——尤其是那些对正常操作不必要的能力——可能是系统操控的首个指示。
+- en: Clustering file information
+  id: totrans-293
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 聚类文件信息
+- en: In the previous section, we showed you how to retrieve and collect file metadata
+    from the Linux/Unix filesystem. In this section, we will provide examples to locate
+    the changes in the filesystem metadata, which may be interesting for further inspection
+    by the investigator.
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前一节中，我们向您展示了如何从Linux/Unix文件系统中检索和收集文件元数据。在本节中，我们将提供一些示例，帮助定位文件系统元数据中的变化，这可能对进一步的调查者检查有意义。
+- en: Creating histograms
+  id: totrans-295
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 创建直方图
+- en: Creating histograms is the process of clustering the data in bins of equal size
+    and drawing the size of these bins. With Python, plotting these histograms can
+    be easily achieved using the Python **matplotlib** module. A detailed documentation
+    including the use cases, examples, and Python source code is available at [http://matplotlib.org/](http://matplotlib.org/).
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建直方图是将数据聚类到大小相等的区间，并绘制这些区间的大小的过程。使用Python，可以通过Python的**matplotlib**模块轻松绘制这些直方图。包括用例、示例和Python源代码的详细文档可以在[http://matplotlib.org/](http://matplotlib.org/)找到。
+- en: 'The following Python script can be used to generate and display the histograms
+    of file access times and file modification times of a directory tree:'
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下Python脚本可用于生成并显示目录树中文件访问时间和文件修改时间的直方图：
+- en: '[PRE26]'
+  id: totrans-298
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: The `gen_filestats()` function iterates the directory tree and collects all
+    inode data. The `show_date_histogram()` function is used to generate and display
+    the data as a histogram.
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`gen_filestats()`函数遍历目录树并收集所有inode数据。`show_date_histogram()`函数用于生成并显示数据的直方图。'
+- en: In the first highlighted line of the code, the encoding of the timestamp is
+    changed. This is required because the inode data gives us the timestamps as number
+    of seconds since 1970-01-01\. This format is what `datetime.fromtimestamp()` expects.
+    However, Matplotlib needs timestamps in number of days since 0001-01-01 of the
+    Gregorian calendar. Fortunately, the `datetime` class can provide this representation
+    with its `toordinal()` method.
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在代码的第一行中，时间戳的编码方式发生了变化。这是必要的，因为inode数据给出了自1970年1月1日以来的秒数的时间戳。这个格式正是`datetime.fromtimestamp()`所期望的。然而，Matplotlib需要的时间戳是自公历0001年1月1日以来的天数。幸运的是，`datetime`类可以通过其`toordinal()`方法提供这种表示。
+- en: The next highlighted line is the actual generation and drawing of the histogram
+    in the following figure. All the other statements of `show_date_histogram()` merely
+    serve the purpose of adding labels and formatting to the drawing.
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一行突出显示的是实际生成和绘制下图中的直方图。`show_date_histogram()`的其他所有语句仅仅是为了在图形中添加标签和格式化。
+- en: 'The following is a sample result of the `/sbin` directory on a standard Linux
+    desktop system:'
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是标准Linux桌面系统中`/sbin`目录的示例结果：
+- en: '![Creating histograms](img/2087_03_04.jpg)'
+  id: totrans-303
+  prefs: []
+  type: TYPE_IMG
+  zh: '![创建直方图](img/2087_03_04.jpg)'
+- en: Here, the dates of the major system updates are clearly visible. An investigator
+    should be aware that the file metadata and these histograms *do not contain historic
+    file information*. Therefore, from the previous histogram, one cannot derive that
+    there were little or no security updates before December 2011\. It is more likely
+    that most of the files that were patched before December 2011 have been modified
+    later on, therefore, masking older patches in the histogram.
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，主要的系统更新日期非常明显。调查员应当意识到，文件元数据和这些直方图*不包含历史文件信息*。因此，从前面的直方图中不能推断出2011年12月之前几乎没有或没有进行过安全更新。更可能的情况是，2011年12月之前打过补丁的大部分文件后来被修改了，从而在直方图中掩盖了旧的补丁。
+- en: 'Let''s take a look at the access time distribution of this directory:'
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一下这个目录的访问时间分布：
+- en: '![Creating histograms](img/2087_03_05.jpg)'
+  id: totrans-306
+  prefs: []
+  type: TYPE_IMG
+  zh: '![创建直方图](img/2087_03_05.jpg)'
+- en: This histogram provides some insight about the access pattern of this directory.
+    First, the atime timestamp tracking is enabled on the systems. Otherwise, no current
+    access timestamps would be visible in the histogram. About half of the files have
+    been read recently. This information can be used to verify the information about
+    the time when the evidence was acquired or when the system operator claimed to
+    have taken the system offline.
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个直方图提供了一些关于该目录访问模式的见解。首先，系统上启用了atime时间戳跟踪。否则，直方图中不会显示当前的访问时间戳。大约一半的文件最近被读取过。这些信息可以用来验证获取证据的时间或系统管理员声称将系统下线的时间。
+- en: Furthermore, the contents of this directory were very likely not scanned regularly
+    for viruses and were not recently packed into an archive. Both the actions usually
+    update the atime timestamp.
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，这个目录的内容很可能没有定期进行病毒扫描，也未最近被打包成压缩档案。因为这两种操作通常会更新atime时间戳。
+- en: 'If the following command is issued on the system, then `/sbin` is scanned for
+    viruses. Of course, the scanner has to read every file in that directory to scan
+    its contents:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果在系统中执行以下命令，则会对`/sbin`进行病毒扫描。当然，扫描程序必须读取该目录中的每个文件以扫描其内容：
+- en: '[PRE27]'
+  id: totrans-310
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'The atime diagram of `/sbin` reflects the changes, as follows:'
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/sbin`的atime图反映了如下变化：'
+- en: '![Creating histograms](img/2087_03_06.jpg)'
+  id: totrans-312
+  prefs: []
+  type: TYPE_IMG
+  zh: '![创建直方图](img/2087_03_06.jpg)'
+- en: 'The changes are obvious: Most of the bars have collapsed in one at the current
+    time, that is, the time of the virus scan. The timescale is stretched to a single
+    day. Consequently, the bar on the left can also be considered to be a result of
+    the virus scan.'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 变化是显而易见的：大部分条形图在当前时间（即病毒扫描时刻）合并成一个。时间尺度被拉伸到了单一天。结果，左侧的条形图也可以被视为病毒扫描的结果。
+- en: Note
+  id: totrans-314
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: If there is a directory having all the `atime` timestamps on a single date,
+    then this directory was recently copied, scanned for viruses, or packed in an
+    archive. Of course, with sufficient access rights, the timestamps could have been
+    manually set as well.
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一个目录的所有`atime`时间戳都显示在同一天，那么这个目录最近可能被复制、病毒扫描过，或者被打包成压缩档案。当然，具备足够权限的情况下，时间戳也可能是手动设置的。
+- en: Advanced histogram techniques
+  id: totrans-316
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 高级直方图技术
+- en: 'In the previous section, the histograms were used to learn about the filesystem
+    metadata. However, these histograms have a number of disadvantages, as follows:'
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前一节中，直方图被用来了解文件系统的元数据。然而，这些直方图有一些缺点，具体如下：
+- en: All histogram bars are of equal width
+  id: totrans-318
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有的直方图条形图宽度相同
+- en: The bars are not placed according to the actual clustering of the data, for
+    example, a cluster may be distributed over two bars
+  id: totrans-319
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 条形图没有按照数据的实际聚集情况进行排列，例如，一个聚集可能被分布在两个条形图上。
+- en: The outliers disappear, that is, the low bars are easily confused with the empty
+    bars
+  id: totrans-320
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 异常值消失了，即低条形图容易与空条形图混淆。
+- en: 'Therefore, this section presents an example of how to use simple **machine
+    learning algorithms** for a smarter clustering of the data. A widely used machine
+    learning library for Python is **scikit-learn**. Among other domains, it provides
+    several algorithms for clustering the input data. We recommend visiting [http://scikit-learn.org](http://scikit-learn.org)
+    for an overview of all the algorithms and examples of their use. The following
+    Python script uses the `DBSCAN` algorithm from scikit-learn to generate clusters
+    of a given width (in days):'
+  id: totrans-321
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，本节展示了如何使用简单的**机器学习算法**对数据进行更智能的聚类。一个广泛使用的Python机器学习库是**scikit-learn**。在多个领域中，它提供了几种用于聚类输入数据的算法。我们推荐访问[http://scikit-learn.org](http://scikit-learn.org)以获取所有算法的概述及其使用示例。以下Python脚本使用scikit-learn中的`DBSCAN`算法来生成给定宽度（以天为单位）的聚类：
+- en: '[PRE28]'
+  id: totrans-322
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'The `gen_filestats()` function is identical to the version used for the basic
+    histograms in the previous section. The `calc_atime_clusters()` and `calc_mtime_clusters()`
+    functions extract the access and modification time of the collected information
+    and pass it on to the cluster generation in `_calc_clusters`. The `DBSCAN` is
+    initialized with two parameters: the size of a cluster (`eps`, in seconds) and
+    the minimum number of sample data that can make a cluster (`min_samples`). After
+    the parameters of the algorithm are set, the data is fed in for the purpose of
+    clustering via the `fit()` method.'
+  id: totrans-323
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`gen_filestats()`函数与上一节用于基本直方图的版本相同。`calc_atime_clusters()`和`calc_mtime_clusters()`函数提取收集信息的访问时间和修改时间，并将其传递给`_calc_clusters`中的聚类生成。`DBSCAN`使用两个参数初始化：聚类的大小（`eps`，单位为秒）和构成聚类的最小样本数（`min_samples`）。设置完算法的参数后，数据将通过`fit()`方法进行聚类处理。'
+- en: The result of this clustering is a tuple that consists of **labels** and a list
+    of indices per label. A label correlates to a cluster that is found in the input
+    data. Its value is the center, that is, the average date, of all dates of the
+    cluster. The special label `-1` acts as a container for all the outliers, that
+    is, all the data that could not be assigned to a cluster.
+  id: totrans-324
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该聚类的结果是一个元组，包含**标签**和每个标签的索引列表。标签与输入数据中找到的聚类相关联。其值是聚类中所有日期的中心，即平均日期。特殊标签`-1`作为所有离群点的容器，表示无法分配到任何聚类的数据。
+- en: The `calc_histogram()` function counts the size of each cluster and returns
+    the histogram, that is, the labels and the number of entries as two-dimensional
+    array.
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`calc_histogram()`函数计算每个聚类的大小并返回直方图，即标签和条目的数量，作为一个二维数组。'
+- en: 'We can run this Python script on the `/sbin` directory, as follows:'
+  id: totrans-326
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以在`/sbin`目录上运行此Python脚本，如下所示：
+- en: '[PRE29]'
+  id: totrans-327
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'The output may look similar to the following:'
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出可能类似于以下内容：
+- en: '[PRE30]'
+  id: totrans-329
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: Here, the access time histogram shows only one entry, reflecting our previous
+    scan of the directory. Furthermore, all the major system updates in the recent
+    past are shown in the modification time histogram.
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，访问时间直方图只显示一个条目，反映了我们之前对该目录的扫描。此外，所有最近的主要系统更新都显示在修改时间直方图中。
+- en: With this tool, the investigator is able to cluster the filesystem information
+    in order to detect the scanning or extraction of the directories as well as the
+    neglected security patches. Furthermore, the special cluster -1 can be analyzed
+    to get the names of the files, which were modified outside of the major system
+    updates.
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用此工具，研究人员能够对文件系统信息进行聚类，以检测目录的扫描或提取，以及忽略的安全补丁。此外，特殊的聚类`-1`可以进行分析，从中获取在主要系统更新之外被修改的文件名。
+- en: Summary
+  id: totrans-332
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we saw prominent examples of the special properties of Microsoft
+    Windows and Linux (and Linux-like) systems. You are now able to extract information
+    from the Windows event log, the Windows registry, Linux files, and the Linux filesystem.
+    Using Python, all of this information can be automatically and semiautomatically
+    analyzed for the Indicators of Compromise, reconstructing the recent system activity,
+    and signs of exfiltration.
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们看到了一些微软Windows和Linux（以及类Linux）系统特有属性的突出示例。现在，您已经能够从Windows事件日志、Windows注册表、Linux文件和Linux文件系统中提取信息。利用Python，所有这些信息都可以自动或半自动地分析，以查找妥协指标、重建最近的系统活动和外泄迹象。
+- en: Furthermore, reading the filesystem capabilities shows us how to use ctype to
+    load the native libraries to assist the filesystem analysis.
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，读取文件系统功能让我们了解如何使用ctype加载本地库来辅助文件系统分析。
+- en: In the clustering of file information, we provided the first example on how
+    to use the basic machine learning algorithms to support the forensic analysis.
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在文件信息的聚类中，我们提供了第一个示例，演示如何使用基本的机器学习算法来支持取证分析。
+- en: Now that we took a look at the local systems, we will go to the next chapter
+    and take a look at the network traffic and how to search for the Indicators of
+    Compromise (IOC) there.
+  id: totrans-336
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了本地系统，我们将进入下一章，看看网络流量以及如何在其中搜索妥协指示器（IOC）。

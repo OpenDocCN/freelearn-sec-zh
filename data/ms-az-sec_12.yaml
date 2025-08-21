@@ -1,0 +1,956 @@
+- en: '*Chapter 9*: Security Best Practices'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第9章*：安全最佳实践'
+- en: In this book, we have already covered the most important topics regarding Azure
+    security, from governance and monitoring to identity, network, and data protection,
+    to specific tools such as Azure Security Center and Azure Sentinel. In this final
+    chapter, you will find some tips and tricks the authors are using regularly in
+    their projects.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书已经涵盖了关于Azure安全的最重要话题，从治理与监控到身份、网络和数据保护，再到具体工具如Azure安全中心和Azure Sentinel。在本章最后，你将找到一些作者在项目中定期使用的技巧和窍门。
+- en: 'The topics we will cover in the following sections include the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在接下来的部分中讨论以下主题：
+- en: Log Analytics design considerations
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 日志分析设计考虑因素
+- en: Understanding Azure SQL Database security features
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 了解Azure SQL数据库的安全功能
+- en: Security in Azure App Service
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure应用服务的安全性
+- en: Log Analytics design considerations
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 日志分析设计考虑因素
+- en: You've already learned that Azure Security Center and Azure Sentinel rely heavily
+    on Azure Log Analytics. But there are some important considerations to make before
+    you start your security monitoring journey in the cloud.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你已经学到Azure安全中心和Azure Sentinel在很大程度上依赖于Azure日志分析。但在开始你的云安全监控之旅之前，有一些重要的事项需要考虑。
+- en: 'The two most important paradigms in this context are these:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个背景下，最重要的两个范式是：
+- en: Using as few Log Analytics workspaces as possible
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 尽可能使用最少的日志分析工作区
+- en: Using regional workspaces to avoid Azure bandwidth costs
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用区域性工作区以避免Azure带宽费用
+- en: From a technical point of view, it's the best idea to only use a single, central
+    workspace so all the data resides in one place. Having a single workspace, you
+    can easily, efficiently, and quickly correlate your data to get the respective
+    insights. You also only need to take care of a single **role-based access control**
+    (**RBAC**) model for this workspace. However, fine-grained RBAC models demand
+    more effort.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从技术角度来看，最好的做法是只使用一个单一的中央工作区，这样所有数据都集中在一个地方。拥有一个单一工作区，你可以轻松、高效、快速地将数据关联起来，从而获得相应的洞察。同时，你只需要关注这个工作区的**基于角色的访问控制**（**RBAC**）模型。然而，细粒度的RBAC模型需要更多的努力。
+- en: From a monetary point of view, however, you should plan for regional workspaces
+    instead of a central workspace if you are using Azure resources in different Azure
+    regions. For on-premises servers, it does not make a big difference what layout
+    you are planning for because all **incoming network traffic** (**ingress**) to
+    an Azure region is free. The Microsoft Monitoring Agent will send data to Azure,
+    but there is no regular data transfer from Azure to your on-premises servers.
+    The problem is that you must pay for **outgoing traffic** (**egress**) out of
+    an Azure region. Now, if you use a single, central Log Analytics workspace and
+    have Azure **Virtual Machines** (**VMs**) deployed in different Azure regions,
+    outgoing data transfers from these VMs to your workspace would generate traffic
+    costs.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，从财务角度来看，如果你在不同的Azure区域使用Azure资源，你应该规划区域性工作区，而不是中央工作区。对于本地服务器来说，规划布局并不重要，因为所有**进入网络流量**（**ingress**）进入Azure区域是免费的。Microsoft
+    Monitoring Agent会将数据发送到Azure，但并没有定期的数据从Azure传输到本地服务器。问题是，你需要为**出去的流量**（**egress**）支付费用。如果你使用一个单一的中央日志分析工作区，并且在不同的Azure区域部署了Azure
+    **虚拟机**（**VMs**），那么这些虚拟机到工作区的外出数据传输将产生流量费用。
+- en: In order to bring both paradigms together, the idea is to create one single
+    workspace in every Azure region you are using, not only to avoid regular traffic
+    costs but also to still stick to the idea of having as few workspaces as possible.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了将这两种范式结合起来，最好的做法是在每个使用的Azure区域创建一个单一的工作区，这不仅可以避免定期的流量费用，还能坚持尽可能少使用工作区的理念。
+- en: If you use several workspaces, you can no longer use auto-provisioning in Azure
+    Security Center. Because of the automation process, you can only configure one
+    workspace per subscription. Since an Azure subscription can contain resources
+    from all, or at least several, Azure regions, depending on your policies, you
+    need another way to automatically deploy the Microsoft Monitoring Agent to your
+    Azure VM. This is where **Infrastructure as Code** (**IaC**) comes into play.
+    With **Azure Resource Manager** (**ARM**) templates, Terraform, or PowerShell,
+    you can deploy Azure VM and install the Log Analytics VM extension at the same
+    time. The Log Analytics VM extension is deployed and managed through the ARM and
+    fully supports CI/CD pipelines in your DevOps scenario. That said, when you use
+    IaC deployments for your VM in your DevOps scenario, you can also update, manage,
+    and configure the agent through your pipeline. If you then also have configured
+    policies, blueprints, and all the other governance features you have learned about
+    in [*Chapter 2*](B15414_02_Final_JM_ePub.xhtml#_idTextAnchor038), *Governance
+    and Security*, you can easily adhere to your corporate security policy and leverage
+    automation at the same time.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你使用多个工作区，则无法再在 Azure 安全中心使用自动配置。由于自动化过程，每个订阅只能配置一个工作区。由于 Azure 订阅可以包含来自所有或至少几个
+    Azure 区域的资源，因此根据你的策略，你需要另一种方式来自动部署 Microsoft 监控代理到你的 Azure 虚拟机。这时，**基础设施即代码**（**IaC**）就派上用场了。通过
+    **Azure 资源管理器**（**ARM**）模板、Terraform 或 PowerShell，你可以同时部署 Azure 虚拟机并安装日志分析虚拟机扩展。日志分析虚拟机扩展通过
+    ARM 进行部署和管理，并且完全支持 DevOps 场景中的 CI/CD 管道。也就是说，当你在 DevOps 场景中使用 IaC 部署虚拟机时，你还可以通过管道更新、管理和配置代理。如果你还配置了策略、蓝图以及在[*第
+    2 章*](B15414_02_Final_JM_ePub.xhtml#_idTextAnchor038)《治理与安全》中学习到的所有其他治理功能，你就能轻松遵循企业的安全策略，并同时利用自动化。
+- en: Next, we are going to look at other Azure services' security features and how
+    they can help us increase security.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将查看其他 Azure 服务的安全功能以及它们如何帮助我们增强安全性。
+- en: Understanding Azure SQL Database security features
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解 Azure SQL 数据库的安全功能
+- en: Some security features related to Azure SQL Database were mentioned in [*Chapter
+    6*](B15414_06_Final_JM_ePub.xhtml#_idTextAnchor111), *Data Security*, where we
+    discussed data security. But there are additional features we can use to increase
+    security.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关 Azure SQL 数据库的一些安全功能在[*第 6 章*](B15414_06_Final_JM_ePub.xhtml#_idTextAnchor111)《数据安全》一节中提到，我们讨论了数据安全。但是，还有其他额外的功能可以帮助我们增强安全性。
+- en: The first feature and line of defense when it comes to Azure SQL Database is
+    a firewall. This built-in tool, by default, blocks access to the database from
+    any IP address that is not preauthorized (whitelisted). It's important to mention
+    that firewall settings are on the Azure SQL Server level and will be inherited
+    to all databases on the server. If we need to allow access to one IP address to
+    a single database, we may want to reconsider our resource strategy. Allowing an
+    IP address to access a single database will enable access to all databases on
+    the same server. Because of this, we need to consider putting only databases used
+    by the same applications or the same group of users on a single server.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当谈到 Azure SQL 数据库时，第一个特点和防线就是防火墙。这个内置工具默认会阻止来自任何未预授权（白名单）的 IP 地址访问数据库。值得一提的是，防火墙设置是在
+    Azure SQL 服务器级别进行的，并且会继承到该服务器上的所有数据库。如果我们需要允许某个 IP 地址访问单一数据库，我们可能需要重新考虑我们的资源策略。允许一个
+    IP 地址访问单一数据库将会允许该 IP 地址访问同一服务器上的所有数据库。因此，我们需要考虑将仅由相同应用程序或相同用户组使用的数据库放在同一服务器上。
+- en: Allowing a new IP address to connect to Azure SQL Server can be done from the
+    Azure SQL Server firewall settings. We have the option to add a single IP address
+    (the start and end IP will be the same), or add a range of IP addresses (from
+    the start IP to the end IP). If we want to allow our current IP address, there
+    is a convenient **Add client IP** button. This will automatically detect the IP
+    address we are coming from and add a new rule to allow that IP address. After
+    any rule is added, we need to save changes in order for them to become effective.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 允许新的 IP 地址连接到 Azure SQL 服务器可以通过 Azure SQL 服务器防火墙设置进行。我们可以选择添加一个单独的 IP 地址（起始和结束
+    IP 地址相同），或者添加一段 IP 地址范围（从起始 IP 到结束 IP）。如果我们想允许当前的 IP 地址，有一个方便的**添加客户端 IP**按钮。这个按钮会自动检测我们当前的
+    IP 地址，并添加一个新的规则来允许该 IP 地址。添加任何规则后，我们需要保存更改才能使其生效。
+- en: 'An example of firewall settings is shown in the following figure:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图展示了防火墙设置的一个示例：
+- en: '![Figure 9.1 – Azure SQL Server firewall settings'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.1 – Azure SQL 服务器防火墙设置'
+- en: '](img/Fig_9.1.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.1.jpg)'
+- en: Figure 9.1 – Azure SQL Server firewall settings
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.1 – Azure SQL 服务器防火墙设置
+- en: 'Under **Firewall** **settings**, there are two additional options we can use:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 **防火墙** **设置** 下，有两个额外的选项可供使用：
+- en: '**Allow Azure services and resources to access this server**'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**允许 Azure 服务和资源访问此服务器**'
+- en: '**Connections from the VNET/Subnet**'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**来自 VNET/Subnet 的连接**'
+- en: The option to allow Azure services sounds compelling, but we need to be very
+    careful. At first look, this option looks helpful and most people will probably
+    think they should allow Azure services to connect. It makes our life so much easier
+    when we don't have to worry about how our web app connects to a database. But
+    this option does not allow only your Azure service to connect, it allows any Azure
+    service to connect. Allowing Azure services and resources to connect will only
+    check if the connection is coming from an Azure data center, it will not limit
+    connection to your subscription or tenant. Allowing this option will make Azure
+    SQL Database more vulnerable, and I would recommend you keep this option off.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 允许 Azure 服务的选项看起来很有吸引力，但我们需要非常小心。乍一看，这个选项似乎很有帮助，大多数人可能会认为应该允许 Azure 服务连接。当我们不必担心
+    Web 应用如何连接到数据库时，生活会变得更轻松。但这个选项并不是只允许你的 Azure 服务连接，它允许任何 Azure 服务连接。允许 Azure 服务和资源连接仅会检查连接是否来自
+    Azure 数据中心，而不会将连接限制在你的订阅或租户内。允许此选项将使 Azure SQL 数据库更加脆弱，我建议你保持此选项关闭。
+- en: Important Note
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: '**Allow Azure services and resources to access this server** is set to **OFF**
+    by default, but it wasn''t always the case. Previously, this setting was enabled
+    by default. If you have Azure SQL Database already created, make sure this setting
+    is disabled.'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**允许 Azure 服务和资源访问此服务器** 默认设置为 **关闭**，但之前并非如此。以前，该设置是默认启用的。如果你已经创建了 Azure SQL
+    数据库，请确保禁用此设置。'
+- en: Connection from VNET/Subnet allows us to create VNET integration by allowing
+    certain VNET (or limiting this only to subnets) to connect to Azure SQL Database.
+    This approach is more secure as the database does not need to be exposed over
+    the internet and all communication is done on a secure private network.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 VNET/Subnet 的连接允许我们通过让特定的 VNET（或仅限子网）连接到 Azure SQL 数据库来创建 VNET 集成。这种方法更加安全，因为数据库无需通过互联网公开，所有通信都在安全的私有网络上进行。
+- en: But Azure SQL Database is just one example of built-in security features on
+    a service level. Almost every service has some service-specific security features.
+    Azure App Service is another excellent example with many security options available,
+    which we will be covering next.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但 Azure SQL 数据库只是服务级别内置安全功能的一个例子。几乎每个服务都有一些服务特定的安全功能。Azure 应用服务是另一个很好的例子，提供了许多可用的安全选项，接下来我们将讨论这些选项。
+- en: Security in Azure App Service
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Azure 应用服务中的安全性
+- en: Azure App Service is an HTTP-based service for hosting web applications and
+    APIs, with support for multiple programming languages. It's also another great
+    example of an Azure service with multiple security features built-in. We can control
+    access, protocols, certificates, and many other things.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 应用服务是一个基于 HTTP 的服务，用于托管 Web 应用程序和 API，支持多种编程语言。它也是 Azure 服务的另一个很好的示例，内置了多种安全功能。我们可以控制访问、协议、证书和许多其他事项。
+- en: 'One of the early problems we need to solve for any application is authentication.
+    App Service allows us to set up authentication based on a few different providers:
+    **Azure Active Directory** (**Azure AD**), Microsoft (or Live) account, Facebook,
+    Google, and Twitter. Naturally, the best integration method is using Azure AD,
+    as it is native and also allows you further control through Azure AD tools and
+    features.'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要解决的第一个问题是身份验证。应用服务允许我们基于几个不同的提供者设置身份验证：**Azure Active Directory**（**Azure
+    AD**）、Microsoft（或 Live）帐户、Facebook、Google 和 Twitter。显然，最佳的集成方式是使用 Azure AD，因为它是本地的，并且还允许通过
+    Azure AD 工具和功能进行进一步控制。
+- en: 'In order to set up Azure AD authentication for App Service, we need to do the
+    following:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了为应用服务设置 Azure AD 身份验证，我们需要执行以下操作：
+- en: In the **App Service Authentication** blade, we need to select **Azure Active
+    Directory**, as in the following figure:![Figure 9.2 – Azure App Service authentication
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **应用服务身份验证** 刀片中，我们需要选择 **Azure Active Directory**，如以下图所示：![图 9.2 – Azure
+    应用服务身份验证
+- en: '](img/Fig_9.2.jpg)'
+  id: totrans-37
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.2.jpg)'
+- en: Figure 9.2 – Azure App Service authentication
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 9.2 – Azure 应用服务身份验证
+- en: We have two options in authentication settings. If we choose **Express**, this
+    will create a service principal and all required permissions for us automatically.
+    If we choose **Advanced** settings, we will need to provide a service principal
+    and create permissions ourselves. The following figure shows an example of **Express**
+    settings:![Figure 9.3 – App Service Azure AD authentication
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在身份验证设置中，我们有两个选项。如果选择**Express**，这将自动为我们创建一个服务主体和所有所需的权限。如果选择**高级**设置，我们需要自己提供服务主体并创建权限。下图展示了**Express**设置的示例：![图
+    9.3 – 应用服务 Azure AD 身份验证
+- en: '](img/Fig_9.3.jpg)'
+  id: totrans-40
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.3.jpg)'
+- en: Figure 9.3 – App Service Azure AD authentication
+  id: totrans-41
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 9.3 – 应用服务 Azure AD 身份验证
+- en: After everything is configured, we need to ensure that the user is required
+    to log in with **Azure** **Active** **Directory** in order to access the application,
+    as in the following figure:![Figure 9.4 – Enforcing Azure AD login
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 配置完成后，我们需要确保用户必须使用**Azure** **Active** **Directory** 登录才能访问应用程序，如下图所示：![图 9.4
+    – 强制执行 Azure AD 登录
+- en: '](img/Fig_9.4.jpg)'
+  id: totrans-43
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.4.jpg)'
+- en: Figure 9.4 – Enforcing Azure AD login
+  id: totrans-44
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 9.4 – 强制执行 Azure AD 登录
+- en: 'When accessing the application, the user will be prompted to **Sign** **in**
+    with their Azure AD account in order to proceed, as in the following figure:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 访问应用程序时，用户将被提示使用其 Azure AD 账户**登录**以继续，如下图所示：
+- en: '![](img/Fig_9.5.jpg)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Fig_9.5.jpg)'
+- en: Figure 9.5 – User is required to sign in in order to access the application
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.5 – 用户需要登录才能访问应用程序
+- en: 'Another set of security features in Azure App Service is **Protocol** **Settings**.
+    Here, we can force the application to use only HTTPS, control the minimal TLS
+    version, or if an incoming client certificate is required. We can also configure
+    **TLS/SSL bindings** to specify the certificate that will be used when responding
+    to a request to a specific hostname. Both public and private certificates can
+    be used:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 应用服务的另一组安全特性是**协议** **设置**。在这里，我们可以强制应用程序仅使用 HTTPS，控制最小的 TLS 版本，或者是否需要传入的客户端证书。我们还可以配置**TLS/SSL
+    绑定**，以指定在响应特定主机名请求时使用的证书。可以使用公有和私有证书：
+- en: '![Figure 9.6 – App Service protocol settings'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.6 – 应用服务协议设置'
+- en: '](img/Fig_9.6.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.6.jpg)'
+- en: Figure 9.6 – App Service protocol settings
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.6 – 应用服务协议设置
+- en: Private certificates can be imported from App Service (to a specific web app),
+    uploaded, imported from Azure Key Vault, or we can create a new **App Service
+    Managed Certificate**.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 私有证书可以从应用服务导入（到特定的 Web 应用），上传，或从 Azure Key Vault 导入，或者我们可以创建一个新的**应用服务管理证书**。
+- en: Note
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '**App Service Managed Certificate** is available to all web apps on App Service,
+    not just on the web app where it''s created.'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**应用服务管理证书**适用于应用服务上的所有 Web 应用，而不仅仅是它创建时所在的 Web 应用。'
+- en: 'In the following figure, we can see the **Private Key Certificate** settings:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，我们可以看到**私钥证书**设置：
+- en: '![Figure 9.7 – App Service private key certificate'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.7 – 应用服务私钥证书'
+- en: '](img/Fig_9.7.jpg)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.7.jpg)'
+- en: Figure 9.7 – App Service private key certificate
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.7 – 应用服务私钥证书
+- en: '**Public** **Key** **Certificate** requires a certificate issued by a recognized
+    **Certificate Authority** (**CA**). This certificate is usually used by publicly
+    accessible web applications, and serves as proof that the website is trustworthy:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**公钥证书**要求由受信任的**证书授权机构**（**CA**）签发的证书。此证书通常用于公开访问的 Web 应用，并作为网站可信的证明：'
+- en: '![Figure 9.8 – Public key certificate'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.8 – 公钥证书'
+- en: '](img/Fig_9.8.jpg)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.8.jpg)'
+- en: Figure 9.8 – Public key certificate
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.8 – 公钥证书
+- en: 'Under networking settings in App Service, we have multiple options. Most of
+    the options are related to secure connections and the integration of a web app
+    with private networks. This was already mentioned in [*Chapter 4*](B15414_04_Final_JM_ePub.xhtml#_idTextAnchor087),
+    *Azure Network Security*, when we discussed network security. We can achieve this
+    with both VNET integration and hybrid connections. Also, this section includes
+    options to enable services such as Azure Front Door (as the web application firewall
+    for globally distributed applications) and **Content Delivery Network** (**CDN**).
+    The last option under network settings is access restrictions. All network settings
+    associated with Azure App Service are shown in the following figure:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在应用服务的网络设置下，我们有多个选项。大多数选项与安全连接和Web应用与私有网络的集成相关。此前在[*第4章*](B15414_04_Final_JM_ePub.xhtml#_idTextAnchor087)《Azure网络安全》中，我们已经讨论过网络安全。我们可以通过VNET集成和混合连接来实现这一点。此外，本节还包括启用Azure
+    Front Door（作为全球分布式应用程序的Web应用防火墙）和**内容分发网络**（**CDN**）等服务的选项。网络设置下的最后一个选项是访问限制。与Azure应用服务相关的所有网络设置如下面的图所示：
+- en: '![Figure 9.9 – Azure App Service network settings'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.9 – Azure 应用服务网络设置'
+- en: '](img/Fig_9.9.jpg)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.9.jpg)'
+- en: Figure 9.9 – Azure App Service network settings
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.9 – Azure 应用服务网络设置
+- en: '**Access** **Restrictions** is a very useful feature in **Azure App Service**
+    settings. Using **Access** **Restrictions**, we can block access from specific
+    IP addresses or allow access only from whitelisted IP addresses. Essentially,
+    **Access Restrictions** works very similarly to **Network Security Groups** (**NSGs**),
+    by creating rules and assigning priority to them. However, **Access Restrictions**
+    focuses on public access where NSGs control broader networks with both public
+    and private network rules. In the following figure, we can see an example of creating
+    a block rule:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**访问** **限制**是**Azure 应用服务**设置中的一个非常有用的功能。通过使用**访问** **限制**，我们可以阻止来自特定IP地址的访问，或仅允许来自白名单IP地址的访问。实际上，**访问限制**的工作方式与**网络安全组**（**NSGs**）非常相似，通过创建规则并为其分配优先级。然而，**访问限制**专注于公共访问，而NSGs则控制更广泛的网络，包括公共和私有网络规则。在下图中，我们可以看到创建阻止规则的示例：'
+- en: '![Figure 9.10 – App Service Access restriction'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.10 – 应用服务访问限制'
+- en: '](img/Fig_9.10.jpg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.10.jpg)'
+- en: Figure 9.10 – App Service Access restriction
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.10 – 应用服务访问限制
+- en: 'To create a block rule, we need to provide the following information:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要创建一个阻止规则，我们需要提供以下信息：
+- en: '**Name**'
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**名称**'
+- en: '**Action** (allow or deny access)'
+  id: totrans-73
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**操作**（允许或拒绝访问）'
+- en: '**Priority**'
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**优先级**'
+- en: '**Description**'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**描述**'
+- en: '**Type** (IPv4 or IPv6)'
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**类型**（IPv4 或 IPv6）'
+- en: '**IP Address Block**'
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IP 地址块**'
+- en: In the preceding example, a rule is created to block access from IP address
+    block `208.130.0.0/16`. If anyone tries to access the application from any IP
+    address in the specified IP address range, the request will be blocked and the
+    user will be prevented from reaching the web app.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，创建了一个规则来阻止来自IP地址块`208.130.0.0/16`的访问。如果有人尝试从指定IP地址范围内的任何IP地址访问应用程序，请求将被阻止，用户将无法访问该Web应用程序。
+- en: As we are able to use priorities, we can also approach things differently, and
+    allow access only from whitelisted IP addresses. In this case, we would create
+    a block rule that would prevent anyone from accessing the application and assign
+    `200`. Another rule would be created to allow access from a specific IP address
+    range with `100` (this can be any value under `200`). Allowing a rule for specified
+    IP addresses would override the rule to block, because of its higher priority.
+    But it would still prevent anyone else from accessing the application.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们可以使用优先级，我们也可以采用不同的方法，仅允许来自白名单IP地址的访问。在这种情况下，我们将创建一个阻止规则，阻止任何人访问应用程序，并为其分配`200`。另一个规则将被创建，允许来自特定IP地址范围的访问，并为其分配`100`（这可以是`200`以下的任何值）。允许指定IP地址的规则将覆盖阻止规则，因为其优先级较高。但它仍然会阻止其他任何人访问应用程序。
+- en: 'Another challenge we face with the cloud is secrets management. We need to
+    be careful how secrets, connections strings, and other sensitive information are
+    used and make sure that none of these are exposed. As in many cases we have already
+    discussed in this book, Azure Key Vault comes to the rescue. Similar to passing
+    secrets when using IaC (as discussed in [*Chapter 5*](B15414_05_Final_JM_ePub.xhtml#_idTextAnchor099),
+    *Azure Key Vault*), or managing keys and certificates (discussed in [*Chapter
+    6*](B15414_06_Final_JM_ePub.xhtml#_idTextAnchor111), *Data Security*), Azure Key
+    Vault can be used to secure any sensitive information needed by Azure App Service.
+    Instead of storing sensitive information in web config files or in App Service
+    Configuration (where information is hidden, but visible if the user has enough
+    permissions), we can use a managed identity that will allow access to Azure Key
+    Vault, where sensitive information is stored in a secure way. An example of identity
+    settings in App Service is shown in the following figure:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在云环境中面临的另一个挑战是密钥管理。我们需要小心如何使用机密、连接字符串和其他敏感信息，并确保这些信息不会暴露。如本书中许多已讨论的情况一样，Azure
+    Key Vault可以提供帮助。类似于使用IaC传递机密（如在[*第5章*](B15414_05_Final_JM_ePub.xhtml#_idTextAnchor099)中讨论的，*Azure
+    Key Vault*），或者管理密钥和证书（在[*第6章*](B15414_06_Final_JM_ePub.xhtml#_idTextAnchor111)中讨论的，*数据安全*），Azure
+    Key Vault可以用来保护Azure App Service所需的任何敏感信息。我们不需要将敏感信息存储在Web配置文件或App Service配置中（虽然信息会被隐藏，但如果用户有足够权限，仍然可能会暴露），而是可以使用托管身份来访问Azure
+    Key Vault，在那里敏感信息以安全的方式存储。以下是App Service中身份设置的示例：
+- en: '![Figure 9.11 – Managed identity in Azure App Service'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图9.11 – Azure App Service中的托管身份](img/Fig_9.11.jpg)'
+- en: '](img/Fig_9.11.jpg)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_9.11.jpg)'
+- en: Figure 9.11 – Managed identity in Azure App Service
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图9.11 – Azure App Service中的托管身份
+- en: 'As we can see, there are two types of managed identity that we can set: **System
+    assigned** and **User** **assigned**. **System** **assigned** will generate a
+    managed identity and set up necessary options. In **User** **assigned**, we need
+    to create a managed identity ourselves, and create any necessary permissions and
+    settings. If we require using more than one managed identity for a service, we
+    need to use a **User** **assigned** managed identity, because a service can have
+    only one system-assigned managed identity.'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，可以设置两种类型的托管身份：**系统分配**和**用户分配**。**系统分配**将生成一个托管身份并设置必要的选项。而在**用户分配**中，我们需要自己创建托管身份，并创建任何必要的权限和设置。如果我们需要为一个服务使用多个托管身份，就必须使用**用户分配**的托管身份，因为一个服务只能拥有一个系统分配的托管身份。
+- en: A **System** **assigned** managed identity is tied to a resource life cycle,
+    and once a resource is removed, the managed identity is removed as well. The managed
+    identity is generated in order to be used for that service and is not used by
+    any other service. This is not the case with a **User assigned** identity, as
+    more resources can use the same managed identity.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**系统分配**的托管身份与资源生命周期相关，一旦资源被移除，托管身份也会被移除。该托管身份是为了服务而生成的，并且不会被其他任何服务使用。而**用户分配**的托管身份则不同，因为多个资源可以使用同一个托管身份。'
+- en: Summary
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: At the very end of this book, we have covered all aspects of Microsoft Azure
+    security. From the shared responsibility model to advanced security features,
+    we have come to an end. It's important to remember that the cloud changes all
+    the time, and more and more services are available that can help us to increase
+    security.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的最后，我们已经涵盖了Microsoft Azure安全性的各个方面。从共享责任模型到高级安全功能，我们已经讲解完毕。需要记住的是，云环境不断变化，越来越多的服务可以帮助我们提高安全性。
+- en: 'Let''s focus on the most important takeaways from this book:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们专注于本书中最重要的要点：
+- en: Keep your identity and secrets secure with all the means available.
+  id: totrans-89
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用一切可用的手段确保你的身份和机密安全。
+- en: 'When it comes to access, take two approaches: **Just Enough Administration**
+    (**JEA**) and **Just-in-Time Administration** (**JIT Administration**).'
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在访问控制方面，采取两种方法：**足够的管理权限**（**JEA**）和**及时管理**（**JIT管理**）。
+- en: Nothing should be exposed to public access if it's not necessary, especially
+    management and security access.
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果没有必要，任何东西都不应该暴露给公共访问，特别是管理和安全访问。
+- en: Data should be encrypted at all times.
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据应该始终加密。
+- en: All communication and traffic should be encrypted (over HTTPS) and on a secure
+    (private) network, if possible.
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有通信和流量都应加密（通过HTTPS）并尽可能在安全（私有）网络上进行。
+- en: Azure Security Center and Azure Sentinel can help you with analytics, detection,
+    and recommendations to stay on top of cloud security and keep Azure resources
+    safe.
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 安全中心和 Azure Sentinel 可以帮助你进行分析、检测和推荐，以保持对云安全的掌控，并确保 Azure 资源的安全。
+- en: Besides services focused on security, all Azure services have security features
+    of their own. Use these features to increase security.
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 除了专注于安全的服务外，所有 Azure 服务都具有自己的安全功能。使用这些功能来增强安全性。
+- en: Microsoft Azure changes all the times; new features are added, and existing
+    features are updated almost daily. So, in the future, options might change, but
+    these options are there to present an idea of how to approach cloud security.
+    These seven key points are what we need to focus on; how we complete these tasks
+    is insignificant.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Microsoft Azure 时刻在变化；新功能几乎每天都会添加，现有功能也在不断更新。因此，未来选项可能会发生变化，但这些选项现在是为了展示如何处理云安全的问题。这七个关键点是我们需要关注的；我们完成这些任务的方式并不重要。
+- en: Questions
+  id: totrans-97
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What is Log Analytics best practice?
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 什么是 Log Analytics 的最佳实践？
+- en: A. Use a single workspace
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 使用单一工作区
+- en: B. Use regional workspaces
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 使用区域工作区
+- en: C. Use multiple workspaces for each region and each service
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 为每个区域和每个服务使用多个工作区
+- en: We can control access to Azure SQL Database with…
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过…控制对 Azure SQL 数据库的访问
+- en: A. An access list
+  id: totrans-103
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 访问列表
+- en: B. A firewall
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 防火墙
+- en: C. Conditional access
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 条件访问
+- en: Which type of certificate is supported in Azure App Service?
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Azure 应用服务中支持哪种类型的证书？
+- en: A. Private
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 私有
+- en: B. Public
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 公共
+- en: C. Wildcard
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 通配符
+- en: D. All of the above
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. 以上所有
+- en: E. Only 1 and 2
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: E. 仅 1 和 2
+- en: F. Only 2 and 3
+  id: totrans-112
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: F. 仅 2 和 3
+- en: We can control access to Azure App Service with…
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过…控制对 Azure 应用服务的访问
+- en: A. Access restriction
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 访问限制
+- en: B. A firewall
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 防火墙
+- en: C. Conditional access
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 条件访问
+- en: What is used to enable App Service communication with other Azure services?
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用于启用 App Service 与其他 Azure 服务通信的是什么？
+- en: A. Service Principal
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 服务主体
+- en: B. Managed identity
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 托管身份
+- en: C. Azure Key Vault
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. Azure 密钥保管库
+- en: Azure App Service supports authentication with…
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure 应用服务支持与…的身份验证
+- en: A. Azure Active Directory (Azure AD)
+  id: totrans-122
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. Azure Active Directory (Azure AD)
+- en: B. Microsoft account
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. Microsoft 帐户
+- en: C. Twitter
+  id: totrans-124
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. Twitter
+- en: D. All of the above
+  id: totrans-125
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. 以上所有
+- en: E. Only 1 and 2
+  id: totrans-126
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: E. 仅 1 和 2
+- en: F. Only 2 and 3
+  id: totrans-127
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: F. 仅 2 和 3
+- en: Security in Azure can be set up from…
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可以从…设置 Azure 的安全性
+- en: A. Azure Security Center
+  id: totrans-129
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. Azure 安全中心
+- en: B. Azure Sentinel
+  id: totrans-130
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. Azure Sentinel
+- en: C. Different services and features
+  id: totrans-131
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 不同的服务和功能
+- en: D. Azure AD
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. Azure AD
+- en: Further reading
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: '*Hands-On Cloud Administration in Azure* by Mustafa Toroman: [https://www.packtpub.com/virtualization-and-cloud/hands-cloud-administration-azure](https://www.packtpub.com/virtualization-and-cloud/hands-cloud-administration-azure).'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《Hands-On Cloud Administration in Azure》* 由 Mustafa Toroman 编著: [https://www.packtpub.com/virtualization-and-cloud/hands-cloud-administration-azure](https://www.packtpub.com/virtualization-and-cloud/hands-cloud-administration-azure)。'
+- en: '*Azure Administration Cookbook* by Kamil Mrzyglod: [https://www.packtpub.com/cloud-networking/azure-administration-cookbook](https://www.packtpub.com/cloud-networking/azure-administration-cookbook).'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《Azure 管理手册》* 由 Kamil Mrzyglod 编著: [https://www.packtpub.com/cloud-networking/azure-administration-cookbook](https://www.packtpub.com/cloud-networking/azure-administration-cookbook)。'
+- en: '*Active Directory Administration Cookbook* by Sander Berkouwer: [https://www.packtpub.com/virtualization-and-cloud/active-directory-administration-cookbook](https://www.packtpub.com/virtualization-and-cloud/active-directory-administration-cookbook).'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《Active Directory 管理手册》* 由 Sander Berkouwer 编著: [https://www.packtpub.com/virtualization-and-cloud/active-directory-administration-cookbook](https://www.packtpub.com/virtualization-and-cloud/active-directory-administration-cookbook)。'
+- en: '*Azure Networking Cookbook* by Mustafa Toroman: [https://www.packtpub.com/virtualization-and-cloud/azure-networking-cookbook](https://www.packtpub.com/virtualization-and-cloud/azure-networking-cookbook).'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《Azure 网络管理手册》* 由 Mustafa Toroman 编著: [https://www.packtpub.com/virtualization-and-cloud/azure-networking-cookbook](https://www.packtpub.com/virtualization-and-cloud/azure-networking-cookbook)。'
+- en: '*Hands-On Azure for Developers* by Kamil Mrzyglod: [https://www.packtpub.com/virtualization-and-cloud/hands-azure-developers](https://www.packtpub.com/virtualization-and-cloud/hands-azure-developers).'
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《Hands-On Azure for Developers》* 由 Kamil Mrzyglod 编著: [https://www.packtpub.com/virtualization-and-cloud/hands-azure-developers](https://www.packtpub.com/virtualization-and-cloud/hands-azure-developers)。'

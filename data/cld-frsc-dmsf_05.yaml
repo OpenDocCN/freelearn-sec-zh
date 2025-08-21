@@ -1,0 +1,2984 @@
+- en: '4'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '4'
+- en: DFIR Investigations – Logs in AWS
+  id: totrans-1
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: DFIR 调查 – AWS 中的日志
+- en: Through *Chapters 1* to *3*, you may have recognized the importance of the cloud
+    in today’s technological landscape, and with any technological innovation comes
+    threats against it. As organizations use more cloud products and host and store
+    personal or sensitive information, it is prone to unauthorized disclosure, accidentally
+    or by threat actors exploiting a vulnerability in the configuration of the systems.
+    This chapter will focus on how to handle incidents that have occurred within **Amazon
+    Web Services** (**AWS**). We will discuss various log sources that are available
+    for investigators and how investigators can make use of these log sources.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过 *第 1 章* 到 *第 3 章*，你可能已经认识到云在当今技术格局中的重要性，而任何技术创新的背后都会带来威胁。随着组织使用更多的云产品并托管和存储个人或敏感信息，这些信息很容易遭遇未经授权的披露，无论是意外的还是通过威胁行为者利用系统配置中的漏洞所致。本章将重点讨论如何处理
+    **亚马逊 Web 服务** (**AWS**) 中发生的事件。我们将讨论可供调查人员使用的各种日志源，以及调查人员如何利用这些日志源。
+- en: 'Before we can begin our investigation, we will need to understand which logs
+    are available by default versus which log sources must be explicitly turned on;
+    something organizations should consider for ensuring breaches can be investigated
+    thoroughly. We will focus on configuring these logs and look at utilizing some
+    of the native features of AWS for investigation. Specifically, we will discuss
+    the following AWS data sources:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始调查之前，我们需要了解哪些日志是默认可用的，哪些日志源必须显式开启；这是组织在确保能够彻底调查安全漏洞时应考虑的事项。我们将专注于配置这些日志，并探讨如何利用
+    AWS 的一些原生功能进行调查。具体来说，我们将讨论以下 AWS 数据源：
+- en: '**Virtual Private Cloud** (**VPC**) flow logs'
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**虚拟私有云** (**VPC**) 流量日志'
+- en: '**Simple Storage Service** (**S3**) access logs'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**简单存储服务** (**S3**) 访问日志'
+- en: AWS CloudTrail
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AWS CloudTrail
+- en: AWS CloudWatch
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AWS CloudWatch
+- en: Amazon GuardDuty
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Amazon GuardDuty
+- en: Amazon Detective
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Amazon Detective
+- en: VPC flow logs
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: VPC 流量日志
+- en: We briefly introduced VPC in [*Chapter 3*](part0021_split_000.html#_idTextAnchor042).
+    VPC is the core of the network configuration for every instance within AWS. Each
+    AWS instance (**Elastic Compute Cloud** (**EC2**)) is assigned a VPC and uniquely
+    identified using a VPC ID. VPC allows users complete control of the network environment,
+    including defining specific IP addresses (non-public routable IPs), subnets, and
+    security groups. Users can also configure a **virtual private network** (**VPN**)
+    through their VPC connection. In default configurations, AWS will automatically
+    create a VPC for every new instance of EC2\. Users can also connect their EC2
+    instance to an existing preconfigured VPC instead.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在 [*第 3 章*](part0021_split_000.html#_idTextAnchor042) 中简要介绍了 VPC。VPC 是 AWS
+    中每个实例的网络配置核心。每个 AWS 实例 (**弹性计算云** (**EC2**)) 都会被分配一个 VPC，并通过 VPC ID 唯一标识。VPC 使用户可以完全控制网络环境，包括定义特定的
+    IP 地址（非公共可路由 IP）、子网和安全组。用户还可以通过其 VPC 连接配置 **虚拟私人网络** (**VPN**)。在默认配置下，AWS 会为每个新的
+    EC2 实例自动创建一个 VPC。用户也可以将他们的 EC2 实例连接到一个已存在的预配置 VPC。
+- en: All VPCs have a **VPC identifier** (**VPC ID**). The VPC ID is the single reference
+    point for all network-related configuration items. For each instance, if you want
+    to configure any network properties within AWS, you must look into each VPC specifically.
+    In the next example, for a specific EC2 instance, certain details are captured
+    for VPC.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有 VPC 都有一个 **VPC 标识符** (**VPC ID**)。VPC ID 是所有与网络相关的配置项的唯一参考点。对于每个实例，如果你想在
+    AWS 中配置任何网络属性，必须专门查看每个 VPC。在下一个示例中，对于一个特定的 EC2 实例，VPC 捕获了一些特定的细节。
+- en: Note
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Before we dive into details, it is essential to note that VPC flow logs are
+    similar to network flow logs. These logs only capture header information of the
+    network traffic; for example, source IP, destination IP, protocols, port, and
+    if the connection was accepted or rejected (depending upon the inbound and outbound
+    connection rules).
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在深入细节之前，值得注意的是，VPC 流量日志与网络流量日志类似。这些日志只捕获网络流量的头信息；例如，源 IP、目标 IP、协议、端口以及连接是否被接受或拒绝（取决于入站和出站连接规则）。
+- en: VPC basics
+  id: totrans-15
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: VPC 基础
+- en: 'In the following screenshot, you will notice a few configurational information
+    under the **Networking** tab, which is specifically helpful for **digital forensics
+    and incident response** (**DFIR**) teams:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的截图中，你会注意到 **网络** 标签下的一些配置信息，这些信息对于 **数字取证与事件响应** (**DFIR**) 团队特别有用：
+- en: '![Figure 4.1 – Default VPC setup](img/00059.jpeg)'
+  id: totrans-17
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.1 – 默认 VPC 设置](img/00059.jpeg)'
+- en: Figure 4.1 – Default VPC setup
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.1 – 默认 VPC 设置
+- en: 'This includes the following:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 包括以下内容：
+- en: '**Public IPv4 address**: The publicly routable IP address scheme for this EC2
+    instance.'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**公共 IPv4 地址**：此 EC2 实例的可公开路由的 IP 地址方案。'
+- en: '**VPC ID**: A unique identifier that connects all network configuration items
+    to this VPC setup.'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**VPC ID**：将所有网络配置项与此 VPC 设置连接的唯一标识符。'
+- en: '**Private IP DNS name (IPv4 only)**: Non-publicly routable IP assigned to the
+    EC2 instance on a network interface. AWS typically uses this to provide backend
+    communications or EC2 instance-to-EC2 instance communications.'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**私有 IP DNS 名称（仅限 IPv4）**：分配给 EC2 实例的不可公开路由的 IP 地址，通常用于 AWS 提供的后端通信或 EC2 实例间的通信。'
+- en: '**Subnet ID**: The IP subnet that the VPC hosts.'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**子网 ID**：VPC 所拥有的 IP 子网。'
+- en: '**Availability zone**: The AWS region where the VPC is configured initially.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**可用区**：VPC 最初配置所在的 AWS 区域。'
+- en: DFIR teams can use this core information set to filter events and perform their
+    analysis. In the *AWS CloudWatch* section of the chapter, we will look into how
+    to tie this all together for investigation.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DFIR 团队可以使用此核心信息集来过滤事件并进行分析。在本章的 *AWS CloudWatch* 部分，我们将探讨如何将这些信息整合到调查中。
+- en: 'As illustrated in the preceding screenshot, each VPC is provided with one or
+    more subnet(s) responsible for assigning IPs and managing the network segment.
+    You may assign multiple subnets under the same VPC to various EC2 instances:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前述屏幕截图所示，每个 VPC 配备一个或多个子网，负责分配 IP 并管理网络段。你可以在同一个 VPC 下为多个 EC2 实例分配多个子网：
+- en: '![Figure 4.2 – A default subnet configuration and network interface](img/00077.jpeg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.2 – 默认子网配置和网络接口](img/00077.jpeg)'
+- en: Figure 4.2 – A default subnet configuration and network interface
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.2 – 默认子网配置和网络接口
+- en: 'Similar to a VPC configuration, the preceding screenshot illustrates some of
+    the default properties of a subnet assigned to a VPC. These include the following:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似于 VPC 配置，前面的屏幕截图展示了分配给 VPC 的子网的一些默认属性。包括以下内容：
+- en: '**Subnet ID**: A unique identifier to identify the subnet assigned to the VPC.'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**子网 ID**：用于标识分配给 VPC 的子网的唯一标识符。'
+- en: '`4089`.'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`4089`。'
+- en: '**Network border group**: An assigned internet edge location. A network border
+    group is a collection of AWS edge locations and **points of presence** (**PoPs**)
+    that are geographically distributed and designed to provide a secure and reliable
+    connection between a VPC and the public internet.'
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网络边界组**：分配的互联网边缘位置。网络边界组是 AWS 边缘位置和 **服务接入点** (**PoPs**) 的集合，这些位置地理分布并旨在提供
+    VPC 与公共互联网之间的安全可靠连接。'
+- en: '**Route table**: A unique identifier that points to a specific routing information
+    schema assigned to this subnet.'
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**路由表**：指向分配给该子网的特定路由信息架构的唯一标识符。'
+- en: '**Subnet ARN**: A subnet **Amazon Resource Name** (**ARN**) is a unique identifier
+    that can reference the subnet in various AWS services and APIs, such as AWS CloudFormation
+    templates, AWS **Identity and Access Management** (**IAM**) policies, and AWS
+    Lambda functions.'
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**子网 ARN**：子网 **Amazon 资源名称** (**ARN**) 是一个唯一标识符，可以在各种 AWS 服务和 API 中引用该子网，如
+    AWS CloudFormation 模板、AWS **身份与访问管理** (**IAM**) 策略和 AWS Lambda 函数。'
+- en: '**VPC**: The VPC that this subnet is assigned to. Note that this subnet is
+    assigned to the VPC referenced in *Figure 4**.1*.'
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**VPC**：此子网所分配的 VPC。请注意，此子网被分配到*图 4.1*所引用的 VPC。'
+- en: '**Owner**: Unique identifier of the account under which the instance, VPC and
+    subnet are assigned. For privacy purposes, this is masked.'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**所有者**：实例、VPC 和子网所属账户的唯一标识符。出于隐私原因，这个标识符被屏蔽。'
+- en: '`/20` indicates that the first 20 bits of the IP address are used for the network
+    address, and the remaining 12 bits for the host address.'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/20` 表示 IP 地址的前 20 位用于网络地址，剩余的 12 位用于主机地址。'
+- en: '`ca-central`); however, if required, you may place the subnet in another availability
+    zone to provide **fault tolerance** (**FT**) and resilience.'
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ca-central`）；然而，如果需要，你可以将子网放置在另一个可用区，以提供 **容错** (**FT**) 和弹性。'
+- en: '**Network ACL**: Another unique identifier to precisely identify the **access
+    control lists** (**ACLs**) configured for this subnet. ACLs will enforce what
+    is allowed versus restricted for network resources. This can also include inbound
+    and outbound network filters.'
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网络 ACL**：另一个唯一标识符，用于精确识别为此子网配置的 **访问控制列表** (**ACLs**) 。ACL 将执行对网络资源的允许与限制。这还可以包括入站和出站网络过滤器。'
+- en: '`eni-035e09cd5e22e5515`: The network interface ID.'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`eni-035e09cd5e22e5515`：网络接口 ID。'
+- en: While the preceding screenshot specifies essential configurational elements,
+    each property can be adjusted per organizational requirements. However, DFIR teams
+    need to note that the aforementioned aspects will play a role in your investigation
+    and the nature of the threat you are observing as part of the investigation.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然前面的截图指定了必要的配置元素，但每个属性可以根据组织的需求进行调整。然而，DFIR 团队需要注意，前述方面将对调查过程中的威胁性质以及你正在观察的威胁起到作用。
+- en: 'For DFIR teams, the following tabs offer additional detailed insights into
+    the network configuration:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 DFIR 团队，以下标签提供了关于网络配置的更多详细信息：
+- en: '**Flow logs** indicates how the network is logged. This VPC/subnet is logged
+    in CloudWatch, which allows DFIR teams to query the network logs. We will investigate
+    and query logs in a later part of the chapter:'
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**流量日志** 表示网络如何被记录。这个 VPC/子网的日志记录在 CloudWatch 中，这使得 DFIR 团队可以查询网络日志。我们将在本章后续部分调查并查询这些日志：'
+- en: '![Figure 4.3 – VPC flow logs](img/00097.jpeg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.3 – VPC 流量日志](img/00097.jpeg)'
+- en: Figure 4.3 – VPC flow logs
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.3 – VPC 流量日志
+- en: Note
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Note that VPC flow logs are not enabled by default and require explicit setup.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，VPC 流量日志默认未启用，需要显式设置。
+- en: 'The next screenshot offers a deeper insight into **route tables** configured
+    to connect to the internet. Note the **Target** internet gateway identifier (unique
+    identifier) this subnet connects to. The route table defines how routing will
+    perform for all instances related to this subnet. In organizations where a custom
+    VPC is set up, this route table may look different or point to another network
+    resource within AWS. It may not expose the instance directly to the internet.
+    DFIR teams need to make a note of the gateway and the route table that the resources
+    are assigned to for the investigation:'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一张截图深入展示了配置用于连接到互联网的 **路由表**。请注意该子网连接的 **目标** 网络网关标识符（唯一标识符）。路由表定义了与该子网相关的所有实例的路由执行方式。在设置了自定义
+    VPC 的组织中，路由表可能看起来不同，或者指向 AWS 内的其他网络资源。它可能不会将实例直接暴露到互联网。DFIR 团队需要注意网关和资源分配的路由表，以便进行调查：
+- en: '![Figure 4.4 – Routing table](img/00118.jpeg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.4 – 路由表](img/00118.jpeg)'
+- en: Figure 4.4 – Routing table
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.4 – 路由表
+- en: 'The following screenshot shows details of inbound and outbound `*` in the **Rule
+    number** column, which means this rule will be evaluated last once any rule numbers
+    are assessed. Based on inbound and outbound ACLs, this resource is available online.
+    It can access any part of the internet, presently the least secure setup and a
+    default setup offered by AWS:'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下截图显示了 **规则编号** 列中进出 `*` 的详细信息，这意味着一旦任何规则编号被评估完，该规则将最后进行评估。基于进出 ACL，这个资源可以在线访问。它可以访问互联网的任何部分，目前这是最不安全的设置，也是
+    AWS 提供的默认设置：
+- en: '![Figure 4.5 – NACLs configured for subnet](img/00141.jpeg)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.5 – 配置的子网 NACL](img/00141.jpeg)'
+- en: Figure 4.5 – NACLs configured for subnet
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.5 – 配置的子网 NACL
+- en: 'Now that we have reviewed various configuration items under the VPC, here is
+    the summary dashboard that AWS offers for each of the VPCs, which outlines the
+    VPC configuration properties and assignments along with additional information:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经回顾了 VPC 下的各种配置项，以下是 AWS 为每个 VPC 提供的概要仪表板，概述了 VPC 配置属性和分配，以及其他信息：
+- en: '![Figure 4.6 – VPC summary dashboard](img/00157.jpeg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.6 – VPC 概要仪表板](img/00157.jpeg)'
+- en: Figure 4.6 – VPC summary dashboard
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.6 – VPC 概要仪表板
+- en: The VPC summary dashboard page will also provide additional information regarding
+    the subnets associated with this VPC and the flow logs configured. VPC flow logs
+    are not enabled by default and require specific AWS resource access configured
+    within AWS’s IAM module. We will be looking into how to set up flow logs to enable
+    DFIR teams to investigate network activity on AWS and query them.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VPC 概要仪表板页面还将提供有关与此 VPC 关联的子网和已配置的流量日志的额外信息。VPC 流量日志默认未启用，需要在 AWS 的 IAM 模块中配置特定的
+    AWS 资源访问权限。我们将研究如何设置流量日志，以便 DFIR 团队能够调查 AWS 上的网络活动并查询这些日志。
+- en: 'The following screenshot outlines AWS’s diagrammatic representation or resource
+    map of how the network is configured from an internal AWS perspective connecting
+    to the internet. The resource map displays the connections among the resources
+    in a VPC, outlining the traffic path from subnets to **network address translation**
+    (**NAT**) gateways, internet gateways, and gateway endpoints. Using the resource
+    map, DFIR teams can comprehend the VPC’s design, determine the number of subnets,
+    identify which subnets correspond with route tables, and discern which route tables
+    contain routes to NAT gateways, internet gateways, and gateway endpoints:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了 AWS 从内部 AWS 视角连接到互联网的网络配置图或资源图。资源图显示了 VPC 中资源之间的连接，概述了从子网到**网络地址转换**（**NAT**）网关、互联网网关和网关端点的流量路径。通过资源图，DFIR
+    团队可以理解 VPC 的设计，确定子网数量，识别哪些子网与路由表相对应，并识别哪些路由表包含到 NAT 网关、互联网网关和网关端点的路由：
+- en: '![Figure 4.7 – Resource map for vpc-0183a969 VPC](img/00175.jpeg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.7 – vpc-0183a969 VPC 的资源图](img/00175.jpeg)'
+- en: Figure 4.7 – Resource map for vpc-0183a969 VPC
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.7 – vpc-0183a969 VPC 的资源图
+- en: Moreover, the resource map can assist you in identifying unsuitable or inaccurate
+    setups, such as private subnets separated from NAT gateways or private subnets
+    with direct routes to the internet gateway. You can select specific resources
+    from the **Resource map** screen, such as route tables, and modify their settings.
+    This functionality is presently under development.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，资源图可以帮助你识别不合适或不准确的配置，例如与 NAT 网关分离的私有子网，或具有直接路由到互联网网关的私有子网。你可以从**资源图**界面选择特定的资源，如路由表，并修改其设置。该功能目前正在开发中。
+- en: Sample VPC flow log
+  id: totrans-62
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 示例 VPC 流日志
+- en: Here is a sample VPC flow log and the properties captured by the flow log. It
+    is essential to understand the elements captured within each flow log.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个示例 VPC 流日志及流日志中捕获的属性。理解每个流日志中捕获的元素是至关重要的。
+- en: 'Flow logs are recorded between time intervals where it aggregates network traffic
+    into a log:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 流日志是在时间间隔之间记录的，期间网络流量被聚合成一个日志：
+- en: '[PRE0]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Let us look into the details of each element of the flow log:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们深入了解流日志中每个元素的详细信息：
+- en: '`2`: This field indicates the version of the VPC flow log’s format.'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`2`：该字段表示 VPC 流日志格式的版本。'
+- en: '`65179142xxxx`: This is the ID of the AWS account that owns the network interface.
+    This is currently masked for privacy reasons.'
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`65179142xxxx`：这是拥有网络接口的 AWS 账户的 ID。目前由于隐私原因，此 ID 被隐藏。'
+- en: '`eni-035e09cd5e22e5515`: This is the ID of the network interface (**elastic
+    network interface** (**ENI)**). Notice this log matches the *Figure 4**.2* configuration,
+    which reflects the network connection of an EC2 resource.'
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`eni-035e09cd5e22e5515`：这是网络接口的 ID（**弹性网络接口**（**ENI**））。请注意，该日志与*图 4.2*配置匹配，反映了
+    EC2 资源的网络连接。'
+- en: '`45.79.132.41`: This is the source IP address of the traffic.'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`45.79.132.41`：这是流量的源 IP 地址。'
+- en: '`172.31.5.217`: This is the destination IP address of the traffic.'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`172.31.5.217`：这是流量的目标 IP 地址。'
+- en: '`41340`: This is the source port number.'
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`41340`：这是源端口号。'
+- en: '`636`: This is the destination port number.'
+  id: totrans-73
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`636`：这是目标端口号。'
+- en: '`6`: This is the protocol number. In this case, it is TCP (`6`). Port `6` is
+    currently unassigned.'
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`6`：这是协议号。在这种情况下，它是 TCP（`6`）。端口 `6` 目前未分配。'
+- en: '`1`: This is the number of packets transferred during the flow.'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1`：这是在流期间传输的包的数量。'
+- en: '`44`: This is the number of bytes transferred during the flow. Note the bytes
+    transferred during this flow session.'
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`44`：这是在流期间传输的字节数。请注意，在此流会话期间传输的字节数。'
+- en: '`1682678411`: This is the start time of the flow in epoch time (seconds since
+    January 1, 1970).'
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1682678411`：这是流的开始时间，采用纪元时间（自1970年1月1日起的秒数）。'
+- en: '`1682678469`: This is the end time of the flow in epoch time.'
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1682678469`：这是流的结束时间，采用纪元时间。'
+- en: '`REJECT`: Action taken on traffic by a security group or NACL. Actions include
+    `ACCEPT`/`REJECT`/`NO DATA`/`SKIPDATA`. `NO DATA` and `SKIPDATA` are edge cases
+    where `NO DATA` is recorded to indicate the flow log event is empty. In contrast,
+    `SKIPDATA` is recorded when flow capture cannot capture the log during network
+    aggregation intervals due to capacity limitations. `SKIPDATA` log entry means
+    multiple network logs could not be captured due to internal configurational errors.'
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`REJECT`：由安全组或 NACL 对流量采取的行动。行动包括 `ACCEPT`/`REJECT`/`NO DATA`/`SKIPDATA`。`NO
+    DATA` 和 `SKIPDATA` 是极端情况，`NO DATA` 表示记录为空，流日志事件没有数据。而 `SKIPDATA` 表示由于容量限制，网络聚合间隔期间无法捕获日志，导致无法捕获流日志条目。`SKIPDATA`
+    记录条目意味着由于内部配置错误，无法捕获多个网络日志。'
+- en: '`OK`: This is the status of the action.'
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`OK`：这是操作的状态。'
+- en: DFIR use cases for VPC flow logging
+  id: totrans-81
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: DFIR 在 VPC 流日志中的应用场景
+- en: 'There are several reasons why DFIR teams should utilize VPC flow logs in their
+    incident investigation when investigating an AWS resource. Here are some use cases
+    where VPC flow logs can play a crucial role for DFIR teams:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DFIR 团队在调查 AWS 资源时，应该利用 VPC 流日志的原因有很多。以下是 VPC 流日志对 DFIR 团队至关重要的一些应用场景：
+- en: '**Threat detection and monitoring**: VPC flow logs can be used to detect suspicious
+    or malicious network traffic. DFIR teams can identify traffic patterns that indicate
+    known threats or potential intrusions by analyzing the flow logs. For example,
+    they can use flow logs to detect port scanning, brute-force attacks, command-and-control
+    traffic, and data exfiltration by reviewing flow logs’ activity spikes.'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**威胁检测与监控**：VPC 流日志可以用来检测可疑或恶意的网络流量。DFIR 团队通过分析流日志，可以识别出表示已知威胁或潜在入侵的流量模式。例如，他们可以利用流日志来检测端口扫描、暴力破解攻击、命令和控制流量，以及通过查看流日志中的活动峰值来识别数据外泄。'
+- en: '**IR**: DFIR teams can use VPC flow logs to reconstruct an event’s timeline
+    and identify an attack’s source in a security incident. By analyzing the flow
+    logs, they can determine the systems and applications that were affected, the
+    duration of the attack, and the IP addresses and ports used by the attacker.'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IR**：DFIR 团队可以利用 VPC 流日志重建事件的时间线，并在安全事件中确定攻击源。通过分析流日志，他们可以确定受影响的系统和应用、攻击的持续时间，以及攻击者使用的
+    IP 地址和端口。'
+- en: '**Forensic analysis**: VPC flow logs can also be used in digital forensic investigations
+    to identify the source of an attack and trace the path of data access through
+    the network. DFIR teams can use the flow logs to determine the source IP address,
+    the destination IP address, and the protocols used during the network connection.
+    This information can help them identify the source of a data breach or other security
+    incident.'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**取证分析**：VPC 流日志还可以用于数字取证调查，以识别攻击源并追踪数据通过网络的访问路径。DFIR 团队可以使用流日志来确定源 IP 地址、目标
+    IP 地址以及网络连接期间使用的协议。这些信息可以帮助他们确定数据泄露或其他安全事件的源头。'
+- en: '**Compliance monitoring**: VPC flow logs can be utilized to monitor compliance
+    with security policies and regulations. DFIR teams or the **Security Operations
+    Center** (**SOC**) can use the flow logs to detect unauthorized access to sensitive
+    data and security violations. This information can be used to generate reports
+    for compliance auditors or to support legal investigations.'
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**合规性监控**：VPC 流日志可用于监控是否符合安全政策和法规要求。DFIR 团队或**安全运营中心** (**SOC**) 可以使用流日志来检测未授权访问敏感数据和安全违规行为。这些信息可以用来生成合规审计报告或支持法律调查。'
+- en: '**Anomaly detection**: Finally, VPC flow logs can be used to detect abnormal
+    network traffic. DFIR teams can use **machine learning** (**ML**) techniques to
+    identify patterns of traffic that deviate from the expected behavior of the network.
+    This can help them detect potential security incidents or system failures before
+    they become more serious.'
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**异常检测**：最后，VPC 流日志可以用来检测异常的网络流量。DFIR 团队可以使用**机器学习** (**ML**) 技术来识别与网络预期行为不符的流量模式。这可以帮助他们在安全事件或系统故障变得更严重之前发现潜在问题。'
+- en: S3 access logs
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: S3 访问日志
+- en: Amazon S3 is a very popular cloud storage service that is highly scalable and
+    dependable for data storage and retrieval. S3 provides **high availability** (**HA**),
+    storage performance, and accessibility of any amount of data from around the world.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Amazon S3 是一种非常流行的云存储服务，具有高度可扩展性和可靠性，适用于数据存储和检索。S3 提供了**高可用性** (**HA**)、存储性能和全球任何位置数据的可访问性。
+- en: In AWS, S3 operates on *buckets*, which contain *objects*. Objects are any files,
+    documents, images, and videos. Each object is identified using a unique identifier
+    known as the key that serves within a bucket. A bucket can be visualized as a
+    folder that contains all the objects.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 AWS 中，S3 是基于 *存储桶* 操作的，存储桶中包含 *对象*。对象是任何文件、文档、图片和视频。每个对象都使用唯一的标识符，即键，来标识并服务于存储桶中的对象。存储桶可以视为包含所有对象的文件夹。
+- en: Logging options
+  id: totrans-91
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 日志选项
+- en: Access logs record information about the requests made to an Amazon S3 bucket,
+    including details such as request information, specific resource requests, and
+    the time and date of the request. Amazon S3 uses a specific internal account to
+    write server access logs, which requires AWS account owners to configure explicit
+    permission within their IAM modules to allow S3 to log server access requests.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问日志记录关于对 Amazon S3 存储桶的请求信息，包括请求详情、具体的资源请求以及请求的时间和日期。Amazon S3 使用特定的内部账户来写入服务器访问日志，这要求
+    AWS 账户所有者在其 IAM 模块中配置显式权限，以允许 S3 记录服务器访问请求。
+- en: Note
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Note that S3 access logs are not enabled by default and require explicit setup.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，S3 访问日志默认未启用，需显式设置。
+- en: DFIR use cases for S3 monitoring
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: DFIR 用例：S3 监控
+- en: 'Since S3 storage is used for moving and hosting data, most DFIR use cases revolve
+    around data analysis and movement. Some specific DFIR use cases include:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 S3 存储用于数据的传输和托管，大多数 DFIR 用例都围绕数据分析和移动展开。一些特定的 DFIR 用例包括：
+- en: '**Data leakage**: Data leakage or data exposure can occur due to misconfiguration
+    of an S3 bucket. Through access logs, you can help identify unauthorized access
+    to data stored in S3 buckets. By monitoring bucket access logs and performing
+    anomaly detection, you can identify suspicious activities such as large data transfers,
+    unexpected access patterns, or unauthorized attempts to access specific objects.'
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据泄露**：由于 S3 存储桶的配置错误，可能会发生数据泄露或数据暴露。通过访问日志，可以帮助识别未经授权访问 S3 存储桶中的数据。通过监控存储桶访问日志并执行异常检测，可以识别出大规模数据传输、意外访问模式或未经授权尝试访问特定对象等可疑活动。'
+- en: '**Malware and ransomware detection**: S3 buckets can be targeted by attackers
+    to store and distribute malware or ransomware. DFIR teams can monitor S3 for file
+    integrity changes, unexpected file types, or suspicious behavior that can help
+    identify such malicious files. Integration with **threat intelligence** (**TI**)
+    can enhance detection capabilities.'
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**恶意软件和勒索软件检测**：S3 存储桶可能成为攻击者用来存储和分发恶意软件或勒索软件的目标。DFIR 团队可以通过监控 S3 文件完整性变化、意外文件类型或可疑行为，帮助识别此类恶意文件。与
+    **威胁情报**（**TI**）的集成可以增强检测能力。'
+- en: '**IR and forensic investigation**: S3 monitoring can provide insights during
+    IR and forensic investigations. Through access logs, DFIR teams can help reconstruct
+    events, identify the source of an incident, and understand the scope of the compromise.
+    Monitoring access logs, object metadata, and versioning can aid in analyzing activities
+    leading to a security incident.'
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IR 和取证调查**：S3 监控可以为 IR 和取证调查提供洞察。通过访问日志，DFIR 团队可以帮助重建事件、识别事件源并理解泄露的范围。监控访问日志、对象元数据和版本控制有助于分析导致安全事件的活动。'
+- en: '**Data exfiltration detection**: Attackers may attempt to exfiltrate sensitive
+    data by copying or downloading it from S3 buckets. Monitoring S3 access logs and
+    performing content analysis can help identify large or unexpected data transfers
+    that may indicate data exfiltration attempts. This can also be done through integrations
+    with CloudTrail and CloudWatch and the development of a log pattern insight that
+    allows DFIR teams to determine deviations in file access and identify exfiltration
+    activities.'
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据外泄检测**：攻击者可能试图通过从 S3 存储桶复制或下载敏感数据来进行数据外泄。监控 S3 访问日志并进行内容分析，有助于识别可能表明数据外泄尝试的大规模或意外数据传输。这也可以通过与
+    CloudTrail 和 CloudWatch 的集成以及开发日志模式洞察来实现，从而使 DFIR 团队能够确定文件访问的偏差并识别外泄活动。'
+- en: AWS CloudTrail
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: AWS CloudTrail
+- en: AWS CloudTrail records activities performed on the management console of AWS
+    accessing any AWS resource—for example, an EC2 instance created or terminated,
+    changes to the VPC settings, and so on. Any activity on the management console
+    of AWS is recorded as an event within CloudTrail.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: AWS CloudTrail 记录在 AWS 管理控制台上执行的活动，访问任何 AWS 资源—例如，创建或终止 EC2 实例、修改 VPC 设置等。AWS
+    管理控制台上的任何活动都会作为事件记录在 CloudTrail 中。
+- en: CloudTrail consolidates detailed action log events in a centralized location
+    and provides a comprehensive and unified view of account’s activity, making it
+    easier to search, analyze, download, and respond to account activity across your
+    AWS infrastructure. It also identifies what actions were performed by which user
+    and any other details that help DFIR teams analyze and respond to an incident
+    in AWS.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudTrail将详细的操作日志事件汇总在一个集中位置，并提供关于账户活动的全面统一视图，使得在整个AWS基础设施中更容易搜索、分析、下载并响应账户活动。它还可以识别哪些用户执行了哪些操作，以及任何有助于DFIR团队分析和响应AWS事件的其他细节。
+- en: CloudTrail logs can be integrated into CloudWatch to query activities and perform
+    further analysis. We will discuss CloudWatch in the next section.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudTrail日志可以与CloudWatch集成，以便查询活动并进行进一步分析。我们将在下一节讨论CloudWatch。
+- en: 'The following screenshot demonstrates an example of a CloudWatch dashboard:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了一个CloudWatch仪表盘的示例：
+- en: '![Figure 4.8 – CloudWatch dashboard](img/00192.jpeg)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.8 – CloudWatch 仪表盘](img/00192.jpeg)'
+- en: Figure 4.8 – CloudWatch dashboard
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.8 – CloudWatch 仪表盘
+- en: At the time of writing, we see that events are recorded under the `mgmt-event`
+    trail. It aggregates all management activities performed under each AWS account.
+    Events are recorded in CloudTrail **JavaScript Object Notation** (**JSON**) log
+    format.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在撰写本文时，我们看到事件记录在`mgmt-event`跟踪中。它汇总了在每个AWS账户下执行的所有管理活动。事件以CloudTrail **JavaScript对象表示法**（**JSON**）日志格式记录。
+- en: 'There are three types of events that CloudTrail can record: management events,
+    data events, and CloudTrail data insight events. Let’s take a closer look at these:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudTrail可以记录三种类型的事件：管理事件、数据事件和CloudTrail数据洞察事件。让我们详细了解一下这些事件：
+- en: '**Management events**: As the name suggests, these record AWS account management-level
+    activities, including operations performed on the AWS account. AWS refers to these
+    as **control-plane operations**. Examples are **application programming interface**
+    (**API**) operations, **AWS IAM**, creating new EC2 instances, editing VPC configurations,
+    configuring routing operations, creating subnets, and creating new trails under
+    CloudTrail.'
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**管理事件**：顾名思义，这些事件记录了AWS账户管理级别的活动，包括对AWS账户所执行的操作。AWS称这些为**控制平面操作**。示例包括**应用程序编程接口**（**API**）操作、**AWS
+    IAM**、创建新的EC2实例、编辑VPC配置、配置路由操作、创建子网以及在CloudTrail下创建新的跟踪。'
+- en: '**Data events**: Records information regarding operations performed on the
+    resource. AWS refers to these as **data-plane operations**. Usually, data events
+    are voluminous, and you will have to configure them to ensure that AWS resources
+    can provide them.'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据事件**：记录有关对资源执行的操作的信息。AWS称这些为**数据平面操作**。通常，数据事件数据量庞大，您需要配置它们以确保AWS资源能够提供这些数据。'
+- en: Note
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Data event logging is not enabled by default and requires administrators to
+    allow it explicitly.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据事件日志默认未启用，管理员需要显式允许它。
+- en: 'Here is a list of AWS resources that provide these data events:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是提供这些数据事件的AWS资源列表：
+- en: '| **Data Event** | **Resources** | **Specific Events** |'
+  id: totrans-115
+  prefs: []
+  type: TYPE_TB
+  zh: '| **数据事件** | **资源** | **具体事件** |'
+- en: '| --- | --- | --- |'
+  id: totrans-116
+  prefs: []
+  type: TYPE_TB
+  zh: '| --- | --- | --- |'
+- en: '| DynamoDB | `AWS::DynamoDB::Table` | API-level activities, including `PutItem`,
+    `DeleteItem`, and `UpdateItem` |'
+  id: totrans-117
+  prefs: []
+  type: TYPE_TB
+  zh: '| DynamoDB | `AWS::DynamoDB::Table` | API级别活动，包括`PutItem`、`DeleteItem`和`UpdateItem`
+    |'
+- en: '| DynamoDB Streams | `AWS::DynamoDB::Stream` | Dynamo API calls on streams
+    |'
+  id: totrans-118
+  prefs: []
+  type: TYPE_TB
+  zh: '| DynamoDB Streams | `AWS::DynamoDB::Stream` | 在流上的Dynamo API调用 |'
+- en: '| Lambda | `AWS::Lambda::Function` | Lambda function execution activities,
+    including `Invoke` API calls |'
+  id: totrans-119
+  prefs: []
+  type: TYPE_TB
+  zh: '| Lambda | `AWS::Lambda::Function` | Lambda函数执行活动，包括`Invoke` API调用 |'
+- en: '| S3 | `AWS::S3:Object` | S3 object-level activity, including `GetObject`,
+    `DeleteObject`, and `PutObject` API calls on S3 buckets |'
+  id: totrans-120
+  prefs: []
+  type: TYPE_TB
+  zh: '| S3 | `AWS::S3:Object` | S3对象级别活动，包括对S3存储桶的`GetObject`、`DeleteObject`和`PutObject`
+    API调用 |'
+- en: '| S3 Access Points | `AWS::S3::AccessPoint` | Amazon S3 API activity on **access**
+    **points** (**APs**) |'
+  id: totrans-121
+  prefs: []
+  type: TYPE_TB
+  zh: '| S3 访问点 | `AWS::S3::AccessPoint` | Amazon S3 API 活动，涉及**访问** **点**（**APs**）
+    |'
+- en: '| S3 Object Lambda | `AWS::S3ObjectLambda::AccessPoint` | S3 Object Lambda
+    APs’ API activity, such as calls to `CompleteMultipartUpload` and `GetObject`
+    |'
+  id: totrans-122
+  prefs: []
+  type: TYPE_TB
+  zh: '| S3 Object Lambda | `AWS::S3ObjectLambda::AccessPoint` | S3 Object Lambda访问点的API活动，例如调用`CompleteMultipartUpload`和`GetObject`
+    |'
+- en: '| CloudTrail | `AWS::CloudTrail::Channel` | `PutAuditEvents` on CloudTrail
+    Lake for logging events outside of AWS |'
+  id: totrans-123
+  prefs: []
+  type: TYPE_TB
+  zh: '| CloudTrail | `AWS::CloudTrail::Channel` | 在CloudTrail湖中`PutAuditEvents`用于记录AWS外部的事件
+    |'
+- en: '| Cognito | `AWS::Cognito::IdentityPool` | Cognito API activity on identity
+    pools |'
+  id: totrans-124
+  prefs: []
+  type: TYPE_TB
+  zh: '| Cognito | `AWS::Cognito::IdentityPool` | 在身份池上的Cognito API活动 |'
+- en: '| Amazon **Elastic Block Store** (**EBS**) direct APIs | `AWS::EC2::Snapshot`
+    | Direct APIs, such as `PutSnapshotBlock`, `GetSnapshotBlock`, and `ListChangedBlocks`,
+    on Amazon EBS snapshots |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| 亚马逊 **弹性块存储** (**EBS**) 直接 API | `AWS::EC2::Snapshot` | 在 Amazon EBS 快照上使用的直接
+    API，如 `PutSnapshotBlock`、`GetSnapshotBlock` 和 `ListChangedBlocks` |'
+- en: '| GuardDuty | `AWS::GuardDuty::Detector` | `GuardDuty` API activity for a detector
+    |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| GuardDuty | `AWS::GuardDuty::Detector` | `GuardDuty` 检测器的 API 活动 |'
+- en: Table 4.1 – AWS data event collectors
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表 4.1 – AWS 数据事件收集器
+- en: '**CloudTrail data insight events**: CloudTrail Insights provides insights into
+    abnormal activities such as large volumes or spikes of API calls or high error
+    rates within an AWS account. Insights are logged when CloudTrail notices deviations
+    within API usage and error rates within the AWS account.'
+  id: totrans-128
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CloudTrail 数据洞察事件**：CloudTrail Insights 提供对异常活动的洞察，例如大量或突发的 API 调用或 AWS 账户内的高错误率。当
+    CloudTrail 发现 API 使用和错误率在 AWS 账户内出现偏差时，会记录洞察事件。'
+- en: Creating a trail
+  id: totrans-129
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建追踪
+- en: CloudTrail is not automatically enabled when an account is created within AWS.
+    Security teams must define a trail to collect all the necessary information/activities
+    within the AWS account for audit, compliance, and investigation purposes.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 AWS 中创建账户时，CloudTrail 并不会自动启用。安全团队必须定义一个追踪，以便收集 AWS 账户中所有必要的信息/活动，用于审计、合规性和调查目的。
+- en: 'You will first have to define a trail and uniquely identify it for it to be
+    integrated with other AWS resources such as `mgmt-events` to signify what types
+    of events are collected within this trail. We then select the location where this
+    trail is stored. You can create a new S3 bucket; however, if your security operations
+    team owns an S3 bucket, you can also place your trail there. We have masked the
+    account number associated with this trail for security reasons:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您首先需要定义一个追踪并为其提供唯一标识，以便将其与其他 AWS 资源集成，例如 `mgmt-events`，以表示该追踪中收集的事件类型。然后，您需要选择该追踪存储的位置。您可以创建一个新的
+    S3 存储桶；但是，如果您的安全运营团队拥有一个 S3 存储桶，也可以将追踪放在该存储桶中。出于安全原因，我们已隐藏了与此追踪关联的账户号码：
+- en: '![Figure 4.9 – Setting up CloudTrail logging](img/00011.jpeg)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.9 – 设置 CloudTrail 日志记录](img/00011.jpeg)'
+- en: Figure 4.9 – Setting up CloudTrail logging
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.9 – 设置 CloudTrail 日志记录
+- en: 'When configuring CloudTrail logs, you can enable it to feed into CloudWatch
+    automatically. We will discuss more about CloudWatch in a later part of the chapter.
+    Essentially, providing CloudTrail logs to CloudWatch allows DFIR teams to focus
+    their investigation and log reviews on a single console, giving them a **single-pane-of-glass**
+    (**SPOG**) view of the logs:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在配置 CloudTrail 日志时，您可以启用将其自动馈送到 CloudWatch。我们将在本章的后续部分讨论 CloudWatch。实际上，将 CloudTrail
+    日志提供给 CloudWatch 允许 DFIR 团队将他们的调查和日志审查集中在一个控制台中，提供 **单一视窗** (**SPOG**) 查看日志：
+- en: '![Figure 4.10 – AWS CloudWatch for AWS CloudTrail](img/00030.jpeg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.10 – AWS CloudWatch 与 AWS CloudTrail](img/00030.jpeg)'
+- en: Figure 4.10 – AWS CloudWatch for AWS CloudTrail
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.10 – AWS CloudWatch 与 AWS CloudTrail
+- en: 'When defining a CloudTrail log, you should also configure what types of data
+    events are collected within CloudTrail. Earlier in this section, we referred to
+    three types of data events: management events, data events, and data insight events.'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在定义 CloudTrail 日志时，您还应该配置在 CloudTrail 中收集哪些类型的数据事件。在本节前面，我们提到了三种类型的数据事件：管理事件、数据事件和数据洞察事件。
+- en: 'The following screenshot defines the configurations enabled for the trail to
+    collect records. As you can see in the screenshot, CloudTrail will collect events
+    associated with the management of AWS resources itself, such as accessing/querying,
+    creating, modifying, or deleting resources. For example, an AWS IAM administrator
+    creating another account with privileges triggers a management event recorded
+    under this trail:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图定义了启用的配置，以便追踪收集记录。正如截图中所示，CloudTrail 将收集与 AWS 资源管理相关的事件，例如访问/查询、创建、修改或删除资源。例如，AWS
+    IAM 管理员创建具有特权的另一个账户时，会触发一个管理事件，并记录在此追踪下：
+- en: '![Figure 4.11 – CloudTrail management events’ configuration](img/00048.jpeg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.11 – CloudTrail 管理事件的配置](img/00048.jpeg)'
+- en: Figure 4.11 – CloudTrail management events’ configuration
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.11 – CloudTrail 管理事件的配置
+- en: 'On the other hand, a data event specifically collects events associated with
+    data-level activities within an AWS resource, such as tracking changes to the
+    files stored on an S3 bucket. Monitoring data events allows DFIR teams to confirm
+    if the data was accessed, modified, or deleted within these AWS services. The
+    next screenshot indicates the configuration required to enable data events. It
+    reflects the options for DFIR teams to configure and allow appropriate CloudTrail
+    logging:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，数据事件专门收集与AWS资源内数据级活动相关的事件，例如跟踪存储在S3存储桶中的文件更改。监控数据事件使DFIR团队能够确认数据是否在这些AWS服务中被访问、修改或删除。下一个截图显示了启用数据事件所需的配置。它反映了DFIR团队配置并允许适当CloudTrail日志记录的选项：
+- en: '![Figure 4.12 – CloudTrail data events’ configuration](img/00065.jpeg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.12 – CloudTrail数据事件配置](img/00065.jpeg)'
+- en: Figure 4.12 – CloudTrail data events’ configuration
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.12 – CloudTrail数据事件配置
+- en: Log file validations
+  id: totrans-144
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 日志文件验证
+- en: When you create a trail, you also want to protect its integrity so that there
+    are no unauthorized changes. Hence, we also enable a log file validation checkmark
+    to enforce integrity checks on the trail as it is generated to ensure the course
+    is not altered and is accurate for investigation. Integrity checks results are
+    delivered to the same S3 buckets as digests. DFIR teams can utilize the log file
+    digests to validate the integrity of log files. Each log file is hashed and digitally
+    signed. CloudTrail log data digest files are signed using RSA, where a private
+    key is generated for each region, and SHA-256 data is used to sign using the private
+    key, resulting in a digital signature. The SHA-256 data is generated from the
+    **Universal Time Coordinated** (**UTC**) timestamp of the log file, S3 path, SHA-256
+    hash of the current digest file (in hex format), and signature of the previous
+    digest file (in hex format). These elements together form a hashing string, which
+    is used to generate a SHA-256 hash of the data, which is then signed.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当您创建追踪时，还需要保护其完整性，以确保没有未经授权的更改。因此，我们还启用了日志文件验证复选框，以在生成追踪时强制执行完整性检查，确保其过程没有被篡改，并且在调查时准确。完整性检查结果将传送到与摘要相同的S3存储桶中。DFIR团队可以利用日志文件摘要来验证日志文件的完整性。每个日志文件都会进行哈希处理并进行数字签名。CloudTrail日志数据摘要文件使用RSA进行签名，每个区域生成一个私钥，使用私钥对SHA-256数据进行签名，产生数字签名。SHA-256数据是从日志文件的**协调世界时**（**UTC**）时间戳、S3路径、当前摘要文件的SHA-256哈希值（以十六进制格式表示）以及前一个摘要文件的签名（以十六进制格式表示）中生成的。这些元素共同构成了哈希字符串，用于生成数据的SHA-256哈希值，然后进行签名。
+- en: Once a signature is generated, it is further encoded in a hex format. Hexadecimal
+    signatures are then recorded within the `x-amz-met-signature` tag of the digest
+    files stored on S3.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦签名生成，它会进一步以十六进制格式进行编码。十六进制签名随后会记录在存储在S3上的摘要文件的`x-amz-met-signature`标签中。
+- en: 'DFIR teams can choose to enable log file validation later through the AWS Management
+    Console, API, or AWS command line:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DFIR团队可以选择稍后通过AWS管理控制台、API或AWS命令行启用日志文件验证：
+- en: '![Figure 4.13 – Log file validation is enabled](img/00083.jpeg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.13 – 启用日志文件验证](img/00083.jpeg)'
+- en: Figure 4.13 – Log file validation is enabled
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.13 – 启用日志文件验证
+- en: Event data stores
+  id: totrans-150
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 事件数据存储
+- en: Since CloudTrail is an auditing tool that documents events/changes within an
+    AWS account, security teams must indicate the data lake where these events are
+    filtered and stored once a trail is created. AWS refers to this data lake of events
+    as an **event store**. You can create one or more event stores to store management
+    or data events based on filters across various regions within the AWS account.
+    Event stores offer long-term retention of up to 7 years. Organizations can send
+    these logs to a centrally managed **security information and event management**
+    (**SIEM**) solution.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于CloudTrail是一个审计工具，用于记录AWS账户内的事件/更改，安全团队必须指定数据湖，供过滤和存储这些事件用。一旦创建了追踪，AWS将这些事件的数据湖称为**事件存储**。您可以根据跨AWS账户的不同区域过滤器创建一个或多个事件存储，用于存储管理或数据事件。事件存储提供最长7年的长期保留。组织可以将这些日志发送到集中管理的**安全信息和事件管理**（**SIEM**）解决方案。
+- en: Once an event store is created, it effectively allows DFIR teams to immediately
+    use it and query the store for associated activities on a specific AWS resource
+    (module/service) and details about the event.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦创建了事件存储，它实际上使DFIR团队能够立即使用它，并查询特定AWS资源（模块/服务）上的相关活动及事件详情。
+- en: 'The following screenshot demonstrates the steps required to configure an event
+    store and apply a filter. We select all management and data events in the same
+    event store in this example:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了配置事件存储并应用过滤器所需的步骤。在本例中，我们选择了同一事件存储中的所有管理和数据事件：
+- en: '![Figure 4.14 – Configuring event stores in AWS CloudTrail](img/00102.jpeg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.14 – 在 AWS CloudTrail 中配置事件存储](img/00102.jpeg)'
+- en: Figure 4.14 – Configuring event stores in AWS CloudTrail
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.14 – 在 AWS CloudTrail 中配置事件存储
+- en: Querying CloudTrail event stores
+  id: totrans-156
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 查询 CloudTrail 事件存储
+- en: CloudTrail allows DFIR teams to query event stores, where all management and
+    data events are stored as with any logging tool. In simplistic terms, CloudTrail
+    events can be queried using **SQL**.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudTrail 允许 DFIR 团队查询事件存储，所有管理和数据事件都存储在其中，类似于任何日志工具。简而言之，CloudTrail 事件可以使用
+    **SQL** 进行查询。
+- en: Note that within CloudTrail, given that the events are immutable, only SQL `SELECT`
+    statements are allowed. You can apply filters using `WHERE` clauses. However,
+    CloudTrail does not allow users to manipulate data within event stores.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在 CloudTrail 中，由于事件是不可变的，只有 SQL `SELECT` 语句被允许。您可以使用 `WHERE` 子句应用过滤器。然而，CloudTrail
+    不允许用户在事件存储中操作数据。
+- en: 'While event stores can be named, DFIR teams must note the unique event data
+    store ID generated by AWS to run SQL queries. The following screenshot demonstrates
+    a SQL query and associated query results. In this example, we are querying to
+    return entire values stored in the event store. However, once comfortable, DFIR
+    specialists can directly query the event store to obtain the necessary information
+    from the store:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然事件存储可以命名，DFIR 团队必须注意 AWS 生成的唯一事件数据存储 ID，以便执行 SQL 查询。以下截图展示了一个 SQL 查询及其相关查询结果。在本例中，我们查询以返回存储在事件存储中的全部值。然而，一旦熟练，DFIR
+    专家可以直接查询事件存储，以从存储中获取必要的信息：
+- en: '![Figure 4.15 – Simple SQL query and results on AWS CloudTrail](img/00124.jpeg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.15 – 在 AWS CloudTrail 上进行简单 SQL 查询及结果](img/00124.jpeg)'
+- en: Figure 4.15 – Simple SQL query and results on AWS CloudTrail
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.15 – 在 AWS CloudTrail 上进行简单 SQL 查询及结果
+- en: Another example is where you query event stores to identify the top active users.
+    In DFIR cases, this can be a needle in a haystack, with multiple users and interaction
+    points. However, you are looking for one particular outlier where you can start
+    your investigation into this case.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个例子是查询事件存储以识别最活跃的用户。在 DFIR 案例中，这可能像大海捞针一样，涉及多个用户和交互点。然而，您要寻找的是一个特定的异常值，从这个点开始进行调查。
+- en: Investigating CloudTrail events
+  id: totrans-163
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 调查 CloudTrail 事件
+- en: Any DFIR specialist would love to access an event store full of logs that provide
+    invaluable information for an investigation. This section will examine some investigative
+    strategies that DFIR specialists can adopt to investigate CloudTrail events. Note
+    that any queries performed on the CloudTrail event store are also recorded within
+    the same event store.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 任何 DFIR 专家都希望能访问充满日志的事件存储，这些日志为调查提供了宝贵的信息。本节将探讨 DFIR 专家可以采取的一些调查策略，来调查 CloudTrail
+    事件。请注意，在 CloudTrail 事件存储上执行的任何查询也会记录在相同的事件存储中。
+- en: Investigating directly within the event store
+  id: totrans-165
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在事件存储中直接调查
+- en: DFIR teams can directly choose to investigate the logs available in the event
+    store. For example, we will investigate event stores to identify users who most
+    frequently accessed AWS resources from the console.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DFIR 团队可以直接选择调查事件存储中的日志。例如，我们将调查事件存储，以识别哪些用户最频繁地从控制台访问 AWS 资源。
+- en: By default, when you log in to CloudTrail, CloudTrail will automatically provide
+    a summary of events in its dashboard, which includes some recent user activities.
+    It will also record any API calls performed by other AWS resources. It consists
+    of any API calls a resource made internally to another within AWS and user interaction
+    via the AWS web browser.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，当您登录 CloudTrail 时，CloudTrail 会在其仪表盘中自动提供事件摘要，其中包括一些近期的用户活动。它还会记录其他 AWS
+    资源执行的任何 API 调用。它包含任何 AWS 内部资源间的 API 调用，以及通过 AWS 网络浏览器的用户交互。
+- en: 'For example, the following screenshot demonstrates some recent events in this
+    demo lab. This dashboard also allows DFIR teams to click and obtain more specific
+    information about a particular event entry. Each entry in the dashboard is reflective
+    of each event:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，以下截图展示了该演示实验室中的一些近期事件。该仪表盘还允许 DFIR 团队点击并获取关于特定事件条目的更详细信息。仪表盘中的每个条目反映了每个事件：
+- en: '![Figure 4.16 – Dashboard view of events ordered by time in descending order](img/00145.jpeg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.16 – 按时间倒序排列的事件仪表盘视图](img/00145.jpeg)'
+- en: Figure 4.16 – Dashboard view of events ordered by time in descending order
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.16 – 按时间降序排列的事件仪表板视图
+- en: 'For example, in the first event, the `cf_user1` user interacted with an AWS
+    EC2 resource. We know from [*Chapter 3*](part0021_split_000.html#_idTextAnchor042)
+    of this book that each EC2 instance is uniquely identified using an instance ID
+    within AWS. It is, therefore, more accessible for DFIR teams to track back and
+    remember which instance the user interacted with and gather specific configurations.
+    Through the summary view, we can understand that the `cf_user1` user stopped an
+    EC2 instance identified by `i-09c02a7e1ff652c13` on May 10, 2023, 05:55:49 (UTC-04:00).
+    Should DFIR teams need additional information, this can be obtained by clicking
+    on the link under the **Event name** field. The following screenshot shows the
+    details of the captured event:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，在第一个事件中，`cf_user1` 用户与 AWS EC2 资源进行了交互。我们从本书的 [*第 3 章*](part0021_split_000.html#_idTextAnchor042)
+    中了解到，每个 EC2 实例在 AWS 中都有一个唯一的实例 ID。因此，DFIR 团队更容易追溯并记住用户与哪个实例进行过交互，并收集特定的配置信息。通过总结视图，我们可以了解到，`cf_user1`
+    用户在 2023 年 5 月 10 日 05:55:49（UTC-04:00）停止了一个名为 `i-09c02a7e1ff652c13` 的 EC2 实例。如果
+    DFIR 团队需要更多信息，可以通过点击**事件名称**字段下的链接来获取。以下截图展示了捕获事件的详细信息：
+- en: '![Figure 4.17 – Additional information about the event recorded in CloudTrail](img/00162.jpeg)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.17 – 记录在 CloudTrail 中的事件的附加信息](img/00162.jpeg)'
+- en: Figure 4.17 – Additional information about the event recorded in CloudTrail
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.17 – 记录在 CloudTrail 中的事件的附加信息
+- en: 'It is important to note that additional information captures the source IP
+    address, which records the IP address of the threat actor who may have compromised
+    and accessed this AWS account to stop this instance. DFIR teams can further dig
+    into the IP address and identify what other activities were performed by this
+    user or from this source IP address, giving a timeline of events. In the additional
+    information section, DFIR teams also have the opportunity to capture a raw event
+    record in JSON format. AWS refers to this as an **event payload**. Usually, this
+    is available within the dropdown under **Event history**. An event payload allows
+    DFIR teams to review the raw log and determine more specific actions a user or
+    attacker may have performed on the affected resource. Specifically, it also identifies
+    other metadata that may be useful for further investigation. Here is a raw event
+    log or event payload for stopping an instance, as indicated in the preceding screenshot:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要注意的是，附加信息捕获了源 IP 地址，它记录了可能已入侵并访问此 AWS 账户的威胁行为者的 IP 地址。DFIR 团队可以进一步调查该 IP 地址，识别该用户或此源
+    IP 地址执行的其他活动，从而提供事件的时间线。在附加信息部分，DFIR 团队还可以捕获以 JSON 格式记录的原始事件数据。AWS 称之为**事件负载**。通常，事件负载可以通过**事件历史**下拉菜单访问。事件负载使
+    DFIR 团队能够查看原始日志，并确定用户或攻击者可能在受影响资源上执行的更具体操作。具体来说，它还识别了其他可能对进一步调查有用的元数据。以下是停止实例的原始事件日志或事件负载，如前述截图所示：
+- en: '[PRE1]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'In the preceding raw event payload, we have highlighted essential elements
+    or attributes of the log that DFIR teams should typically make a note of:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前述的原始事件负载中，我们已突出显示了日志中的一些关键元素或属性，DFIR 团队通常应注意这些内容：
+- en: '`{"arn": "arn:aws:iam::xxxxxxxx6548:user/cf_user1"}`): In this instance, we
+    have an IAM regular user logging in to an AWS account with a unique identifier
+    (`xxxxxxxx6548`). We have tokenized the account number for security reasons.'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`{"arn": "arn:aws:iam::xxxxxxxx6548:user/cf_user1"}`：在此实例中，我们有一个 IAM 普通用户使用唯一标识符（`xxxxxxxx6548`）登录到
+    AWS 账户。出于安全考虑，我们已对账户编号进行了标记。'
+- en: '`{userName": "cf_user1"}`: The actual username that was used to authenticate
+    to this session.'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`{userName": "cf_user1"}`：用于验证此会话的实际用户名。'
+- en: '`"attributes": {"creationDate": "2023-05-10T09:55:05Z"`, `"mfaAuthenticated":
+    "true"}`: The time of the session that was created after authenticating the user
+    to an AWS session. This entry demonstrates that the user successfully logged in
+    to the AWS console and verified its two-factor token to complete the authentication
+    process.'
+  id: totrans-179
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`"attributes": {"creationDate": "2023-05-10T09:55:05Z"`, `"mfaAuthenticated":
+    "true"}`：在用户通过多因素身份验证成功登录到 AWS 会话后创建的会话时间。这条记录表明用户已成功登录 AWS 控制台，并验证了其双因素令牌以完成身份验证过程。'
+- en: '`{"eventTime": "2023-05-10T09:55:49Z"}`: The actual date and time of the event
+    that was recorded in UTC time.'
+  id: totrans-180
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`{"eventTime": "2023-05-10T09:55:49Z"}`：记录事件的实际日期和时间，使用 UTC 时间。'
+- en: '`{"sourceIPAddress": "184[.]147[.]70[.]116"}`: Source IP address of the user
+    or threat actor who performed this event. For security reasons, IP addresses are
+    defanged.'
+  id: totrans-181
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`{"sourceIPAddress": "184[.]147[.]70[.]116"}`：执行此事件的用户或威胁行为者的源 IP 地址。出于安全考虑，IP
+    地址已被隐藏。'
+- en: '`"instanceId": "i-09c02a7e1ff652c13"`, `"currentState": {"code": 64, "name":
+    "stopping"}`, `"previousState": {"code": 16, "name": "running"}`): Specific event
+    entries reflecting current and previous states of the instances that confirm what
+    specific actions were performed. In this example, we have a running instance that
+    the user logged in to and stopped the instance.'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`"instanceId": "i-09c02a7e1ff652c13"`, `"currentState": {"code": 64, "name":
+    "stopping"}`, `"previousState": {"code": 16, "name": "running"}`：特定的事件条目反映了实例的当前和先前状态，确认执行了哪些具体操作。在此示例中，我们有一个正在运行的实例，用户登录后停止了该实例。'
+- en: Putting this in the perspective of a DFIR investigation, one can deduce and
+    summarize the activities performed in this case and identify the next steps concerning
+    the investigation.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 DFIR 调查的角度来看，可以推断和总结在此案例中执行的活动，并确定与调查相关的下一步行动。
+- en: Downloading and investigating event store results offline
+  id: totrans-184
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 下载并离线调查事件存储结果
+- en: Since CloudTrail event logs are in JSON format and you can query, filter, and
+    extract results accordingly for investigation, we can always query the event store
+    and download the logs for offline review. This is specifically useful where DFIR
+    teams do not have access to AWS. However, investigation into CloudTrail events
+    is imperative from an investigation point of view.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 CloudTrail 事件日志采用 JSON 格式，您可以根据需要查询、过滤和提取结果进行调查，我们始终可以查询事件存储并下载日志以便离线查看。这在
+    DFIR 团队无法访问 AWS 的情况下特别有用。然而，从调查的角度来看，调查 CloudTrail 事件是至关重要的。
+- en: 'Using the source IP address captured in the previous example, we will query
+    the event data store to identify activities from this IP address. For this, we
+    will perform the following query:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用前面示例中捕获的源 IP 地址，我们将查询事件数据存储以识别来自该 IP 地址的活动。为此，我们将执行以下查询：
+- en: '[PRE2]'
+  id: totrans-187
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: Remember—event data stores are uniquely identified using an event data store
+    ID; we filter dates based on our incident investigation, and further filtering
+    is applied to the `sourceIPAddress` attribute.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，事件数据存储是通过事件数据存储 ID 唯一标识的；我们根据我们的事件调查筛选日期，并进一步筛选 `sourceIPAddress` 属性。
+- en: 'While query results are displayed in a tabulated format, you can copy entire
+    raw records using the **Copy** option. You do have to select event records or
+    everything you would like to copy:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然查询结果以表格形式显示，但您可以使用**复制**选项复制整个原始记录。您确实需要选择要复制的事件记录或所有内容：
+- en: '![Figure 4.18 – Search query result](img/00181.jpeg)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.18 – 搜索查询结果](img/00181.jpeg)'
+- en: Figure 4.18 – Search query result
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.18 – 搜索查询结果
+- en: Using any third-party tools such as CyberChef, you can parse this JSON log for
+    further investigation. Alternatively, you may use any log parsing tool to parse
+    and further investigate the logs.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用任何第三方工具（例如 CyberChef），您可以解析此 JSON 日志以进行进一步调查。或者，您可以使用任何日志解析工具来解析并进一步调查日志。
+- en: 'Alternatively, you can download the whole set of logs directly from the associated
+    Amazon S3 bucket. You can find the location for this S3 bucket by simply navigating
+    to the CloudTrail dashboard and selecting the relevant trail name. See the next
+    screenshot for an example:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，您可以直接从关联的 Amazon S3 存储桶下载整个日志集。您可以通过导航到 CloudTrail 仪表盘并选择相关的轨迹名称来找到该 S3 存储桶的位置。请参见下一个截图以查看示例：
+- en: '![Figure 4.19 – Navigating to CloudTrail S3 bucket](img/00001.jpeg)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.19 – 导航到 CloudTrail S3 存储桶](img/00001.jpeg)'
+- en: Figure 4.19 – Navigating to CloudTrail S3 bucket
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.19 – 导航到 CloudTrail S3 存储桶
+- en: When you navigate to the S3 bucket, you will notice that CloudTrail details
+    are stored in two different object repositories; one contains the digest (which
+    we discussed in the earlier sections of the chapter), which includes information
+    to verify the integrity of the logs, while the other object repository is where
+    actual logs are stored.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当您导航到 S3 存储桶时，您会注意到 CloudTrail 详情存储在两个不同的对象存储库中；一个包含摘要（我们在本章前面部分已经讨论过），其中包括用于验证日志完整性的信息，而另一个对象存储库是实际日志存储的位置。
+- en: 'The logs are further stored per region, based on each AWS region the resources
+    are operating from and sending logs to CloudTrail. DFIR teams need to understand
+    that AWS breaks down the storage of logs per calendar day. When downloading S3
+    logs, you will need this information before your log collection from S3\. Downloading
+    all the data hosted on S3 may be huge and not beneficial from an investigation
+    standpoint. However, it depends upon the circumstances of the investigation. The
+    next screenshot provides an overview of a sample set of logs available for May
+    1, 2023, located under the `ca-central-1` region, and how AWS stores CloudTrail
+    logs:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 日志进一步按区域存储，基于每个 AWS 区域中资源的操作位置，并将日志发送到 CloudTrail。DFIR 团队需要理解，AWS 按照日历天分解日志存储。在下载
+    S3 日志时，您需要在收集 S3 日志之前了解这些信息。下载 S3 上托管的所有数据可能非常庞大，并且从调查的角度来看可能没有什么帮助。然而，这取决于调查的具体情况。下一张截图提供了位于
+    `ca-central-1` 区域的 2023 年 5 月 1 日的日志样本集概览，以及 AWS 如何存储 CloudTrail 日志：
+- en: '![Figure 4.20 – Obtaining CloudTrail logs from the CA-Canada Central region](img/00018.jpeg)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.20 – 从 CA-Canada 中央区域获取 CloudTrail 日志](img/00018.jpeg)'
+- en: Figure 4.20 – Obtaining CloudTrail logs from the CA-Canada Central region
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.20 – 从 CA-Canada 中央区域获取 CloudTrail 日志
+- en: You may download multiple files simultaneously if you have API access to AWS.
+    However, AWS limits downloads to one file at a time from the web console, which
+    may make it time-consuming.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您拥有 AWS 的 API 访问权限，您可以同时下载多个文件。然而，AWS 限制了从 Web 控制台一次只能下载一个文件，这可能会使下载变得非常耗时。
+- en: While CloudTrail stores its logs in gzip format to preserve storage, AWS will
+    serve you an unzipped log format while downloading.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 CloudTrail 将其日志存储为 gzip 格式以节省存储空间，但 AWS 在下载时会以未压缩格式提供日志。
+- en: DFIR use cases for CloudTrail logging
+  id: totrans-202
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: CloudTrail 日志的 DFIR 使用案例
+- en: 'Next are some use cases for enabling CloudTrail and how it can support DFIR
+    teams:'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是启用 CloudTrail 的一些使用案例及其如何支持 DFIR 团队：
+- en: '**Incident investigation**: CloudTrail can support your incident investigations.
+    Some common investigation themes can be looked into, such as AWS account takeovers,
+    where an attacker creates an unauthorized account to create/modify resources within
+    AWS. You can use CloudTrail logs to determine the username, source IP address,
+    and how they authenticated themselves into AWS. CloudTrail logs also provide vital
+    information about whether the attacker performed specific modifications and the
+    configuration previously set. Other investigation areas include the following:'
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**事件调查**：CloudTrail 可以支持您的事件调查。可以调查一些常见的主题，如 AWS 账户被接管，其中攻击者创建了一个未经授权的账户，以在
+    AWS 内创建/修改资源。您可以使用 CloudTrail 日志来确定用户名、源 IP 地址以及他们是如何在 AWS 中进行身份验证的。CloudTrail
+    日志还提供了有关攻击者是否进行了特定修改以及以前设置的配置的关键信息。其他调查领域包括：'
+- en: '**Looking for malicious or rogue EC2 instances**: Through CloudTrail logs,
+    you can determine if the attacker created an EC2 **virtual machine** (**VM**)
+    to access specific production environments. CloudTrail can provide information
+    on the instance type, instance ID – which can be used for further investigative
+    hunting – and the date and time of the creation of such rogue EC2 instances. Because
+    CloudTrail logs activities across multiple regions under the organization, DFIR
+    teams can also use the CloudTrail logs to determine attacker lateral movements
+    across various AWS resources in various regions.'
+  id: totrans-205
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**查找恶意或非法的 EC2 实例**：通过 CloudTrail 日志，您可以判断攻击者是否创建了 EC2 **虚拟机** (**VM**)，以访问特定的生产环境。CloudTrail
+    可以提供实例类型、实例 ID 等信息——这些信息可以用于进一步的调查追踪——以及这些非法 EC2 实例创建的日期和时间。由于 CloudTrail 记录跨多个区域的活动，DFIR
+    团队还可以利用 CloudTrail 日志来判断攻击者在多个 AWS 资源和不同区域间的横向移动。'
+- en: '**Unauthorized API calls**: Since CloudTrail tracks all the API calls made
+    by AWS internally from one resource to another, as well as API calls made by users,
+    CloudTrail logs can be used to determine any unauthorized use of API resources.
+    For example, a sudden surge of API calls using a specific access token can allow
+    DFIR teams to quickly determine if the associated account was compromised, allowing
+    unauthorized access to the attackers.'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**未经授权的 API 调用**：由于 CloudTrail 跟踪 AWS 内部从一个资源到另一个资源的所有 API 调用，以及用户发起的 API 调用，CloudTrail
+    日志可以用来确定是否存在未经授权的 API 资源使用。例如，使用特定访问令牌的 API 调用突然激增，可以帮助 DFIR 团队快速判断相关账户是否被攻击者入侵，导致未经授权的访问。'
+- en: '**Security and compliance auditing**: Given a large portion of CloudTrail’s
+    purpose is to create an audit trail of all activities, CloudTrail can be used
+    for monitoring compliance with security policies and regulations. For example,
+    in healthcare, where user access must be closely monitored and provided on a least-privileged
+    basis, CloudTrail logs can be valuable for fine-tuning these privileges based
+    on the activities recorded, thus ensuring compliance.'
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**安全性和合规性审计**：由于 CloudTrail 的主要功能之一是创建所有活动的审计跟踪，CloudTrail 可用于监控与安全政策和法规的合规性。例如，在医疗保健行业，用户访问必须得到严格监控并基于最小权限原则提供，CloudTrail
+    日志可以帮助根据记录的活动微调这些权限，从而确保合规性。'
+- en: '**Infrastructure monitoring and troubleshooting**: Outside of DFIR, CloudTrail
+    can benefit developers and application testers to ensure their applications operate
+    effectively. CloudTrail will allow developers to review API calls and determine
+    the cause of any unintended consequences.'
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**基础设施监控与故障排除**：除了 DFIR，CloudTrail 还可以为开发人员和应用程序测试人员提供帮助，确保他们的应用程序有效运行。CloudTrail
+    允许开发人员查看 API 调用并确定任何意外后果的原因。'
+- en: AWS CloudWatch
+  id: totrans-209
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: AWS CloudWatch
+- en: AWS **CloudWatch** monitors your AWS resources in near real time. You can collect
+    and monitor resource usage and key metrics in a SPOG view. CloudWatch presents
+    every resource metric on its dashboard for quick view. However, for DFIR teams,
+    CloudWatch can query certain logs to support an investigation.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: AWS **CloudWatch** 实时监控您的 AWS 资源。您可以在 SPOG 视图中收集和监控资源使用情况和关键指标。CloudWatch 会在其仪表板上显示每个资源的指标，方便快速查看。然而，对于
+    DFIR 团队，CloudWatch 可以查询特定日志以支持调查。
+- en: From a security perspective, CloudWatch is a log management solution that can
+    centrally collect and monitor logs from systems, applications, and resources.
+    It offers log analytics on top to allow interactive searching and analysis capabilities.
+    Similar to CloudTrail, CloudWatch offers log exports via S3 buckets. Note that
+    logs in CloudWatch never expire and are retained indefinitely. Administrators
+    can change the retention policy and choose between a log retention of a day or
+    up to 10 years. Alternatively, organizations can send CloudWatch logs to an SIEM
+    solution via an API for centralized monitoring and management of logs.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从安全角度看，CloudWatch 是一款日志管理解决方案，可以集中收集和监控来自系统、应用程序和资源的日志。它提供基于日志分析的交互式搜索和分析功能。与
+    CloudTrail 类似，CloudWatch 提供通过 S3 存储桶导出日志的功能。请注意，CloudWatch 中的日志永不过期，并且会无限期保留。管理员可以更改保留策略，并选择日志保留一天或最多
+    10 年。或者，组织可以通过 API 将 CloudWatch 日志发送到 SIEM 解决方案，以实现日志的集中监控和管理。
+- en: CloudWatch is a service that allows you to search and analyze log data interactively.
+    You can monitor logs from Amazon EC2 instances and CloudTrail logged events, create
+    alarms, and receive notifications for specific API activity to perform troubleshooting.
+    Additionally, you can audit and mask sensitive data, adjust log retention, and
+    archive log data. CloudWatch Logs can also log information about DNS queries that
+    Route 53 receives. It uses a purpose-built query language with sample queries,
+    command descriptions, query autocompletion, and log field discovery to help you
+    get started.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudWatch 是一项允许您交互式搜索和分析日志数据的服务。您可以监控来自 Amazon EC2 实例和 CloudTrail 记录事件的日志，创建警报，并接收特定
+    API 活动的通知以进行故障排除。此外，您还可以审计和屏蔽敏感数据，调整日志保留策略并归档日志数据。CloudWatch Logs 还可以记录 Route
+    53 接收到的 DNS 查询信息。它使用专门的查询语言，配有示例查询、命令描述、查询自动补全和日志字段发现功能，帮助您快速入门。
+- en: 'You can access CloudWatch using any of the following methods:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可以通过以下任何方法访问 CloudWatch：
+- en: '**AWS CloudWatch console**: Direct access to CloudWatch dashboards and logs'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**AWS CloudWatch 控制台**：直接访问 CloudWatch 仪表板和日志'
+- en: '**AWS Command Line Interface (CLI)**: Using modules provided by Amazon to connect
+    to AWS via commonly available terminals or command-line consoles within popular
+    operating systems'
+  id: totrans-215
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**AWS 命令行界面 (CLI)**：使用 Amazon 提供的模块通过常用终端或流行操作系统中的命令行控制台连接到 AWS'
+- en: '**CloudWatch APIs**: Using your technologies to publish or monitor AWS CloudWatch
+    logs via APIs'
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CloudWatch API**：通过 API 使用您的技术发布或监控 AWS CloudWatch 日志'
+- en: '**AWS SDKs**: Build applications that publish logs into CloudWatch'
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**AWS SDK**：构建应用程序，将日志发布到 CloudWatch'
+- en: Note
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: From a DFIR perspective, it is essential to note that CloudWatch logs, when
+    enabled, only record activities performed on an AWS account and do not capture
+    what specific actions were performed within each resource. (For example, CloudWatch
+    will not capture events/records of activities performed by a user/threat actor
+    within an EC2 instance. It will, however, record if the threat actor logged in
+    to the AWS console and made changes, deleted EC2 instances, and so on.)
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 DFIR 的角度来看，重要的是要注意，启用 CloudWatch 日志时，只会记录在 AWS 账户中执行的活动，而不会捕捉每个资源内具体执行的操作。（例如，CloudWatch
+    不会捕捉到用户/威胁行为者在 EC2 实例内执行的事件/记录。但它会记录威胁行为者是否登录到 AWS 控制台并进行更改、删除 EC2 实例等操作。）
+- en: 'The following diagram illustrates a typical configuration of logs that are
+    recoded into CloudWatch:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图展示了一个典型的日志配置，这些日志被记录到 CloudWatch 中：
+- en: '![Figure 4.21 – Sample CloudWatch logging architecture of an EC2 instance with
+    a VPC](img/00036.jpeg)'
+  id: totrans-221
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.21 – 带有 VPC 的 EC2 实例的 CloudWatch 日志架构示例](img/00036.jpeg)'
+- en: Figure 4.21 – Sample CloudWatch logging architecture of an EC2 instance with
+    a VPC
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.21 – 带有 VPC 的 EC2 实例的 CloudWatch 日志架构示例
+- en: The following sections will review the difference between CloudWatch and CloudTrail
+    and how DFIR teams can set it up for incident investigation.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的章节将回顾 CloudWatch 和 CloudTrail 之间的区别，以及 DFIR 团队如何为事件调查配置它们。
+- en: CloudWatch versus CloudTrail
+  id: totrans-224
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: CloudWatch 与 CloudTrail 比较
+- en: 'So, let us look at some key differences between CloudWatch and CloudTrail.
+    DFIR teams need to realize the difference in the features and how they can complement
+    an incident investigation:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看看 CloudWatch 和 CloudTrail 之间的一些关键区别。DFIR 团队需要认识到它们功能上的差异，以及它们如何互补事件调查：
+- en: '**CloudWatch is a log management tool**: CloudWatch offers monitoring and observability
+    capabilities, explicitly collecting and displaying resource usage and metrics
+    from various AWS products. It provides an *as-it-happens* view of the logs.'
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CloudWatch 是一个日志管理工具**：CloudWatch 提供监控和可观察性功能，专门收集和展示来自各种 AWS 产品的资源使用情况和指标。它提供了一个
+    *实时* 的日志视图。'
+- en: '**CloudTrail records API interactions**: CloudTrail records API interactions
+    between users and internal AWS resources, which makes a record of all activities
+    within an AWS account. Unlike CloudWatch, CloudTrail only records API-related
+    activities and allows specific querying for application troubleshooting or security
+    investigations.'
+  id: totrans-227
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CloudTrail 记录 API 交互**：CloudTrail 记录用户与内部 AWS 资源之间的 API 交互，创建 AWS 账户内所有活动的记录。与
+    CloudWatch 不同，CloudTrail 仅记录与 API 相关的活动，并允许针对应用程序故障排除或安全调查进行特定查询。'
+- en: Since CloudWatch is a log management tool at its core, CloudWatch can ingest
+    CloudTrail events and, therefore, offers a single console view into various log
+    sources. DFIR teams can use the CloudWatch API to pull logs into their local SIEM
+    solution for further monitoring and investigation.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 CloudWatch 本质上是一个日志管理工具，它能够接收 CloudTrail 事件，因此可以通过一个单一控制台查看不同的日志来源。DFIR 团队可以使用
+    CloudWatch API 将日志拉入本地 SIEM 解决方案，以进行进一步的监控和调查。
+- en: Setting up CloudWatch logging
+  id: totrans-229
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 设置 CloudWatch 日志记录
+- en: Once the organization establishes its AWS account, you can turn on CloudWatch
+    logging. However, doing so requires a few steps, including configuring privileges
+    for other AWS resources to allow them to send logs to CloudWatch. CloudWatch is
+    regional; therefore, the best approach is to create a CloudWatch setup where most
+    AWS resources are hosted. It is important to note for DFIR teams that enabling
+    CloudWatch speeds up the incident investigation process. So, if an organization
+    does not have CloudWatch, setting up an appropriate policy can allow flow logs
+    to be immediately available, which is crucial for investigations.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦组织建立了 AWS 账户，就可以启用 CloudWatch 日志记录。然而，启用该功能需要经过一些步骤，包括配置其他 AWS 资源的权限，以允许它们将日志发送到
+    CloudWatch。CloudWatch 是区域性的，因此最佳做法是在大多数 AWS 资源所在的区域创建 CloudWatch 配置。对于 DFIR 团队来说，启用
+    CloudWatch 可以加速事件调查过程。因此，如果组织没有 CloudWatch，设置适当的策略可以使流日志立即可用，这对调查至关重要。
+- en: Configuring VPC flow logging
+  id: totrans-231
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 配置 VPC 流日志
+- en: Every category of logs is recorded in CloudWatch as a log group. A log group
+    is a collection of similar types of logs. For example, all VPC flow logs will
+    be under a single log group for CloudWatch; similarly, all CloudTrail events will
+    be under a separate log group. In the next example, two log groups were created,
+    with specific logging enabled for each. Each AWS resource will publish its flow
+    logs within each log group as a log stream. For example, let us say you have five
+    EC2 instances running, and you later create another five EC2 instances. At the
+    end, when you log in to the CloudWatch console, you will see one log group that
+    has multiple log streams uniquely identifying each EC2 resource using its network
+    interface ID.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个类别的日志都作为日志组记录在 CloudWatch 中。日志组是相似类型日志的集合。例如，所有 VPC 流日志将位于一个 CloudWatch 的日志组下；类似地，所有
+    CloudTrail 事件将位于一个单独的日志组中。在下一个示例中，创建了两个日志组，并为每个日志组启用了特定的日志记录。每个 AWS 资源将在每个日志组内以日志流的形式发布其流日志。例如，假设您有五个运行中的
+    EC2 实例，随后您再创建另外五个 EC2 实例。最终，当您登录到 CloudWatch 控制台时，您将看到一个日志组，其中包含多个日志流，通过网络接口 ID
+    唯一标识每个 EC2 资源。
+- en: 'Note that a log stream is a stream of network flow logs that only captures
+    specific elements within the stream. We discussed what a flow log contains in
+    an earlier part of this chapter in the *VPC flow logs* section. Each log stream
+    contains multiple entries of flow logs associated with the network interface,
+    which can then be queried or analyzed to obtain further insights. The following
+    screenshot describes how CloudWatch groups all flow logs based on categories.
+    In the screenshot, you will see VPC flow logs are grouped under `vpcgrp1`, while
+    CloudTrail logs are grouped under `aws-cloudtrail-logs-vb77-569383a0`:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，日志流是一个网络流日志流，只捕获流中的特定元素。我们在本章的*VPC 流日志*部分中讨论了流日志包含的内容。每个日志流包含与网络接口相关的多个流日志条目，随后可以对其进行查询或分析以获取进一步的洞察。以下截图描述了
+    CloudWatch 如何按类别对所有流日志进行分组。在截图中，您会看到 VPC 流日志被分组在 `vpcgrp1` 下，而 CloudTrail 日志则被分组在
+    `aws-cloudtrail-logs-vb77-569383a0` 下：
+- en: '![Figure 4.22 – CloudWatch log groups](img/00053.jpeg)'
+  id: totrans-234
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.22 – CloudWatch 日志组](img/00053.jpeg)'
+- en: Figure 4.22 – CloudWatch log groups
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.22 – CloudWatch 日志组
+- en: VPC flow log access requirements
+  id: totrans-236
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: VPC 流日志访问要求
+- en: Since AWS is publishing flow logs originating per EC2 instance to be published
+    or sent to another AWS resource, AWS requires the account to have appropriate
+    IAM configurations to allow services to interact. By default, AWS does not automatically
+    enable logs to be published to CloudWatch (given it is a separate subscription).
+    Rights associated with flow logs must have appropriate permissions to allow VPC
+    to post them on CloudWatch.
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 AWS 正在发布每个 EC2 实例的流日志，发布或发送到其他 AWS 资源，因此 AWS 要求帐户具有适当的 IAM 配置，以允许服务之间进行交互。默认情况下，AWS
+    不会自动启用日志发布到 CloudWatch（因为它是一个单独的订阅）。与流日志相关的权限必须具有适当的权限，以允许 VPC 将其发布到 CloudWatch。
+- en: 'At a high level, the following permissions are typically required:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从高层次来看，通常需要以下权限：
+- en: '`CreateLogGroup`: Remember, as indicated in *Figure 4**.22*, that logs are
+    grouped per category. This allows write permissions to create new log groups with
+    a specific name.'
+  id: totrans-239
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CreateLogGroup`：请记住，如*图 4.22*所示，日志按类别进行分组。这允许写入权限创建具有特定名称的新日志组。'
+- en: '`CreateLogStream`: Each EC2 resource will publish its VPC logs within the log
+    group as a log stream. This allows write permission to create a new log stream
+    per resource.'
+  id: totrans-240
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CreateLogStream`：每个 EC2 资源将在日志组中以日志流的形式发布其 VPC 日志。这允许写入权限来为每个资源创建一个新的日志流。'
+- en: '`PutLogEvents`: Allows permissions to write log events in batches within each
+    stream.'
+  id: totrans-241
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PutLogEvents`：允许在每个日志流内批量写入日志事件的权限。'
+- en: '`DescribeLogGroups`: Describe or list log groups associated with the AWS account.'
+  id: totrans-242
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`DescribeLogGroups`：描述或列出与 AWS 帐户关联的日志组。'
+- en: '`DescribeLogStream`: Similar to log groups, this allows listing all log streams
+    within a specific log group associated with the account.'
+  id: totrans-243
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`DescribeLogStream`：类似于日志组，它允许列出与帐户关联的特定日志组中的所有日志流。'
+- en: '`GetLogRecord`: Allows the ability to read all fields within a single log event.'
+  id: totrans-244
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetLogRecord`：允许读取单个日志事件中的所有字段。'
+- en: '`GetQueryResults`: Allows the ability to read/return query results from specific
+    queries.'
+  id: totrans-245
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetQueryResults`：允许读取/返回特定查询的查询结果。'
+- en: 'There are additional permissions that are assigned to the CloudWatch role:'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudWatch 角色被分配了额外的权限：
+- en: '`DescribeQueries`: Allows listing of CloudWatch Logs Insights queries that
+    were recently executed'
+  id: totrans-247
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`DescribeQueries`：允许列出最近执行的 CloudWatch Logs Insights 查询。'
+- en: '`StopQuery`: Allows permissions to stop a CloudWatch Logs Insights query from
+    execution'
+  id: totrans-248
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`StopQuery`: 允许停止 CloudWatch Logs Insights 查询执行的权限'
+- en: '`DeleteQueryDefinition`: Ability to delete a saved CloudWatch query'
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`DeleteQueryDefinition`: 删除已保存的 CloudWatch 查询的权限'
+- en: '`PutQueryDefinition`: Ability to create and update a query'
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PutQueryDefinition`: 创建和更新查询的权限'
+- en: '`GetLogDelivery`: Allows the ability to read log delivery information for specific
+    logs'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetLogDelivery`: 允许读取特定日志的日志交付信息'
+- en: '`ListLogDeliveries`: Similar to `GetLogDelivery`, this allows log information
+    to be listed for all log deliveries associated with an AWS account'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ListLogDeliveries`: 类似于 `GetLogDelivery`，它允许列出与 AWS 账户相关的所有日志交付信息'
+- en: '`CreateLogDelivery`: Allows permissions to create a new log delivery'
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CreateLogDelivery`: 允许创建新的日志交付权限'
+- en: '`UpdateLogDelivery`: Allows the ability to edit log delivery configurations'
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`UpdateLogDelivery`: 允许编辑日志交付配置'
+- en: In addition to the IAM permissions, you must configure policies to allow flow
+    logs to assume specific roles within your AWS account. For this case, we explicitly
+    set up a policy to enable VPC flow logs to take roles within the AWS account.
+    Policies group roles and resource assignments along with specific resource access
+    conditions. Policies are how IAM manages permissions by attaching them to specific
+    IAM users or identity profiles. A policy defines its permissions when associated
+    with an identity, a user, or a resource.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了 IAM 权限外，你还必须配置策略，允许流日志在你的 AWS 账户中承担特定角色。在此情况下，我们明确设置一个策略，允许 VPC 流日志在 AWS
+    账户内承担角色。策略将角色和资源分配与特定的资源访问条件组合在一起。策略是 IAM 通过将其附加到特定 IAM 用户或身份配置文件来管理权限的方式。策略在与身份、用户或资源关联时定义其权限。
+- en: 'Next is an example of an IAM policy specifically created using a visual tool
+    provided by AWS to allow VPC flow logs to be published and for users to access
+    and query the logs:'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是一个 IAM 策略示例，使用 AWS 提供的可视化工具专门创建，以允许发布 VPC 流日志，并允许用户访问和查询日志：
+- en: '[PRE3]'
+  id: totrans-257
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'At a high level, here is a breakdown of the policy. The policy has three statements
+    in the form of array entries:'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从高层次来看，下面是该策略的分解。该策略包含三个条目，形式为数组项：
+- en: '**Statement 1**: A list of CloudWatch Logs actions that are allowed. These
+    actions include various management and data retrieval operations for CloudWatch
+    Logs.'
+  id: totrans-259
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**声明 1**: 允许的 CloudWatch Logs 操作列表。这些操作包括各种 CloudWatch Logs 的管理和数据检索操作。'
+- en: '`logs:*` instances (CloudWatch Logs actions) within a specific AWS account.
+    This will include all log groups associated with the AWS account.'
+  id: totrans-260
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`logs:*` 实例（CloudWatch Logs 操作）在特定的 AWS 账户内。这将包括与 AWS 账户相关联的所有日志组。'
+- en: '`logs:*` instances associated with a specific AWS account and all log streams
+    specified within the AWS account.'
+  id: totrans-261
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`logs:*` 与特定 AWS 账户相关联的实例，以及 AWS 账户内指定的所有日志流。'
+- en: 'Remember—policies allow users to access, edit, or query CloudWatch logs. You
+    will, however, need to set up trust relationships between AWS resources for it
+    to share/publish logs in the first place. This is typically done automatically
+    when you first set up and enable CloudWatch. However, you can make granular trust
+    policies for specific trust relationships between resources. Here is an example
+    of a trust relation configured within the IAM module:'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记住——策略允许用户访问、编辑或查询 CloudWatch 日志。然而，你需要在 AWS 资源之间设置信任关系，以便其能够首先共享/发布日志。通常，在你首次设置并启用
+    CloudWatch 时，这个过程会自动完成。但你也可以为特定的资源之间的信任关系制定详细的信任策略。以下是一个在 IAM 模块中配置的信任关系示例：
+- en: '[PRE4]'
+  id: totrans-263
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: The preceding JSON represents an IAM role trust policy that allows the Amazon
+    VPC flow logs service (`vpc-flow-logs.amazonaws.com`) to assume the role. This
+    trust policy is used when establishing a trust relationship between an IAM role
+    and a trusted entity (in this case, the VPC flow logs service). The `AssumeRole`
+    security token allows the relevant AWS resource a temporary set of security credentials
+    that, in this case, the VPC service can use to communicate with other AWS services
+    (CloudWatch) to pass the flow logs. `AssumeRole` allows for cross-account access
+    and can be used for making API calls to any AWS service.
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的 JSON 代表了一个 IAM 角色信任策略，允许 Amazon VPC 流日志服务（`vpc-flow-logs.amazonaws.com`）承担该角色。此信任策略用于在
+    IAM 角色与信任实体之间建立信任关系（在此情况下是 VPC 流日志服务）。`AssumeRole` 安全令牌允许相关 AWS 资源获得一组临时安全凭证，在此情况下，VPC
+    服务可以使用这些凭证与其他 AWS 服务（如 CloudWatch）进行通信，传递流日志。`AssumeRole` 允许跨账户访问，并可用于向任何 AWS
+    服务发出 API 调用。
+- en: Querying CloudWatch logs on the AWS console
+  id: totrans-265
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 在 AWS 控制台上查询 CloudWatch 日志
+- en: For manually querying CloudWatch within AWS, DFIR teams can utilize Logs Insights
+    to construct specific queries for investigation. Logs Insights enables interactive
+    querying capabilities to search and analyze log data. CloudWatch automatically
+    identifies relevant fields from various log sources, including any custom logs
+    sent to CloudWatch in JSON format. You can also create visual outputs, including
+    graphs, as part of Logs Insights queries.
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于在 AWS 内手动查询 CloudWatch，DFIR 团队可以利用 Logs Insights 构建特定的调查查询。Logs Insights 提供交互式查询功能，用于搜索和分析日志数据。CloudWatch
+    自动从各种日志源（包括以 JSON 格式发送到 CloudWatch 的任何自定义日志）中识别相关字段。您还可以创建包括图形在内的视觉输出作为 Logs Insights
+    查询的一部分。
+- en: 'In the next example, we are looking at VPC flow logs. However, when querying,
+    you may choose all log groups. The following screenshot demonstrates an example
+    of querying within CloudWatch Logs Insights. The query targets the `vpcgrp1` log
+    group to identify the `LogStream` (the source network identifier from where flow
+    logs are generated), and the **log** (the account and the log group where the
+    log was identified, useful when querying multiple log groups). Select the appropriate
+    time range for CloudWatch to look up the logs:'
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个示例中，我们正在查看 VPC 流日志。然而，在查询时，您可以选择所有日志组。以下屏幕截图展示了在 CloudWatch Logs Insights
+    中查询的示例。该查询针对`vpcgrp1`日志组，以识别生成流日志的`LogStream`（源网络标识符），以及**日志**（在查询多个日志组时，识别日志所在的账户和日志组非常有用）。选择适当的时间范围，以便
+    CloudWatch 查找日志：
+- en: '![Figure 4.23 – Sample query on CloudWatch](img/00071.jpeg)'
+  id: totrans-268
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.23 – CloudWatch 的样本查询](img/00071.jpeg)'
+- en: Figure 4.23 – Sample query on CloudWatch
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.23 – CloudWatch 的样本查询
+- en: 'When you query within Logs Insights, CloudWatch will generate results and a
+    histogram to allow investigators to drag and select timelines based on identified
+    anomalies within the histogram. The next screenshot is an example of such a query
+    result, with a histogram that outlines the events based on timestamp and number
+    of records per date and time entries:'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当您在 Logs Insights 中查询时，CloudWatch 将生成结果和直方图，允许调查人员根据直方图中确定的异常拖动和选择时间线。下一个屏幕截图是这样一个查询结果的示例，其中直方图概述了基于时间戳的事件及每个日期和时间条目的记录数量：
+- en: '![Figure 4.24 – Sample visualization generated by CloudWatch for VPC traffic](img/00091.jpeg)'
+  id: totrans-271
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.24 – CloudWatch 生成的 VPC 流量样本可视化](img/00091.jpeg)'
+- en: Figure 4.24 – Sample visualization generated by CloudWatch for VPC traffic
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.24 – CloudWatch 生成的 VPC 流量样本可视化
+- en: By just utilizing a sample query to determine traffic patterns observed by all
+    VPC logs, you can further begin to filter down for the investigation. You filter
+    on dates (through a selection option) and specific VPC log streams if the subject
+    of investigation is nailed down to an EC2 instance connected with a particular
+    log stream. Each query will also provide you with summary details of the log (as
+    a simple string), along with a visualization, as indicated in *Figure 4**.24*.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过仅使用样本查询来确定所有 VPC 日志观察到的流量模式，您可以进一步开始筛选进行调查。如果调查对象被钉定为与特定日志流连接的 EC2 实例，则可以按日期（通过选择选项）和特定的
+    VPC 日志流进行筛选。每个查询还将为您提供日志的摘要详情（作为简单字符串），以及如*图4.24*所示的可视化。
+- en: CloudTrail also provides pre-canned queries to get DFIR teams started; they
+    can use these base queries to modify and apply necessary filters to obtain results
+    for their investigation.
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CloudTrail 还提供预定义的查询，以帮助 DFIR 团队开始；他们可以使用这些基本查询来修改并应用必要的过滤器，以获取他们调查所需的结果。
+- en: 'We used a sample query to determine all network traffic that was tagged as
+    `ACCEPT`, meaning allowed by VPC and EC2 (configured via security groups,) and
+    examine the traffic volume of each of those sessions:'
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用了样本查询来确定所有被标记为`ACCEPT`的网络流量，这意味着被 VPC 和 EC2（通过安全组配置）允许，并检查了每个会话的流量量：
+- en: '[PRE5]'
+  id: totrans-276
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The preceding query is run against all VPC log streams; however, AWS will limit
+    the results to 1,000 records if we do not specify the *limit* result option. This
+    is to avoid resource constraints to pull the results.
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前述查询针对所有 VPC 日志流运行；然而，如果我们不指定*limit*结果选项，AWS 将限制结果为 1,000 条记录，以避免拉取结果时的资源限制。
+- en: 'The next screenshot outlines the results we obtain once we run the previous
+    query:'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一个屏幕截图概述了我们运行前述查询后获得的结果：
+- en: '![Figure 4.25 – CloudWatch query results](img/00111.jpeg)'
+  id: totrans-279
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图4.25 – CloudWatch 查询结果](img/00111.jpeg)'
+- en: Figure 4.25 – CloudWatch query results
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.25 – CloudWatch 查询结果
+- en: 'Let us look at an example of data exfiltration over SSH. We want to determine
+    the overall network traffic on where there was outbound network traffic from the
+    AWS EC2 instance to a remote threat actor-controlled server. You can use a CloudWatch
+    query to filter to a specific IP address or just the source port (`srcPort`) to
+    identify which other EC2 instance was accessed from this IP address. In the next
+    example, we specifically look at all outbound network connections. If you are
+    interested in inbound network activity on a specific port, you can set the destination
+    port (`dstPort`) on the filter:'
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一个通过SSH进行的数据外泄示例。我们想要确定AWS EC2实例与远程威胁行为者控制的服务器之间的出站网络流量。你可以使用CloudWatch查询来过滤特定IP地址或仅使用源端口（`srcPort`）来识别哪个其他EC2实例被这个IP地址访问。在下一个示例中，我们特别关注所有的出站网络连接。如果你对某个特定端口的入站网络活动感兴趣，可以在过滤器中设置目标端口（`dstPort`）：
+- en: '[PRE6]'
+  id: totrans-282
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'We can look into network spikes through the results and associated visualizations
+    provided by CloudWatch. As indicated earlier, since CloudWatch offers interactive
+    querying capabilities, you can click and select specific traffic spikes to filter
+    down the time range associated with those network outbound spikes. In the next
+    screenshot, we drill down into the network spikes identified by CloudWatch:'
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以通过CloudWatch提供的结果和相关可视化查看网络峰值。如前所述，由于CloudWatch提供交互式查询功能，你可以点击并选择特定的流量峰值，从而过滤出与这些网络出站峰值相关的时间范围。在下一个截图中，我们深入分析了CloudWatch识别出的网络峰值：
+- en: '![Figure 4.26 – Initial query results](img/00132.jpeg)'
+  id: totrans-284
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.26 – 初始查询结果](img/00132.jpeg)'
+- en: Figure 4.26 – Initial query results
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.26 – 初始查询结果
+- en: 'To continue with the routine investigation, we choose a date/time by interactively
+    selecting the spikes, which provides more granular visualizations. Note that the
+    date/time in the filter is now converted to hours:'
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了继续常规调查，我们通过交互式选择峰值来选择日期/时间，这样可以提供更细致的可视化。请注意，过滤器中的日期/时间现在已转换为小时：
+- en: '![Figure 4.27 – Granular view of outbound network traffic](img/00150.jpeg)'
+  id: totrans-287
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.27 – 出站网络流量的细粒度视图](img/00150.jpeg)'
+- en: Figure 4.27 – Granular view of outbound network traffic
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.27 – 出站网络流量的细粒度视图
+- en: 'Through this deep dive, we can boil down the network traffic to three large
+    spikes attributed to outbound network activity. Note that the traffic patterns
+    still indicate multiple IP addresses; some of them can still be legitimate. To
+    nail down potential threat actor IP addresses, at the same time, on the same screen
+    with applicable time filters, we will edit the query to identify IP addresses
+    with the largest to fewest data transfers. In a data exfiltration scenario, threat
+    actors would exfiltrate large volumes of information from the servers. For this
+    example, we filter outbound network traffic to anything above 1,000,000 bytes
+    (approximately 1 MB) transferred and sort them in descending order:'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这次深度分析，我们可以将网络流量浓缩为三个大的峰值，这些峰值归因于出站网络活动。请注意，流量模式仍然表明多个IP地址，其中一些可能仍然是合法的。为了确定潜在的威胁行为者IP地址，同时，在同一屏幕上应用时间过滤器，我们将编辑查询，以识别数据传输量从最多到最少的IP地址。在数据外泄场景中，威胁行为者通常会从服务器中外泄大量信息。在这个示例中，我们将出站网络流量过滤为超过1,000,000字节（大约1MB）传输的数据，并按降序排列：
+- en: '[PRE7]'
+  id: totrans-290
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'As a result, we get about 19 data transfer events across the 3 instances of
+    network spikes that can be potentially attributed to data exfiltration activity.
+    Since we filtered the results down, DFIR teams can now use the destination IP
+    address field to perform some form of **open source intelligence** (**OSINT**)
+    to determine the legitimacy of the IP addresses to nail down further or apply
+    necessary filters:'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果，我们在3个网络峰值事件中大约获得了19个数据传输事件，这些事件可能与数据外泄活动有关。由于我们已经过滤了结果，DFIR团队现在可以使用目标IP地址字段执行某种形式的**开源情报**（**OSINT**），以确定IP地址的合法性，从而进一步锁定或应用必要的过滤器：
+- en: '![Figure 4.28 – Query result on data exfiltration of over 1 MB](img/00169.jpeg)'
+  id: totrans-292
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.28 – 超过1MB的数据外泄查询结果](img/00169.jpeg)'
+- en: Figure 4.28 – Query result on data exfiltration of over 1 MB
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.28 – 超过1MB的数据外泄查询结果
+- en: 'As we can see in the descending order of bytes transferred results, we can
+    immediately start looking at those spikes to determine and correlate them with
+    the rest of the investigation. Here is just an example of an IP address filter
+    to identify a network activity to a specific IP address:'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在按字节传输量排序的结果中看到的那样，我们可以立即开始查看这些峰值，并将其与其余的调查进行对比关联。这只是一个IP地址过滤器的示例，用于识别与特定IP地址相关的网络活动：
+- en: '[PRE8]'
+  id: totrans-295
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'We see in the next screenshot the results of the query:'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在下一个截图中看到查询的结果：
+- en: '![Figure 4.29 – IP address-based network activity](img/00188.jpeg)'
+  id: totrans-297
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.29 – 基于 IP 地址的网络活动](img/00188.jpeg)'
+- en: Figure 4.29 – IP address-based network activity
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.29 – 基于 IP 地址的网络活动
+- en: 'As we know, VPC flow logs are similar to NetFlow logs; we can use the results
+    we extracted and further query to determine the source of the network traffic—that
+    is, which EC2 instance the traffic originates from. You can do that by correlating
+    the source IP address field (`srcAddr`) and mapping it back to which EC2 instance
+    was assigned this IP during the incident. We edit this query to yield the following
+    fields:'
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所知，VPC 流日志类似于 NetFlow 日志；我们可以利用提取的结果进一步查询以确定网络流量的来源——即，流量来自哪一个 EC2 实例。你可以通过关联源
+    IP 地址字段（`srcAddr`）并将其映射回在事件期间分配给该 IP 的 EC2 实例来实现这一点。我们修改此查询以获取以下字段：
+- en: '`timestamp`: Date and time of the event'
+  id: totrans-300
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`timestamp`：事件的日期和时间'
+- en: '`message`: A NetFlow summary in message format'
+  id: totrans-301
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`message`：以消息格式呈现的 NetFlow 摘要'
+- en: '`logStream`: The VPC log stream responsible for this message'
+  id: totrans-302
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`logStream`：负责该消息的 VPC 日志流'
+- en: 'The next query aims to obtain the exfiltration activity’s entire message and
+    log stream information:'
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一个查询旨在获取整个数据外泄活动的消息和日志流信息：
+- en: '[PRE9]'
+  id: totrans-304
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Based on the query indicated previously, we can see the details of each event
+    in the screenshot. This allows DFIR teams to obtain specific information about
+    the network flow log and additional metadata:'
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于先前所示的查询，我们可以在截图中看到每个事件的详细信息。这使得 DFIR 团队能够获得网络流日志的具体信息及其他元数据：
+- en: '![](img/00008.jpeg)'
+  id: totrans-306
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/00008.jpeg)'
+- en: Figure 4.30 – Screenshot of the results from the preceding query
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.30 – 前述查询结果的截图
+- en: 'The preceding results provide a hyperlink to the log information for each row
+    while presenting other critical data. Through the drop-down option against each
+    row, the following additional information is presented for further investigation.
+    In the next screenshot, we expand an example log event to highlight the fields
+    captured by the VPC flow log:'
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前述结果为每一行的日志信息提供了超链接，并展示了其他关键数据。通过每一行的下拉选项，提供了进一步调查所需的附加信息。在下一个截图中，我们展开了一个示例日志事件，突出了
+    VPC 流日志捕获的字段：
+- en: '![Figure 4.31 – Additional VPC flow log information](img/00023.jpeg)'
+  id: totrans-309
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.31 – 额外的 VPC 流日志信息](img/00023.jpeg)'
+- en: Figure 4.31 – Additional VPC flow log information
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.31 – 额外的 VPC 流日志信息
+- en: You can use pre-canned CloudWatch queries to add extra filters to further your
+    investigation. Through the additional information reflected in the preceding screenshot,
+    we can nail down to which EC2 instance the outbound network traffic originated
+    by correlating the ENI ID to the EC2 instance. In summary, we started from 89,827
+    records to just 3 with the highest data exfiltration within the applicable time
+    filter. As DFIR teams, you must slice and dice further on other IP addresses;
+    this demonstrates how CloudWatch can contribute to an investigation.
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用预设的 CloudWatch 查询添加额外的过滤器，以进一步推进你的调查。通过前面截图中反映的附加信息，我们可以将出站网络流量的源头锁定到特定的
+    EC2 实例，通过关联 ENI ID 与 EC2 实例来实现。总的来说，我们从 89,827 条记录开始，经过适用的时间过滤器后，筛选出了数据外泄最多的 3
+    条记录。作为 DFIR 团队，你们必须进一步对其他 IP 地址进行切片和分析；这演示了 CloudWatch 如何为调查提供支持。
+- en: DFIR use cases for CloudWatch
+  id: totrans-312
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: CloudWatch 的 DFIR 使用案例
+- en: 'Through this chapter’s sections, we now know why CloudWatch is vital from a
+    DFIR perspective. Next are some use cases on how CloudWatch can be used for forensic
+    investigation and anomaly detection:'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过本章的各个部分，我们现在知道了 CloudWatch 在 DFIR 角度中的重要性。接下来是一些使用案例，展示 CloudWatch 如何用于取证调查和异常检测：
+- en: '**Log review**: CloudWatch, as we all know, offers a centralized repository
+    for logs, including CloudTrail logs. Therefore, it provides a SPOG where DFIR
+    teams can query all logs quickly and yield investigative results. You can leverage
+    CloudWatch to detect abnormal activity and unauthorized access and correlate events
+    across various log sources ingested into CloudWatch.'
+  id: totrans-314
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**日志审查**：正如我们所知，CloudWatch 提供了一个集中式的日志仓库，包括 CloudTrail 日志。因此，它提供了一个 SPOG，DFIR
+    团队可以快速查询所有日志并得出调查结果。你可以利用 CloudWatch 来检测异常活动和未经授权的访问，并关联来自各个日志源的事件，这些日志源已被引入 CloudWatch。'
+- en: '**Anomaly detection**: DFIR teams can define thresholds and alarms based on
+    specific metrics (for example, CPU utilization, network traffic, or storage) to
+    identify unusual patterns or deviations from normal behavior. Anomalous metrics
+    can serve as early indicators of security breaches or compromised instances.'
+  id: totrans-315
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**异常检测**：DFIR 团队可以根据特定的指标（例如 CPU 利用率、网络流量或存储）定义阈值和警报，以识别异常模式或与正常行为的偏离。异常指标可以作为安全漏洞或实例被入侵的早期指示。'
+- en: '**IR automation**: CloudWatch natively integrates with other workflow-based
+    services, including AWS Lambda and AWS Systems Manager Automation, for automatic
+    orchestration of isolation, snapshot creation, and user account changes upon a
+    specific event alert. Workflows are based on triggers that allow automated remediation
+    and containment actions.'
+  id: totrans-316
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IR 自动化**：CloudWatch 原生集成其他基于工作流的服务，包括 AWS Lambda 和 AWS Systems Manager Automation，用于在特定事件警报发生时自动化执行隔离、快照创建和用户账户变更。工作流基于触发器，可以实现自动修复和隔离操作。'
+- en: '**Compliance and auditing**: Since CloudWatch offers centralized logging and
+    monitoring capabilities, this also allows compliance monitoring and supporting
+    audits. DFIR teams can leverage CloudWatch logs and metrics to demonstrate adherence
+    to security policies, track user activity, and generate reports for compliance
+    audits.'
+  id: totrans-317
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**合规性和审计**：由于 CloudWatch 提供集中化的日志记录和监控功能，这也支持合规性监控和审计支持。DFIR 团队可以利用 CloudWatch
+    日志和指标来证明遵循安全政策、跟踪用户活动，并生成合规性审计报告。'
+- en: Amazon GuardDuty
+  id: totrans-318
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 亚马逊 GuardDuty
+- en: '**GuardDuty** is a threat detection service designed to help protect AWS resources
+    and workloads by continuously monitoring for malicious activity and unauthorized
+    behavior. Note that this is a detection service and not a response service. It
+    detects and notifies the user of a potential threat within an AWS resource. However,
+    integration with automated services such as Lambda will enhance GuardDuty’s capabilities
+    to respond to threats based on established playbooks for each threat detected.
+    GuardDuty uses ML, anomaly detection, and integrated TI to identify potential
+    security threats within your AWS environment.'
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**GuardDuty** 是一项威胁检测服务，旨在通过持续监控恶意活动和未经授权的行为，帮助保护 AWS 资源和工作负载。请注意，这是一项检测服务，而不是响应服务。它检测并通知用户
+    AWS 资源中的潜在威胁。然而，与自动化服务（如 Lambda）的集成将增强 GuardDuty 基于已建立的响应计划，针对每个检测到的威胁进行响应。GuardDuty
+    使用机器学习（ML）、异常检测和集成的 TI 来识别 AWS 环境中的潜在安全威胁。'
+- en: 'Some DFIR use cases are as follows:'
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些 DFIR 使用案例如下：
+- en: '**Threat detection**: GuardDuty analyzes CloudTrail logs, VPC flow logs, and
+    DNS logs to detect **indicators of compromise** (**IOCs**) and potential threats.
+    It applies ML algorithms to identify patterns and anomalies that might indicate
+    malicious activities, such as unauthorized access attempts, reconnaissance, or
+    instances exhibiting behavior associated with malware or botnets. These IOCs are
+    collected through AWS’s TI partners and third-party vendor tools offered to their
+    clients. DFIR teams do not have control or the ability to manage these IOCs.'
+  id: totrans-321
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**威胁检测**：GuardDuty 分析 CloudTrail 日志、VPC 流日志和 DNS 日志，以检测 **入侵指标**（**IOCs**）和潜在威胁。它应用机器学习算法来识别可能表示恶意活动的模式和异常，例如未经授权的访问尝试、侦察行为或表现出与恶意软件或僵尸网络相关的行为的实例。这些
+    IOCs 通过 AWS 的 TI 合作伙伴和第三方供应商工具收集，并提供给其客户。DFIR 团队无法控制或管理这些 IOCs。'
+- en: '**TI**: GuardDuty leverages TI feeds from AWS, partner organizations, and OSINT
+    to enhance its threat detection capabilities. It compares network activity within
+    your AWS environment against known malicious IPs, domains, and other indicators
+    to identify potential security risks.'
+  id: totrans-322
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**TI**：GuardDuty 利用来自 AWS、合作伙伴组织和开放源情报（OSINT）的 TI 数据流来增强其威胁检测能力。它将 AWS 环境中的网络活动与已知的恶意
+    IP、域名和其他指示符进行比较，以识别潜在的安全风险。'
+- en: '**Centralized security monitoring**: GuardDuty provides a centralized view
+    of security findings across your AWS accounts and regions. It aggregates and prioritizes
+    security alerts, allowing security teams to focus on the most critical threats.
+    The consolidated dashboard and event stream enable quick detection and response
+    to potential security incidents.'
+  id: totrans-323
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**集中式安全监控**：GuardDuty 提供一个集中视图，显示跨 AWS 账户和区域的安全发现。它汇总并优先排序安全警报，使安全团队能够专注于最关键的威胁。合并的仪表板和事件流可以快速检测和响应潜在的安全事件。'
+- en: '**Automated remediation**: GuardDuty integrates with other AWS services, such
+    as AWS Lambda and AWS Systems Manager, to facilitate automated responses to security
+    events. You can orchestrate customized actions or use pre-built response playbooks
+    to automate remediation actions, such as isolating compromised instances, blocking
+    malicious IPs, or updating security groups.'
+  id: totrans-324
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**自动化修复**：GuardDuty与其他AWS服务（如AWS Lambda和AWS Systems Manager）集成，便于自动响应安全事件。您可以编排自定义动作，或使用预构建的响应手册来自动化修复操作，例如隔离被攻陷的实例、阻止恶意IP，或更新安全组。'
+- en: '**Security operations and IR**: GuardDuty is crucial in security operations
+    and IR workflows. It provides real-time alerts and findings, enabling security
+    teams to investigate and respond to potential security incidents quickly. Integrating
+    with AWS services such as Amazon CloudWatch and AWS Lambda enables automated IR
+    and security teams to take immediate action.'
+  id: totrans-325
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**安全操作和IR**：GuardDuty在安全操作和IR工作流中至关重要。它提供实时警报和发现，帮助安全团队快速调查并响应潜在的安全事件。与AWS服务如Amazon
+    CloudWatch和AWS Lambda的集成，使得自动化IR和安全团队能够立即采取行动。'
+- en: Permissions and trust
+  id: totrans-326
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 权限和信任
+- en: 'To leverage the capabilities of GuardDuty, DFIR teams must ensure that, at
+    a minimum, the following permissions must be allowed:'
+  id: totrans-327
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要利用GuardDuty的功能，DFIR团队必须确保至少允许以下权限：
+- en: '`ec2:DescribeInstances`: Describe EC2 instances'
+  id: totrans-328
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeInstances`：描述EC2实例'
+- en: '`ec2:DescribeImages`: Describe EC2 instances’ images'
+  id: totrans-329
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeImages`：描述EC2实例的镜像'
+- en: '`ec2:DescribeVpcEndpoints`: Identify the VPC endpoint name'
+  id: totrans-330
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeVpcEndpoints`：识别VPC端点名称'
+- en: '`ec2:DescribeSubnets`: Identify VPC subnet information'
+  id: totrans-331
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeSubnets`：识别VPC子网信息'
+- en: '`ec2:DescribeVpcPeeringConnections`: Identify and enumerate VPC peering information'
+  id: totrans-332
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeVpcPeeringConnections`：识别并列举VPC对等连接信息'
+- en: '`ec2:DescribeTransitGatewayAttachments`: Identify VPC transit gateway, if any'
+  id: totrans-333
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ec2:DescribeTransitGatewayAttachments`：识别VPC中继网关（如果有）'
+- en: '`organizations:ListAccounts`: List user accounts configured under the AWS account
+    (organization)'
+  id: totrans-334
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`organizations:ListAccounts`：列出AWS账户（组织）下配置的用户账户'
+- en: '`organizations:DescribeAccount`: Describe the AWS account type (user/root)'
+  id: totrans-335
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`organizations:DescribeAccount`：描述AWS账户类型（用户/根账户）'
+- en: '`s3:GetBucketPublicAccessBlock`: Check for an S3 public access block on the
+    bucket'
+  id: totrans-336
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetBucketPublicAccessBlock`：检查桶是否有S3公共访问阻止'
+- en: '`s3:GetEncryptionConfiguration`: Obtain S3 data encryption information'
+  id: totrans-337
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetEncryptionConfiguration`：获取S3数据加密配置信息'
+- en: '`s3:GetBucketTagging`: Obtain S3 bucket tags'
+  id: totrans-338
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetBucketTagging`：获取S3桶标签'
+- en: '`s3:GetAccountPublicAccessBlock`: Check for an S3 public access block on the
+    AWS account'
+  id: totrans-339
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetAccountPublicAccessBlock`：检查AWS账户是否有S3公共访问阻止'
+- en: '`s3:ListAllMyBuckets`: Enumerate S3 buckets owned by an AWS account'
+  id: totrans-340
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:ListAllMyBuckets`：列举AWS账户拥有的所有S3桶'
+- en: '`s3:GetBucketAcl`: Enumerate S3 bucket ACLs'
+  id: totrans-341
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetBucketAcl`：列举S3桶的访问控制列表（ACL）'
+- en: '`s3:GetBucketPolicy`: Enumerate S3 bucket policy'
+  id: totrans-342
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetBucketPolicy`：列举S3桶策略'
+- en: '`s3:GetBucketPolicyStatus`: Obtain current bucket policy status'
+  id: totrans-343
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`s3:GetBucketPolicyStatus`：获取当前桶策略状态'
+- en: Furthermore, the Amazon GuardDuty service requires it to assume a specific IAM
+    role. The roles can have additional policies configured, which may be attached.
+    Amazon GuardDuty typically requires the `sts:AssumeRole` role to delegate access.
+    Allowing GuardDuty to assume this role enables the service to act on behalf of
+    the role and perform authorized actions based on the permissions assigned.
+  id: totrans-344
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，Amazon GuardDuty服务要求其假设特定的IAM角色。这些角色可以配置附加的策略，并可能附加到角色上。Amazon GuardDuty通常需要`sts:AssumeRole`角色来委派访问权限。允许GuardDuty假设此角色，使其能够代表角色执行基于分配权限的授权操作。
+- en: Amazon GuardDuty malware scan
+  id: totrans-345
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 亚马逊GuardDuty恶意软件扫描
+- en: Enabling malware scans on EC2 instances and other resources is a great way to
+    begin hunting for malware. GuardDuty provides a built-in service for altering
+    or modifying an existing EC2 instance to natively scan the EC2 endpoints for evidence
+    of compromise or malware. It examines data storage such as Amazon EBS volumes
+    and other storage forms attached to a particular EC2 instance. It also provides
+    the ability to obtain snapshots of relevant storage volumes should it detect evidence
+    of malware.
+  id: totrans-346
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在EC2实例和其他资源上启用恶意软件扫描是开始寻找恶意软件的一个好方法。GuardDuty提供了一个内置服务，可以修改现有的EC2实例，使其原生地扫描EC2端点以寻找妥协或恶意软件的证据。它会检查数据存储，如Amazon
+    EBS卷以及附加到特定EC2实例的其他存储形式。如果发现恶意软件的证据，还可以获取相关存储卷的快照。
+- en: 'Depending upon the AWS account and its operating regions, Amazon GuardDuty
+    offers malware scanning capabilities through the following vendors: Bitdefender,
+    CloudHesive, CrowdStrike, Fortinet, Palo Alto Networks, Rapid7, Sophos, Sysdig,
+    Trellix. For DFIR teams, this means that they do not have to integrate or deploy
+    software on affected AWS resources (such as EC2); instead, they enable GuardDuty
+    on specific AWS accounts and activate malware scans, which offer these solutions
+    automatically and allow scanning of EBS for the presence of malware.'
+  id: totrans-347
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据 AWS 账户及其运营区域，Amazon GuardDuty 通过以下供应商提供恶意软件扫描功能：Bitdefender、CloudHesive、CrowdStrike、Fortinet、Palo
+    Alto Networks、Rapid7、Sophos、Sysdig、Trellix。对于 DFIR 团队来说，这意味着他们无需在受影响的 AWS 资源（如
+    EC2）上集成或部署软件；相反，他们只需在特定的 AWS 账户上启用 GuardDuty 并启动恶意软件扫描，这些解决方案会自动提供，并允许扫描 EBS 中是否存在恶意软件。
+- en: Note
+  id: totrans-348
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Amazon GuardDuty is specifically beneficial in cases where the installed antivirus
+    configured within the EC2 instance may have been potentially disabled or tampered
+    with by a threat actor. GuardDuty malware scans on EC2 instances allow insights
+    into any malicious activities or malware downloaded by a threat actor for performing
+    any nefarious actions without any additional security tooling deployments. This
+    is beneficial as threat actors do not typically go after disabling GuardDuty.
+  id: totrans-349
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Amazon GuardDuty 在以下情况下特别有益：当安装在 EC2 实例内的防病毒软件可能已被威胁者禁用或篡改时。GuardDuty 对 EC2
+    实例的恶意软件扫描可以提供有关恶意活动或威胁者下载恶意软件的深入信息，从而执行任何恶意行为，而无需额外的安全工具部署。这一点特别有用，因为威胁者通常不会去禁用
+    GuardDuty。
+- en: 'GuardDuty also integrates with CloudWatch without specific configurations so
+    that DFIR teams can query additional telemetry based on the malware scan. The
+    following screenshot demonstrates an example of GuardDuty’s integration with CloudWatch,
+    specifically malware scan events:'
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: GuardDuty 还与 CloudWatch 集成，无需特别配置，DFIR 团队可以根据恶意软件扫描查询其他遥测数据。以下截图展示了 GuardDuty
+    与 CloudWatch 集成的示例，特别是恶意软件扫描事件：
+- en: '![Figure 4.32 – Example of CloudWatch query for Amazon GuardDuty malware scan](img/00044.jpeg)'
+  id: totrans-351
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.32 – Amazon GuardDuty 恶意软件扫描的 CloudWatch 查询示例](img/00044.jpeg)'
+- en: Figure 4.32 – Example of CloudWatch query for Amazon GuardDuty malware scan
+  id: totrans-352
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.32 – Amazon GuardDuty 恶意软件扫描的 CloudWatch 查询示例
+- en: 'Besides malware scans, GuardDuty offers insights into threats based on TI and
+    detections of activities performed by various resources within the AWS account.
+    Here is a sample set generated by GuardDuty to illustrate different detections.
+    Note that each of the detections is rated by GuardDuty and is tagged as high,
+    medium, or low-risk:'
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了恶意软件扫描外，GuardDuty 还根据 TI（威胁情报）提供有关威胁的见解，并检测 AWS 账户内各种资源执行的活动。以下是 GuardDuty
+    生成的示例集，展示了不同的检测结果。请注意，每个检测结果都由 GuardDuty 评估，并标记为高风险、中风险或低风险：
+- en: '![Figure 4.33 – Sample threat detections within Amazon GuardDuty](img/00060.jpeg)'
+  id: totrans-354
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.33 – Amazon GuardDuty 内的样本威胁检测](img/00060.jpeg)'
+- en: Figure 4.33 – Sample threat detections within Amazon GuardDuty
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.33 – Amazon GuardDuty 内的样本威胁检测
+- en: 'Once a malware scan is initiated, GuardDuty generates a unique detector ID
+    to identify each scan uniquely. We started a scan on one of the EC2 instances
+    to determine if there was any evidence of malware. Next is the JSON output of
+    the malware scan on one of the EC2 instances, demonstrating an example of an ongoing
+    scan:'
+  id: totrans-356
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦启动恶意软件扫描，GuardDuty 会生成一个独特的检测器 ID 来唯一标识每次扫描。我们在其中一台 EC2 实例上启动了扫描，以确定是否存在恶意软件的迹象。接下来是该
+    EC2 实例上恶意软件扫描的 JSON 输出，展示了一个正在进行的扫描示例：
+- en: '[PRE10]'
+  id: totrans-357
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Once the scan is completed, GuardDuty generates a scan report accessible via
+    the **Malware scans** page, accessing the unique GuardDuty malware scanning detection
+    ID. The next screenshot demonstrates that Amazon GuardDuty identified potential
+    malware on the disk (Amazon EBS storage):'
+  id: totrans-358
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 扫描完成后，GuardDuty 会生成一份扫描报告，可以通过 **恶意软件扫描** 页面访问，并获取唯一的 GuardDuty 恶意软件扫描检测 ID。下一张截图展示了
+    Amazon GuardDuty 在磁盘（Amazon EBS 存储）上识别到潜在的恶意软件：
+- en: '![Figure 4.34 – Amazon GuardDuty malware scan detections](img/00078.jpeg)'
+  id: totrans-359
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.34 – Amazon GuardDuty 恶意软件扫描检测](img/00078.jpeg)'
+- en: Figure 4.34 – Amazon GuardDuty malware scan detections
+  id: totrans-360
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.34 – Amazon GuardDuty 恶意软件扫描检测
+- en: 'This allows DFIR teams to confirm the presence of malware and hunt for threats
+    further. Next are examples of the results of the detections. We see the scan has
+    picked up eight threats on the disk, and here is a sample detection summary of
+    one of the threats:'
+  id: totrans-361
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这使得 DFIR 团队可以确认恶意软件的存在并进一步追踪威胁。接下来是检测结果的示例。我们看到扫描已在磁盘上发现了八个威胁，以下是其中一个威胁的样本检测摘要：
+- en: '![Figure 4.35 – Amazon GuardDuty malware scan detections](img/00098.jpeg)'
+  id: totrans-362
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.35 – Amazon GuardDuty 恶意软件扫描检测](img/00098.jpeg)'
+- en: Figure 4.35 – Amazon GuardDuty malware scan detections
+  id: totrans-363
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.35 – Amazon GuardDuty 恶意软件扫描检测
+- en: As you can see, the malware scan identifies the name of the sample detected,
+    which is typically assigned by the vendor that scanned this binary. The SHA-256
+    hash of the file identified on the disk can be handy for DFIR teams for further
+    threat hunting and detection. The file path and name identify the file’s location
+    and allow DFIR teams to manually collect artifacts and AWS volume information
+    on where this file was identified. For AWS purposes, this is recognized as part
+    of AWS resource naming conventions that determine the account owner and information
+    on which volume this detection occurred (`arn:aws:ec2:ca-central-1:xxxxxxxx6548:volume/vol-061392d9abebf9433`).
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，恶意软件扫描识别了检测到的样本名称，通常由扫描此二进制文件的供应商分配。磁盘上文件的 SHA-256 哈希值对于 DFIR 团队在进一步的威胁狩猎和检测中非常有用。文件路径和名称标识文件的位置，并允许
+    DFIR 团队手动收集该文件所在的 AWS 卷信息。在 AWS 方面，这是 AWS 资源命名约定的一部分，用于确定账户所有者和此检测发生在哪个卷上的信息（`arn:aws:ec2:ca-central-1:xxxxxxxx6548:volume/vol-061392d9abebf9433`）。
+- en: 'DFIR teams can also identify the scanning partner that scanned this instance
+    through the summary page. In our example, Bitdefender scanned this detection:'
+  id: totrans-365
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DFIR 团队还可以通过摘要页面识别扫描此实例的合作伙伴。在我们的例子中，Bitdefender 扫描了这个检测：
+- en: '![Figure 4.36 – Amazon GuardDuty scanner](img/00119.jpeg)'
+  id: totrans-366
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.36 – Amazon GuardDuty 扫描器](img/00119.jpeg)'
+- en: Figure 4.36 – Amazon GuardDuty scanner
+  id: totrans-367
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.36 – Amazon GuardDuty 扫描器
+- en: 'Once Amazon GuardDuty completes the scans, it allows DFIR teams to also pivot
+    into the Amazon Detective service:'
+  id: totrans-368
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦 Amazon GuardDuty 完成扫描，它允许 DFIR 团队也可以进入 Amazon Detective 服务：
+- en: '![Figure 4.37 – Amazon Detective playbook on Amazon GuardDuty detections](img/00142.jpeg)'
+  id: totrans-369
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.37 – Amazon Detective 在 Amazon GuardDuty 检测中的操作手册](img/00142.jpeg)'
+- en: Figure 4.37 – Amazon Detective playbook on Amazon GuardDuty detections
+  id: totrans-370
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.37 – Amazon Detective 在 Amazon GuardDuty 检测中的操作手册
+- en: Amazon Detective
+  id: totrans-371
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Amazon Detective
+- en: 'Amazon Detective helps DFIR teams analyze, investigate, and visualize security
+    data from various AWS services. It automatically collects and analyzes log data
+    from AWS CloudTrail, Amazon VPC flow logs, and Amazon GuardDuty to provide insights
+    into potential security vulnerabilities and suspicious activities within an AWS
+    environment. Some of the capabilities of Amazon Detective are as follows:'
+  id: totrans-372
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Amazon Detective 帮助 DFIR 团队分析、调查和可视化来自各种 AWS 服务的安全数据。它自动收集并分析来自 AWS CloudTrail、Amazon
+    VPC 流日志和 Amazon GuardDuty 的日志数据，提供有关 AWS 环境中潜在安全漏洞和可疑活动的见解。Amazon Detective 的一些功能如下：
+- en: '**Security graph**: Amazon Detective uses a graph-based approach to visualize
+    and analyze security-related data by creating a graphical representation of AWS
+    resources, accounts, and their relationships, allowing DFIR teams to identify
+    patterns, anomalies, and potential security threats quickly.'
+  id: totrans-373
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**安全图谱**：Amazon Detective 采用基于图形的方法，通过创建 AWS 资源、账户及其关系的图形表示，来可视化和分析与安全相关的数据，使得
+    DFIR 团队能够快速识别模式、异常和潜在的安全威胁。'
+- en: '**Automated data ingestion**: Amazon Detective automatically collects and ingests
+    data from AWS CloudTrail, Amazon VPC flow logs, and Amazon GuardDuty for aggregating
+    and processing to provide insights and recommendations.'
+  id: totrans-374
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**自动数据摄取**：Amazon Detective 自动收集并摄取来自 AWS CloudTrail、Amazon VPC 流日志和 Amazon
+    GuardDuty 的数据，以便聚合和处理，提供洞察和建议。'
+- en: '**Threat hunting**: Amazon Detective enables DFIR teams with pre-built queries
+    and analytics to proactively hunt for security threats and anomalies. These queries
+    leverage ML algorithms and statistical models to identify suspicious activities
+    and potential security issues.'
+  id: totrans-375
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**威胁狩猎**：Amazon Detective 为 DFIR 团队提供预构建的查询和分析工具，帮助他们主动寻找安全威胁和异常。这些查询利用机器学习算法和统计模型来识别可疑活动和潜在的安全问题。'
+- en: '**Security findings**: Amazon Detective presents security findings based on
+    its analysis of the collected data. These findings are prioritized and include
+    details about accounts, resources, activities, and potential threats. It also
+    includes supporting evidence and artifacts to allow further investigations.'
+  id: totrans-376
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**安全发现**：Amazon Detective 根据其对收集数据的分析结果呈现安全发现。这些发现被优先排序，并包括关于账户、资源、活动和潜在威胁的详细信息。它还包括支持证据和物证，以便进行进一步调查。'
+- en: Note
+  id: totrans-377
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Note that to enable Amazon Detective, having Amazon GuardDuty is a pre-requisite.
+  id: totrans-378
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，要启用 Amazon Detective，必须先拥有 Amazon GuardDuty。
+- en: Summary
+  id: totrans-379
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: To summarize, AWS offers integration of API logs and generic event logs and
+    provides a SPOG to determine threat actor activity or an insider threat within
+    an AWS account. With CloudWatch and CloudTrail, DFIR teams can natively investigate
+    AWS using AWS’s tools and identify activities an unauthorized user performs at
+    a granular level. Furthermore, resources such as EC2 and S3 offer additional information
+    concerning the configuration that allows DFIR teams to deduce and obtain further
+    information for investigations. Remember that some security solutions, such as
+    VPC flow logs, are not enabled by default and require the account owner or administrator
+    to allow them explicitly. Integrating CloudTrail logs with CloudWatch and enabling
+    Amazon GuardDuty offers DFIR teams a deep insight into threats within an AWS account
+    and resources without explicitly going through deployments of security tools.
+    Enabling GuardDuty and, subsequently, Amazon Detective allows telemetric information
+    and the ability of the DFIR team to pinpoint the threat and perform additional
+    threat hunting. Organizations and DFIR teams must be aware that enabling any security
+    features is separately priced by AWS and will be reflected in your next bill.
+  id: totrans-380
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结一下，AWS 提供了 API 日志和通用事件日志的集成，并提供了一个 SPOG（单一管理界面）来确定 AWS 账户中的威胁行为者活动或内部威胁。通过
+    CloudWatch 和 CloudTrail，DFIR 团队可以使用 AWS 的工具本地调查 AWS，并以细粒度识别未经授权的用户执行的活动。此外，诸如
+    EC2 和 S3 之类的资源提供了有关配置的更多信息，这些信息使 DFIR 团队能够推断并获取进一步的调查数据。请记住，一些安全解决方案，例如 VPC 流日志，默认情况下未启用，需要账户所有者或管理员显式地允许它们。将
+    CloudTrail 日志与 CloudWatch 集成，并启用 Amazon GuardDuty，为 DFIR 团队提供了对 AWS 账户和资源内威胁的深入洞察，而无需显式部署安全工具。启用
+    GuardDuty，随后启用 Amazon Detective，可以提供遥测信息，使 DFIR 团队能够定位威胁并执行额外的威胁狩猎。组织和 DFIR 团队必须意识到，启用任何安全功能会单独收费，并会反映在下一个账单中。
+- en: In the following few chapters, we will similarly explore native capabilities
+    for investigations on Microsoft Azure and Google Cloud, and we will eventually
+    tie them together with other open source and commercial tools for extracting forensic
+    artifacts from these cloud instances for purposes of offline investigation. Overall,
+    the goal is to ensure DFIR teams have enough information at hand and from multiple
+    sources of logs that validate threat actor activities and enable the teams to
+    confirm unauthorized activities beyond a reasonable doubt using these tools.
+  id: totrans-381
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的几章中，我们将类似地探索 Microsoft Azure 和 Google Cloud 的原生调查能力，并最终将它们与其他开源和商业工具结合，以从这些云实例中提取取证文物，供离线调查使用。总体目标是确保
+    DFIR 团队拥有足够的信息和来自多个日志源的数据，这些数据能够验证威胁行为者的活动，并使团队能够通过这些工具确认未经授权的活动，达到毫无疑问的程度。
+- en: Further reading
+  id: totrans-382
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: '*CIDR/VLSM* *Calculator*: [https://www.subnet-calculator.com/cidr.php](https://www.subnet-calculator.com/cidr.php)'
+  id: totrans-383
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*CIDR/VLSM* *计算器*：[https://www.subnet-calculator.com/cidr.php](https://www.subnet-calculator.com/cidr.php)'
+- en: 'Port number assignments: [https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt)'
+  id: totrans-384
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 端口号分配：[https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.txt)
+- en: '*CloudTrail* *concepts*: [https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.xhtml#cloudtrail-concepts-data-events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.xhtml#cloudtrail-concepts-data-events)'
+  id: totrans-385
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*CloudTrail* *概念*：[https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.xhtml#cloudtrail-concepts-data-events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.xhtml#cloudtrail-concepts-data-events)'
+- en: 'The cyber Swiss Army knife – a web app for encryption, encoding, compression,
+    and data analysis: [https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/)'
+  id: totrans-386
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络版瑞士军刀——一个用于加密、编码、压缩和数据分析的网页应用：[https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/)
+- en: 'Amazon GuardDuty – malware protection for Amazon EBS volumes: [https://aws.amazon.com/blogs/aws/new-for-amazon-guardduty-malware-detection-for-amazon-ebs-volumes/](https://aws.amazon.com/blogs/aws/new-for-amazon-guardduty-malware-detection-for-amazon-ebs-volumes/)'
+  id: totrans-387
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Amazon GuardDuty——针对 Amazon EBS 卷的恶意软件保护：[https://aws.amazon.com/blogs/aws/new-for-amazon-guardduty-malware-detection-for-amazon-ebs-volumes/](https://aws.amazon.com/blogs/aws/new-for-amazon-guardduty-malware-detection-for-amazon-ebs-volumes/)
+- en: '*Bitdefender and Amazon Web Services Strengthen Cloud* *Security*: [https://businessinsights.bitdefender.com/bitdefender-and-amazon-web-services-strengthen-cloud-security](https://businessinsights.bitdefender.com/bitdefender-and-amazon-web-services-strengthen-cloud-security)'
+  id: totrans-388
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Bitdefender和Amazon Web Services加强云* *安全性*：[https://businessinsights.bitdefender.com/bitdefender-and-amazon-web-services-strengthen-cloud-security](https://businessinsights.bitdefender.com/bitdefender-and-amazon-web-services-strengthen-cloud-security)'
+- en: 'Introduction to GuardDuty malware protection: [https://www.cloudhesive.com/blog-posts/new-guardduty-malware-protection/](https://www.cloudhesive.com/blog-posts/new-guardduty-malware-protection/)'
+  id: totrans-389
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GuardDuty恶意软件防护简介：[https://www.cloudhesive.com/blog-posts/new-guardduty-malware-protection/](https://www.cloudhesive.com/blog-posts/new-guardduty-malware-protection/)
+- en: '*Prisma Cloud Supports Amazon GuardDuty Malware* *Protection*: [https://www.paloaltonetworks.com/blog/prisma-cloud/amazon-guardduty-malware-protection/](https://www.paloaltonetworks.com/blog/prisma-cloud/amazon-guardduty-malware-protection/)'
+  id: totrans-390
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Prisma Cloud支持Amazon GuardDuty恶意软件* *防护*：[https://www.paloaltonetworks.com/blog/prisma-cloud/amazon-guardduty-malware-protection/](https://www.paloaltonetworks.com/blog/prisma-cloud/amazon-guardduty-malware-protection/)'
+- en: '*Hunting malware with Amazon GuardDuty and* *Sysdig*: [https://sysdig.com/blog/hunting-malware-with-amazon-guardduty-and-sysdig/](https://sysdig.com/blog/hunting-malware-with-amazon-guardduty-and-sysdig/)'
+  id: totrans-391
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*使用Amazon GuardDuty和* *Sysdig进行恶意软件狩猎*：[https://sysdig.com/blog/hunting-malware-with-amazon-guardduty-and-sysdig/](https://sysdig.com/blog/hunting-malware-with-amazon-guardduty-and-sysdig/)'
+- en: '*Trellix leverages Amazon GuardDuty Malware Protection for Extended Detection
+    and Response (**XDR)*: [https://www.trellix.com/en-us/about/newsroom/stories/xdr/trellix-leverages-amazon-guardduty-malware-protection.xhtml](https://www.trellix.com/en-us/about/newsroom/stories/xdr/trellix-leverages-amazon-guardduty-malware-protection.xhtml)'
+  id: totrans-392
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Trellix利用Amazon GuardDuty恶意软件防护进行扩展检测与响应（**XDR）*：[https://www.trellix.com/en-us/about/newsroom/stories/xdr/trellix-leverages-amazon-guardduty-malware-protection.xhtml](https://www.trellix.com/en-us/about/newsroom/stories/xdr/trellix-leverages-amazon-guardduty-malware-protection.xhtml)'
+- en: '*Unauthorized IAM Credential Use Simulation and* *Detection*: [https://catalog.workshops.aws/aws-cirt-unauthorized-iam-credential-use/en-US](https://catalog.workshops.aws/aws-cirt-unauthorized-iam-credential-use/en-US)'
+  id: totrans-393
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*未经授权的IAM凭证使用模拟与* *检测*：[https://catalog.workshops.aws/aws-cirt-unauthorized-iam-credential-use/en-US](https://catalog.workshops.aws/aws-cirt-unauthorized-iam-credential-use/en-US)'
+- en: '*Ransomware on S3 - Simulation and* *Detection*: [https://catalog.workshops.aws/aws-cirt-ransomware-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-ransomware-simulation-and-detection/en-US)'
+  id: totrans-394
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*S3上的勒索软件 - 模拟与* *检测*：[https://catalog.workshops.aws/aws-cirt-ransomware-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-ransomware-simulation-and-detection/en-US)'
+- en: '*Cryptominer Based Security Events - Simulation and* *Detection*: [https://catalog.workshops.aws/aws-cirt-cryptominer-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-cryptominer-simulation-and-detection/en-US)'
+  id: totrans-395
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*基于加密矿工的安全事件 - 模拟与* *检测*：[https://catalog.workshops.aws/aws-cirt-cryptominer-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-cryptominer-simulation-and-detection/en-US)'
+- en: '*SSRF on IMDSv1 - Simulation and* *Detection*: [https://catalog.workshops.aws/aws-cirt-ssrf-imdsv1-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-ssrf-imdsv1-simulation-and-detection/en-US)'
+  id: totrans-396
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*IMDSv1上的SSRF - 模拟与* *检测*：[https://catalog.workshops.aws/aws-cirt-ssrf-imdsv1-simulation-and-detection/en-US](https://catalog.workshops.aws/aws-cirt-ssrf-imdsv1-simulation-and-detection/en-US)'
+- en: '*AWS CIRT Toolkit for Incident Response* *Preparedness*: [https://catalog.workshops.aws/aws-cirt-toolkit-for-incident-response-preparedness/en-US](https://catalog.workshops.aws/aws-cirt-toolkit-for-incident-response-preparedness/en-US)'
+  id: totrans-397
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*AWS CIRT工具包用于事件响应* *准备*：[https://catalog.workshops.aws/aws-cirt-toolkit-for-incident-response-preparedness/en-US](https://catalog.workshops.aws/aws-cirt-toolkit-for-incident-response-preparedness/en-US)'
+- en: '*Logging IP traffic using VPC Flow* *Logs*: [https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.xhtml](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.xhtml)'
+  id: totrans-398
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*使用VPC流日志记录IP流量*：[https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.xhtml](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.xhtml)'
+- en: '*What is VPC Flow Logs, and how can you publish flow logs to CloudWatch and*
+    *S3?*: [https://www.manageengine.com/log-management/amazon-vpc-publishing-flow-logs-to-cloudwatch-and-s3.xhtml](https://www.manageengine.com/log-management/amazon-vpc-publishing-flow-logs-to-cloudwatch-and-s3.xhtml)'
+  id: totrans-399
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*什么是VPC流日志，如何将流日志发布到CloudWatch和* *S3？*：[https://www.manageengine.com/log-management/amazon-vpc-publishing-flow-logs-to-cloudwatch-and-s3.xhtml](https://www.manageengine.com/log-management/amazon-vpc-publishing-flow-logs-to-cloudwatch-and-s3.xhtml)'
+- en: '*Publish flow logs to CloudWatch* *Logs*: [https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-cwl.xhtml](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-cwl.xhtml)'
+  id: totrans-400
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*将流日志发布到CloudWatch* *日志*： [https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-cwl.xhtml](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-cwl.xhtml)'
+- en: '*Least-privilege Cloudwatch Logs policy for API* *Gateway*: [https://repost.aws/questions/QUUWdk2GyPRKeTadZ9EpO3aQ/least-privilege-cloudwatch-logs-policy-for-api-gateway](https://repost.aws/questions/QUUWdk2GyPRKeTadZ9EpO3aQ/least-privilege-cloudwatch-logs-policy-for-api-gateway)'
+  id: totrans-401
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*API* *网关的最小权限Cloudwatch日志策略*： [https://repost.aws/questions/QUUWdk2GyPRKeTadZ9EpO3aQ/least-privilege-cloudwatch-logs-policy-for-api-gateway](https://repost.aws/questions/QUUWdk2GyPRKeTadZ9EpO3aQ/least-privilege-cloudwatch-logs-policy-for-api-gateway)'
+- en: '*AWS Security Incident Response* *Guide*: [https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.xhtml](https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.xhtml)'
+  id: totrans-402
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*AWS安全事件响应* *指南*： [https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.xhtml](https://docs.aws.amazon.com/whitepapers/latest/aws-security-incident-response-guide/aws-security-incident-response-guide.xhtml)'
+- en: '*Threat Hunting AWS CloudTrail with Sentinel: Part* *1*: [https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-1/](https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-1/)'
+  id: totrans-403
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*使用Sentinel进行威胁狩猎AWS CloudTrail：第一部分*： [https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-1/](https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-1/)'
+- en: '*Threat Hunting AWS CloudTrail with Sentinel: Part* *2*: [https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-2/](https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-2/)'
+  id: totrans-404
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*使用Sentinel进行威胁狩猎AWS CloudTrail：第二部分*： [https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-2/](https://www.binarydefense.com/resources/blog/threat-hunting-aws-cloudtrail-with-sentinel-part-2/)'
+- en: 'AWS security products: [https://aws.amazon.com/products/security/](https://aws.amazon.com/products/security/)'
+  id: totrans-405
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AWS安全产品： [https://aws.amazon.com/products/security/](https://aws.amazon.com/products/security/)

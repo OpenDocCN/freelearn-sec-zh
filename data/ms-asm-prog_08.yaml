@@ -1,0 +1,1129 @@
+- en: Mixing Modules Written in Assembly and Those Written in High-Level Languages
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 混合使用用汇编语言编写的模块和用高级语言编写的模块
+- en: We have come a long way and have covered almost every aspect of Assembly programming
+    basics. In fact, we should be able to implement any algorithm in Assembly language
+    by this time; however, there are a few important things left we have not touched
+    yet, but they are nonetheless important to know.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经走了很长一段路，几乎涵盖了汇编语言编程基础的各个方面。事实上，到目前为止，我们应该能够用汇编语言实现任何算法；然而，还有一些重要的内容我们尚未涉及，但这些内容同样重要。
+- en: Despite the fact that writing relatively large parts of a product (not to say
+    writing a complete product) in Assembly language may not be the best idea when
+    it comes to timelines, it may still be a very interesting and challenging task
+    (educational as well). Sometimes it is more convenient to implement certain parts
+    of an algorithm in Assembly, rather than using a high-level language. Remember
+    the tiny virtual machine we used for XOR encryption of data? For the sake of an
+    example, we will implement a simple encryption/decryption module in Assembly and
+    see how it may be used with high-level languages.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管在产品开发的时间表上，用汇编语言编写较大部分（甚至是整个产品）可能不是最佳选择，但它仍然是一个非常有趣且具有挑战性的任务（也具有教育意义）。有时，使用汇编语言实现某些算法的部分，可能比使用高级语言更为方便。还记得我们用来进行异或加密的微型虚拟机吗？为了举例说明，我们将在汇编语言中实现一个简单的加密/解密模块，并看看它如何与高级语言一起使用。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Implementing the core of a primitive cryptographic module
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 实现一个简单的加密模块核心
+- en: 'Building object files for further linking with code written in high-level languages:'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为进一步与高级语言编写的代码进行链接，构建目标文件：
+- en: '**OBJ**: Object files for Windows (32 and 64 bit);'
+  id: totrans-6
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**OBJ**：适用于Windows的目标文件（32位和64位）；'
+- en: '**O**: Linkable ELF for Linux (32 and 64 bit);'
+  id: totrans-7
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**O**：适用于Linux的可链接ELF（32位和64位）；'
+- en: Building DLL (dynamic link libraries) and SO (shared objects) for Windows and
+    Linux (32 and 64 bit) to be used with the .NET platform
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为Windows和Linux（32位和64位）构建DLL（动态链接库）和SO（共享对象），以便在.NET平台上使用
+- en: Crypto Core
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密核心
+- en: 'The main project of this chapter is a tiny, simple (not to say primitive) encryption/decryption
+    module written entirely in Assembly. Since the topic of this chapter is interfacing
+    Assembly modules and modules written in high-level languages, we will not delve
+    into cryptography principles, but we will rather concentrate on the portability
+    and interoperability of our code while using a slightly modified XOR algorithm.
+    The idea behind the algorithm is to receive an array of bytes and do the following:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的主要项目是一个完全用汇编语言编写的小型简单（不能说是原始的）加密/解密模块。由于本章的主题是汇编语言模块与高级语言模块的接口，我们不会深入讨论加密原理，而是将重点放在代码的可移植性和互操作性上，同时使用稍微修改过的异或算法。该算法的基本思想是接收一个字节数组并执行以下操作：
+- en: Take a byte and rotate it a certain number of bits to the left (the counter
+    is randomly generated at compile time).
+  id: totrans-11
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取一个字节，并将其左移指定的位数（计数器在编译时随机生成）。
+- en: XOR the result with the 1-byte key (randomly generated at compile time as well).
+  id: totrans-12
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用1字节的密钥（在编译时随机生成）对结果进行异或操作。
+- en: Write the byte back to the array.
+  id: totrans-13
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将字节写回数组。
+- en: If there are more bytes to encrypt, go to step 1; otherwise break out of the
+    loop.
+  id: totrans-14
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果有更多字节需要加密，回到步骤1；否则跳出循环。
+- en: 'The following screenshot is an example output of the algorithm we are about
+    to implement:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图是我们即将实现的算法的一个输出示例：
+- en: '![](img/23636279-3418-455a-92cc-ab914aa0008a.png)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/23636279-3418-455a-92cc-ab914aa0008a.png)'
+- en: Not the best encryption, but definitely enough for our needs.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这不是最好的加密方式，但对于我们的需求来说绝对足够。
+- en: Portability
+  id: totrans-18
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 可移植性
+- en: Our intention is to write portable code that may be used on both 32-bit and
+    64-bit Windows and Linux platforms. This may either sound impossible or very tedious
+    work, but it is quite simple. First of all, we have to define a few constants
+    and macros, which will ease our further work, so let's begin by creating the `platform.inc`
+    and `crypto.asm` source files where the latter is the main source file and the
+    one we will compile.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的目标是编写可以在32位和64位Windows以及Linux平台上使用的可移植代码。这个目标可能听起来不可能实现，或者是非常繁琐的工作，但其实非常简单。首先，我们需要定义一些常量和宏，这将使我们的后续工作更加轻松，所以让我们从创建`platform.inc`和`crypto.asm`源文件开始，其中后者是主要的源文件，也是我们将要编译的文件。
+- en: 'Flat Assembler is capable of producing files in a variety of formats, beginning
+    with raw binary output and DOS executables, through Windows-specific formats and
+    up to Linux binaries (both executable and object). It is assumed that you are
+    familiar with at least some of the following formats:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat Assembler 能够生成多种格式的文件，从原始二进制输出和 DOS 可执行文件，到 Windows 特定格式，再到 Linux 二进制文件（包括可执行文件和对象文件）。假设你至少熟悉以下几种格式：
+- en: 32-bit Windows object file (MS COFF format)
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 32位 Windows 对象文件（MS COFF 格式）
+- en: 64-bit Windows object file (MS64 COFF format)
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 64位 Windows 对象文件（MS64 COFF 格式）
+- en: 32-bit Windows DLL
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 32位 Windows DLL
+- en: 64-bit Windows DLL
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 64位 Windows DLL
+- en: 32-bit Linux object file (ELF)
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 32位 Linux 对象文件（ELF）
+- en: 64-bit Linux object file (ELF64)
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 64位 Linux 对象文件（ELF64）
+- en: 'There is no need to be deeply acquainted with them, as the Flat Assembler does
+    all the hard work for us and all we have to do is tell it which format we are
+    interested in (and format our code accordingly). We will use a compile time variable,
+    `ACTIVE_TARGET`, for conditional compilation and use the following constants as
+    possible values:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不需要深入了解它们，因为 Flat Assembler 为我们完成了所有繁重的工作，我们所要做的就是告诉它我们感兴趣的格式（并相应地格式化我们的代码）。我们将使用一个编译时变量`ACTIVE_TARGET`进行条件编译，并使用以下常量作为可能的值：
+- en: '[PRE0]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Specifying the output format
+  id: totrans-29
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 指定输出格式
+- en: As usual, the main source file (in our case, `crypto.asm`) should begin with
+    the output format specification, thus telling the assembler how to treat the code
+    and sections when creating the output file. As we have mentioned earlier, the
+    compile-time variable, `ACTIVE_TARGET`, is the one to be used for the selection
+    of the proper code for the assembler to process.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和往常一样，主源文件（在我们这个例子中是`crypto.asm`）应该以输出格式规范开始，从而告诉汇编器在创建输出文件时如何处理代码和段。正如我们之前提到的，编译时变量`ACTIVE_TARGET`将用于选择汇编器处理的正确代码。
+- en: 'The next step would be defining a macro that would conditionally generate the
+    proper code sequence. Let''s call it `set_output_format`:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一步将是定义一个宏，该宏将有条件地生成正确的代码序列。我们将其命名为`set_output_format`：
+- en: '[PRE1]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'This macro would tell the assembler to evaluate the `ACTIVE_TARGET` compile-time
+    variable and only use specific code. For example, when `ACTIVE_TARGET` equals
+    `TARGET_W64_OBJ`, the assembler will only process the following line:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个宏会告诉汇编器评估`ACTIVE_TARGET`编译时变量，并且只使用特定的代码。例如，当`ACTIVE_TARGET`等于`TARGET_W64_OBJ`时，汇编器将只处理以下行：
+- en: '[PRE2]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: Thus, it will generate a 64-bit Windows object file.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，它将生成一个 64 位 Windows 对象文件。
+- en: Conditional declaration of code and data sections
+  id: totrans-36
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 条件声明代码和数据段
+- en: 'Having told the compiler what output format we are expecting, we need to declare
+    the sections. Since we are writing portable code, we will use two macros to properly
+    declare code and data sections for each of the formats mentioned earlier. As we
+    are used to seeing a data section after the code section (at least in this book,
+    as the order may vary), we will declare a macro responsible for the proper declaration
+    of the beginning of the code section first:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在告诉编译器我们期待什么输出格式后，我们需要声明各个段。由于我们在编写可移植代码，因此我们将使用两个宏来为前面提到的每种格式正确声明代码段和数据段。由于我们习惯在代码段后看到数据段（至少在本书中是这样，顺序可能会有所不同），我们将首先声明一个宏，负责正确声明代码段的开始：
+- en: '[PRE3]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'We will follow it by the macro declaring data section:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们接下来会声明数据段的宏：
+- en: '[PRE4]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Exporting symbols
+  id: totrans-41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 导出符号
+- en: 'The last macro in the series would be the one that makes it possible to export
+    certain symbols. Our implementation of a cryptographic core would export just
+    one symbol--the `GetPointers()` procedure--which, in turn, would return a pointer
+    to a structure containing pointers to the rest of procedures. This macro follows
+    the previously defined pattern:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 系列中的最后一个宏将使得某些符号得以导出。我们实现的加密核心将只导出一个符号——`GetPointers()`过程——它将返回一个指向结构的指针，结构包含指向其他过程的指针。这个宏遵循之前定义的模式：
+- en: '[PRE5]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The preceding macro would make the symbol visible to either a static or dynamic
+    linker, depending on the target we are building. Alternatively, we could replace
+    `macro finalize` with the `postpone` directive, which would force the body of
+    the macro to be executed automatically once the end of the source is reached.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的宏会使符号对静态或动态链接器可见，具体取决于我们正在构建的目标。或者，我们可以用`postpone`指令替换`macro finalize`，这将强制在源文件结束时自动执行宏体。
+- en: Now we may save the `platform.inc` file as we will not alter it in any way in
+    the future.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以保存`platform.inc`文件，因为我们在未来不会以任何方式修改它。
+- en: Core procedures
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 核心过程
+- en: 'Having taken care of all the output format specifics, we may safely proceed
+    to the implementation of the core''s code. As it has already been mentioned earlier,
+    we are about to export only a single entry; however, we still need to implement
+    the rest. There are only four procedures in our core:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在处理了所有输出格式的细节后，我们可以安全地继续实现核心代码。正如之前提到的，我们只需导出一个入口；但我们仍需实现其他部分。我们的核心中只有四个过程：
+- en: '`f_set_data_pointer`: This procedure accepts a single parameter, which is a
+    pointer to the data we want to process, and stores it to the `data_pointer` global
+    variable'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`f_set_data_pointer`：此过程接受一个参数，即指向我们要处理的数据的指针，并将其存储到`data_pointer`全局变量中'
+- en: '`f_set_data_length`: This procedure accepts one parameter, which is the length
+    of data we want to encrypt/decrypt, and stores it to the `data_length` global
+    variable'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`f_set_data_length`：此过程接受一个参数，即我们要加密/解密的数据长度，并将其存储到`data_length`全局变量中'
+- en: '`f_encrypt`: This procedure implements the encryption loop'
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`f_encrypt`：此过程实现了加密循环'
+- en: '`f_decrypt`: This is the inverse operation of `f_encrypt`'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`f_decrypt`：这是`f_encrypt`的反操作'
+- en: 'However, prior to implementing all of these, we first need to prepare the template
+    or, to be more precise, the skeleton for our main source file. This template would
+    look a tiny bit different from what we are used to due to the extensive usage
+    of macroinstructions. However, don''t let it confuse you. The structure is logically
+    (and from an Assembler''s point of view) the same as the one we have been dealing
+    with earlier:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在实现这些之前，我们首先需要准备模板，或者更准确地说，为我们的主源文件准备一个框架。由于宏指令的广泛使用，这个模板看起来与我们习惯的稍有不同。但不要让它让你困惑，从结构上来说（从汇编语言工程师的角度看）它与我们之前处理的结构是相同的：
+- en: '[PRE6]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Despite having a different look from what we are used to seeing, the preceding
+    code is quite self-explanatory and there is not too much to add, if at all. All
+    the hard work is being delegated to previously defined macroinstructions and the
+    only aspect we still have to take care of is the bit capacity. As you can see,
+    the size and addresses are given 8 bytes by default. The purpose of this is to
+    make them fit both 32-bit and 64-bit needs. We could have inserted another `if…else`
+    clause, but since we only have 3 bit capacity-dependent data items, spending another
+    4 bytes for each of them in 32-bit mode is not an issue.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管前面的代码看起来与我们通常看到的有所不同，但它其实是自解释的，不需要额外的说明。所有的艰难工作都交给了之前定义的宏指令，唯一需要我们关注的就是位容量。正如你所看到的，大小和地址默认分配了8字节。这是为了使它们适应32位和64位的需求。我们本可以插入另一个`if…else`语句，但由于我们只有3个受位容量影响的数据项，在32位模式下每个数据项多占用4字节也不成问题。
+- en: Encryption/decryption
+  id: totrans-55
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密/解密
+- en: 'As we are developing a crypto core here, it is natural to begin with the implementation
+    of the cryptographic functionality first. The following code performs the encryption
+    of data according to the algorithm we previously defined:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们在这里开发的是加密核心，因此自然要先实现加密功能。以下代码根据我们之前定义的算法执行数据加密：
+- en: '[PRE7]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'By now, you should be able to differentiate between different parts of a procedure
+    yourself, seeing where the prolog ends, where the epilog begins, and where the
+    core functionality resides. In this particular case, the majority of the code
+    is dedicated to preserving/restoring registers and to accessing parameters/variables,
+    while the core functionality may be narrowed down to this code:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到现在为止，你应该能够自己区分过程的不同部分，看到哪里是前导代码的结束，哪里是尾部代码的开始，以及核心功能所在的位置。在这个特定的案例中，大部分代码都用于保存/恢复寄存器和访问参数/变量，而核心功能可以归结为以下代码：
+- en: '[PRE8]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'For 32-bit platform or to this code:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于32位平台，或者这段代码：
+- en: '[PRE9]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: For its 64-bit platform.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于其64位平台。
+- en: 'It is quite obvious that the implementation of the decryption procedure would
+    be 99% identical to the encryption one. The only change would be swapping the
+    rotation and `XOR` instructions (while changing the direction of rotation, of
+    course). Thus, the 32-bit version of `f_decrypt` would have the following:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很明显，解密过程的实现将与加密过程几乎完全相同，唯一的变化就是交换旋转和`XOR`指令（当然还需要改变旋转方向）。因此，`f_decrypt`的32位版本会是这样的：
+- en: '[PRE10]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Similarly, its 64-bit analog would be just the same two lines.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，它的64位版本也只是这两行代码。
+- en: Setting the encryption/decryption parameters
+  id: totrans-66
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设置加密/解密参数
+- en: 'As you may have noticed (I hope you have), the procedures discussed in the
+    previous section do not receive any parameters at all. Therefore, we do need to
+    supply two more procedures in order to make it possible to tell the core where
+    data resides and how many bytes to process. As each of these procedures accepts
+    one parameter, the code would be a bit more segmented in order to reflect the
+    calling convention being used, which, in our case, is as follows:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能已经注意到的（希望你已经注意到），上一节讨论的过程完全没有接收任何参数。因此，我们确实需要提供两个额外的过程，以便能够告诉核心数据的位置以及需要处理多少字节。由于每个过程只接受一个参数，代码将更加分段，以便反映所使用的调用约定，在我们的情况下，调用约定如下：
+- en: cdecl for 32-bit targets
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 适用于 32 位目标的 cdecl
+- en: Microsoft x64 for Windows-based 64-bit targets
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 适用于基于 Windows 的 64 位目标的 Microsoft x64
+- en: AMD64 for Linux-based 64-bit targets
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 适用于基于 Linux 的 64 位目标的 AMD64
+- en: f_set_data_pointer
+  id: totrans-71
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: f_set_data_pointer
+- en: 'This procedure receives a parameter of the `void*` type . Of course, the assembler
+    does not care about the type of parameter a certain procedure expects. To be more
+    precise, the assembler, as a compiler, is not aware of the procedure parameters
+    as a concept, not to mention that it has no concept of procedure at all. Let''s
+    take a look at the implementation of the `f_set_data_pointer` procedure:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个过程接收一个 `void*` 类型的参数。当然，汇编器并不关心某个过程期望的参数类型。更准确地说，汇编器作为编译器，并不理解过程参数的概念，更不用说它根本没有过程的概念。让我们看一下
+    `f_set_data_pointer` 过程的实现：
+- en: '[PRE11]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: Nothing complicated in this code either. The parameter passed to this procedure
+    is simply being written to the `data_pointer` location.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码也不复杂。传递给这个过程的参数只是被写入到 `data_pointer` 位置。
+- en: f_set_data_length
+  id: totrans-75
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: f_set_data_length
+- en: This procedure is identical to `f_set_data_pointer` with the only difference
+    being the address where the parameter is written. Simply copy the preceding code
+    and change `data_pointer` to `data_length`.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个过程与 `f_set_data_pointer` 完全相同，唯一的区别是参数写入的地址。只需复制前面的代码，并将 `data_pointer` 更改为
+    `data_length`。
+- en: 'Another alternative is to implement a single procedure, thus getting rid of
+    redundant code, which would accept two parameters:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种选择是实现一个单一的过程，从而消除冗余代码，它将接受两个参数：
+- en: The actual parameter (either a pointer to data or its size) as the assembler
+    does not care about types
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 实际参数（无论是数据的指针还是其大小），因为汇编器并不关心类型
+- en: A selector, which will tell the procedure where the parameter value should be
+    stored
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个选择器，用于告诉过程参数值应存储的位置
+- en: Try to implement this yourself; it would be a good quick exercise.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尝试自己实现这个；这将是一个很好的快速练习。
+- en: GetPointers()
+  id: totrans-81
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: GetPointers()
+- en: 'The `GetPointers()` procedure is the only one we make public, the only one
+    that would be visible to a dynamic or static linker, depending on the selected
+    output target. The logic behind this procedure is primitive. It creates a structure
+    (in this example, the structure is statically allocated), filled with the addresses
+    of core procedures, and returns the address of this structure:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GetPointers()` 过程是我们唯一公开的过程，只有这个过程对动态链接器或静态链接器可见，具体取决于选择的输出目标。这个过程的逻辑很原始。它创建一个结构体（在这个例子中，结构体是静态分配的），并用核心过程的地址填充它，最后返回这个结构体的地址：'
+- en: '[PRE12]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Once all of the preceding procedures have been added to the main source file,
+    you may safely compile it and see that an output of the selected output format
+    is being generated. If you leave the target specified here, you should be able
+    to see a 32-bit windows DLL being created.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦所有前面的过程都添加到主源文件中，你可以安全地编译它，并看到所选择的输出格式的输出被生成。如果你在这里指定了目标，你应该能够看到一个 32 位的 Windows
+    DLL 被创建。
+- en: Interfacing with C/C++
+  id: totrans-85
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 与 C/C++ 接口
+- en: Let me take advantage of the topic of this chapter and say it once. Enough of
+    the Assembly, let's do some C (for those willing to link Assembly code to C++,
+    this C example should be easy to understand; if not--this is the wrong book).
+    For the sake of an example, we will generate an object file out of our Assembly
+    sources and link it with the code written in C for both 32-bit and 64-bit Windows
+    and Linux.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我利用本章的主题说一说。够了，够了，汇编语言，我们做点 C 语言的东西（对于那些愿意将汇编代码与 C++ 链接的人，这个 C 示例应该很容易理解；如果不理解——那你拿错书了）。作为一个例子，我们将从我们的汇编源文件中生成一个目标文件，并将其与在
+    C 中编写的代码链接，目标平台包括 32 位和 64 位的 Windows 和 Linux。
+- en: Static linking - Visual Studio 2017
+  id: totrans-87
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 静态链接 - Visual Studio 2017
+- en: First of all, let's see how we generate an object file. I am quite sure you
+    have already understood how to produce different targets in general and for this
+    example in particular. Let's begin with a 32-bit MSCOFF object file by setting
+    the `ACTIVE_TARGET` variable to `TARGET_W32_OBJ` and compiling the main source
+    file.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，让我们看看如何生成目标文件。我相信你已经了解了如何生成不同目标，特别是如何为本例生成目标。我们从32位的MSCOFF目标文件开始，通过将`ACTIVE_TARGET`变量设置为`TARGET_W32_OBJ`并编译主源文件来实现。
+- en: 'Create a C/C++ project in Visual Studio and copy the object file into the project
+    directory as shown in the following screenshot (the screenshot shows object files
+    for both 32-bit and 64-bit):'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Visual Studio中创建一个C/C++项目，并将目标文件复制到项目目录中，如以下截图所示（截图显示了32位和64位的目标文件）：
+- en: '![](img/3d49a776-9371-48ae-8395-bf2a55cee01c.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3d49a776-9371-48ae-8395-bf2a55cee01c.png)'
+- en: 'As you can see in the preceding screenshot, there is at least one more file
+    we need, namely the header file. Since our crypto engine is fairly simple, we
+    do not need any complicated header files. The one shown here would definitely
+    suffice:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前面的截图所示，我们还需要至少一个文件，即头文件。由于我们的加密引擎相当简单，所以不需要复杂的头文件。这里显示的这个头文件就足够了：
+- en: '![](img/b6dc370f-0850-4d1c-80bd-72feba5642d4.png)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b6dc370f-0850-4d1c-80bd-72feba5642d4.png)'
+- en: There is a small catch in the preceding code. Try figuring out what isn't correct
+    before you read the next paragraph.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码中有一个小陷阱。在阅读下一个段落之前，尝试找出其中不正确的部分。
+- en: Technically, the code is correct. It would compile and run without a problem,
+    but there is one very important aspect of linking modules written in Assembly
+    to other languages, very important and not quite obvious at the first glance:structure
+    member alignment. In this example, we only used one structure (where we store
+    procedure pointers) and we took proper care of it so that the pointers would be
+    properly aligned depending on the platform. While we aligned our data on a byte
+    boundary (stored it sequentially), Visual Studio's default structure member alignment
+    value is, well, Default, which does not really tell us a lot. Assumptions may
+    be made (in this case, we can assume that Default means the first option, which
+    is a 1-byte alignment), but there is no guarantee of that and we have to explicitly
+    specify the alignment, as assumptions not only do not always work in the case
+    of Assembly, but they also pose a serious threat. It is important to mention that,
+    despite the fact that we have been mentioning Visual Studio in this paragraph,
+    the same applies to any C compiler.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从技术上讲，代码是正确的。它会编译并运行没有问题，但在将汇编语言编写的模块与其他语言链接时，有一个非常重要且初看并不明显的方面：结构成员对齐。在这个例子中，我们只使用了一个结构（用于存储过程指针），并且我们小心地处理了它，以确保指针根据平台正确对齐。虽然我们在字节边界上对数据进行了对齐（顺序存储），但Visual
+    Studio的默认结构成员对齐值是“默认”，这个值并没有提供太多信息。我们可以做出假设（在这种情况下，我们可以假设“默认”意味着第一种选项，即1字节对齐），但这并没有保证，我们必须明确指定对齐方式，因为假设不仅在汇编语言中并不总是有效，而且还会带来严重的风险。需要提到的是，尽管我们在这一段中提到了Visual
+    Studio，但同样的情况适用于任何C编译器。
+- en: 'One way to specify structure member alignment would be through the project
+    settings, as follows:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 指定结构成员对齐的一种方式是通过项目设置，如下所示：
+- en: '![](img/1c462b0e-ec69-4c68-88e6-335d602a609f.png)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1c462b0e-ec69-4c68-88e6-335d602a609f.png)'
+- en: 'This is good enough for our example, but it may cause problems in the case
+    of larger projects. It is highly recommended not to change the structure member
+    alignment project-wide without any reasonable need for such a change. Instead,
+    we may make a tiny modification to our header file, which would tell the compiler
+    how to handle structure member alignment for this specific structure. Insert the
+    following code right before the declaration of the `crypto_functions_t` structure:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们的例子来说，这已经足够了，但在更大的项目中可能会导致问题。强烈建议在没有合理需求的情况下不要改变整个项目的结构成员对齐方式。相反，我们可以对我们的头文件做一个小修改，告诉编译器如何处理这个特定结构的成员对齐。在`crypto_functions_t`结构声明之前插入以下代码：
+- en: '[PRE13]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Insert the following right after the declaration:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在声明之后插入以下内容：
+- en: '[PRE14]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Now, consider the following line:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，考虑以下这一行：
+- en: '[PRE15]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'Change the preceding line to this:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将前一行更改为：
+- en: '[PRE16]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Then, add the `main.c` file as shown in the following screenshot:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，按照以下截图所示，添加`main.c`文件：
+- en: '![](img/988a72aa-6f43-4189-b431-a15b843f9a57.png)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/988a72aa-6f43-4189-b431-a15b843f9a57.png)'
+- en: The code in the `main.c` file is more than self-explanatory. There are only
+    two local variables; the `testString` variable represents the data we will process
+    and `funcs` will store the pointer to the `pointers` structure in our Crypto Core.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main.c`文件中的代码不言自明。这里只有两个局部变量；`testString`变量代表我们要处理的数据，`funcs`将存储指向我们加密核心中`pointers`结构的指针。'
+- en: 'Do not try to build the project yet as we have not told Visual Studio about
+    our object file. Right-click on the project and select Properties. The following
+    screenshot shows how to add our object file for a 64-bit platform project. The
+    same should be done for a 32-bit project. You should just pay attention to which
+    object file goes to which platform:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不要急着构建项目，因为我们还没有告诉Visual Studio关于我们的目标文件。右键点击项目，选择“属性”。以下截图展示了如何为64位平台项目添加我们的目标文件。32位项目也应该做同样的操作，只是需要注意将哪个目标文件分配给哪个平台：
+- en: '![](img/e0fbfe62-707d-4086-8d64-800214506a65.png)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e0fbfe62-707d-4086-8d64-800214506a65.png)'
+- en: In the accompanying example project, the `crypto_w64.obj` file goes to the x64
+    platform, and `crypto_w32.obj` is for x86.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在附带的示例项目中，`crypto_w64.obj`文件用于x64平台，`crypto_w32.obj`则用于x86平台。
+- en: 'You are now free to build and run the project (either x86 or x64, given that
+    the object files are specified correctly). I would suggest setting breakpoints
+    at lines 13 and 15 of the `main.c` file in order to be able to spot the changes
+    in memory pointed by `testString`. While running, you would get something similar
+    to the following (similar because the key would be different with each build of
+    our Crypto Core):'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你现在可以自由地构建和运行项目（无论是x86还是x64，只要目标文件正确指定）。我建议你在`main.c`文件的第13行和第15行设置断点，以便能够观察到`testString`所指向内存的变化。运行时，你会看到类似于以下的内容（之所以说“类似”，是因为每次构建加密核心时，密钥都会不同）：
+- en: '![](img/8a81cb37-2039-404c-882f-1835968eff7e.png)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8a81cb37-2039-404c-882f-1835968eff7e.png)'
+- en: 'The preceding screenshot shows the data supplied to the core prior to encryption.
+    The following screenshot shows the same data after it has been encrypted:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上一截图展示了加密前传入核心的数据。接下来的截图则展示了相同的数据，在加密后状态：
+- en: '![](img/d7e4ab3f-733f-4f93-8f66-eed9ecc7afd0.png)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d7e4ab3f-733f-4f93-8f66-eed9ecc7afd0.png)'
+- en: The decryption of this encrypted data would take us back to the good old `Hello,
+    World!`.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密这些加密数据将会让我们回到那个熟悉的`Hello, World!`。
+- en: Static linking - GCC
+  id: totrans-116
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 静态链接 - GCC
+- en: 'There is not much difference between Visual Studio and GCC when it comes to
+    linking object files built from Assembly sources to high-level language code.
+    In fact, to be completely honest, we have to admit that an object file compiled
+    from Assembly code is not different from an object file compiled from high-level
+    languages. In the case of GCC, we have the high-level sources (the C source and
+    the header; no need to modify the files) and two object files, which, for the
+    sake of convenience, we name `crypto_32.o` and `crypto_64.o`. The commands used
+    to build executables out of our source and object files would slightly differ
+    depending on the platform in use. If you are running a 32-bit Linux system, then
+    you would issue the following commands in order to build 32-bit and 64-bit executables,
+    respectively:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在将汇编源代码编译为目标文件并链接到高级语言代码时，Visual Studio和GCC之间并没有太大区别。实际上，坦率地说，我们必须承认，从汇编代码编译出来的目标文件与从高级语言编译出来的目标文件并没有什么不同。对于GCC来说，我们有高级语言源代码（C源代码和头文件，文件无需修改）和两个目标文件，为了方便起见，我们将其命名为`crypto_32.o`和`crypto_64.o`。用于构建可执行文件的命令会略有不同，具体取决于所使用的平台。如果你正在运行32位Linux系统，则需要执行以下命令，分别构建32位和64位的可执行文件：
+- en: '[PRE17]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: The second command would only work if you have 64-bit development tools/libraries
+    installed.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个命令只有在你安装了64位开发工具/库时才能工作。
+- en: 'If you are running a 64-bit system, then you make a slight change to the commands
+    (and take care of the 32-bit development tools and libraries being installed):'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你正在运行64位系统，则需要对命令进行轻微修改（并确保安装了32位开发工具和库）：
+- en: '[PRE18]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'And:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以及：
+- en: '[PRE19]'
+  id: totrans-123
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Inspecting the memory content with GDB while running one of the `testxx` files
+    would provide you with a picture similar to the following screenshot before encryption:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用GDB检查内存内容时，当运行其中一个`testxx`文件时，你将看到类似于以下截图的内容，这是加密前的状态：
+- en: '![](img/0dc58d05-4366-451e-819b-9aee957b53cf.png)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0dc58d05-4366-451e-819b-9aee957b53cf.png)'
+- en: 'And after encryption, you will see something like the following:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密后，你将看到类似于以下内容：
+- en: '![](img/a0ad54b9-bdc4-4882-a175-6a8420ef5702.png)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a0ad54b9-bdc4-4882-a175-6a8420ef5702.png)'
+- en: Dynamic linking
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 动态链接
+- en: Dynamic linking implies the use of dynamic link libraries (on Windows) or shared
+    objects (on Linux) and is the same as with other DLLs/SOs. The mechanism of dynamic
+    linking will be briefly covered in the next chapter.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 动态链接意味着使用动态链接库（在 Windows 上）或共享对象（在 Linux 上），其原理与其他 DLL/SO 相同。动态链接的机制将在下一章简要介绍。
+- en: We will, however, build dynamic link libraries and shared objects right now
+    in order to be able to proceed further. Compile the `crypto.asm` file, setting
+    the `ACTIVE_TARGET` compile-time variable to `TARGET_W32_DLL` in order to generate
+    a 32-bit DLL for Windows, and then to `TARGET_W64_DLL` in order to generate a
+    64-bit DLL. Keep in mind the fact that changing `ACTIVE_TARGET` does not affect
+    the name of the output, so we would have to rename the result of each compilation
+    accordingly.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，我们现在需要构建动态链接库和共享对象，以便能够继续进行。编译 `crypto.asm` 文件时，将 `ACTIVE_TARGET` 编译时变量设置为
+    `TARGET_W32_DLL`，以生成 Windows 的 32 位 DLL，然后设置为 `TARGET_W64_DLL`，以生成 64 位 DLL。请注意，改变
+    `ACTIVE_TARGET` 不会影响输出文件的名称，因此我们需要相应地重命名每次编译的结果。
+- en: 'While on Windows you have to simply change the `ACTIVE_TARGET` compile-time
+    variable and compile by going to Run | Compile in the GUI (or hit *Ctrl* + *F9*
+    on the keyboard), you would have to build object files for Linux and then enter
+    another command in a terminal when on Linux. The command would be one of these:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 上，你只需改变 `ACTIVE_TARGET` 编译时变量，并通过 GUI 中的“运行 | 编译”选项进行编译（或按 *Ctrl*
+    + *F9* 快捷键），而在 Linux 上，你需要先构建目标文件，然后在终端中输入另一个命令。该命令将是以下之一：
+- en: '[PRE20]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Having DLLs for Windows and shared objects for Linux, we are now safe to proceed
+    further and see how modules written in Assembly may be integrated with frameworks
+    such as .NET.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们有了 Windows 的 DLL 和 Linux 的共享对象，可以继续进行，看看如何将用汇编编写的模块与 .NET 等框架进行集成。
+- en: Assembly and managed code
+  id: totrans-134
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 汇编语言与托管代码
+- en: As we have already seen, static or dynamic linking is not as difficult as it
+    may seem, as long as we are dealing with native code, but what happens when we,
+    for example, decide to use code written in Assembly with a program written in
+    C#, which is a managed environment and is not run by the processor itself, but
+    rather by a sort of a virtual machine? Many are afraid of mixing native modules
+    and managed ones. Using native modules compiled from Assembly sources with managed
+    code may seem to be even more frightening or even impossible. However, as we have
+    seen earlier, there is no difference between modules initially written in Assembly
+    and those written in other languages on the binary level. When it comes to managed
+    code like, for example C#, things are just a bit more complex than linking to
+    native object files or using a DLL/SO. The following does not apply to managed
+    C++ code, in which case you may simply follow the steps discussed earlier in this
+    chapter, in order to link a native object to managed code, as managed C++ is the
+    only language supported by Visual Studio that provides such capability.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前看到的那样，静态或动态链接并不像看起来那样困难，只要我们处理的是本地代码。但当我们决定将用汇编语言编写的代码与用 C# 编写的程序（它是一个托管环境，并不是由处理器直接运行，而是由某种虚拟机运行）结合时，会发生什么呢？许多人害怕混合本地模块和托管模块。将由汇编源代码编译的本地模块与托管代码结合，似乎甚至更可怕或不可能。然而，正如我们之前所见，在二进制层面，最初用汇编语言编写的模块与其他语言编写的模块之间没有区别。当涉及到像
+    C# 这样的托管代码时，事情变得比链接本地对象文件或使用 DLL/SO 稍微复杂一些。以下内容不适用于托管 C++ 代码，在这种情况下，你可以简单地按照本章前面讨论的步骤，将本地对象与托管代码链接，因为托管
+    C++ 是 Visual Studio 唯一支持的可以提供这种功能的语言。
+- en: In the case of C#, however, we are limited to DLL/SO as C# is a pure managed
+    environment without the ability to digest native code in the form of an object
+    file. In such a case, there is a need for a sort of a shim code, an adapter. In
+    our example, we will use a simple class, which imports our core's functionality
+    from `crypto_wxx.dll` on Windows or from `libcrypto_xx.so` on Linux and exposes
+    it through its methods to the rest of the code.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，对于 C# 来说，我们只能使用 DLL/SO，因为 C# 是一个纯托管环境，无法处理以对象文件形式存在的本地代码。在这种情况下，我们需要一种适配器代码。在我们的示例中，我们将使用一个简单的类，它从
+    Windows 上的 `crypto_wxx.dll` 或 Linux 上的 `libcrypto_xx.so` 导入核心功能，并通过其方法将这些功能暴露给代码的其他部分。
+- en: There is a common misbelief that the .NET platform is Windows-specific. Alas,
+    this is too common. However, .NET platform is, in reality, almost as portable
+    as Java and supports quite a selection of platforms. However, we will concentrate
+    on Windows (32/64-bits) and Linux (32/64-bits).
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一种普遍的误解认为 .NET 平台仅限于 Windows。遗憾的是，这种误解相当普遍。然而，实际上，.NET 平台几乎像 Java 一样具有良好的可移植性，并支持多种平台。不过，我们将重点讨论
+    Windows（32/64 位）和 Linux（32/64 位）。
+- en: Native structure versus managed structure
+  id: totrans-138
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 本地结构与托管结构
+- en: 'The first thing we would run into, when attempting to tie something similar
+    to the implementation of our core''s interface to a platform such as .NET, is
+    the way data is passed between managed code and native code. There''s hardly any
+    possibility for managed and native code to access the same memory areas. It is
+    not impossible, but definitely is not healthy, hence we would have to pass data
+    between the two domains--the managed domain and native domain. Luckily, there
+    is a class in the .NET framework that allows us to perform such operations relatively
+    painlessly--`System.Runtime.InteropServices.Marshal`. Since we are using a pointer
+    to a structure containing pointers to exported procedures, we need to implement
+    a managed structure to be used with our .NET crypto class and this is done in
+    a rather simple manner:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们尝试将类似于我们核心接口实现的东西与 .NET 等平台结合使用时，首先会遇到的问题是如何在托管代码和本地代码之间传递数据。托管代码和本地代码几乎不可能访问相同的内存区域。这不代表不可能，但绝对不健康，因此我们必须在这两个领域之间传递数据——托管领域和本地领域。幸运的是，.NET
+    框架中有一个类允许我们相对轻松地执行此类操作——`System.Runtime.InteropServices.Marshal`。由于我们使用的是一个指向包含指向导出过程的指针的结构的指针，因此我们需要实现一个托管结构，用于与我们的
+    .NET 加密类一起使用，这可以通过一种相当简单的方式完成：
+- en: '[PRE21]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: The preceding code perfectly declares the type of structure we need and we may
+    get to implement the crypto class. Although the implementation of misbelief C#
+    class falls way beyond the scope of this book, it seems appropriate to dedicate
+    a few lines to a definition of methods and delegates in this case.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码完美地声明了我们需要的结构类型，我们可以开始实现加密类。尽管 C# 类的实现远远超出了本书的范围，但在这种情况下，似乎适合用几行代码定义方法和委托。
+- en: Importing from DLL/SO and function pointers
+  id: totrans-142
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从 DLL/SO 导入和函数指针
+- en: 'Interoperability in .NET is an interesting topic, but it would be much better
+    to refer to proper resources dedicated to it. Here, we will only consider .NET''s
+    analogs of function pointers and misbelief dynamic importing of functions exported
+    by DLLs and shared objects. But, first, let''s construct the class, import the
+    `GetPointers()` procedure, and define function pointer delegates:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: .NET 中的互操作性是一个有趣的话题，但最好参考专门讨论它的资源。在这里，我们只考虑 .NET 中的函数指针的类比以及动态导入 DLL 和共享对象导出函数的误解。但首先，让我们构建类，导入
+    `GetPointers()` 过程，并定义函数指针委托：
+- en: '[PRE22]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'The preceding code is for the Linux version; however, it may easily be changed
+    to the Windows version by changing the name of the shared object to the name of
+    a DLL. With this class, working with our Crypto Core is rather simple and may
+    be summarized by the following code:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码适用于 Linux 版本；然而，通过将共享对象的名称更改为 DLL 的名称，它可以很容易地转换为 Windows 版本。使用这个类，操作我们的
+    Crypto Core 变得相当简单，可以通过以下代码总结：
+- en: '[PRE23]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: However, despite the fact that, if we implement the preceding class and try
+    to use it in our code, it would compile well, we are still unable to actually
+    run it. This is because we need to supply the DLL or shared object, depending
+    on the platform of our choice. The easiest way to supply the libraries is to copy
+    them into the solution folder and tell the IDE (Visual Studio or Monodevelop)
+    to handle them properly.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，尽管如果我们实现前面的类并尝试在代码中使用它，它会顺利编译，但我们仍然无法实际运行它。这是因为我们需要根据所选平台提供 DLL 或共享对象。提供库的最简单方法是将它们复制到解决方案文件夹中，并告诉
+    IDE（Visual Studio 或 Monodevelop）正确处理它们。
+- en: 'The first step is to copy the libraries (DLLs on Windows and SOs on Linux)
+    into the project folder. The following screenshot shows the Monodevelop project
+    folder on Linux, but the procedure is just the same for both Linux and Windows:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一步是将库（Windows 上的 DLL 和 Linux 上的 SO）复制到项目文件夹中。下图显示了 Linux 上的 Monodevelop 项目文件夹，但对于
+    Linux 和 Windows，过程完全相同：
+- en: '![](img/f74210ea-23ec-4561-9ab5-8b524735bbcf.png)'
+  id: totrans-149
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f74210ea-23ec-4561-9ab5-8b524735bbcf.png)'
+- en: The next step would be to actually tell the IDE how to treat these files. First,
+    add them to the project by right-clicking on the project and then navigating to
+    Add | Existing Item for Visual Studio or Add | Add Files for Monodevelop, and
+    then set the properties for each of the libraries as shown in the following screenshots.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一步是告诉 IDE 如何处理这些文件。首先，右键点击项目，选择“添加 | 现有项”（Visual Studio）或“添加 | 添加文件”（Monodevelop），然后设置每个库的属性，如下图所示。
+- en: 'To set the properties in Visual Studio:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Visual Studio 中设置属性：
+- en: '![](img/a71c3698-b647-43ab-8dda-1bc8b7b689d6.png)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a71c3698-b647-43ab-8dda-1bc8b7b689d6.png)'
+- en: 'To set the properties in Monodevelop:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Monodevelop 中设置属性：
+- en: '![](img/c5d7916b-8acf-4f11-92b7-10c9230638ba.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c5d7916b-8acf-4f11-92b7-10c9230638ba.png)'
+- en: Although the GUI is different, both need to have Build Action set to Content
+    and Copy to Output Directory set to Copy always in Visual Studio and checked in
+    Monodevelop.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然图形界面不同，但两者都需要将构建操作设置为 Content，并在 Visual Studio 中将“复制到输出目录”设置为“始终复制”，在 Monodevelop
+    中勾选该选项。
+- en: Now we can build out project (either on Windows or Linux) and run it. We may
+    either watch the data being encrypted/decrypted in memory or add a tiny function
+    that would print out the content of memory within a specific range.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以构建项目（无论是在 Windows 还是 Linux 上）并运行它。我们可以观察内存中加密/解密的数据，或者添加一个小函数，打印出特定范围内的内存内容。
+- en: 'If everything is set up correctly, then the output should be similar to the
+    following when on Windows:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一切设置正确，那么在 Windows 上的输出应类似于以下内容：
+- en: '![](img/262b1def-d9f0-4b1e-86a3-824b72fabaf9.png)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/262b1def-d9f0-4b1e-86a3-824b72fabaf9.png)'
+- en: 'The output on Linux would be similar to this:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 上的输出将类似于以下内容：
+- en: '![](img/0e4bdbf1-efab-45c3-a61a-012875cb0d64.png)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0e4bdbf1-efab-45c3-a61a-012875cb0d64.png)'
+- en: Summary
+  id: totrans-161
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we covered just a few aspects of interfacing your Assembly
+    code to the outer world. There are numerous programming languages out there; however,
+    a decision was taken to concentrate on C/C++ and the .NET platform as the best
+    way to illustrate how modules written in Assembly language may be bound to the
+    code written in high-level languages. To put it simply, any language that is compiled
+    into native code would use the same mechanism as C and C++; on the other hand,
+    any .NET-like platform, although, having a platform-specific binding mechanism,
+    would use the same approach on a low level.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中，我们仅介绍了将程序集代码与外部世界进行接口的几个方面。目前有许多编程语言，但我们决定集中讲解 C/C++ 和 .NET 平台，因为它们是最能展示如何将用汇编语言编写的模块与用高级语言编写的代码进行绑定的方式。简单来说，任何编译为本地代码的语言都会使用与
+    C 和 C++ 相同的机制；另一方面，任何像 .NET 这样的平台，尽管有特定平台的绑定机制，但在低层次上会使用相同的方式。
+- en: However, I assume that there is one question hanging in the air. How about linking
+    third-party code to our Assembly program? Although the title of this chapter may
+    have implied that this topic is included, it would make much more sense to cover
+    it in the next chapter as the only thing we will be dealing with is using third-party
+    code with our programs written in the Assembly language.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不过，我想有一个问题仍然悬而未决，那就是如何将第三方代码链接到我们的程序集程序中？尽管本章的标题可能暗示这个话题已经包括在内，但将其放在下一章讨论会更有意义，因为我们将讨论的唯一内容就是如何在用汇编语言编写的程序中使用第三方代码。

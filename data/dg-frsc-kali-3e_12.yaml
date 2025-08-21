@@ -1,0 +1,1710 @@
+- en: '9'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '9'
+- en: File Recovery and Data Carving Tools
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 文件恢复和数据雕刻工具
+- en: Now that we’ve learned how to create forensic images of evidence, let’s look
+    at the file recovery and data carving process, using specific tools in Kali Linux.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了如何创建证据的取证镜像，让我们来看一下文件恢复和数据雕刻过程，使用 Kali Linux 中的特定工具。
+- en: File carving retrieves data and files from unallocated space using specific
+    characteristics such as the file structure and file headers, instead of traditional
+    metadata created by, or associated with, filesystems. A simple way to think of
+    file carving is to think of an ice sculpture. It starts off with a huge block
+    of ice, which, when given to a skilled individual, can be chipped away into a
+    piece of art. In the same way, DFIR investigators and analysts can create a forensic
+    image using any of the tools mentioned in the previous chapter, and then use a
+    variety of tools to extract useful data and files from the acquired forensic image.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件雕刻通过使用文件结构和文件头等特定特征，从未分配空间中恢复数据和文件，而不是依赖传统的由文件系统创建或与文件系统相关联的元数据。可以将文件雕刻类比为冰雕。它开始时是一个巨大的冰块，当交给一个熟练的人时，可以被雕刻成艺术品。以同样的方式，DFIR（数字取证与事件响应）调查员和分析师可以使用前一章提到的任何工具创建取证镜像，然后使用多种工具从所获取的取证镜像中提取有用的数据和文件。
+- en: 'In this chapter, we’ll cover the following topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: File basics
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件基础
+- en: Downloading sample files for the labs in this chapter
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下载本章实验所需的示例文件
+- en: Performing file recovery and data carving using Foremost
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Foremost 执行文件恢复和数据雕刻
+- en: Performing image recovery with Magicrescue
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Magicrescue 执行镜像恢复
+- en: Data carving with Scalpel
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Scalpel 进行数据雕刻
+- en: Data extraction with **bulk_extractor**
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 **bulk_extractor** 进行数据提取
+- en: NTFS recovery using **scrounge_ntfs**
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 **scrounge_ntfs** 进行 NTFS 恢复
+- en: JPEG recovery using Recoverjpeg
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Recoverjpeg 进行 JPEG 恢复
+- en: File basics
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 文件基础
+- en: Before we get started on the practical aspects, let’s briefly go through some
+    common terminology.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始实际操作之前，先简要了解一些常见术语。
+- en: When we last covered filesystems in [*Chapter 6*](B19441_06.xhtml#_idTextAnchor093)*,
+    Understanding File Systems and Storage*, we learned that various operating systems
+    use their own filesystems to be able to store, access, and modify data. Storage
+    media use file systems to do the very same.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上一次我们在[*第六章*](B19441_06.xhtml#_idTextAnchor093)《理解文件系统与存储》中讲解了文件系统时，我们了解到各种操作系统使用自己特定的文件系统来存储、访问和修改数据。存储介质也使用文件系统来完成相同的操作。
+- en: '**Metadata**, or data about data, helps an operating system identify data.
+    Metadata includes technical information, such as the creation and modification
+    dates, and the file type of the data. This data makes it much easier to locate
+    and index files.'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**元数据**，即关于数据的数据，帮助操作系统识别数据。元数据包括技术信息，如创建和修改日期以及数据的文件类型。这些数据使文件的定位和索引变得更加容易。'
+- en: As the name implies, **unallocated space** is an area of storage media that
+    has been marked by an operating system or file table as empty, or unallocated
+    to any file or data. Although the location of, and information about, the file
+    is not present and sometimes corrupted, there are still characteristics about
+    the file that reside in its header and footer that can identify the file, or even
+    fragments of the file.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如其名字所示，**未分配空间**是操作系统或文件表标记为空的存储介质区域，或者是未分配给任何文件或数据的区域。虽然文件的位置和信息可能不存在，甚至可能被破坏，但文件的头部和尾部仍然存在一些特征，可以用来识别文件，甚至是文件的碎片。
+- en: Even if a file extension has been changed or is missing altogether, file headers
+    contain information that can identify the file type and we can attempt to carve
+    the file by analyzing the header and footer information. Data carving is quite
+    a lengthy process and should be done using automated tools to save time. It also
+    helps if the investigator has an idea of what file types they are looking for,
+    giving them a better focus and saving time. Nevertheless, this is forensics, and
+    we know that time and patience are key.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使文件扩展名已更改或完全丢失，文件头仍包含可以识别文件类型的信息，我们可以通过分析头部和尾部信息来尝试雕刻文件。数据雕刻是一个相当漫长的过程，应使用自动化工具来节省时间。如果调查员对正在寻找的文件类型有所了解，能更好地聚焦，也能节省时间。然而，这毕竟是取证，我们知道时间和耐心是关键。
+- en: 'Some common file types, as displayed in hexadecimal format within the file
+    headers, include the following:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些常见的文件类型，如在文件头部以十六进制格式显示的文件头信息，包括以下内容：
+- en: '**Joint Photographic Experts Group (JPEG)**: FF D8 FF E0'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**联合图像专家组（JPEG）**: FF D8 FF E0'
+- en: '**Portable Document Format (PDF)**: 25 50 44 46'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**便携文档格式（PDF）**: 25 50 44 46'
+- en: While more on the analysis of files and headers will be looked at in [*Chapter
+    12*](B19441_12.xhtml#_idTextAnchor225), *Autopsy Forensic Browser,* and [*Chapter
+    13*](B19441_13.xhtml#_idTextAnchor234), *Performing a Full DFIR Analysis with
+    the Autopsy 4 GUI*, using Autopsy, let’s first download the sample files we will
+    be using for data carving in Kali Linux.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[*第12章*](B19441_12.xhtml#_idTextAnchor225)中将深入分析文件和头部，[*第13章*](B19441_13.xhtml#_idTextAnchor234)中则介绍了*使用Autopsy进行完整的DFIR分析*，使用Autopsy工具。首先，让我们下载我们将在Kali
+    Linux中用于数据雕刻的示例文件。
+- en: Downloading the sample files
+  id: totrans-23
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 下载示例文件
+- en: Before we begin our DFIR file recovery and data carving activities, I thought
+    it would be a good idea to first have all sample files downloaded, which will
+    allow us to jump straight into the specifics of using each tool without the process
+    being interrupted.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始DFIR文件恢复和数据雕刻活动之前，我认为先下载所有示例文件是个好主意，这样我们就可以直接进入使用每个工具的具体操作，而不会被中断。
+- en: 'We will be using the following sites, which generously offer free datasets
+    and acquisitions to the public. A special thank you to all that have compiled
+    and invested their time and resources to make these datasets available to us:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用以下网站，这些网站慷慨地向公众提供免费数据集和采集资源。特别感谢所有汇编并投入时间和资源使这些数据集对我们开放的人们：
+- en: 'Digital Forensics Tool Testing Images: [https://dftt.sourceforge.net/](https://dftt.sourceforge.net/)'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数字取证工具测试镜像：[https://dftt.sourceforge.net/](https://dftt.sourceforge.net/)
+- en: '**Computer Forensic Reference DataSets** (**CFReDS**): [https://cfreds.nist.gov/](https://cfreds.nist.gov/)'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**计算机取证参考数据集**（**CFReDS**）：[https://cfreds.nist.gov/](https://cfreds.nist.gov/)'
+- en: 'Digital Corpora: [https://digitalcorpora.org/](https://digitalcorpora.org/)'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数字语料库：[https://digitalcorpora.org/](https://digitalcorpora.org/)
+- en: 'Foremost sample file: [https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2](https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2)'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Foremost示例文件：[https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2](https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2)
+- en: 'Scalpel: [http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download](http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download)'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Scalpel：[http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download](http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download)
+- en: 'Bulk Extractor: [https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01](https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01)'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Bulk Extractor：[https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01](https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01)
+- en: Although only the preceding sample files will be used for our lab purposes,
+    you are certainly free to download other sample files from the aforementioned
+    sites and try to carve those images, using the following tools where applicable.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管我们实验室只会使用上述示例文件，你完全可以从前述网站下载其他示例文件，并尝试使用以下工具进行雕刻。
+- en: File recovery and data carving with Foremost
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Foremost进行文件恢复和数据雕刻
+- en: 'Foremost is a simple and effective CLI tool that carves and recovers files
+    by reading the headers and footers of the files. We can start Foremost by clicking
+    on **Applications** | **11 - Forensics** | **Foremost**. However, I prefer starting
+    Foremost from the Terminal within the folder containing our sample acquired files,
+    which will simplify the entire process without errors. So, let’s get started:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Foremost是一个简单而有效的命令行工具，通过读取文件的头部和尾部来雕刻和恢复文件。我们可以通过点击**应用程序** | **11 - 取证** |
+    **Foremost**来启动Foremost。但我更倾向于从终端启动Foremost，并进入存放我们示例采集文件的文件夹，这样可以简化整个过程，避免出错。好了，让我们开始吧：
+- en: 'If you haven’t yet downloaded the sample forensic acquisition file, you can
+    do so now by clicking on this link:'
+  id: totrans-35
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果你还没有下载示例取证采集文件，可以通过点击这个链接进行下载：
+- en: '[https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2](https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2](https://cfreds-archive.nist.gov/FileCarving/Images/L0_Documents.dd.bz2)'
+- en: Once this file has been downloaded, I recommend creating a *new folder* in the
+    **Downloads** folder by right-clicking in the **Downloads** folder and clicking
+    on **Create Folder**. We will call this folder **Foremost**. We will also create
+    folders for each tool as we move along in this chapter to avoid having a cluttered
+    **Downloads** folder, and for the sake of having an organized DFIR workspace.
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下载该文件后，我建议在**下载**文件夹中右键点击并选择**创建文件夹**，以便创建一个*新文件夹*。我们将这个文件夹命名为**Foremost**。在本章接下来的操作中，我们还将为每个工具创建文件夹，以避免**下载**文件夹凌乱，并且为了确保有一个有序的
+    DFIR 工作区。
+- en: '![Figure 9.1 – File downloads with the Downloads folder](image/Figure_9.01_B19441.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.1 – 带有下载文件夹的文件下载](image/Figure_9.01_B19441.jpg)'
+- en: Figure 9.1 – File downloads with the Downloads folder
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.1 – 带有下载文件夹的文件下载
+- en: Drag the **L0_Documents.dd.bz2** file into the **Foremost** folder that you
+    just created. By default, the **L0_Documents.dd.bz2** file will be downloaded
+    to your **Downloads** folder. The downloaded file is a compressed **BunZip (.bz2)**
+    format and contains a **datadump (.dd)** acquisition file that must be extracted.
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将**L0_Documents.dd.bz2**文件拖入你刚刚创建的**Foremost**文件夹。默认情况下，**L0_Documents.dd.bz2**文件会被下载到你的**下载**文件夹。下载的文件是压缩的**BunZip
+    (.bz2)**格式，包含一个必须解压的**datadump (.dd)**采集文件。
+- en: To extract the **.dd** file, right-click on the **L0_Documents.dd.bz2** file
+    and click on the **Extract Here** option, as shown here.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了提取**.dd**文件，右键点击**L0_Documents.dd.bz2**文件，然后点击**提取到此处**选项，如图所示。
+- en: '![Figure 9.2 – Extracting the downloaded files](image/Figure_9.02_B19441.jpg)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.2 – 提取下载的文件](image/Figure_9.02_B19441.jpg)'
+- en: Figure 9.2 – Extracting the downloaded files
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.2 – 提取下载的文件
+- en: You should now see the **L0_Documents.dd** evidence file in your **Foremost**
+    folder.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在你应该能在你的**Foremost**文件夹中看到**L0_Documents.dd**证据文件。
+- en: '![Figure 9.3 – The extracted image file](image/Figure_9.03_B19441.jpg)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.3 – 已提取的图像文件](image/Figure_9.03_B19441.jpg)'
+- en: Figure 9.3 – The extracted image file
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.3 – 已提取的图像文件
+- en: Here’s the fun part! Let’s click on the **New Terminal** icon at the top of
+    the screen to open a new Terminal and begin carving and recovering files from
+    our forensic acquisition sample.
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在是有趣的部分！点击屏幕顶部的**新建终端**图标，打开一个新终端，开始从我们的法医采集样本中提取和恢复文件。
+- en: 'Once in the Terminal, we must change our working directory (using the **cd**
+    command) to the **Foremost** folder within our **Downloads** folder. To do this,
+    type the following commands in the Terminal and press *Enter*:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进入终端后，我们必须使用**cd**命令将工作目录更改为**下载**文件夹中的**Foremost**文件夹。为此，在终端中输入以下命令并按*回车*：
+- en: '[PRE0]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Important note
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: All commands are *case-sensitive* and should be typed exactly as I have typed
+    them.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有命令都是*区分大小写*的，应该与我输入的完全一致。
+- en: Next, type **ls** to list and show the files to ensure that we are in the correct
+    directory, where our files are located.
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，输入**ls**命令来列出并显示文件，以确保我们在正确的目录中，文件也在该目录下。
+- en: '[PRE1]'
+  id: totrans-53
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: In the following screenshot, I’ve entered the aforementioned commands and can
+    see the files we have downloaded and extracted.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的截图中，我已经输入了上述命令，并可以看到我们已下载并解压的文件。
+- en: '![Figure 9.4 – Using the ls command](image/Figure_9.04_B19441.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.4 – 使用 ls 命令](image/Figure_9.04_B19441.jpg)'
+- en: Figure 9.4 – Using the ls command
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.4 – 使用 ls 命令
+- en: 'To have a better understanding of Foremost and the switches used, try browsing
+    the **Foremost System Manager’s Manual**. This can be done by entering the following
+    command:'
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 若想更好地了解 Foremost 及其使用的开关，请尝试浏览**Foremost 系统管理员手册**。可以通过输入以下命令来实现：
+- en: '[PRE2]'
+  id: totrans-58
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '![Figure 9.5 – The Foremost help manual](image/Figure_9.05_B19441.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.5 – Foremost 帮助手册](image/Figure_9.05_B19441.jpg)'
+- en: Figure 9.5 – The Foremost help manual
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.5 – Foremost 帮助手册
+- en: 'The syntax for using Foremost is as follows:'
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 Foremost 的语法如下：
+- en: '[PRE3]'
+  id: totrans-62
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Using the preceding format, let’s enter the following command and options to
+    carve files from the evidence file and recover them into a folder of our choice:'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用上述格式，输入以下命令和选项，从证据文件中提取文件并恢复到我们选择的文件夹中：
+- en: '[PRE4]'
+  id: totrans-64
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: In this example, we have specified the **L0_documents.dd** file as the input
+    file **(-i**) and specified an empty folder named **L0_Documents_Recovery** as
+    the output file (**-o**). Additionally, other switches can be specified as needed.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们指定了**L0_documents.dd**文件作为输入文件**(-i)**，并指定了一个名为**L0_Documents_Recovery**的空文件夹作为输出文件**(-o)**。此外，根据需要还可以指定其他开关。
+- en: '![Figure 9.6 – Foremost command output](image/Figure_9.06_B19441.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.6 – Foremost 命令输出](image/Figure_9.06_B19441.jpg)'
+- en: Figure 9.6 – Foremost command output
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.6 – Foremost 命令输出
+- en: Although the characters in the preceding output may be unreadable, the carved
+    files will be clearly categorized and summarized in the specified output folder.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管前面的输出字符可能难以读取，但雕刻的文件会在指定的输出文件夹中清晰地分类和总结。
+- en: To view our carved files, click on the **Home** folder icon at the top of the
+    screen, click on the **Downloads** folder, and then click on **Open Folder**.
+    Double-click on your **Foremost** folder and then open the **LO_Documents_Recovery**
+    folder.
+  id: totrans-69
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看我们已雕刻的文件，点击屏幕顶部的 **Home** 文件夹图标，点击 **Downloads** 文件夹，然后点击 **Open Folder**。双击你的
+    **Foremost** 文件夹，然后打开 **LO_Documents_Recovery** 文件夹。
+- en: '![Figure 9.7 – The Foremost recovery folder](image/Figure_9.07_B19441.jpg)'
+  id: totrans-70
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.7 – Foremost 恢复文件夹](image/Figure_9.07_B19441.jpg)'
+- en: Figure 9.7 – The Foremost recovery folder
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.7 – Foremost 恢复文件夹
+- en: Foremost has automatically created subfolders for the relevant file types. To
+    view a list of all files carved and recovered, open the **audit.txt** file.
+  id: totrans-72
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Foremost 已自动为相关文件类型创建了子文件夹。要查看所有已雕刻和恢复的文件列表，可以打开 **audit.txt** 文件。
+- en: '![Figure 9.8 – The contents of the audit.txt file](image/Figure_9.08_B19441.jpg)'
+  id: totrans-73
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.8 – audit.txt 文件内容](image/Figure_9.08_B19441.jpg)'
+- en: Figure 9.8 – The contents of the audit.txt file
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.8 – audit.txt 文件内容
+- en: The **audit.txt** file tells us that there were nine files carved/recovered,
+    including images, MS Office, and PDF documents. Feel free to browse the various
+    subfolders to view the carved files.
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**audit.txt** 文件告诉我们，共有九个文件被雕刻/恢复，包括图像、MS Office 和 PDF 文档。你可以随意浏览各种子文件夹，以查看雕刻出的文件。'
+- en: '![Figure 9.9 – Recovered .xlsx documents](image/Figure_9.09_B19441.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.9 – 恢复的 .xlsx 文档](image/Figure_9.09_B19441.jpg)'
+- en: Figure 9.9 – Recovered .xlsx documents
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.9 – 恢复的 .xlsx 文档
+- en: Congratulations on your first successful DFIR recovery! Let us now move on to
+    another recovery tool called Magic Rescue.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恭喜你成功完成了第一次 DFIR 恢复！接下来，我们将介绍另一种恢复工具，叫做 Magic Rescue。
+- en: Image recovery with Magicrescue
+  id: totrans-79
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Magicrescue 恢复图像
+- en: '**Magicrescue** is an older tool that is still very useful, as it quickly scans
+    and recovers certain file types that must be manually specified. For this lab,
+    I’ll be using a 32-GB SanDisk flash drive, which once contained several audio,
+    video, and image files that were all deleted by accident:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Magicrescue** 是一个较老的工具，但它仍然非常有用，因为它可以快速扫描并恢复某些必须手动指定的文件类型。在这个实验中，我将使用一个 32GB
+    的 SanDisk 闪存驱动器，它曾包含若干音频、视频和图像文件，这些文件全部被意外删除：'
+- en: 'I’ll first run the **fdisk** command to view the device information by typing
+    the following:'
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我将首先运行 **fdisk** 命令，通过输入以下内容来查看设备信息：
+- en: '[PRE5]'
+  id: totrans-82
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The **fdisk** command output seen in the following screenshot shows that the
+    flash drive is recognized as **sdc2**.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图中的 **fdisk** 命令输出显示，闪存驱动器被识别为 **sdc2**。
+- en: '![Figure 9.10 – fdisk command output showing disk information](image/Figure_9.10_B19441.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.10 – fdisk 命令输出，显示磁盘信息](image/Figure_9.10_B19441.jpg)'
+- en: Figure 9.10 – fdisk command output showing disk information
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.10 – fdisk 命令输出，显示磁盘信息
+- en: 'Before we continue, it is useful to view the magicrescue help manual by typing
+    the following:'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在继续之前，查看 magicrescue 帮助手册是非常有用的，可以通过输入以下命令来实现：
+- en: '[PRE6]'
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The following figure shows the usage options in magicrescue:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图示展示了 magicrescue 中的使用选项：
+- en: '![Figure 9.11 – Magicrescue usage options](image/Figure_9.11_B19441.jpg)'
+  id: totrans-89
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.11 – Magicrescue 使用选项](image/Figure_9.11_B19441.jpg)'
+- en: Figure 9.11 – Magicrescue usage options
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.11 – Magicrescue 使用选项
+- en: To run magicrescue and search and recover files, we must first know which file
+    types can be recovered. I’ve navigated to the **usr** | **share** | **magicrescue**
+    | **recipes** folder, which shows the recipes or file types available for recovery
+    by magicrescue. These *recipes*, as they are called, must be manually specified
+    when using the **magicrescue** command.
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要运行 magicrescue 并搜索和恢复文件，我们首先需要知道可以恢复哪些文件类型。我已经导航到 **usr** | **share** | **magicrescue**
+    | **recipes** 文件夹，里面显示了 magicrescue 可用的配方或文件类型。这些 *配方*，就是在使用 **magicrescue** 命令时必须手动指定的内容。
+- en: '![Figure 9.12 – Magicrescue recipe types](image/Figure_9.12_B19441.jpg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.12 – Magicrescue 配方类型](image/Figure_9.12_B19441.jpg)'
+- en: Figure 9.12 – Magicrescue recipe types
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.12 – Magicrescue 配方类型
+- en: To use magicrescue to recover JPEG files from my flash drive, recognized as
+    **sdb2**, I’ll first create a folder on my desktop called **Rescue**, which will
+    be the destination to which to save my recovered files.
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用 magicrescue 从我的闪存驱动器恢复 JPEG 文件，该驱动器被识别为 **sdb2**，我将首先在桌面上创建一个名为 **Rescue**
+    的文件夹，将其设置为保存恢复文件的目标文件夹。
+- en: 'In a new Terminal, change to the **Desktop** directory by typing the following:'
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在新的终端中，通过输入以下内容切换到 **Desktop** 目录：
+- en: '[PRE7]'
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Then, create a new folder by typing the following:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，输入以下命令创建一个新文件夹：
+- en: '[PRE8]'
+  id: totrans-98
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Change to the **Rescue** directory by typing the following:'
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过输入以下命令切换到**Rescue**目录：
+- en: '[PRE9]'
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: The following screenshot shows the output within the Terminal when changing
+    directories.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了切换目录时终端中的输出。
+- en: '![Figure 9.13 – Changing working directories](image/Figure_9.13_B19441.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.13 – 切换工作目录](image/Figure_9.13_B19441.jpg)'
+- en: Figure 9.13 – Changing working directories
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.13 – 切换工作目录
+- en: 'To use Magic Rescue to recover files from my **sdb2** drive into the **Rescue**
+    folder on the desktop, I’ll type the following command with specific recipe options
+    for image files:'
+  id: totrans-104
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用Magic Rescue从我的**sdb2**驱动器中恢复文件到桌面上的**Rescue**文件夹，我将输入以下命令，并使用特定的图像文件选项：
+- en: '[PRE10]'
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Once run, Kali will output the details of the recovered files, as shown in the
+    following screenshot.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦运行，Kali会输出已恢复文件的详细信息，如以下截图所示。
+- en: '![Figure 9.14 – Magicrescue file carving and recovery](image/Figure_9.14_B19441.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.14 – Magicrescue文件切割与恢复](image/Figure_9.14_B19441.jpg)'
+- en: Figure 9.14 – Magicrescue file carving and recovery
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.14 – Magicrescue文件切割与恢复
+- en: We can now open the **Rescue** folder on the desktop to view the recovered files.
+    As shown in the following screenshot, several deleted images were quickly recovered.
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们可以打开桌面上的**Rescue**文件夹来查看恢复的文件。如以下截图所示，几个已删除的图像被快速恢复。
+- en: '![Figure 9.15 – Carved and recovered files](image/Figure_9.15_B19441.jpg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.15 – 切割和恢复的文件](image/Figure_9.15_B19441.jpg)'
+- en: Figure 9.15 – Carved and recovered files
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.15 – 切割和恢复的文件
+- en: Let’s now move on to another popular and powerful file carving tool called Scalpel.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们继续介绍另一个流行且强大的文件切割工具，名为Scalpel。
+- en: Data carving with Scalpel
+  id: totrans-113
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Scalpel进行数据切割
+- en: '**Scalpel** was created as an improvement of a much earlier version of Foremost.
+    Scalpel aims to address the high CPU and RAM usage issues of Foremost when carving
+    data.'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Scalpel** 是对早期版本的Foremost进行改进后创建的。Scalpel旨在解决Foremost在切割数据时出现的高CPU和内存占用问题。'
+- en: 'Unlike Foremost, file types of interest must be specified by an investigator
+    in the Scalpel configuration file. This file is called **scalpel.conf** and is
+    located at **etc/scapel/**:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与Foremost不同，感兴趣的文件类型必须由调查人员在Scalpel配置文件中指定。此文件名为**scalpel.conf**，位于**etc/scapel/**目录下：
+- en: '![Figure 9.16 – The Scalpel configuration file](image/Figure_9.16_B19441.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.16 – Scalpel配置文件](image/Figure_9.16_B19441.jpg)'
+- en: Figure 9.16 – The Scalpel configuration file
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.16 – Scalpel配置文件
+- en: 'To specify the file types, the investigator must remove the comments at the
+    start of theline containing the file type, as all supported file types are commented
+    out with a hashtag at the beginning of the file type. The following screenshot
+    shows the default Scalpel configuration file (**scalpel.conf**) with all file
+    types commented out. Note that each line begins with a hashtag:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要指定文件类型，调查人员必须删除包含文件类型的行开头的注释，因为所有支持的文件类型都被井号注释掉。以下截图显示了默认的Scalpel配置文件（**scalpel.conf**），其中所有文件类型都被注释掉。请注意，每一行都以井号开始：
+- en: '![Figure 9.17 – Scalpel file types within the conf file](image/Figure_9.17_B19441.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.17 – Scalpel配置文件中的文件类型](image/Figure_9.17_B19441.jpg)'
+- en: Figure 9.17 – Scalpel file types within the conf file
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.17 – Scalpel配置文件中的文件类型
+- en: 'I’ve removed the hashtags at the beginning of some of the lines to let Scalpel
+    know to search for these specific file types; this also reduces the time taken
+    to otherwise search for all supported file types. The following screenshot (*Figure
+    9**.17*) shows that Scalpel will be searching for GIF, PNG, and TIFF files, as
+    the comments have been removed. I have also removed hashtags from all video, MS
+    Office, email, and PDF file types to allow Scalpel to search for additional file
+    types. If you are having issues with saving the changes to the file, this may
+    have to be done as a user with root access:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我已删除某些行开头的井号，以让Scalpel知道搜索这些特定的文件类型；这样也能减少搜索所有支持的文件类型所需的时间。以下截图（*图 9.17*）显示，Scalpel将搜索GIF、PNG和TIFF文件，因为注释已经被移除。我还删除了视频、MS
+    Office、电子邮件和PDF文件类型前的井号，以允许Scalpel搜索更多的文件类型。如果你在保存文件更改时遇到问题，可能需要以具有root权限的用户身份进行此操作：
+- en: 'For this lab, we will use the **11-carve-fat.dd** evidence file that we previously
+    downloaded. If you did not do so, you can do so now by clicking on the following
+    link:'
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于这个实验，我们将使用之前下载的**11-carve-fat.dd**证据文件。如果你还没有下载，可以通过点击以下链接现在下载：
+- en: '[http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download](http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download](http://prdownloads.sourceforge.net/dftt/11-carve-fat.zip?download)'
+- en: The file downloads as a **.zip** file and must be extracted before being used.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件以 **.zip** 格式下载，必须先解压才能使用。
+- en: In the **Downloads** folder, right-click on the **11-carve-fat.zip** file and
+    click on the **Extract Here** option, which will then extract the **11-carve-fat.zip**
+    file to the **Downloads** folder.
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **Downloads** 文件夹中，右键点击 **11-carve-fat.zip** 文件，选择 **Extract Here** 选项，然后将
+    **11-carve-fat.zip** 文件解压到 **Downloads** 文件夹。
+- en: 'Let’s use the Terminal to change directories to the **Downloads** folder like
+    we did when using Foremost by typing the following:'
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们使用终端将目录更改为 **Downloads** 文件夹，就像我们使用 Foremost 时那样，输入以下命令：
+- en: '[PRE11]'
+  id: totrans-127
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'To view the available options and their usage in Scalpel, type the following
+    command:'
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看 Scalpel 中可用的选项及其使用方法，输入以下命令：
+- en: '[PRE12]'
+  id: totrans-129
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: As we can see in the following screenshot, we have many options available to
+    us for carving and recovery when using **scalpel**.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如下图所示，使用 **scalpel** 时我们可以进行多种切割和恢复操作。
+- en: '![Figure 9.18 – Scalpel usage options](image/Figure_9.18_B19441.jpg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.18 – Scalpel 使用选项](image/Figure_9.18_B19441.jpg)'
+- en: Figure 9.18 – Scalpel usage options
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.18 – Scalpel 使用选项
+- en: 'To run Scalpel against our sample evidence file, type the following command:'
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要对我们的示例证据文件运行 Scalpel，输入以下命令：
+- en: '[PRE13]'
+  id: totrans-134
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: The following screenshot shows the output of the previously used command.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前使用的命令的输出结果。
+- en: '![Figure 9.19 – Scalpel carving command](image/Figure_9.19_B19441.jpg)'
+  id: totrans-136
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.19 – Scalpel 切割命令](image/Figure_9.19_B19441.jpg)'
+- en: Figure 9.19 – Scalpel carving command
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.19 – Scalpel 切割命令
+- en: The following screenshot shows the continued output of the command that we just
+    used.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了我们刚才使用的命令的继续输出。
+- en: '![Figure 9.20 – Scalpel command output](image/Figure_9.20_B19441.jpg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.20 – Scalpel 命令输出](image/Figure_9.20_B19441.jpg)'
+- en: Figure 9.20 – Scalpel command output
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.20 – Scalpel 命令输出
+- en: In the previous screenshot (*Figure 9**.20*), we can see that Scalpel builds
+    a carve list, showing the file type with header and footer information, as well
+    as the number of files carved.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在之前的截图中（*图 9.20*），我们可以看到 Scalpel 构建了一个切割列表，显示了文件类型以及头部和尾部信息，并展示了已切割的文件数量。
+- en: 'Taking a closer look at the last few lines produced by the Scalpel output,
+    we can see that the carving process was 100% complete, with 18 files being carved:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 仔细查看 Scalpel 输出的最后几行，我们可以看到切割过程已完成 100%，共切割了 18 个文件：
+- en: '![Figure 9.21 – A snippet of the Scalpel command output](image/Figure_9.21_B19441.jpg)'
+  id: totrans-143
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.21 – Scalpel 命令输出的一部分](image/Figure_9.21_B19441.jpg)'
+- en: Figure 9.21 – A snippet of the Scalpel command output
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.21 – Scalpel 命令输出的一部分
+- en: 'We can now open the **scalpelOutput** folder to view our carved files. The
+    results of the Scalpel output are similar to that of Foremost, with both output
+    folders containing various subfolders with carved files, along with an **audit.txt**
+    file with details of the findings:'
+  id: totrans-145
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们可以打开 **scalpelOutput** 文件夹查看已切割的文件。Scalpel 输出的结果与 Foremost 类似，两个输出文件夹都包含多个子文件夹，其中存放着切割的文件，并附有一个包含详细发现的
+    **audit.txt** 文件：
+- en: '![Figure 9.22 – Carved contents within the scalpelOutput folder](image/Figure_9.22_B19441.jpg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.22 – scalpelOutput 文件夹中的切割内容](image/Figure_9.22_B19441.jpg)'
+- en: Figure 9.22 – Carved contents within the scalpelOutput folder
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.22 – scalpelOutput 文件夹中的切割内容
+- en: Foremost, magicrescue, and Scalpel, as we’ve seen so far, are quite impressive
+    at file carving and data recovery; however, they are limited to specific file
+    types only. For further extraction of data, we will now look at another tool called
+    **bulk_extractor**.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们看到 Foremost、magicrescue 和 Scalpel 在文件切割和数据恢复方面非常出色；然而，它们仅限于特定的文件类型。为了进一步提取数据，我们将介绍另一个工具，称为
+    **bulk_extractor**。
+- en: Data extraction with bulk_extractor
+  id: totrans-149
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 bulk_extractor 提取数据
+- en: 'The **bulk_extractor** tool extracts several additional types of information
+    that can be very useful in investigations. Although **bulk_extractor** is quite
+    capable of recovering and carving image, video, and document files, other data
+    that can be carved and extracted by **bulk_extractor** includes the following:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**bulk_extractor** 工具提取了多种额外类型的信息，这些信息在调查中非常有用。虽然 **bulk_extractor** 相当强大，能够恢复和切割图像、视频和文档文件，但它还能够切割和提取的其他数据类型包括以下内容：'
+- en: Credit card numbers
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 信用卡号码
+- en: Email addresses
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 电子邮件地址
+- en: URLs
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: URL
+- en: Online searches
+  id: totrans-154
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在线搜索
+- en: Social media profiles and information
+  id: totrans-155
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 社交媒体个人资料和信息
+- en: 'For this example, we will work with a freely available evidence file named
+    **nps-2010-emails.E01**:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个示例，我们将使用一个免费提供的证据文件，名为 **nps-2010-emails.E01**：
+- en: The **nps-2010-emails.E01** file can be downloaded directly from the digital
+    corpora website, which allows the use of forensic evidence images for forensic
+    research purposes.
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**nps-2010-emails.E01** 文件可以直接从数字语料库网站下载，网站允许将法证证据镜像用于法证研究目的。'
+- en: If not already downloaded, the file can be downloaded at [https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01](https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01).
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果还没有下载，可以在 [https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01](https://digitalcorpora.s3.amazonaws.com/corpora/drives/nps-2010-emails/nps-2010-emails.E01)
+    下载该文件。
+- en: 'Once downloaded, open a new Terminal and change to the **Downloads** folder,
+    just as we previously did. You can view the available options and usage by typing
+    the following:'
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下载完成后，打开新的终端并切换到 **Downloads** 文件夹，就像我们之前做的那样。你可以通过输入以下命令查看可用的选项和用法：
+- en: '[PRE14]'
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: The following screenshot shows the output of the previously used command.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了之前使用的命令的输出。
+- en: '![Figure 9.23 – bulk_extractor usage options](image/Figure_9.23_B19441.jpg)'
+  id: totrans-162
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.23 – bulk_extractor 使用选项](image/Figure_9.23_B19441.jpg)'
+- en: Figure 9.23 – bulk_extractor usage options
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.23 – bulk_extractor 使用选项
+- en: 'Like Foremost and Scalpel, the syntax for using **bulk_extractor** is quite
+    simple and requires that an output folder (**-o**) and the forensic image be specified.
+    Let us now use **bulk_extractor** to carve the evidence file and save all discovered
+    files and information to a folder named **bulk_carved** in the **Downloads** folder,
+    by typing the following command:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 像 Foremost 和 Scalpel 一样，**bulk_extractor** 的使用语法非常简单，需要指定输出文件夹 (**-o**) 和法证镜像。现在我们使用
+    **bulk_extractor** 来雕刻证据文件，并将所有发现的文件和信息保存到 **Downloads** 文件夹中的一个名为 **bulk_carved**
+    的文件夹里，输入以下命令：
+- en: '[PRE15]'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '![Figure 9.24 – bulk_extractor command output](image/Figure_9.24_B19441.jpg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.24 – bulk_extractor 命令输出](image/Figure_9.24_B19441.jpg)'
+- en: Figure 9.24 – bulk_extractor command output
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.24 – bulk_extractor 命令输出
+- en: 'Once completed, **bulk_extractor** indicates that all threads have finished
+    and provides a summary of the process and even some findings. The last line in
+    the following screenshot lists 67 found email features:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 完成后，**bulk_extractor** 会指示所有线程已完成，并提供过程摘要和一些发现。以下截图的最后一行列出了 67 个找到的电子邮件特征：
+- en: '![Figure 9.25 – A snippet of the bulk_extractor output](image/Figure_9.25_B19441.jpg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.25 – bulk_extractor 输出的片段](image/Figure_9.25_B19441.jpg)'
+- en: Figure 9.25 – A snippet of the bulk_extractor output
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.25 – bulk_extractor 输出的片段
+- en: 'To view the output and findings of **bulk_extractor**, we can change our directory
+    to the **bulk_carved** folder in **Downloads** and use the **ls -l** command.
+    In the following screenshot, we can see that several text files such as **domain_histogram.txt**,
+    **domain.txt**, **email_domain_histogram.txt**, and **email.txt** contain data,
+    as their file sizes are greater than zero:'
+  id: totrans-171
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了查看 **bulk_extractor** 的输出和发现，我们可以将目录更改为 **Downloads** 文件夹中的 **bulk_carved**
+    文件夹，并使用 **ls -l** 命令。以下截图中，我们可以看到几个文本文件，如 **domain_histogram.txt**、**domain.txt**、**email_domain_histogram.txt**
+    和 **email.txt**，它们包含数据，因为它们的文件大小大于零：
+- en: '![Figure 9.26 – A list of files carved by bulk_extractor](image/Figure_9.26_B19441.jpg)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.26 – bulk_extractor 雕刻的文件列表](image/Figure_9.26_B19441.jpg)'
+- en: Figure 9.26 – A list of files carved by bulk_extractor
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.26 – bulk_extractor 雕刻的文件列表
+- en: We can also open our **bulk_carved** folder and double-click on text files containing
+    data. Note that not all files will contain information. Files with a file size
+    of *zero* will contain no information.
+  id: totrans-174
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们还可以打开 **bulk_carved** 文件夹，双击包含数据的文本文件。请注意，并非所有文件都包含信息。文件大小为 *零* 的文件将不包含任何信息。
+- en: '![Figure 9.27 – Carved files within the bulk_extractor output folder](image/Figure_9.27_B19441.jpg)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.27 – bulk_extractor 输出文件夹中的雕刻文件](image/Figure_9.27_B19441.jpg)'
+- en: Figure 9.27 – Carved files within the bulk_extractor output folder
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.27 – bulk_extractor 输出文件夹中的雕刻文件
+- en: Let’s have a look at the **email.txt** file, as shown in the following screenshot.
+    We can see several email addresses and attachment details were carved by **bulk_extractor**.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们查看一下 **email.txt** 文件，如下截图所示。我们可以看到 **bulk_extractor** 雕刻了几个电子邮件地址和附件详细信息。
+- en: '![Figure 9.28 – Content within the carved email.txt file](image/Figure_9.28_B19441.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.28 – 雕刻的 email.txt 文件中的内容](image/Figure_9.28_B19441.jpg)'
+- en: Figure 9.28 – Content within the carved email.txt file
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.28 – 雕刻的 email.txt 文件中的内容
+- en: Now that we’ve covered some of the most popular file carving tools, let’s have
+    a look ata file recovery tool called **scrounge-ntfs**.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了一些最流行的文件雕刻工具，让我们来看一个名为 **scrounge-ntfs** 的文件恢复工具。
+- en: NTFS recovery using scrounge-ntfs
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 scrounge-ntfs 恢复 NTFS
+- en: '**scrounge-ntfs** is a tiny tool that comes with the default version as well
+    as the **Everything** metapackages of Kali Linux. A tiny but powerful tool, **scrouge-ntfs**
+    is a command-line tool for recovering drives formatted as **NTFS** (short for
+    **New Technology** **File System**), generally used by Windows devices. Most storage
+    media, including flash drives and storage media, can also be formatted as NTFS
+    using default formatting tools within Windows systems.'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**scrounge-ntfs** 是一个小工具，随 Kali Linux 的默认版本以及 **Everything** 元包一起提供。**scrouge-ntfs**
+    是一个小巧但功能强大的命令行工具，用于恢复格式化为 **NTFS**（即**新技术文件系统**）的驱动器，通常由 Windows 设备使用。大多数存储介质，包括闪存驱动器和存储介质，也可以使用
+    Windows 系统中的默认格式化工具格式化为 NTFS。'
+- en: It’s quite common for hard drives to have a corrupt **MFT** (short for **Master
+    File Table**). This table stores information about all files, including size,
+    permissions, content, and time stamps within NTFS drives. If this table becomes
+    corrupt or is missing, the contents of the drive may be inaccessible, or the drive
+    may not boot if it contains a bootable operating system.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 硬盘出现 **MFT**（即**主文件表**）损坏的情况非常常见。该表存储关于所有文件的信息，包括大小、权限、内容和时间戳。如果该表损坏或丢失，驱动器的内容可能无法访问，或者如果驱动器包含可启动的操作系统，它可能无法启动。
+- en: 'Regardless of the reason for an NTFS drive becoming corrupted, **scrounge-ntfs**
+    was built for the specific purpose of recovering files within an NTFS partition.
+    For this lab, I’ll be using an external hard drive formatted as NTFS, which has
+    also had all its contents deleted:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论 NTFS 驱动器因何种原因变得损坏，**scrounge-ntfs** 都是专门为恢复 NTFS 分区内的文件而设计的。对于本实验，我将使用一个格式化为
+    NTFS 的外部硬盘，并且已删除其中的所有内容：
+- en: 'Let’s first see what our device is listed as in Kali by running the following:'
+  id: totrans-185
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们首先通过运行以下命令来看一下我们的设备在 Kali 中的列出情况：
+- en: '[PRE16]'
+  id: totrans-186
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前输入命令的输出。
+- en: '![Figure 9.29 – fdisk output](image/Figure_9.29_B19441.jpg)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.29 – fdisk 输出](image/Figure_9.29_B19441.jpg)'
+- en: Figure 9.29 – fdisk output
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.29 – fdisk 输出
+- en: As seen here, my attached drive is listed as **sdb** too.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如图所示，我的附加驱动器也列为 **sdb**。
+- en: Before we begin the recovery process, I’d like to create a folder called **Scrounge_recovery**
+    on the desktop where all **scrounge-ntfs-**recovered files will be saved.
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在我们开始恢复过程之前，我想在桌面上创建一个名为**Scrounge_recovery**的文件夹，所有**scrounge-ntfs-**恢复的文件将保存在该文件夹中。
+- en: 'To do so, I’ll switch to the **Desktop** directory by typing the following:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为此，我将通过输入以下内容切换到 **Desktop** 目录：
+- en: '[PRE17]'
+  id: totrans-193
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Then, I’ll create the new directory by typing the following:'
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我将通过输入以下内容来创建新目录：
+- en: '[PRE18]'
+  id: totrans-195
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'I’ll now change my output directory to avoid having to specify the directory
+    name when typing the **scrounge-ntfs** command, by typing the following:'
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我将更改输出目录，以避免在输入 **scrounge-ntfs** 命令时每次都指定目录名称，方法是输入以下内容：
+- en: '[PRE19]'
+  id: totrans-197
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前输入命令的输出。
+- en: '![Figure 9.30 – Changing working directories](image/Figure_9.30_B19441.jpg)'
+  id: totrans-199
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.30 – 更改工作目录](image/Figure_9.30_B19441.jpg)'
+- en: Figure 9.30 – Changing working directories
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.30 – 更改工作目录
+- en: Note in the preceding screenshot (*Figure 9**.30*) that we can see my current
+    directory is **/Desktop/Scrounge_recovery**.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意在上面的截图中（*图 9.30*），我们可以看到我的当前目录是 **/Desktop/Scrounge_recovery**。
+- en: 'Let’s now view the usage and options of **scrounge_ntfs** by typing the following:'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，让我们通过输入以下内容查看 **scrounge_ntfs** 的使用情况和选项：
+- en: '[PRE20]'
+  id: totrans-203
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前输入命令的输出。
+- en: '![Figure 9.31 – scrounge-nfts usage options](image/Figure_9.31_B19441.jpg)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.31 – scrounge-ntfs 使用选项](image/Figure_9.31_B19441.jpg)'
+- en: Figure 9.31 – scrounge-nfts usage options
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.31 – scrounge-ntfs 使用选项
+- en: 'Let’s list all drive partitions by typing the following:'
+  id: totrans-207
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们通过输入以下内容列出所有驱动器分区：
+- en: '[PRE21]'
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前输入命令的输出。
+- en: '![Figure 9.32 – The drive details](image/Figure_9.32_B19441.jpg)'
+  id: totrans-210
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.32 – 驱动器详情](image/Figure_9.32_B19441.jpg)'
+- en: Figure 9.32 – The drive details
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.32 – 驱动器详情
+- en: 'Now that we can see the specific sector, cluster, and offset values (which
+    I’ve also listed here for clarity), we can use the format specified in the preceding
+    **scrounge-ntfs -h** output (*Figure 9**.32*):'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以看到具体的扇区、簇和偏移量值（我也在这里列出了它们以便清晰说明），我们可以使用前面**scrounge-ntfs -h**输出中指定的格式（*图
+    9.32*）：
+- en: '**Start** **Sector**: **16128**'
+  id: totrans-213
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**起始** **扇区**：**16128**'
+- en: '**End** **Sector**: **976768002**'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**结束** **扇区**：**976768002**'
+- en: '**Cluster** **Size**: **8**'
+  id: totrans-215
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**簇** **大小**：**8**'
+- en: '**MFT** **Offset**: **24**'
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**MFT** **偏移量**：**24**'
+- en: 'The default usage for **scrounge-ntfs** is as follows:'
+  id: totrans-217
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**scrounge-ntfs**的默认使用方法如下所示：'
+- en: '[PRE22]'
+  id: totrans-218
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Let’s break down the preceding options:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来逐一分析前面的选项：
+- en: '**-o [outdir]** = the output directory to save all recovered files to'
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**-o [outdir]** = 输出目录，用于保存所有恢复的文件'
+- en: '**disk** = the drive to recover'
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**disk** = 要恢复的驱动器'
+- en: '**start** = the start sector'
+  id: totrans-222
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**start** = 起始扇区'
+- en: '**end** = the end sector'
+  id: totrans-223
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**end** = 结束扇区'
+- en: 'For my drive, the command will be the following:'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于我的驱动器，命令将如下所示：
+- en: '[PRE23]'
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: I did not specify an outdir or output directory command, as I am already within
+    the output directory of **Scrounge_recovery**, which I previously created.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我没有指定输出目录或目录命令，因为我已经在之前创建的**Scrounge_recovery**输出目录中。
+- en: Once you have double-checked your values to ensure they are correct, hit the
+    *Enter* key.
+  id: totrans-227
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦你核对过这些值，确保它们正确无误，就按下*Enter*键。
+- en: '![Figure 9.33 – The scrounge-ntfs command and output](image/Figure_9.33_B19441.jpg)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.33 – scrounge-ntfs 命令和输出](image/Figure_9.33_B19441.jpg)'
+- en: Figure 9.33 – The scrounge-ntfs command and output
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.33 – scrounge-ntfs 命令和输出
+- en: In the preceding output, you can see the files being recovered.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的输出中，您可以看到正在恢复的文件。
+- en: 'I can now list all files in the **Scrounge_recovery** directory or double-click
+    on **Scrounge_directory** on the desktop to view my recovered files:'
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我现在可以列出**Scrounge_recovery**目录中的所有文件，或者双击桌面上的**Scrounge_directory**以查看我恢复的文件：
+- en: '![Figure 9.34 – The recovered files](image/Figure_9.34_B19441.jpg)'
+  id: totrans-232
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.34 – 恢复的文件](image/Figure_9.34_B19441.jpg)'
+- en: Figure 9.34 – The recovered files
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.34 – 恢复的文件
+- en: As seen in this section, **scrounge-ntfs** is a very useful tool for NTFS drive
+    and partition recovery. Let’s move on to our final tool for this chapter called
+    Recoverjpeg, which can be used to quickly recover image files.
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如本节所示，**scrounge-ntfs**是一个非常有用的NTFS驱动器和分区恢复工具。接下来我们将介绍本章的最后一个工具——Recoverjpeg，它可以快速恢复图像文件。
+- en: Image recovery using Recoverjpeg
+  id: totrans-235
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Recoverjpeg 恢复图像
+- en: 'The last tool that I’ll cover in this chapter is **recoverjpeg**, which, as
+    the name implies, recovers JPEG images. This tool quickly and easily recovers
+    deleted photos from any storage media type. For this lab, I’ll be using a formatted
+    32-GB flash drive that once contained family photos I’d like to recover:'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我要介绍的最后一个工具是**recoverjpeg**，顾名思义，它用于恢复JPEG图像。这个工具可以快速而轻松地从任何存储介质中恢复已删除的照片。对于本实验，我将使用一只已经格式化的32GB闪存驱动器，这只驱动器曾存储着我希望恢复的家庭照片：
+- en: I’ll first create a folder called **Recoverjpeg** on my desktop where all recovered
+    files will be saved to. This helps keep things organized, as not specifying an
+    output folder for all recovered files to be saved results in the recovered files
+    being saved to the **Home** or current working directory, which can clutter your
+    workspace.
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我首先会在桌面上创建一个名为**Recoverjpeg**的文件夹，所有恢复的文件都将保存在这个文件夹中。这有助于保持文件的整洁，因为如果不指定一个输出文件夹，所有恢复的文件将被保存在**Home**文件夹或当前工作目录中，这样会使你的工作空间变得凌乱。
+- en: 'In the following screenshot, I’ve typed the **cd** command followed by **mkdir
+    Recoverjpeg** to create this folder on my desktop:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，我输入了**cd**命令，后跟**mkdir Recoverjpeg**，以便在桌面上创建这个文件夹：
+- en: '![Figure 9.35 – Creating the output folder](image/Figure_9.35_B19441.jpg)'
+  id: totrans-239
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.35 – 创建输出文件夹](image/Figure_9.35_B19441.jpg)'
+- en: Figure 9.35 – Creating the output folder
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.35 – 创建输出文件夹
+- en: 'Next, I’ll install the **recoverjpeg** tool by typing the following command:'
+  id: totrans-241
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我将通过输入以下命令来安装**recoverjpeg**工具：
+- en: '[PRE24]'
+  id: totrans-242
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了先前输入命令的输出。
+- en: '![Figure 9.36 – Installing recoverjpeg](image/Figure_9.36_B19441.jpg)'
+  id: totrans-244
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.36 – 安装 recoverjpeg](image/Figure_9.36_B19441.jpg)'
+- en: Figure 9.36 – Installing recoverjpeg
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.36 – 安装 recoverjpeg
+- en: Note that the last line in the preceding screenshot prompts us to press *Y*
+    to continue the installation. Press *Y* and then *Enter* to proceed.
+  id: totrans-246
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，前一截图中的最后一行提示我们按*Y*键以继续安装。按*Y*键后再按*Enter*键继续。
+- en: 'Next, I’ll make sure that my flash drive is recognized in Kali by typing **sudo**
+    **fdisk –l**:'
+  id: totrans-247
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我会通过输入**sudo fdisk –l**来确保Kali系统能够识别我的闪存驱动器：
+- en: '![Figure 9.37 – fdisk command output](image/Figure_9.37_B19441.jpg)'
+  id: totrans-248
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.37 – fdisk 命令输出](image/Figure_9.37_B19441.jpg)'
+- en: Figure 9.37 – fdisk command output
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.37 – fdisk 命令输出
+- en: In the preceding screenshot, we can see that my Cruzer Blade 32-GB flash drive
+    is listed as **/dev/sdb**.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们可以看到我的 Cruzer Blade 32GB 闪存驱动器列为**/dev/sdb**。
+- en: 'I’ll now change directories to the **Recoverjpeg** folder that I previously
+    created, where all recovered files will be stored, by typing **cd Recoverjpeg**:'
+  id: totrans-251
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我将通过输入**cd Recoverjpeg**命令，切换到之前创建的**Recoverjpeg**文件夹，在这里所有恢复的文件将被存储：
+- en: '![Figure 9.38 – Changing to the output directory](image/Figure_9.38_B19441.jpg)'
+  id: totrans-252
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.38 – 切换到输出目录](image/Figure_9.38_B19441.jpg)'
+- en: Figure 9.38 – Changing to the output directory
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.38 – 切换到输出目录
+- en: 'To view the usage options for Recoverjpeg, type **recoverjpeg**:'
+  id: totrans-254
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看 Recoverjpeg 的使用选项，输入**recoverjpeg**：
+- en: '![Figure 9.39 – recoverjpeg usage options](image/Figure_9.39_B19441.jpg)'
+  id: totrans-255
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.39 – recoverjpeg 使用选项](image/Figure_9.39_B19441.jpg)'
+- en: Figure 9.39 – recoverjpeg usage options
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.39 – recoverjpeg 使用选项
+- en: 'Now that I know which drive I’d like to recover images from, I now use **recoverjpeg**
+    to scan and recover images by typing the following command:'
+  id: totrans-257
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我知道了我要从哪个驱动器恢复图片，我使用**recoverjpeg**来扫描并恢复图片，输入以下命令：
+- en: '[PRE25]'
+  id: totrans-258
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: The following screenshot shows the output of the previously typed command.
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了之前输入的命令的输出。
+- en: '![Figure 9.40 – Using the recoverjpeg command](image/Figure_9.40_B19441.jpg)'
+  id: totrans-260
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.40 – 使用 recoverjpeg 命令](image/Figure_9.40_B19441.jpg)'
+- en: Figure 9.40 – Using the recoverjpeg command
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.40 – 使用 recoverjpeg 命令
+- en: Important note
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Depending on the size of the drive or image, this can take quite a few minutes.
+    Once the recovery is complete, recoverjpeg will display the number of files recovered.
+    In *Figure 8**.44*, we can see that a total of 2,021 files were recovered.
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据驱动器或镜像的大小，这可能需要几分钟时间。一旦恢复完成，recoverjpeg 会显示恢复的文件数量。在*图 8.44*中，我们可以看到总共恢复了2,021个文件。
+- en: '![Figure 9.41 – recoverjpeg process completion](image/Figure_9.41_B19441.jpg)'
+  id: totrans-264
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.41 – recoverjpeg 过程完成](image/Figure_9.41_B19441.jpg)'
+- en: Figure 9.41 – recoverjpeg process completion
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.41 – recoverjpeg 过程完成
+- en: The recovered files were saved in the **Recoverjpeg** folder on the desktop
+    but will not have their original names. Instead, all recovered images will be
+    named in numeric order, starting from **image00000.jpg**, as shown in the following
+    screenshot.
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恢复的文件保存在桌面上的**Recoverjpeg**文件夹中，但不会保留原始文件名。相反，所有恢复的图片将按数字顺序命名，从**image00000.jpg**开始，如下图所示。
+- en: '![Figure 9.42 – Recovered jpeg photos within the output folder](image/Figure_9.42_B19441.jpg)'
+  id: totrans-267
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.42 – 输出文件夹中的恢复 jpeg 照片](image/Figure_9.42_B19441.jpg)'
+- en: Figure 9.42 – Recovered jpeg photos within the output folder
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.42 – 输出文件夹中的恢复 jpeg 照片
+- en: I hope you found this tool as useful and easy to use as I do. This brings us
+    to the end of our chapter. I encourage you to practice using these tools, as you
+    will find that data recovery is one of the most common aspects of DFIR.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望你和我一样觉得这个工具既实用又易于使用。这也标志着我们章节的结束。我鼓励你练习使用这些工具，因为你会发现数据恢复是 DFIR 中最常见的一个方面。
+- en: Summary
+  id: totrans-270
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we learned about file recovery and data carving using popular
+    open source tools in Kali Linux. We first performed file carving using the very
+    impressive Foremost, which carved the entire downloaded forensic image for supported
+    file types within the file header and footers. We then did the same using Magicrescue
+    and Scalpel, but we had to make slight modifications by selecting the file types
+    we wished to carve. Both Foremost and Scalpel presented us with an **audit.txt**
+    file, summarizing the carve list and its details along with subfolders containing
+    the actual evidence.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们学习了使用 Kali Linux 中的流行开源工具进行文件恢复和数据提取。我们首先使用了非常强大的 Foremost 工具进行文件提取，它从文件头部和尾部提取支持的文件类型，整个下载的取证图像都被提取了出来。然后，我们使用
+    Magicrescue 和 Scalpel 做了同样的事，但我们需要稍微修改，选择我们希望提取的文件类型。Foremost 和 Scalpel 都生成了**audit.txt**文件，总结了提取列表及其详细信息，并包含了包含实际证据的子文件夹。
+- en: '**bulk_extractor** is a wonderful tool that carves data and also finds useful
+    information, such as email addresses, visited URLs, Facebook URLs, credit card
+    numbers, and a variety of other information. **bulk_extractor** is also great
+    for investigations requiring file recovery and carving, together with either Foremost
+    or Scalpel, or even both.'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**bulk_extractor** 是一款非常棒的工具，它可以提取数据并找到有用的信息，如电子邮件地址、访问过的 URL、Facebook URL、信用卡号码等各种信息。**bulk_extractor**
+    也非常适合需要文件恢复和数据提取的调查，可以与 Foremost 或 Scalpel 结合使用，甚至两者都可以一起使用。'
+- en: Lastly, we looked at file recovery using **scrounge_NTFS** and **recoverjpeg**
+    to recover data and images from drives rather than forensic images.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们介绍了使用**scrounge_NTFS**和**recoverjpeg**从驱动器而非取证镜像中恢复数据和图像的方法。
+- en: Now that we’ve covered file carving and recovery, let’s move on to something
+    more analytical. In the next chapter, we’ll take a look at exploring RAM and the
+    paging file as part of memory forensics, using the very powerful volatility. See
+    you there!
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经讲解了文件雕刻和恢复，接下来我们将转向更具分析性的内容。在下一章，我们将使用非常强大的volatility，探讨如何作为内存取证的一部分，分析RAM和分页文件。到时候见！

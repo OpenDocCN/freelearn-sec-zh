@@ -1,0 +1,1678 @@
+- en: '4'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '4'
+- en: Assessing Authentication Schemes
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 评估认证方案
+- en: This chapter covers some basic authentication penetration test cases. For background,
+    **authentication** is the act of verifying whether a person’s or object’s claim
+    of identity is true. Web penetration testers must make key assessments to determine
+    the strength of a target application’s authentication mechanism. Such tests include
+    username enumeration, guessable accounts, weak lockout mechanisms, authentication
+    bypasses, browser-caching weaknesses, and account provisioning omissions, particularly
+    related to **Representational State Transfer** (**REST**) API calls. You will
+    learn how to use Burp Suite to perform such tests.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章涵盖了一些基本的认证渗透测试用例。背景知识：**认证**是验证个人或物体身份声明是否真实的行为。Web 渗透测试人员必须进行关键评估，以确定目标应用程序认证机制的强度。这些测试包括用户名枚举、可猜测的账户、弱锁定机制、认证绕过、浏览器缓存漏洞和账户配置遗漏，特别是与
+    **表现性状态转移** (**REST**) API 调用相关的内容。您将学习如何使用 Burp Suite 执行这些测试。
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下几个测试步骤：
+- en: Testing for account enumeration and guessable accounts
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试账户枚举和可猜测的账户
+- en: Testing for weak lockout mechanisms
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试弱锁定机制
+- en: Testing for bypassing authentication schemes
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试绕过认证机制
+- en: Testing for browser cache weaknesses
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试浏览器缓存弱点
+- en: Testing the account provisioning process via the REST API
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过 REST API 测试账户配置过程
+- en: Technical requirements
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete the recipes in this chapter, you will need the following:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要完成本章中的测试步骤，您需要以下内容：
+- en: OWASP **Broken Web Applications** (**BWA**) (VM)
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP **破损的网络应用程序** (**BWA**) (虚拟机)
+- en: An OWASP Mutillidae link
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 OWASP Mutillidae 链接
+- en: A GetBoo link
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 GetBoo 链接
+- en: Burp Suite Proxy Community or Professional ([https://portswigger.net/burp/](B21173_04.xhtml#_idTextAnchor214))
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Burp Suite Proxy 社区版或专业版 ([https://portswigger.net/burp/](B21173_04.xhtml#_idTextAnchor214))
+- en: The Firefox browser configured to allow Burp Suite to proxy traffic ([https://www.mozilla.org/en-US/firefox/new/](B21173_04.xhtml#_idTextAnchor268))
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置为允许 Burp Suite 代理流量的 Firefox 浏览器 ([https://www.mozilla.org/en-US/firefox/new/](B21173_04.xhtml#_idTextAnchor268))
+- en: Testing for account enumeration and guessable accounts
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试账户枚举和可猜测的账户
+- en: By interacting with an authentication mechanism and studying responses, a tester
+    may be able to collect a set of valid usernames. Once valid accounts have been
+    identified, testers can attempt to brute-force passwords. This recipe explains
+    how Burp Suite Repeater can be used to collect a list of valid usernames via the
+    username enumeration attack.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过与认证机制的交互并研究响应，测试人员可能能够收集一组有效的用户名。一旦确定了有效账户，测试人员可以尝试暴力破解密码。本步骤解释了如何使用 Burp
+    Suite Repeater 通过用户名枚举攻击收集有效用户名列表。
+- en: Getting ready
+  id: totrans-18
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using the **OWASP GetBoo** application and Burp, we will perform a username
+    enumeration attack against the target.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 **OWASP GetBoo** 应用程序和 Burp，我们将对目标执行用户名枚举攻击。
+- en: How to do it...
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Ensure Burp Suite and the OWASP BWA VM are running, and that Burp Suite is
+    configured in your Firefox browser so that you can view the OWASP BWA applications:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 Burp Suite 和 OWASP BWA 虚拟机正在运行，并且 Burp Suite 已在您的 Firefox 浏览器中配置，以便您可以查看
+    OWASP BWA 应用程序：
+- en: 'From the OWASP BWA landing page, click the link to the **GetBoo** application:'
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 OWASP BWA 主页，点击链接进入 **GetBoo** 应用程序：
+- en: '![Figure 4.1 – OWASP BWA landing page](image/B21173_Figure_4.01.jpg)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.1 – OWASP BWA 主页](image/B21173_Figure_4.01.jpg)'
+- en: Figure 4.1 – OWASP BWA landing page
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.1 – OWASP BWA 主页
+- en: 'Click the **Log In** button and, at the login screen, attempt to log in with
+    an account username of **demo** and a password of **aaaaaa**:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **登录** 按钮，并在登录页面尝试使用 **demo** 用户名和 **aaaaaa** 密码登录：
+- en: '![Figure 4.2 – GetBoo login page](image/B21173_Figure_4.02.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.2 – GetBoo 登录页面](image/B21173_Figure_4.02.jpg)'
+- en: Figure 4.2 – GetBoo login page
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.2 – GetBoo 登录页面
+- en: 'Note that a message stating **The password is invalid**. is returned. From
+    this information, we now know the **demo** username has a valid account. Let’s
+    use Burp Suite **Repeater** to find more accounts:'
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，返回了一条消息 **密码无效**。从这些信息中，我们现在知道 **demo** 用户名有一个有效账户。让我们使用 Burp Suite **Repeater**
+    来查找更多账户：
+- en: '![Figure 4.3 – Overly verbose error message after a failed login attempt with
+    a valid username and invalid password](image/B21173_Figure_4.03.jpg)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.3 – 使用有效用户名和无效密码进行登录失败后的过于详细的错误信息](image/B21173_Figure_4.03.jpg)'
+- en: Figure 4.3 – Overly verbose error message after a failed login attempt with
+    a valid username and invalid password
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.3 – 使用有效用户名和无效密码进行登录失败后的过于详细的错误信息
+- en: 'In Burp’s **Proxy** | **HTTP history** tab, find the failed login attempt message.
+    View the **Response** | **Raw** tab to find the same overly verbose error message,
+    **The password** **is invalid**.:'
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Burp 的**代理** | **HTTP 历史**标签页中，找到失败的登录尝试消息。查看**响应** | **原始**标签页，找到相同的冗长错误消息，**密码**
+    **无效**：
+- en: '![Figure 4.4 – Failed login attempt, as seen in Burp](image/B21173_Figure_4.04.jpg)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.4 – 在 Burp 中看到的失败登录尝试](image/B21173_Figure_4.04.jpg)'
+- en: Figure 4.4 – Failed login attempt, as seen in Burp
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.4 – 在 Burp 中看到的失败登录尝试
+- en: 'Flip back to the **Request** | **Raw** tab and right-click to send this request
+    to **Repeater**:'
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换回**请求** | **原始**标签页，右键点击并将此请求发送到**Repeater**：
+- en: '![Figure 4.5 – Contextual menu to send request to Repeater](image/B21173_Figure_4.05.jpg)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.5 – 发送请求到 Repeater 的上下文菜单](image/B21173_Figure_4.05.jpg)'
+- en: Figure 4.5 – Contextual menu to send request to Repeater
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.5 – 发送请求到 Repeater 的上下文菜单
+- en: 'Go to Burp’s **Repeater** tab where you sent the request. Click the **Send**
+    button. Notice the message in the response – **The security token** **is invalid**:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到 Burp 的**Repeater**标签页，在其中发送请求。点击**发送**按钮。注意响应中的消息 – **安全令牌** **无效**：
+- en: '![Figure 4.6 – The Repeater tab with the failed login attempt](image/B21173_Figure_4.06.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.6 – 带有失败登录尝试的 Repeater 标签页](image/B21173_Figure_4.06.jpg)'
+- en: Figure 4.6 – The Repeater tab with the failed login attempt
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.6 – 带有失败登录尝试的 Repeater 标签页
+- en: 'The message about the invalid security token is due to the token that was sent
+    with each request not being refreshed when we are inside Repeater sending the
+    same request over and again. Because the target application expects the token
+    value to change upon each POST request, we can craft our request inside Repeater
+    to get past this message. Let’s learn how we can make Burp Suite change the token
+    value for us! We can build a session handling rule with a macro to fix this situation:'
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关于无效安全令牌的消息是由于每个请求中发送的令牌在我们在 Repeater 中反复发送相同请求时没有被刷新。因为目标应用程序期望每次 POST 请求时令牌值都会变化，我们可以在
+    Repeater 中构建我们的请求，绕过这个消息。让我们来学习如何让 Burp Suite 为我们更改令牌值！我们可以使用宏创建一个会话处理规则来解决这个问题：
+- en: '![Figure 4.7 – The token value in each POST request must be unique](image/B21173_Figure_4.07.jpg)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.7 – 每个 POST 请求中的令牌值必须是唯一的](image/B21173_Figure_4.07.jpg)'
+- en: Figure 4.7 – The token value in each POST request must be unique
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.7 – 每个 POST 请求中的令牌值必须是唯一的
+- en: 'Our first step in building a session handling rule with a macro is to select
+    the **Settings** gear icon at the top right-hand corner of Burp:'
+  id: totrans-43
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建带有宏的会话处理规则的第一步是点击 Burp 右上角的**设置**齿轮图标：
+- en: '![Figure 4.8 – The Settings gear icon](image/B21173_Figure_4.08.jpg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.8 – 设置齿轮图标](image/B21173_Figure_4.08.jpg)'
+- en: Figure 4.8 – The Settings gear icon
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.8 – 设置齿轮图标
+- en: 'In the pop-out window, make sure **All** configurations are selected and the
+    **Sessions** area is highlighted, as shown in the following screenshot:'
+  id: totrans-46
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在弹出窗口中，确保选中了**所有**配置，并且**会话**区域被高亮显示，如下截图所示：
+- en: '![Figure 4.9 – All | Sessions](image/B21173_Figure_4.09.jpg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.9 – 所有 | 会话](image/B21173_Figure_4.09.jpg)'
+- en: Figure 4.9 – All | Sessions
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.9 – 所有 | 会话
+- en: 'After highlighting **Sessions**, go inside the **Session handling rules** area
+    and click the **Add** button to add a new rule:'
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在高亮显示**会话**后，进入**会话处理规则**区域并点击**添加**按钮，添加一个新规则：
+- en: '![Figure 4.10 – Creating a new session handling rule with a macro to handle
+    refreshing the token](image/B21173_Figure_4.010.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.10 – 创建一个新的会话处理规则，并使用宏处理令牌刷新](image/B21173_Figure_4.010.jpg)'
+- en: Figure 4.10 – Creating a new session handling rule with a macro to handle refreshing
+    the token
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.10 – 创建一个新的会话处理规则，并使用宏处理令牌刷新
+- en: 'When the **Session handling rule editor** area appears, type **RefreshToken**
+    as the name of the new rule. For **Rule actions**, select **Run** **a macro**:'
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当**会话处理规则编辑器**区域出现时，输入**RefreshToken**作为新规则的名称。在**规则操作**中，选择**运行** **一个宏**：
+- en: '![Figure 4.11 – Naming our session handling rule and defining the action](image/B21173_Figure_4.011.jpg)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.11 – 命名我们的会话处理规则并定义操作](image/B21173_Figure_4.011.jpg)'
+- en: Figure 4.11 – Naming our session handling rule and defining the action
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.11 – 命名我们的会话处理规则并定义操作
+- en: 'When the **Session handling editor** pop-out window opens, select the **Update
+    only the following parameters and headers** radio button and type **token**. Please
+    *do not* skip this step; otherwise, the rule will not work properly:'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当**会话处理编辑器**弹出窗口打开时，选择**仅更新以下参数和头信息**单选按钮并输入**token**。请*不要*跳过此步骤，否则规则将无法正常工作：
+- en: '![Figure 4.12 – Update only the token parameter setting](image/B21173_Figure_4.012.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.12 – 仅更新 token 参数设置](image/B21173_Figure_4.012.jpg)'
+- en: Figure 4.12 – Update only the token parameter setting
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.12 – 仅更新 token 参数设置
+- en: 'In the same **Session handling editor** pop-out window, at the top, click the
+    **Add** button under **Select macro**:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在同一个**会话处理编辑器**弹出窗口中，顶部点击**添加**按钮，位于**选择宏**下：
+- en: '![Figure 4.13 – Session handling action editor settings](image/B21173_Figure_4.013.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.13 – 会话处理操作编辑器设置](image/B21173_Figure_4.013.jpg)'
+- en: Figure 4.13 – Session handling action editor settings
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.13 – 会话处理操作编辑器设置
+- en: 'After clicking **Add** under **Select macro**, two new pop-out windows will
+    appear. In the **Macro Recorder** table shown here, look for the POST **/getboo/login.php**
+    request inside the history containing the **demo** username and the **aaaaaa**
+    password. This is the same request you performed in the browser and the same one
+    we looked at originally in **Repeater**. You must now find it in the **Macro Recorder**
+    table to have the macro *replay* the request:'
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**添加**按钮后，在**选择宏**下会弹出两个新窗口。在这里显示的**宏录制器**表格中，找到历史记录中包含**demo**用户名和**aaaaaa**密码的
+    POST **/getboo/login.php** 请求。这是你在浏览器中执行的相同请求，也是我们最初在**Repeater**中查看的相同请求。现在，你需要在**宏录制器**表格中找到它，以便让宏*重播*该请求：
+- en: '![Figure 4.14 – Macro Recorder](image/B21173_Figure_4.014.jpg)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.14 – 宏录制器](image/B21173_Figure_4.014.jpg)'
+- en: Figure 4.14 – Macro Recorder
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.14 – 宏录制器
+- en: 'Here is the request containing **demo** and **aaaaaa**:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是包含 **demo** 和 **aaaaaa** 的请求：
+- en: '![Figure 4.15 – Macro Recorder highlighting the POST request of the login](image/B21173_Figure_4.015.jpg)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.15 – 宏录制器高亮显示登录的 POST 请求](image/B21173_Figure_4.015.jpg)'
+- en: Figure 4.15 – Macro Recorder highlighting the POST request of the login
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.15 – 宏录制器高亮显示登录的 POST 请求
+- en: 'After finding the POST **/getboo/login.php** request inside the history, select
+    the GET **/getboo/login.php** request that occurred *just before* the POST (two
+    requests down, as shown in the following screenshot):'
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在历史记录中找到 POST **/getboo/login.php** 请求后，选择发生在 POST 之前*刚好*的 GET **/getboo/login.php**
+    请求（如下面截图所示，距离 POST 请求两次）：
+- en: '![Figure 4.16 – Macro Recorder of the previous GET request](image/B21173_Figure_4.016.jpg)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.16 – 前一个 GET 请求的宏录制器](image/B21173_Figure_4.016.jpg)'
+- en: Figure 4.16 – Macro Recorder of the previous GET request
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.16 – 前一个 GET 请求的宏录制器
+- en: 'The reason this GET **/getboo/login.php** request is important is that the
+    token value in the response is assigned to the token value of the POST two requests
+    later:'
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个 GET **/getboo/login.php** 请求之所以重要，是因为响应中的 token 值被分配到了两次请求后的 POST 请求的 token
+    值：
+- en: '![Figure 4.17 – The response of the previous GET assigns a hidden value for
+    the token](image/B21173_Figure_4.017.jpg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.17 – 前一个 GET 响应为 token 分配了一个隐藏值](image/B21173_Figure_4.017.jpg)'
+- en: Figure 4.17 – The response of the previous GET assigns a hidden value for the
+    token
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.17 – 前一个 GET 响应为 token 分配了一个隐藏值
+- en: 'As evidence and for your understanding, look at the POST **/getboo/login.php**
+    request again. Note that the value of the token matches the hidden value from
+    the previous GET response (that is, **ed881be5badd9b284239be84948a103a**):'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为证据并便于理解，再次查看 POST **/getboo/login.php** 请求。注意，token 的值与前一个 GET 响应中的隐藏值相匹配（即**ed881be5badd9b284239be84948a103a**）：
+- en: '![Figure 4.18 – The token value is used in the subsequent POST request](image/B21173_Figure_4.018.jpg)'
+  id: totrans-74
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.18 – token 值将在随后的 POST 请求中使用](image/B21173_Figure_4.018.jpg)'
+- en: Figure 4.18 – The token value is used in the subsequent POST request
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.18 – token 值将在随后的 POST 请求中使用
+- en: Using this pattern, we will create a macro to grab the ever-changing token value
+    from the GET response and have the unique value populate our token inside the
+    POST request we have waiting for us in **Repeater**. Running this macro should
+    fix the problem we are currently experiencing and get rid of the message stating
+    **The security token** **is invalid**.
+  id: totrans-76
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用这种模式，我们将创建一个宏，从 GET 响应中抓取不断变化的 token 值，并将该唯一值填充到我们在 **Repeater** 中等待的 POST
+    请求的 token 中。运行这个宏应该能解决我们当前遇到的问题，并去除显示**安全 token** **无效**的消息。
+- en: 'Now, let’s build the macro! Select *only* the GET **/getboo/login.php** request
+    from the **Macro Recorder** history table and click **OK**:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们构建宏！仅选择**宏录制器**历史记录中的 GET **/getboo/login.php** 请求，并点击**确定**：
+- en: '![Figure 4.19 – Macro Recorder search box](image/B21173_Figure_4.019.jpg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.19 – 宏录制器搜索框](image/B21173_Figure_4.019.jpg)'
+- en: Figure 4.19 – Macro Recorder search box
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.19 – 宏录制器搜索框
+- en: 'After clicking **OK**, you will return to the **Macro Editor** area. Feel free
+    to name your macro – for example, **TokenFromResponseMacro**. Ensure *only* the
+    GET **/getboo/login.php** request is shown in the table. Click **Configure item**:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**确定**后，您将返回到**宏编辑器**区域。可以随意为您的宏命名，例如**TokenFromResponseMacro**。确保表格中仅显示GET
+    **/getboo/login.php**请求。点击**配置项**：
+- en: '![Figure 4.20 – Macro Editor | Configure item](image/B21173_Figure_4.020.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.20 – 宏编辑器 | 配置项](image/B21173_Figure_4.020.jpg)'
+- en: Figure 4.20 – Macro Editor | Configure item
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.20 – 宏编辑器 | 配置项
+- en: 'A new pop-out window will appear entitled **Configure Macro Item**. We will
+    select a custom parameter in the response. Click **Add**:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一个新的弹出窗口将出现，标题为**配置宏项**。我们将在响应中选择一个自定义参数。点击**添加**：
+- en: '![Figure 4.21 – The Configure Macro Item custom parameter from the response](image/B21173_Figure_4.021.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.21 – 从响应中配置宏项的自定义参数](image/B21173_Figure_4.021.jpg)'
+- en: Figure 4.21 – The Configure Macro Item custom parameter from the response
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.21 – 从响应中配置宏项的自定义参数
+- en: 'Yet another pop-out window will appear, where you can define the custom parameter:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个弹出窗口将出现，您可以在其中定义自定义参数：
+- en: For the parameter name, type **token**.
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于参数名称，输入**token**。
+- en: Type **token** into the search box at the bottom to find where the token is
+    in the response.
+  id: totrans-88
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在底部的搜索框中输入**token**以查找响应中的token位置。
+- en: Once you find the token value, highlight the *value* from beginning to end.
+    If you highlighted it correctly, you should see **Start after expression** and
+    **End at delimiter** populated, as shown in the following screenshot.
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦找到token值，突出显示*值*的起始和结束。如果您正确突出显示，您应该看到**开始于表达式之后**和**结束于分隔符**的内容，如下图所示。
+- en: 'Click **OK** to close the **Define Custom** **Parameter** window:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击**确定**关闭**定义自定义** **参数**窗口：
+- en: '![Figure 4.22 – Define Custom Parameter](image/B21173_Figure_4.022.jpg)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.22 – 定义自定义参数](image/B21173_Figure_4.022.jpg)'
+- en: Figure 4.22 – Define Custom Parameter
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.22 – 定义自定义参数
+- en: After clicking **OK** three times to close all the pop-out windows, you should
+    return to the original **Session handling rule editor** dialog box. The view will
+    default to **Details**, so you need to select the other tab, **Scope**.
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**确定**三次关闭所有弹出窗口后，您应该返回到原始的**会话处理规则编辑器**对话框。视图将默认显示**详细信息**，因此您需要选择另一个标签，**范围**。
+- en: 'Under **Tools scope**, uncheck all tool boxes except the **Repeater** tool.
+    Under **URL scope**, select **Include all URLs**. Click **OK** to close the **Session
+    handling rule editor** dialog box:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在**工具范围**下，取消选中除**Repeater**工具之外的所有工具框。在**URL范围**下，选择**包括所有URL**。点击**确定**关闭**会话处理规则编辑器**对话框：
+- en: '![Figure 4.23 – Only assigning scope to Repeater](image/B21173_Figure_4.023.jpg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.23 – 仅为Repeater分配范围](image/B21173_Figure_4.023.jpg)'
+- en: Figure 4.23 – Only assigning scope to Repeater
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.23 – 仅为Repeater分配范围
+- en: 'Make sure your new session handling rule is enabled by ensuring the checkbox
+    is filled:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保您的新会话处理规则已启用，通过确保选中框被填充：
+- en: '![Figure 4.24 – Enabling the new session handling rule](image/B21173_Figure_4.024.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.24 – 启用新的会话处理规则](image/B21173_Figure_4.024.jpg)'
+- en: Figure 4.24 – Enabling the new session handling rule
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.24 – 启用新的会话处理规则
+- en: 'Now, you are ready to return to **Repeater** and test out the new session handling
+    rule with the macro. Re-send the POST **/getboo/login.php** request inside **Repeater**
+    with **demo** as the username and **aaaaaa** as the password. Now, you will see
+    that the message is **The password is invalid**. instead of **The security token
+    is invalid**. If you don’t see the new message, retrace your steps to create the
+    session handling rules and macro:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，您可以返回到**Repeater**并使用宏测试新的会话处理规则。在**Repeater**中重新发送POST **/getboo/login.php**请求，用户名为**demo**，密码为**aaaaaa**。现在，您将看到消息是**密码无效**，而不是**安全令牌无效**。如果您没有看到新的消息，请回顾您创建会话处理规则和宏的步骤：
+- en: '![Figure 4.25 – Retesting the POST request in Repeater](image/B21173_Figure_4.025.jpg)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.25 – 在Repeater中重新测试POST请求](image/B21173_Figure_4.025.jpg)'
+- en: Figure 4.25 – Retesting the POST request in Repeater
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.25 – 在Repeater中重新测试POST请求
+- en: 'We no longer receive the message stating **The security token is invalid**
+    inside Repeater. Great! Now that our session is handled properly with our macro,
+    let’s tweak the username in the POST request to see whether we can enumerate more
+    user accounts. In the name field, place an invalid username, such as **joey**,
+    and click the **Send** button. Notice the returned message of **The user does**
+    **not exist**.:'
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们不再在 Repeater 中收到**安全令牌无效**的消息了。太棒了！现在，我们的会话已经通过宏正确处理，让我们在 POST 请求中修改用户名，看看是否可以枚举更多的用户账户。在用户名字段中输入无效的用户名，如
+    **joey**，然后点击 **发送** 按钮。注意返回的消息是 **用户不存在**：
+- en: '![Figure 4.26 – Trying different usernames to get verbose responses](image/B21173_Figure_4.026.jpg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.26 – 尝试不同的用户名以获取详细响应](image/B21173_Figure_4.026.jpg)'
+- en: Figure 4.26 – Trying different usernames to get verbose responses
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.26 – 尝试不同的用户名以获取详细响应
+- en: Continue to try different users and observe the different verbose messages.
+    For example, try **admin**. What message do you get? Interesting! Now, we know
+    there is a valid admin account.
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续尝试不同的用户并观察不同的详细消息。例如，尝试 **admin**。你得到了什么消息？有趣！现在，我们知道有一个有效的 admin 账户。
+- en: Testing for weak lockout mechanisms
+  id: totrans-107
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试弱锁定机制
+- en: Account lockout mechanisms should be present within an application to mitigate
+    brute-force login attacks. Typically, applications set a threshold between three
+    to five attempts. Many applications lock accounts for a period before a re-attempt
+    is allowed.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用程序应该具备账户锁定机制，以防止暴力破解登录攻击。通常，应用程序会设定一个阈值，限制三到五次尝试。许多应用程序会在账户被锁定一段时间后，才允许再次尝试。
+- en: Penetration testers must test all aspects of login protections, including challenge
+    questions and responses, if present.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 渗透测试人员必须测试所有登录保护机制，包括挑战问题和回答（如果存在）。
+- en: Getting ready
+  id: totrans-110
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Determine whether an application has proper lockout mechanisms in place. If
+    they are not present, attempt to brute-force credentials against the login page
+    to achieve unauthorized access to the application. Using the OWASP Mutillidae
+    II application, attempt to log in five times with a valid username but an invalid
+    password.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定应用程序是否具有适当的锁定机制。如果没有，请尝试暴力破解凭据，访问登录页面，以实现对应用程序的未授权访问。使用 OWASP Mutillidae II
+    应用程序，尝试使用有效的用户名但无效的密码登录五次。
+- en: How to do it...
+  id: totrans-112
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Ensure Burp Suite and the OWASP BWA VM are running and that Burp Suite has
+    been configured in your Firefox browser so that you can view the OWASP BWA applications:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 Burp Suite 和 OWASP BWA 虚拟机正在运行，并且已经在 Firefox 浏览器中配置了 Burp Suite，以便查看 OWASP
+    BWA 应用程序：
+- en: From the OWASP BWA landing page, click the link to the OWASP Mutillidae II application.
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 OWASP BWA 登陆页面，点击链接进入 OWASP Mutillidae II 应用程序。
+- en: Open your Firefox browser and go to the login screen of OWASP Mutillidae II.
+    From the top menu, click **Login**.
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开 Firefox 浏览器，进入 OWASP Mutillidae II 的登录界面。从顶部菜单中点击 **登录**。
+- en: 'On the login screen, attempt to log in five times with the **admin** username
+    and the wrong password of **aaaaaa**. Notice that the application does not react
+    any differently during these five attempts. The application does not change the
+    error message shown, and the **admin** account is not locked out. This means the
+    login is probably susceptible to brute-force password-guessing attacks:'
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在登录界面，尝试使用 **admin** 用户名和错误密码 **aaaaaa** 登录五次。注意，在这五次尝试中，应用程序的反应没有任何不同。错误信息没有变化，**admin**
+    账户也没有被锁定。这意味着登录可能容易受到暴力破解密码攻击：
+- en: '![Figure 4.27 – Brute-forcing login attempts](image/B21173_Figure_4.027.jpg)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.27 – 暴力破解登录尝试](image/B21173_Figure_4.027.jpg)'
+- en: Figure 4.27 – Brute-forcing login attempts
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.27 – 暴力破解登录尝试
+- en: Let’s continue our testing to brute-force the login page and gain unauthorized
+    access to the application.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续我们的测试，暴力破解登录页面，获得对应用程序的未授权访问。
+- en: 'Go to the **Proxy** | **HTTP history** tab and look for the failed login attempts.
+    Once found, right-click and **Send** **to Intruder**:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到 **代理** | **HTTP 历史** 标签，查找失败的登录尝试。找到后，右键点击并选择 **发送到 Intruder**：
+- en: '![Figure 4.28 – Failed login attempt in HTTP history and Send to Intruder](image/B21173_Figure_4.028.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.28 – HTTP 历史中的登录失败尝试及发送到 Intruder](image/B21173_Figure_4.028.jpg)'
+- en: Figure 4.28 – Failed login attempt in HTTP history and Send to Intruder
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.28 – HTTP 历史中的登录失败尝试及发送到 Intruder
+- en: 'Go to Burp’s **Intruder** | **Positions** tab. If suggested payload markers
+    are present, click the **Clear §** button to remove them. If none are suggested,
+    you may ignore this step:'
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入 Burp 的**入侵者** | **位置**选项卡。如果出现建议的负载标记，请点击**清除 §**按钮将其移除。如果没有建议项，您可以忽略此步骤：
+- en: '![Figure 4.29 – The Intruder | Positions tab](image/B21173_Figure_4.029.jpg)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.29 – 入侵者 | 位置选项卡](image/B21173_Figure_4.029.jpg)'
+- en: Figure 4.29 – The Intruder | Positions tab
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.29 – 入侵者 | 位置选项卡
+- en: 'Then, highlight the password value of **aaaaaa** and click the **Add §** button:'
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，突出显示**aaaaaa**的密码值并点击**添加 §**按钮：
+- en: '![Figure 4.30 – Setting a substitution marker in the Intruder | Positions tab](image/B21173_Figure_4.030.jpg)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.30 – 在入侵者 | 位置选项卡中设置替换标记](image/B21173_Figure_4.030.jpg)'
+- en: Figure 4.30 – Setting a substitution marker in the Intruder | Positions tab
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.30 – 在入侵者 | 位置选项卡中设置替换标记
+- en: Continue to the **Intruder** | **Payloads** tab. Many testers use word lists
+    to brute-force commonly used passwords within the payload marker placeholder.
+    For this recipe, we will type in some common passwords to create a unique list
+    of payloads.
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续进入**入侵者** | **负载**选项卡。许多测试人员使用字典列表在负载标记占位符内暴力破解常用密码。对于本教程，我们将输入一些常见密码，创建一个独特的负载列表。
+- en: 'In the **Payload settings [Simple list]** section, type the **admin123** string
+    and click the **Add** button:'
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**负载设置 [简单列表]**部分，输入**admin123**字符串并点击**添加**按钮：
+- en: '![Figure 4.31 – Custom payload values](image/B21173_Figure_4.031.jpg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.31 – 自定义负载值](image/B21173_Figure_4.031.jpg)'
+- en: Figure 4.31 – Custom payload values
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.31 – 自定义负载值
+- en: 'Add a few more strings, such as **adminpass**, **welcome1**, and, **admin**,
+    to the payload-listing box:'
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在负载列表框中再添加一些字符串，如**adminpass**、**welcome1**和**admin**：
+- en: '![Figure 4.32 – Final list of custom payload values](image/B21173_Figure_4.032.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.32 – 自定义负载值的最终列表](image/B21173_Figure_4.032.jpg)'
+- en: Figure 4.32 – Final list of custom payload values
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.32 – 自定义负载值的最终列表
+- en: 'Go to the **Intruder** | **Settings** tab and scroll down to the **Grep -**
+    **Extract** section:'
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入**入侵者** | **设置**选项卡并向下滚动到**Grep - 提取**部分：
+- en: "![Figure 4.33 – Grep \uFEFF- Extract for a particular string literal on responses](image/B21173_Figure_4.033.jpg)"
+  id: totrans-137
+  prefs: []
+  type: TYPE_IMG
+  zh: "![图 4.33 – Grep \uFEFF- 提取响应中的特定字符串字面量](image/B21173_Figure_4.033.jpg)"
+- en: Figure 4.33 – Grep - Extract for a particular string literal on responses
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.33 – Grep - 提取响应中的特定字符串字面量
+- en: Click the **Extract the following items from responses** checkbox and then click
+    the **Add** button. A pop-up box will appear, displaying the response to the unsuccessful
+    login attempt you made with the **admin**/**aaaaaa** request.
+  id: totrans-139
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 勾选**从响应中提取以下项目**复选框，然后点击**添加**按钮。弹出框将显示您用**admin**/**aaaaaa**请求进行的失败登录尝试的响应。
+- en: 'In the search box at the bottom, search for **Not Logged In**. After finding
+    the match, you must highlight **Not Logged In** to assign the grep match correctly:'
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在底部的搜索框中，搜索**未登录**。找到匹配项后，您必须突出显示**未登录**以正确分配 grep 匹配：
+- en: '![Figure 4.34 – Grep for string literal](image/B21173_Figure_4.034.jpg)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.34 – Grep 查找字符串字面量](image/B21173_Figure_4.034.jpg)'
+- en: Figure 4.34 – Grep for string literal
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.34 – Grep 查找字符串字面量
+- en: If you do not highlight the words properly, after you click **OK**, you will
+    see **[INVALID]** inside the **Grep - Extract** box. If this happens, remove the
+    entry by clicking the **Remove** button and try again by clicking the **Add**
+    button, performing the search, and highlighting the words.
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果没有正确突出显示单词，在点击**确定**后，您将在**Grep - 提取**框中看到**[无效]**。如果发生这种情况，请点击**移除**按钮删除该条目，然后通过点击**添加**按钮、执行搜索并突出显示单词来重新尝试。
+- en: 'If you do highlight the words properly, you should see the following in the
+    **Grep -** **Extract** box:'
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果您正确突出显示了单词，您应该在**Grep - 提取**框中看到以下内容：
+- en: '![Figure 4.35 – Selecting a string literal to auto-populate the expression
+    start and end boxes](image/B21173_Figure_4.035.jpg)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.35 – 选择字符串字面量以自动填充表达式的开始和结束框](image/B21173_Figure_4.035.jpg)'
+- en: Figure 4.35 – Selecting a string literal to auto-populate the expression start
+    and end boxes
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.35 – 选择字符串字面量以自动填充表达式的开始和结束框
+- en: 'If you highlight the words correctly, after you click **OK** to close the **Define
+    extract grep item** dialog box, you will see the following expression in the **Grep
+    - Extract** text area:'
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果您正确突出显示了单词，在点击**确定**关闭**定义提取 grep 项目**对话框后，您将在**Grep - 提取**文本区域看到以下表达式：
+- en: '![Figure 4.36 – Final grep rule setting](image/B21173_Figure_4.036.jpg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.36 – 最终的 grep 规则设置](image/B21173_Figure_4.036.jpg)'
+- en: Figure 4.36 – Final grep rule setting
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.36 – 最终的 grep 规则设置
+- en: Now, click the **Start attack** button at the top right-hand side of the **Settings**
+    page. If your attack does not start and you see a **Resume** button, click it
+    to begin your attack. If you do not see the **Resume** button, you may disregard
+    this step.
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，点击**设置**页面右上角的**开始攻击**按钮。如果攻击没有开始，并且你看到**恢复**按钮，点击它以开始攻击。如果你没有看到**恢复**按钮，可以忽略此步骤。
+- en: A pop-up attack results table appears, displaying the request with the payloads
+    you defined placed in the payload marker positions. Notice that the attack table
+    that was produced shows an extra column entitled **ReflectedXSSExecution**. This
+    column is a result of the **Grep - Extract** rule that we set previously.
+  id: totrans-151
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 弹出攻击结果表格出现，显示了你定义的请求和放置在有效负载标记位置的有效负载。请注意，生成的攻击表格显示了一个额外的列，名为**ReflectedXSSExecution**。这个列是我们之前设置的**Grep
+    - Extract**规则的结果。
+- en: 'From this attack table, viewing the additional column we added from **Grep
+    - Extract**, a tester can easily identify which requests successfully brute-forced
+    the login screen. In this case, request **2** and request **4**:'
+  id: totrans-152
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从这个攻击表格中，通过查看我们从**Grep - Extract**添加的附加列，测试人员可以轻松识别哪些请求成功暴力破解了登录页面。在这种情况下，请求**2**和请求**4**：
+- en: '![Figure 4.37 – Attack table](image/B21173_Figure_4.037.jpg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.37 – 攻击表格](image/B21173_Figure_4.037.jpg)'
+- en: Figure 4.37 – Attack table
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.37 – 攻击表格
+- en: 'Select request **4** within the attack table and view the **Response** | **Render**
+    tab. You should see a message stating **Logged In Admin: admin (g0t r00t?)** at
+    the top right-hand side:'
+  id: totrans-155
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在攻击表格中选择请求**4**，并查看**响应** | **呈现**选项卡。你应该看到右上角有一条信息，内容为**已登录管理员：admin（g0t r00t？）**：
+- en: '![Figure 4.38 – Results of the attack logged in the session](image/B21173_Figure_4.038.jpg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.38 – 攻击结果记录在会话中](image/B21173_Figure_4.038.jpg)'
+- en: Figure 4.38 – Results of the attack logged in the session
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.38 – 攻击结果记录在会话中
+- en: Close the attack table by clicking the **X** button in the top right-hand corner.
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击右上角的**X**按钮关闭攻击表格。
+- en: With that, you successfully brute-forced the password of a valid account on
+    the system. Your attack was successful because the application has a weak lockout
+    mechanism.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样，你成功地暴力破解了系统中一个有效账户的密码。攻击成功是因为该应用程序的锁定机制较弱。
+- en: Testing for bypassing authentication schemes
+  id: totrans-160
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试绕过认证机制
+- en: Applications may contain flaws, allowing unauthorized access by bypassing the
+    authentication measures in place. Bypassing techniques include a **direct page
+    request** (that is, forced browsing), **parameter modification**, **session ID
+    prediction**, and **SQL** **i****njection**.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用程序可能存在缺陷，允许通过绕过认证措施进行未经授权的访问。绕过技术包括**直接页面请求**（即强制浏览），**参数修改**，**会话ID预测**，以及**SQL**
+    **注入**。
+- en: For this recipe, we will use parameter modification.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个配方，我们将使用参数修改。
+- en: Getting ready
+  id: totrans-163
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Edit the parameters of an authenticated request for a lower-privilege user to
+    elevate up to an admin. We will use **Proxy** | **Intercept** during login and
+    manipulate some cookie values to become a higher role. Once our privileges have
+    been escalated, we can gain access to administrative functionality without knowing
+    the admin’s credentials.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编辑经过身份验证的请求中的参数，将低权限用户提升为管理员。我们将在登录过程中使用**代理** | **拦截**，并操控一些cookie值来提升权限。一旦权限被提升，我们可以访问管理员功能，而无需知道管理员的凭证。
+- en: How to do it...
+  id: totrans-165
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Open your Firefox browser, or the Burp Suite browser, and go to the home page
+    of OWASP Mutillidae II by using the **Home** button from the top menu on the left-hand
+    side. Make sure you are *not logged in to* the application. If you are logged
+    in, select **Logout** from the menu:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开你的Firefox浏览器，或Burp Suite浏览器，点击左侧顶部菜单中的**主页**按钮，访问OWASP Mutillidae II的主页。确保你*未登录*该应用程序。如果已经登录，选择菜单中的**注销**：
+- en: '![Figure 4.39 – Confirm you are not logged in](image/B21173_Figure_4.039.jpg)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.39 – 确认你未登录](image/B21173_Figure_4.039.jpg)'
+- en: Figure 4.39 – Confirm you are not logged in
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.39 – 确认你未登录
+- en: 'Click the **Login/Register** link to navigate to the **Login** page:'
+  id: totrans-169
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**登录/注册**链接，导航到**登录**页面：
+- en: '![Figure 4.40 – No logged-in session](image/B21173_Figure_4.040.jpg)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.40 – 未登录会话](image/B21173_Figure_4.040.jpg)'
+- en: Figure 4.40 – No logged-in session
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.40 – 未登录会话
+- en: 'Go to Burp Suite’s **Proxy** tab and click **Intercept is on** (toggle on).
+    Type the username of **user** and the password of **user** into the login form:'
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到Burp Suite的**代理**选项卡，并点击**拦截已开启**（开启切换）。在登录表单中输入**user**的用户名和**user**的密码：
+- en: '![Figure 4.41 – Proxy | Intercept is on](image/B21173_Figure_4.041.jpg)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.41 – 代理 | 拦截开启](image/B21173_Figure_4.041.jpg)'
+- en: Figure 4.41 – Proxy | Intercept is on
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.41 – 代理 | 拦截开启
+- en: 'After entering your credentials, you should see that the request is held up
+    in **Proxy** | **Intercept**. Click **Forward**:'
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入凭据后，你应该会看到请求在**代理** | **拦截**中被拦截。点击**前进**：
+- en: '![Figure 4.42 – Clicking the Forward button to send the request to the web
+    server](image/B21173_Figure_4.042.jpg)'
+  id: totrans-176
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.42 – 点击“前进”按钮，将请求发送到 web 服务器](image/B21173_Figure_4.042.jpg)'
+- en: Figure 4.42 – Clicking the Forward button to send the request to the web server
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.42 – 点击“前进”按钮，将请求发送到 web 服务器
+- en: 'Continue to click **Forward** until you come to the GET **/mutillidae/index.php**
+    request, as shown here. Note the two cookies that we will manipulate – **username**
+    and **uid**:'
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续点击**前进**，直到看到 GET **/mutillidae/index.php** 请求，如图所示。注意我们将要操作的两个 cookie – **username**
+    和 **uid**：
+- en: '![Figure 4.43 – Notice the two cookie values, username and uid](image/B21173_Figure_4.043.jpg)'
+  id: totrans-179
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.43 – 注意这两个 cookie 值，用户名和 uid](image/B21173_Figure_4.043.jpg)'
+- en: Figure 4.43 – Notice the two cookie values, username and uid
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.43 – 注意这两个 cookie 值，用户名和 uid
+- en: 'Edit the two cookie values, changing **username** to **admin** and **uid**
+    to **1**. Once you’ve done this, forward the request:'
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 编辑这两个 cookie 值，将**username**改为**admin**，将**uid**改为**1**。完成后，转发请求：
+- en: '![Figure 4.44 – Manipulating the cookie values to elevate privileges](image/B21173_Figure_4.044.jpg)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.44 – 操作 cookie 值以提升权限](image/B21173_Figure_4.044.jpg)'
+- en: Figure 4.44 – Manipulating the cookie values to elevate privileges
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.44 – 操作 cookie 值以提升权限
+- en: 'After forwarding the request, choose **Proxy** | **Intercept is off** (toggle
+    off):'
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转发请求后，选择**代理** | **拦截已关闭**（关闭切换）：
+- en: '![Figure 4.45 – Proxy | Intercept is off](image/B21173_Figure_4.045.jpg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.45 – 代理 | 拦截已关闭](image/B21173_Figure_4.045.jpg)'
+- en: Figure 4.45 – Proxy | Intercept is off
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.45 – 代理 | 拦截已关闭
+- en: 'Return to your browser; notice that you are now logged in as **admin**. You’ve
+    elevated your standard user privileges to become an administrator:'
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回浏览器；注意你现在已以**管理员**身份登录。你已经将标准用户权限提升为管理员：
+- en: "![Figure 4.46 – Session now shows the adm\uFEFFi\uFEFFn session](image/B21173_Figure_4.046.jpg)"
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.46 – 会话现在显示为管理员会话](image/B21173_Figure_4.046.jpg)'
+- en: Figure 4.46 – Session now shows the admin session
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.46 – 会话现在显示为管理员会话
+- en: How it works…
+  id: totrans-190
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: By manipulating cookie values that are easily guessable, we can elevate our
+    authenticated session from a regular user to an administrator.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过操作容易猜测的 cookie 值，我们可以将已认证的会话从普通用户提升为管理员。
+- en: Testing for browser cache weaknesses
+  id: totrans-192
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试浏览器缓存的弱点
+- en: Browser caching is provided for improved performance and a better end user experience.
+    However, when sensitive data is typed into a browser by the user, such data can
+    also be cached in the browser history. We can view this cached data by examining
+    the browser’s cache or simply pressing the browser’s *back* button.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 浏览器缓存是为了提升性能和改善终端用户体验。然而，当用户在浏览器中输入敏感数据时，这些数据也可能被缓存到浏览器历史记录中。我们可以通过检查浏览器缓存或直接按下浏览器的*后退*按钮来查看这些缓存的数据。
+- en: Getting ready
+  id: totrans-194
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using the browser’s back button, determine whether login credentials are cached,
+    allowing for unauthorized access. Examine these steps in Burp to understand the
+    vulnerability.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用浏览器的后退按钮，判断是否缓存了登录凭据，从而允许未经授权的访问。通过检查 Burp 中的这些步骤，了解漏洞所在。
+- en: How to do it...
+  id: totrans-196
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: 'Log in to the Mutillidae application as **admin** with a password of **admin**:'
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以**管理员**身份并使用**admin**密码登录 Mutillidae 应用：
+- en: '![Figure 4.47 – Logging in as admin](image/B21173_Figure_4.047.jpg)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.47 – 以管理员身份登录](image/B21173_Figure_4.047.jpg)'
+- en: Figure 4.47 – Logging in as admin
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.47 – 以管理员身份登录
+- en: Now, log out of the application by clicking the **Logout** button from the top
+    menu.
+  id: totrans-200
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，通过点击顶部菜单中的**注销**按钮，退出应用程序。
+- en: '![Figure 4.48 – Logout](image/B21173_Figure_4.048.jpg)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.48 – 注销](image/B21173_Figure_4.048.jpg)'
+- en: Figure 4.48 – Logout
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.48 – 注销
+- en: 'Verify you are logged out by noting the **Not Logged** **In** message:'
+  id: totrans-203
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过注意到**未登录**的消息，确认你已退出登录：
+- en: '![Figure 4.49 – Verifying that you’re not logged in](image/B21173_Figure_4.049.jpg)'
+  id: totrans-204
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.49 – 验证你尚未登录](image/B21173_Figure_4.049.jpg)'
+- en: Figure 4.49 – Verifying that you’re not logged in
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.49 – 验证你尚未登录
+- en: 'View these steps as messages in Burp’s **Proxy** | **HTTP history** area as
+    well. Note that the logout performs a **302** redirect to not cache cookies or
+    credentials in the browser:'
+  id: totrans-206
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Burp 的**代理** | **HTTP 历史**区域也可以查看这些步骤。注意，注销会执行**302**重定向，以避免在浏览器中缓存 cookie
+    或凭据：
+- en: '![Figure 4.50 – Finding the logout request under Proxy | HTTP history](image/B21173_Figure_4.050.jpg)'
+  id: totrans-207
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.50 – 在Proxy | HTTP历史记录中查找登出请求](image/B21173_Figure_4.050.jpg)'
+- en: Figure 4.50 – Finding the logout request under Proxy | HTTP history
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.50 – 在Proxy | HTTP历史记录中查找登出请求
+- en: 'From your Firefox browser, click the *back* button:'
+  id: totrans-209
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Firefox浏览器中，点击*返回*按钮：
+- en: '![Figure 4.51 – Using the browser’s back button](image/B21173_Figure_4.051.jpg)'
+  id: totrans-210
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.51 – 使用浏览器的返回按钮](image/B21173_Figure_4.051.jpg)'
+- en: Figure 4.51 – Using the browser’s back button
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.51 – 使用浏览器的返回按钮
+- en: 'Notice that you are now logged in as **admin** even though you did not log
+    in! This is possible because of cached credentials stored in the browser and the
+    lack of any cache-control protections set in the application:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，即使你没有登录，你现在已作为**admin**登录！这是由于浏览器中缓存的凭证以及应用程序中没有设置任何缓存控制保护所致：
+- en: '![Figure 4.52 – The browser caches the session so that we are still logged
+    in, even after clicking the Logout button](image/B21173_Figure_4.052.jpg)'
+  id: totrans-213
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.52 – 浏览器缓存了会话，因此即使点击了登出按钮，我们仍然保持登录状态](image/B21173_Figure_4.052.jpg)'
+- en: Figure 4.52 – The browser caches the session so that we are still logged in,
+    even after clicking the Logout button
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.52 – 浏览器缓存了会话，因此即使点击了登出按钮，我们仍然保持登录状态
+- en: Now, refresh/reload the page in your browser; you will see you are now logged
+    out.
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，在浏览器中刷新/重新加载页面；你会看到你已成功登出。
+- en: How it works…
+  id: totrans-216
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理…
+- en: No request is captured in Burp Suite when you press the browser’s back button.
+    This is because the back button action is isolated within the context of the browser.
+    No message was sent through Burp Suite to the web server to perform this action.
+    This is an important distinction to note. Due to a lack of caching protection,
+    we found a vulnerability where the logout does not destroy the session on the
+    client side.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你按下浏览器的返回按钮时，Burp Suite没有捕获到请求。这是因为返回按钮的操作仅限于浏览器上下文中。没有通过Burp Suite向Web服务器发送消息来执行此操作。这是一个重要的区别要注意。由于缺乏缓存保护，我们发现了一个漏洞，即登出操作未能销毁客户端的会话。
+- en: Testing the account provisioning process via the REST API
+  id: totrans-218
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过REST API测试账户配置过程
+- en: Account provisioning is the process of establishing and maintaining user accounts
+    within an application. Provisioning capabilities are usually restricted to administrator
+    accounts. Penetration testers must validate that account-provisioning functions
+    are only available to users with proper identification and authorization. A common
+    venue for account provisioning is through REST API calls. Many times, developers
+    may not put the same authorization checks in place for API calls that are used
+    in the UI portion of an application.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 账户配置是建立和维护应用程序中用户账户的过程。账户配置功能通常仅限于管理员账户。渗透测试人员必须验证账户配置功能仅对拥有适当身份验证和授权的用户开放。账户配置的常见方式是通过REST
+    API调用。很多时候，开发人员可能没有对用于应用程序UI部分的API调用设置相同的授权检查。
+- en: Getting ready
+  id: totrans-220
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using REST API calls available in the OWASP Mutillidae II application, determine
+    whether any unauthenticated API calls exist and whether such calls can provision
+    or modify users.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用OWASP Mutillidae II应用程序中可用的REST API调用，确定是否存在任何未认证的API调用，以及这些调用是否能配置或修改用户。
+- en: How to do it...
+  id: totrans-222
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 操作方法…
+- en: 'Make sure you are not logged in to the application. If you are, click the **Logout**
+    button from the top menu. Now, follow these steps:'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保你没有登录应用程序。如果你已登录，点击顶部菜单中的**登出**按钮。现在，按照以下步骤操作：
+- en: 'Within Mutillidae, browse to the **User Lookup (SQL)** page and select **OWASP
+    2013** | **A1 Injection (SQL)** | **SQLi – Extract Data** | **User** **Info (SQL)**:'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Mutillidae中，浏览到**用户查找（SQL）**页面，选择**OWASP 2013** | **A1 注入（SQL）** | **SQLi –
+    提取数据** | **用户** **信息（SQL）**：
+- en: "![Figure 4.53 – User loo\uFEFFkup page](image/B21173_Figure_4.053.jpg)"
+  id: totrans-225
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.53 – 用户查找页面](image/B21173_Figure_4.053.jpg)'
+- en: Figure 4.53 – User lookup page
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.53 – 用户查找页面
+- en: 'Type **user** for **Name** and **user** for **Password**, and then click **View
+    Account Details**. You should see the results shown in the following screenshot.
+    This is the account we will test provisioning functions against using API calls:'
+  id: totrans-227
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**姓名**和**密码**栏中输入**user**，然后点击**查看账户详情**。你应该看到以下截图中显示的结果。这是我们将通过API调用测试账户配置功能的账户：
+- en: '![Figure 4.54 – Database results for the user account](image/B21173_Figure_4.054.jpg)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.54 – 用户账户的数据库结果](image/B21173_Figure_4.054.jpg)'
+- en: Figure 4.54 – Database results for the user account
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.54 – 用户账户的数据库结果
+- en: Through crawling, Burp Suite can find **/api** or **/rest** folders. Such folders
+    are clues that an application is REST-API-enabled. A tester needs to determine
+    which functions are available through these API calls and whether those calls
+    require authentication.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过爬虫，Burp Suite可以找到**/api**或**/rest**文件夹。这些文件夹是应用程序启用REST API的线索。测试者需要确定这些API调用可以提供哪些功能，以及这些调用是否需要身份验证。
+- en: 'For Mutillidae, the **/webservices/rest/** folder structure offers account
+    provisioning capabilities through API calls. Look for these folders via **Target**
+    | **Site map**:'
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于Mutillidae，**/webservices/rest/**文件夹结构通过API调用提供账户配置功能。通过**Target** | **Site
+    map**查找这些文件夹：
+- en: '![Figure 4.55 – API directory structure](image/B21173_Figure_4.055.jpg)'
+  id: totrans-232
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.55 – API目录结构](image/B21173_Figure_4.055.jpg)'
+- en: Figure 4.55 – API directory structure
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.55 – API目录结构
+- en: 'To go directly to this functionality within Mutillidae, select **Web Services**
+    | **REST** | **SQL Injection** | **User** **Account Management**:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 若要直接进入Mutillidae中的此功能，选择**Web Services** | **REST** | **SQL Injection** | **User**
+    **Account Management**：
+- en: '![Figure 4.56 – Navigating to the User Account Management documentation page](image/B21173_Figure_4.056.jpg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.56 – 跳转到用户账户管理文档页面](image/B21173_Figure_4.056.jpg)'
+- en: Figure 4.56 – Navigating to the User Account Management documentation page
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.56 – 跳转到用户账户管理文档页面
+- en: 'You will be presented with a screen describing the supported API calls and
+    the parameters required for each call. We will refer to this page as the *User
+    Account Management* page. The URL of this page of the web root is **/webservices/rest/ws-user-account.php**:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 系统将展示一个描述支持的API调用及每个调用所需参数的屏幕。我们将此页面称为*用户账户管理*页面。该页面的URL是**/webservices/rest/ws-user-account.php**：
+- en: '![Figure 4.57 – User Account Management API documentation page](image/B21173_Figure_4.057.jpg)'
+  id: totrans-238
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.57 – 用户账户管理API文档页面](image/B21173_Figure_4.057.jpg)'
+- en: Figure 4.57 – User Account Management API documentation page
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.57 – 用户账户管理API文档页面
+- en: 'Within this *User Account Management* API documentation page, note the GET
+    call section. This page is similar to Swagger or other self-explanatory API pages
+    and provides instructions on the required format to display account information
+    for a single user or all users:'
+  id: totrans-240
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这个*用户账户管理*API文档页面中，注意GET调用部分。此页面类似于Swagger或其他自解释API页面，提供了显示单个用户或所有用户账户信息所需的格式说明：
+- en: '![Figure 4.58 – API instructions to get account information](image/B21173_Figure_4.058.jpg)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.58 – 获取账户信息的API说明](image/B21173_Figure_4.058.jpg)'
+- en: Figure 4.58 – API instructions to get account information
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.58 – 获取账户信息的API说明
+- en: Using the instructions from the *User Account Management* API documentation
+    page, let’s invoke the GET API to view user accounts. To begin, find the call
+    to the User Account Management page under **Proxy** | **HTTP history**.
+  id: totrans-243
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用*用户账户管理*API文档页面中的说明，我们将调用GET API来查看用户账户。首先，在**Proxy** | **HTTP history**中找到用户账户管理页面的调用。
+- en: 'Go to the **Proxy** | **HTTP history** table and select the latest request
+    you made to navigate to the User Account Management page. Look for the **/mutillidae/webservices/rest/ws-user-account.php**
+    call in the history. Once found, right-click and send this request to **Repeater**:'
+  id: totrans-244
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入**Proxy** | **HTTP history**表格，选择你最近一次访问的请求，跳转到用户账户管理页面。在历史记录中查找**/mutillidae/webservices/rest/ws-user-account.php**的调用。找到后，右键点击并将此请求发送到**Repeater**：
+- en: '![Figure 4.59 – Sending the call to the User Account Management page to Repeater](image/B21173_Figure_4.059.jpg)'
+  id: totrans-245
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.59 – 将请求发送到用户账户管理页面的Repeater](image/B21173_Figure_4.059.jpg)'
+- en: Figure 4.59 – Sending the call to the User Account Management page to Repeater
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.59 – 将请求发送到用户账户管理页面的Repeater
+- en: 'In Burp’s **Repeater**, add **?**, followed by a parameter name/value pair
+    of **username=user**, to the URL. The new URL should be **/mutillidae/webservices/rest/ws-user-account.php?username=user**:'
+  id: totrans-247
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Burp的**Repeater**中，在URL后添加**?**，然后添加一个参数名称/值对**username=user**。新URL应为**/mutillidae/webservices/rest/ws-user-account.php?username=user**：
+- en: '![Figure 4.60 – Adding a username parameter](image/B21173_Figure_4.060.jpg)'
+  id: totrans-248
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.60 – 添加用户名参数](image/B21173_Figure_4.060.jpg)'
+- en: Figure 4.60 – Adding a username parameter
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.60 – 添加用户名参数
+- en: 'Click the **Send** button – notice that we can retrieve our account data:'
+  id: totrans-250
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**Send**按钮——注意，我们能够获取到账户数据：
+- en: '![Figure 4.61 – Viewing the results of the request](image/B21173_Figure_4.061.jpg)'
+  id: totrans-251
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.61 – 查看请求结果](image/B21173_Figure_4.061.jpg)'
+- en: Figure 4.61 – Viewing the results of the request
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.61 – 查看请求结果
+- en: 'Now, to determine whether we can see this data as an unauthenticated user,
+    remove the value of the **PHPSESSIONID** cookie and resend the request. Amazing!
+    No authentication token is required to perform such actions! We just found an
+    unauthenticated API call! This is a huge finding:'
+  id: totrans-253
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，为了确定作为未认证用户是否可以看到这些数据，移除**PHPSESSIONID** Cookie的值并重新发送请求。太神奇了！进行这些操作不需要认证令牌！我们刚刚发现了一个未认证的API调用！这是一个重大发现：
+- en: '![Figure 4.62 – Removing the authentication token; note that the results are
+    still returned](image/B21173_Figure_4.062.jpg)'
+  id: totrans-254
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.62 – 移除认证令牌；注意结果仍然返回](image/B21173_Figure_4.062.jpg)'
+- en: Figure 4.62 – Removing the authentication token; note that the results are still
+    returned
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.62 – 移除认证令牌；注意结果仍然返回
+- en: Let’s see what else we can do against this unauthenticated API endpoint. Using
+    the SQL injection string given on the User Account Management page, let’s attempt
+    to dump the entire user table.
+  id: totrans-256
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们看看还能对这个未认证的API端点做些什么。使用在用户账户管理页面提供的SQL注入字符串，尝试导出整个用户表。
+- en: 'Append the following value after **username=**:'
+  id: totrans-257
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**username=**后追加以下值：
+- en: '[PRE0]'
+  id: totrans-258
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The new URL should be as follows:'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 新的URL应该如下所示：
+- en: '[PRE1]'
+  id: totrans-260
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Click the **Send** button after making the change to the **username** parameter.
+    Your request should look as follows:'
+  id: totrans-261
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在修改**用户名**参数后，点击**发送**按钮。你的请求应该如下所示：
+- en: '![Figure 4.63 – Using a SQL injection attack in the username parameter](image/B21173_Figure_4.063.jpg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.63 – 在用户名参数中使用SQL注入攻击](image/B21173_Figure_4.063.jpg)'
+- en: Figure 4.63 – Using a SQL injection attack in the username parameter
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.63 – 在用户名参数中使用SQL注入攻击
+- en: 'Notice that we dumped all the accounts in the database that are displaying
+    all usernames, passwords, and signatures! We also dumped this data without any
+    authentication token:'
+  id: totrans-264
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 注意，我们导出了数据库中所有的账户信息，包括所有的用户名、密码和签名！我们甚至在没有任何认证令牌的情况下导出了这些数据：
+- en: '![Figure 4.64 – Entire dump of the user table](image/B21173_Figure_4.064.jpg)'
+  id: totrans-265
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 4.64 – 用户表的完整导出](image/B21173_Figure_4.064.jpg)'
+- en: Figure 4.64 – Entire dump of the user table
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.64 – 用户表的完整导出
+- en: How it works…
+  id: totrans-267
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: Finding unauthenticated API endpoints is an important testing task that must
+    be performed. This is a common issue due to the ubiquity of API usage across applications
+    and mobile apps. In [*Chapter 10*](B21173_10.xhtml#_idTextAnchor588), we will
+    look at a Burp Suite extension that can help us find unauthenticated API endpoints
+    a bit easier.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 发现未认证的API端点是一个重要的测试任务，必须执行。这是一个常见问题，因为API在各种应用和移动应用中广泛使用。在[*第10章*](B21173_10.xhtml#_idTextAnchor588)中，我们将介绍一个Burp
+    Suite扩展，帮助我们更轻松地找到未认证的API端点。

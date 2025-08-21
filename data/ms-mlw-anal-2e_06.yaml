@@ -1,0 +1,2192 @@
+- en: '6'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '6'
+- en: Bypassing Anti-Reverse Engineering Techniques
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 绕过反向工程技术
+- en: In this chapter, we will cover various anti-reverse engineering techniques that
+    malware authors use to protect their code against unauthorized analysts who want
+    to understand its functionality. We will familiarize ourselves with various approaches,
+    from detecting the debugger and other analysis tools to breakpoint detection,
+    **virtual machine** (**VM**) detection, and even attacking anti-malware tools
+    and products.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍恶意软件作者用来保护其代码免受未经授权的分析师分析的各种反向工程技术。我们将熟悉各种方法，从检测调试器和其他分析工具，到断点检测、**虚拟机**（**VM**）检测，甚至攻击反恶意软件工具和产品。
+- en: Additionally, we will cover the VM and sandbox-detection techniques that malware
+    authors use to avoid spam detection, along with automatic malware-detection techniques
+    that are implemented in various enterprises. As these anti-reverse engineering
+    techniques are widely used by malware authors, it’s very important to understand
+    how to detect and bypass them to be able to analyze complex or highly obfuscated
+    malware.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还将介绍恶意软件作者用来避免垃圾邮件检测的虚拟机和沙盒检测技术，以及在各种企业中实现的自动恶意软件检测技术。由于这些反向工程技术被恶意软件作者广泛使用，因此了解如何检测和绕过它们非常重要，以便能够分析复杂或高度混淆的恶意软件。
+- en: 'This chapter is divided into the following sections:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章分为以下几个部分：
+- en: Exploring debugger detection
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 探索调试器检测
+- en: Handling the evasion of debugger breakpoints
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 处理调试器断点的规避
+- en: Escaping the debugger
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 摆脱调试器
+- en: Understanding obfuscation and anti-disassemblers
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解混淆技术和反反汇编器
+- en: Detecting and evading behavioral analysis tools
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检测并规避行为分析工具
+- en: Detecting sandboxes and VMs
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检测沙盒和虚拟机
+- en: Exploring debugger detection
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索调试器检测
+- en: For malware authors to keep their operations going without being interrupted
+    by antivirus products or any takedown operations, they have to fight back and
+    equip their tools with various anti-reverse engineering techniques. Debuggers
+    are the most common tools that malware analysts use to dissect malware and reveal
+    its functionality. Therefore, malware authors implement various anti-debugging
+    tricks to complicate the analysis and keep their functionality and configuration
+    details (mainly **Command & Control servers** or **C&Cs**) hidden.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了让恶意软件作者能够继续其操作而不被防病毒产品或任何打击行动打断，他们必须反击并为他们的工具配备各种反向工程技术。调试器是恶意软件分析师用来剖析恶意软件并揭示其功能的最常用工具。因此，恶意软件作者实施各种反调试技巧，以使分析更加复杂，并隐藏其功能和配置细节（主要是**命令与控制服务器**或**C&C**）。
+- en: Using PEB information
+  id: totrans-13
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用PEB信息
+- en: 'Windows provides lots of ways to identify the presence of a debugger; many
+    of them rely on the information stored in the `BeingDebugged` is set to *True*
+    when the process is running under a debugger. To access this flag, malware can
+    execute the following instructions:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows提供了多种方法来识别调试器的存在；其中许多方法依赖于`BeingDebugged`中存储的信息，当进程在调试器下运行时，它的值为*True*。为了访问此标志，恶意软件可以执行以下指令：
+- en: '[PRE0]'
+  id: totrans-15
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'As you can see here, the pointer to PEB was found using the `fs:[30h]` technique.
+    There are many other ways in which malware can get it:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，这里使用`fs:[30h]`技术找到了PEB的指针。恶意软件还可以通过许多其他方式获取PEB：
+- en: By using `fs:[18h]` to get a pointer to the TEB structure and, from there, using
+    offset 0x30 to find the PEB.
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过使用`fs:[18h]`获取指向TEB结构的指针，然后通过偏移量0x30查找PEB。
+- en: By using the `NtQueryInformationProcess` API with a `ProcessBasicInformation`
+    argument. It returns the `PROCESS_BASIC_INFORMATION` structure, the second field
+    of which, `PebBaseAddress`, will contain the PEB address.
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过使用`NtQueryInformationProcess` API并传递`ProcessBasicInformation`参数，可以返回`PROCESS_BASIC_INFORMATION`结构，其中第二个字段`PebBaseAddress`将包含PEB地址。
+- en: An `IsDebuggerPresent` API can be used instead to perform exactly the same check.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用`IsDebuggerPresent` API来执行完全相同的检查。
+- en: '`NtGlobalFlag` is another field located at offset 0x68 of the PEB on 32-bit
+    systems and 0xBC on 64-bit systems, which can be used for debugger detection.
+    During normal execution, this flag is set to zero, but when a debugger is attached
+    to the process, this flag is set with the following three values:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`NtGlobalFlag`是PEB中的另一个字段，在32位系统上位于偏移量0x68，在64位系统上位于0xBC，可以用于调试器检测。在正常执行过程中，此标志被设置为零，但当调试器附加到进程时，该标志会设置为以下三个值：'
+- en: '`FLG_HEAP_ENABLE_TAIL_CHECK (0x10)`'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`FLG_HEAP_ENABLE_TAIL_CHECK (0x10)`'
+- en: '`FLG_HEAP_ENABLE_FREE_CHECK (0x20)`'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`FLG_HEAP_ENABLE_FREE_CHECK (0x20)`'
+- en: '`FLG_HEAP_VALIDATE_PARAMETERS (0x40)`'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`FLG_HEAP_VALIDATE_PARAMETERS (0x40)`'
+- en: 'Malware can check for the presence of a debugger using these flags by executing
+    the following instructions:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件可以通过执行以下指令来检查调试器的存在：
+- en: '[PRE1]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Here, malware prefers to check for the presence of all of these flags together
+    by combining them into the value of 0x70 (the result of using bitwise OR against
+    them).
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，恶意软件倾向于通过将这些标志组合成0x70的值（使用按位或操作）来检查所有这些标志的存在。
+- en: 'The following logic can be used to detect the debugger in the 64-bit environment:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下逻辑可用于在64位环境中检测调试器：
+- en: '[PRE2]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: This example is trickier, as we should keep in mind that the `lodsq` instruction
+    will increase the value of the `rsi` register by 8 (the size of QWORD). So, as
+    a result, we will get an offset of (0x60 + 0x8)*2 – 0x14 = 0xBC, as mentioned
+    earlier.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个例子更棘手，因为我们应该记住`lodsq`指令会将`rsi`寄存器的值增加8（QWORD的大小）。因此，最终的偏移量将是(0x60 + 0x8)*2
+    – 0x14 = 0xBC，正如之前提到的那样。
+- en: 'Finally, to detect the debugger, malware can also use the `ProcessHeap` structure
+    stored in PEB (offset 0x18 for 32-bit, 0x30 for 64-bit, and 0x1030 for WoW64 compatibility
+    levels). This structure has two fields of interest:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，为了检测调试器，恶意软件还可以使用存储在PEB中的`ProcessHeap`结构（32位的偏移量为0x18，64位为0x30，WoW64兼容性级别为0x1030）。该结构有两个感兴趣的字段：
+- en: '`Flags` (32-bit: offset 0x0c on XP, 0x40 on Vista+; 64-bit: offset 0x14 on
+    XP, 0x70 on Vista+): Generally, malware can either check for the presence of 0x40000062
+    bits revealing the debugger or do the opposite – check whether the value is the
+    default one (2).'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Flags`（32位：XP上的偏移量为0x0c，Vista+上为0x40；64位：XP上的偏移量为0x14，Vista+上为0x70）：通常，恶意软件可以检查0x40000062位的存在来揭示调试器，或者反过来检查值是否是默认值（2）。'
+- en: '`ForceFlags` (32-bit: offset 0x10 on XP, 0x44 on Vista+; 64-bit: offset 0x18
+    on XP, 0x74 on Vista+): Here, malware can check for 0x40000060 bits set when the
+    debugger is present or 0 otherwise.'
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ForceFlags`（32位：XP上的偏移量为0x10，Vista+上为0x44；64位：XP上的偏移量为0x18，Vista+上为0x74）：在这里，恶意软件可以检查当调试器存在时，0x40000060位是否被设置，或者如果没有调试器，则不会设置这些位。'
+- en: Apart from the direct access, the pointer to the `ProcessHeap` structure can
+    be found using the `GetProcessHeap` and `RtlGetProcessHeaps` APIs. The value of
+    the `Flags` field in the `ProcessHeap` structure can be read using the `RtlQueryProcessHeapInformation`
+    and `RtlQueryProcessDebugInformation` APIs.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了直接访问外，可以使用`GetProcessHeap`和`RtlGetProcessHeaps` API找到指向`ProcessHeap`结构的指针。可以通过`RtlQueryProcessHeapInformation`和`RtlQueryProcessDebugInformation`
+    API读取`ProcessHeap`结构中`Flags`字段的值。
+- en: 'Finally, the reason why these flags are set is that when the debugger is attached,
+    heap tail checking will be enabled, and the system will be appending the *0xABABABAB*
+    signature at the end of the allocated blocks. So, the malware could allocate a
+    heap block and check whether this signature is present there and, in this way,
+    identify the presence of the debugger:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，设置这些标志的原因是，当调试器附加时，堆尾检查将被启用，系统将在分配的块的末尾添加*0xABABABAB*签名。因此，恶意软件可以分配一个堆块并检查该签名是否存在，从而识别调试器的存在：
+- en: '![Figure 6.1 – Detecting the presence of the debugger because of heap tail
+    checking'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.1 – 通过堆尾检查检测调试器的存在'
+- en: '](img/Figure_6.1_B18500.jpg)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.1_B18500.jpg)'
+- en: Figure 6.1 – Detecting the presence of the debugger because of heap tail checking
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.1 – 通过堆尾检查检测调试器的存在
+- en: The common way to bypass these checks is by overwriting them with `NOP` instructions
+    or by setting a breakpoint at the start of them to jump over the check. In addition,
+    dedicated debugger plugins can be used to change the values of the PEB structure
+    in memory.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 绕过这些检查的常见方法是用`NOP`指令覆盖它们，或在它们的开始设置一个断点以跳过检查。此外，可以使用专用的调试器插件来更改内存中PEB结构的值。
+- en: Using EPROCESS information
+  id: totrans-39
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用EPROCESS信息
+- en: '`EPROCESS` is another system structure containing information about the process
+    that can reveal the presence of the debugger:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`EPROCESS`是另一个系统结构，包含有关进程的信息，可以揭示调试器的存在：'
+- en: The `DebugPort` field is nonzero if the process is debugged using a remote debugger.
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果进程正在使用远程调试器调试，则`DebugPort`字段非零。
+- en: The `Flags` field contains the `NoDebugInherit` flag, which is set to 1 if the
+    debugger is present.
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Flags`字段包含`NoDebugInherit`标志，当调试器存在时，该标志被设置为1。'
+- en: 'Unlike PEB, this structure is located in kernel mode and, therefore, not directly
+    readable by usual processes. However, malware can use dedicated APIs to read its
+    values:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与PEB不同，该结构位于内核模式，因此普通进程无法直接读取它。然而，恶意软件可以使用专门的API读取其值：
+- en: '`CheckRemoteDebuggerPresent`: This checks the `DebugPort` field of the `EPROCESS`
+    structure.'
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CheckRemoteDebuggerPresent`：它会检查 `EPROCESS` 结构体中的 `DebugPort` 字段。'
+- en: '`NtQueryInformationProcess`: This depends on the following arguments:'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`NtQueryInformationProcess`：这取决于以下参数：'
+- en: With the `ProcessDebugPort` (7) argument, it checks the `DebugPort` field and
+    returns -1 if the process is being debugged.
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `ProcessDebugPort`（7）参数时，它会检查 `DebugPort` 字段，如果进程正在被调试，则返回 -1。
+- en: With `ProcessDebugFlags` (0x1F), it returns an inverse `NoDebugInherit` value.
+  id: totrans-47
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `ProcessDebugFlags` (0x1F) 时，它会返回一个相反的 `NoDebugInherit` 值。
+- en: Using DebugObject
+  id: totrans-48
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用 DebugObject
+- en: 'When the debugger is present, the system creates a dedicated `DebugObject`.
+    While the malware, in this case, can’t say whether it is its sample that is being
+    debugged or maybe something else, for some malware writers, it is a red flag anyway.
+    They could use the following APIs to check for its presence:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当调试器存在时，系统会创建一个专用的 `DebugObject`。虽然此时恶意软件无法判断是它的样本正在被调试，还是可能是其他东西，但对于某些恶意软件编写者来说，这仍然是一个警示信号。他们可以使用以下
+    API 来检查其存在：
+- en: '`NtQueryInformationProcess`: With the `ProcessDebugObjectHandle` (0x1E) argument,
+    it returns the handle to `DebugObject` if it exists.'
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`NtQueryInformationProcess`：使用 `ProcessDebugObjectHandle`（0x1E）参数时，如果存在，它会返回
+    `DebugObject` 的句柄。'
+- en: '`NtQueryObject`: With the `ObjectAllTypesInformation` argument, it can be used
+    to find `DebugObject` by its name.'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`NtQueryObject`：使用 `ObjectAllTypesInformation` 参数，它可以用来通过名称查找 `DebugObject`。'
+- en: Using handles
+  id: totrans-52
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用句柄
+- en: Here, malware could use the differences in the handle management behavior with
+    and without the debugger attached. For example, the `CloseHandle` (or `NtClose`)
+    API can be used to attempt to close an invalid handle. If the debugger is attached,
+    the `EXCEPTION_INVALID_HANDLE` (0xC0000008) exception will be raised, revealing
+    its presence.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，恶意软件可能会利用调试器附加与不附加时句柄管理行为的差异。例如，`CloseHandle`（或 `NtClose`）API 可以用来尝试关闭一个无效句柄。如果调试器已附加，则会触发
+    `EXCEPTION_INVALID_HANDLE`（0xC0000008）异常，从而揭示其存在。
+- en: Another less reliable option is to use `CreateFile` to open the malware’s own
+    file with exclusive access. As some debuggers keep the handle of the analyzed
+    file open, this action could fail under the debugger and, in this way, reveal
+    it.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个不太可靠的选项是使用 `CreateFile` 以独占访问模式打开恶意软件的文件。由于某些调试器会保持已分析文件的句柄打开，因此在调试器下此操作可能会失败，从而揭示它。
+- en: Using exceptions
+  id: totrans-55
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用异常
+- en: 'Debuggers are designed to intercept various types of exceptions to be able
+    to perform all their functions. Malware can intentionally raise certain exceptions
+    and detect the presence of the debugger if its exception handler (more information
+    about **Structured Exception Handling** or **SEH** is discussed next) doesn’t
+    receive control. Examples of this approach can involve the following APIs:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调试器被设计用来拦截各种类型的异常，以便能够执行它们的所有功能。恶意软件可以故意触发某些异常，并检测调试器的存在，如果其异常处理程序（关于**结构化异常处理**或
+    **SEH** 的更多信息将在后面讨论）没有接收到控制权。此方法的示例可以涉及以下 API：
+- en: '`RaiseException`/`RtlRaiseException`/`NtRaiseException` can be used to raise
+    debugger-related exceptions such as `DBG_CONTROL_C`, `DBG_CONTROL_BREAK`, or `DBG_RIPEVENT`.'
+  id: totrans-57
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`RaiseException` / `RtlRaiseException` / `NtRaiseException` 可用来触发与调试器相关的异常，例如
+    `DBG_CONTROL_C`、`DBG_CONTROL_BREAK` 或 `DBG_RIPEVENT`。'
+- en: '`GenerateConsoleCtrlEvent` with the `CTRL_C_EVENT` or `CTRL_BREAK_EVENT` arguments
+    can be used to generate *Ctrl* + *C* or *Ctrl* + *Break* events. If the `BeingDebugged`
+    flag is set (when the debugger is attached), the system would generate a `DBG_CONTROL_C`
+    exception (or a `DBG_CONTROL_BREAK` exception, respectively) that malware might
+    attempt to intercept.'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GenerateConsoleCtrlEvent` 配合 `CTRL_C_EVENT` 或 `CTRL_BREAK_EVENT` 参数可以用来生成
+    *Ctrl* + *C* 或 *Ctrl* + *Break* 事件。如果 `BeingDebugged` 标志被设置（当调试器附加时），系统会生成 `DBG_CONTROL_C`
+    异常（或 `DBG_CONTROL_BREAK` 异常），恶意软件可能会尝试拦截它。'
+- en: '`SetUnhandledExceptionFilter` can be used to set a custom function to process
+    unhandled exceptions. If the debugger is attached, it won’t be executed as the
+    control will be passed to the debugger instead.'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SetUnhandledExceptionFilter` 可以用来设置一个自定义函数来处理未处理的异常。如果调试器已附加，函数将不会执行，因为控制权会传递给调试器。'
+- en: Using parent processes
+  id: totrans-60
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用父进程
+- en: One last technique worth mentioning is that processes can detect whether they
+    were created by a debugger by checking the parent process’s name. The Windows
+    operating system sets the process ID and the parent process ID in the process
+    information. Using the parent process ID, you can check whether it was created
+    normally (for example, by using `explorer.exe`) or whether it was created by a
+    debugger (for example, by detecting the presence of the *dbg* substring in its
+    name).
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有一种值得一提的技术是，进程可以通过检查父进程的名称来检测它是否是由调试器创建的。Windows 操作系统在进程信息中设置进程 ID 和父进程 ID。通过父进程
+    ID，你可以检查它是否是正常创建的（例如，使用 `explorer.exe`），或者是否是由调试器创建的（例如，通过检测名称中是否存在 *dbg* 子字符串）。
+- en: 'There are two common techniques for malware to get the parent process ID, which
+    are listed as follows:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件获取父进程 ID 的常见技术有两种，列举如下：
+- en: Looping through the list of running processes using `CreateToolhelp32Snapshot`,
+    `Process32First`, and `Process32Next` (as we saw in [*Chapter 5*](B18500_05.xhtml#_idTextAnchor446),
+    *Inspecting Process Injection and API Hooking*, with process injection). These
+    APIs not only return the process name and ID but also more information, such as
+    the parent process ID that the malware is looking for.
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `CreateToolhelp32Snapshot`、`Process32First` 和 `Process32Next` 遍历正在运行的进程列表（正如我们在
+    [*第 5 章*](B18500_05.xhtml#_idTextAnchor446) 中所看到的，*检查进程注入与 API 劫持*，涉及进程注入）。这些
+    API 不仅返回进程名称和 ID，还返回更多信息，例如恶意软件正在寻找的父进程 ID。
+- en: 'Using the `NtQueryInformationProcess` API. Given `ProcessBasicInformation`
+    or `SystemProcessInformation` as an argument, this API will return structures
+    containing the parent process ID in the `InheritedFromUniqueProcessId` field,
+    as shown in the following screenshot:'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `NtQueryInformationProcess` API。将 `ProcessBasicInformation` 或 `SystemProcessInformation`
+    作为参数传递时，该 API 会返回包含父进程 ID 的结构，在 `InheritedFromUniqueProcessId` 字段中，如下图所示：
+- en: '![Figure 6.2 – Using NtQueryInfomationProcess to get the parent process'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.2 – 使用 NtQueryInformationProcess 获取父进程'
+- en: '](img/Figure_6.2_B18500.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.2_B18500.jpg)'
+- en: Figure 6.2 – Using NtQueryInfomationProcess to get the parent process
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.2 – 使用 NtQueryInformationProcess 获取父进程
+- en: 'After getting the parent process ID, the next step is to get the process name
+    or the filename to check whether it’s the name of a common debugger or whether
+    it includes any *dbg* or *debug* substrings in its name. There are two common
+    ways to get the process name from its ID, as shown in the following list:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在获取到父进程 ID 后，下一步是获取进程名称或文件名，以检查它是否是常见调试器的名称，或者其名称中是否包含 *dbg* 或 *debug* 子字符串。有两种常见的方法可以从进程
+    ID 获取进程名称，如下所示：
+- en: Looping through the processes in the same way to get the parent process ID,
+    but this time, the attackers get the process name by providing the parent process
+    ID that they got earlier.
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以相同的方式遍历进程以获取父进程 ID，但这次攻击者通过提供先前获取的父进程 ID 来获取进程名称。
+- en: Using the `GetProcessImageFileNameA` API to get the filename of a process given
+    its handle. To get a valid handle, malware would use the `OpenProcess` API with
+    `PROCESS_QUERY_INFORMATION` as a required argument.
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `GetProcessImageFileNameA` API 获取给定进程句柄的文件名。为了获取有效的句柄，恶意软件将使用 `OpenProcess`
+    API，并将 `PROCESS_QUERY_INFORMATION` 作为必需参数。
+- en: This API returns the process filename, which can be checked later to detect
+    whether it’s a debugger or not.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此 API 返回进程文件名，稍后可以检查该文件名，以检测它是否是调试器。
+- en: Another common way in which the debugging process can be detected by malware
+    is breakpoint detection, so let’s cover this topic in greater detail next.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种常见的恶意软件检测调试过程的方法是断点检测，因此我们接下来将更详细地讨论这个话题。
+- en: Handling the evasion of debugger breakpoints
+  id: totrans-73
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 处理调试器断点规避
+- en: Another way to detect debuggers or evade them is to detect their breakpoints.
+    Whether they are software breakpoints (such as `INT3`), hardware breakpoints,
+    single-step breakpoints (trap flag), or memory breakpoints, malware can detect
+    them and possibly remove them to escape reverse engineer control.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种检测调试器或规避它们的方法是检测其断点。无论是软件断点（如 `INT3`）、硬件断点、单步断点（陷阱标志）还是内存断点，恶意软件都可以检测到这些断点，并可能移除它们以逃避逆向工程控制。
+- en: Detecting software breakpoints (INT3)
+  id: totrans-75
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检测软件断点（INT3）
+- en: This type of breakpoint is the easiest to use and the easiest to detect. As
+    we stated in [*Chapter 2*](B18500_02.xhtml#_idTextAnchor043), *A Crash Course
+    in Assembly and Programming Basics*, this breakpoint modifies the instruction
+    bytes by replacing the first byte with 0xCC (the `INT3` instruction), which creates
+    an exception (an error) that gets delivered to the debugger to handle.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种类型的断点是最容易使用且最容易检测到的。正如我们在[*第2章*](B18500_02.xhtml#_idTextAnchor043)《汇编语言与编程基础快速教程》中所述，这种断点通过将第一个字节替换为0xCC（`INT3`指令）来修改指令字节，从而触发异常（错误），并将其传递给调试器处理。
+- en: 'Since it modifies the code in memory, it’s easy to scan the code section in
+    memory for the `INT3` byte. A simple scan will look like this:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于它会修改内存中的代码，因此扫描内存中的代码段以寻找`INT3`字节非常容易。一个简单的扫描过程可能像这样：
+- en: '![Figure 6.3 – A simple INT3 scan'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.3 – 一个简单的`INT3`扫描](img/Figure_6.3_B18500.jpg)'
+- en: '](img/Figure_6.3_B18500.jpg)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.3_B18500.jpg)'
+- en: Figure 6.3 – A simple INT3 scan
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.3 – 一个简单的`INT3`扫描
+- en: The only drawback of this approach is that some C++ compilers write `INT3` instructions
+    after the end of each function as filler bytes. An `INT3` byte (0xCC) can also
+    be found inside some instructions as part of an address or a value, so searching
+    for this byte through the code might not be an effective solution and could return
+    lots of false positives.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法的唯一缺点是，一些C++编译器在每个函数结束时都会写入`INT3`指令作为填充字节。`INT3`字节（0xCC）还可能出现在某些指令内部，作为地址或值的一部分，因此通过代码搜索这个字节可能并不是一个有效的解决方案，且可能会返回大量误报。
+- en: 'There are two other techniques that are commonly used by malware to scan for
+    an `INT3` breakpoint, as shown in the following list:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件常用的另外两种技术用于扫描`INT3`断点，如下所示：
+- en: 'Pre-calculating a checksum of any kind for the entire code section and recalculating
+    it again in execution mode. If the value has changed, then it means that there
+    are some bytes that have been changed, either by patching or by setting an `INT3`
+    breakpoint. Here is an example of how it can be implemented using the `rol` instruction:'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为整个代码段预计算校验和，并在执行模式下重新计算。如果值发生变化，那么说明有一些字节被修改过，要么是通过修补，要么是通过设置`INT3`断点。这是使用`rol`指令实现的示例：
+- en: '[PRE3]'
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Reading the malware sample file and comparing the code section from the file
+    to the memory version of it. If there are any differences between them, this means
+    that the malware has been patched in memory or there is a software breakpoint
+    (`INT3`) that has been added to the code. This technique is not widely used, as
+    it’s not effective if the malware sample has its relocation table populated (check
+    [*Chapter 3*](B18500_03.xhtml#_idTextAnchor084), *Basic Static and Dynamic Analysis
+    for x86/x64*, for more information).
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 读取恶意软件样本文件，并将文件中的代码段与内存版本进行比较。如果它们之间有任何差异，意味着恶意软件已在内存中被修补，或代码中加入了软件断点（`INT3`）。这种技术不常用，因为如果恶意软件样本的重定位表已被填充，这种方法并不有效（有关更多信息，请查看[*第3章*](B18500_03.xhtml#_idTextAnchor084)，《x86/x64的基本静态和动态分析》）。
+- en: 'The best solution to circumvent software breakpoint detection is to use hardware
+    breakpoints, single-stepping (code tracing), or setting access breakpoints in
+    different places in the code section for any memory read. Once a memory breakpoint
+    on access gets a hit, you can find the checksum calculating code and deal with
+    it by patching the checksum code itself, as you can see in the following screenshot:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 避免软件断点检测的最佳解决方案是使用硬件断点、单步执行（代码跟踪），或者在代码段的不同位置设置内存访问断点。一旦内存访问断点被触发，就可以找到校验和计算代码，并通过修补校验和代码本身来处理，如下图所示：
+- en: '![Figure 6.4 – A breakpoint on memory access for the code section to detect
+    an INT3 scanning/checksum calculating loop'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.4 – 用于检测`INT3`扫描/校验和计算循环的代码段内存访问断点](img/Figure_6.4_B18500.jpg)'
+- en: '](img/Figure_6.4_B18500.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.4_B18500.jpg)'
+- en: Figure 6.4 – A breakpoint on memory access for the code section to detect an
+    INT3 scanning/checksum calculating loop
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.4 – 用于检测`INT3`扫描/校验和计算循环的代码段内存访问断点
+- en: In the preceding screenshot, we have set a breakpoint, `INT3` scan loop or the
+    checksum calculating loop.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们设置了一个断点，`INT3`扫描循环或校验和计算循环。
+- en: By patching the check at the end of the checksum calculator or `jz/jnz` with
+    the opposite check, you can easily bypass this technique.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过修补校验和计算器末尾的检查或使用与之相反的`jz/jnz`检查，可以轻松绕过此技术。
+- en: Detecting single-stepping breakpoints using a trap flag
+  id: totrans-92
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用陷阱标志检测单步执行断点
+- en: Another type of breakpoint detection technique that is widely used is trap flag
+    detection. When you trace over the instructions one by one, checking the changes
+    they make in memory and on the registers’ values, your debugger sets the trap
+    flag bit (TF) in the EFLAGS register, which is responsible for stopping on the
+    next instruction and returning control back to the debugger.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种广泛使用的断点检测技术是陷阱标志检测。当您逐条跟踪指令，检查它们在内存和寄存器值上的变化时，调试器会在 EFLAGS 寄存器中设置陷阱标志位（TF），该标志位负责在下一条指令停止并将控制权交还给调试器。
+- en: This flag is not trivial to catch because EFLAGS is not directly readable. It’s
+    only readable through the `pushf` instruction, which saves this register value
+    in the stack. Since this flag is always set to *False* after returning to the
+    debugger, it’s hard to check the value of this flag and detect a single-step breakpoint.
+    However, there is a way it can be done.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个标志并不容易捕获，因为 EFLAGS 并不是直接可读的。它只能通过 `pushf` 指令读取，该指令将此寄存器的值保存到堆栈中。由于该标志在返回调试器后始终被设置为
+    *False*，因此很难检查该标志的值并检测单步断点。然而，仍然有一种方法可以做到这一点。
+- en: In the x86 architecture, there are multiple registers that are not widely used
+    nowadays. These registers were used in DOS operating systems before virtual memory
+    in the way we know it was introduced, particularly the segment registers. Apart
+    from the FS register (which you already know about), there are other segment registers,
+    such as CS, which was used to point to the code segment; DS, which was used to
+    point to the data segment; and SS, which was used to point to the stack segment.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 x86 架构中，有多个如今不常用的寄存器。这些寄存器在虚拟内存出现之前的 DOS 操作系统中使用，尤其是段寄存器。除了您已经了解的 FS 寄存器外，还有其他段寄存器，例如
+    CS，指向代码段；DS，指向数据段；以及 SS，指向堆栈段。
+- en: The `pop SS` instruction is quite special. This instruction is used to get a
+    value from the stack and change the stack segment (or address) according to this
+    value. So, if there’s any exception happening while executing this instruction,
+    it could lead to confusion (for instance, which stack would be used to store the
+    exception information?). Therefore, no exceptions or interrupts are allowed while
+    executing this instruction, including any breakpoints or trap flags.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pop SS` 指令相当特殊。该指令用于从堆栈中获取一个值，并根据该值更改堆栈段（或地址）。因此，如果在执行此指令时发生任何异常，可能会导致混乱（例如，哪一个堆栈将用于存储异常信息？）。因此，在执行此指令时不允许有任何异常或中断，包括任何断点或陷阱标志。'
+- en: If you are tracing over this instruction, your debugger will move the cursor,
+    skip the next instruction, and jump directly to the instruction after it. That
+    doesn’t mean this skipped instruction wasn’t executed; it was executed but not
+    interrupted by the debugger.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您正在跟踪这条指令，调试器会移动光标，跳过下一条指令，直接跳到后面的指令。这并不意味着跳过的指令没有执行；它已经执行了，但没有被调试器中断。
+- en: 'For example, in the following code, your debugger cursor will move from `POP
+    SS` to `MOV EAX, 1`, skipping the `PUSHFD` instruction, even if it was executed:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，在以下代码中，您的调试器光标将从 `POP SS` 移动到 `MOV EAX, 1`，跳过 `PUSHFD` 指令，即使该指令已经执行：
+- en: '[PRE4]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'The trick here is that, in the previous example, the trap flag will remain
+    set while executing the `pushfd` instruction, but it won’t be allowed to return
+    to the debugger. So, the `pushfd` instruction will push the EFLAGS register to
+    the stack, including the actual value of the trap flag (if it was set, it will
+    show in the EFLAGS register). Then, it’s easy for malware to check whether the
+    trap flag is set and detect the debugger. An example of this is shown in the following
+    screenshot:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的技巧是，在前面的例子中，陷阱标志会在执行 `pushfd` 指令时保持设置，但它不会被允许返回到调试器。因此，`pushfd` 指令会将 EFLAGS
+    寄存器推送到堆栈中，包括陷阱标志的实际值（如果已设置，它会显示在 EFLAGS 寄存器中）。然后，恶意软件可以轻松检查陷阱标志是否被设置，并检测到调试器。下面的截图展示了一个例子：
+- en: '![Figure 6.5 – Trap ﬂag detection using the SS register'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.5 – 使用 SS 寄存器进行陷阱标志检测'
+- en: '](img/Figure_6.5_B18500.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.5_B18500.jpg)'
+- en: Figure 6.5 – Trap ﬂag detection using the SS register
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.5 – 使用 SS 寄存器进行陷阱标志检测
+- en: It is worth mentioning that some debuggers, such as new versions of x64dbg,
+    are aware of this technique and don’t expose the TF bit in this way.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得一提的是，一些调试器，如新版的 x64dbg，已经意识到这一技巧，并且不会以这种方式暴露 TF 位。
+- en: This is a direct way of checking for code tracing or single-stepping. Another
+    way to detect it is by monitoring the time that passed while executing an instruction
+    or a group of instructions, which is what we will talk about in the next section.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是检查代码跟踪或单步调试的一种直接方法。另一种检测方法是通过监控执行指令或一组指令时经过的时间，这也是我们将在下一节中讨论的内容。
+- en: Detecting single-stepping using timing techniques
+  id: totrans-106
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用计时技术检测单步调试
+- en: 'There are multiple ways to get the exact time with millisecond accuracy, from
+    the moment the system is on to the execution of the current instruction. There
+    is an x86 instruction called `rdtsc` that returns the time in EDX:EAX registers.
+    By calculating the difference between the time before and after executing a certain
+    instruction, any delay will be clearly shown, which represents reverse-engineering
+    tracing through the code. An example of this is shown in the following screenshot:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有多种方法可以精确获取系统开启到当前指令执行之间的毫秒级时间。x86指令`rdtsc`可以返回EDX:EAX寄存器中的时间。通过计算执行某条指令前后的时间差，任何延迟都会被清晰显示出来，这代表了通过代码的逆向工程追踪。以下截图展示了一个例子：
+- en: '![Figure 6.6 – The rdtsc instruction to detect single-stepping'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.6 – 使用rdtsc指令检测单步调试'
+- en: '](img/Figure_6.6_B18500.jpg)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.6_B18500.jpg)'
+- en: Figure 6.6 – The rdtsc instruction to detect single-stepping
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.6 – 使用rdtsc指令检测单步调试
+- en: 'This instruction is not the only way to get the time at any given moment. There
+    are multiple APIs supported by Windows that help programmers get the exact time,
+    which are listed as follows:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这条指令不是获取任意时刻时间的唯一方法。Windows提供了多个API，帮助程序员获取准确的时间，列举如下：
+- en: '`GetLocalTime`/`GetSystemTime`'
+  id: totrans-112
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetLocalTime`/`GetSystemTime`'
+- en: '`GetTickCount`'
+  id: totrans-113
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetTickCount`'
+- en: '`QueryPerformanceCounter`'
+  id: totrans-114
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`QueryPerformanceCounter`'
+- en: '`timeGetTime`/`timeGetSystemTime`'
+  id: totrans-115
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`timeGetTime`/`timeGetSystemTime`'
+- en: This technique is widely used and more common than the SS segment register trick.
+    The best solution is to patch the instructions. It’s easy to detect it if you
+    are already stepping through the instructions; you can patch the code or just
+    set the instruction pointer (EIP/RIP) to make it point to the code after the check.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术使用广泛，且比SS段寄存器技巧更常见。最好的解决方法是修补指令。如果你已经在逐步调试指令，检测它非常容易；你可以修补代码，或者直接将指令指针（EIP/RIP）设置为指向检查之后的代码。
+- en: Evading hardware breakpoints
+  id: totrans-117
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 躲避硬件断点
+- en: Hardware breakpoints are based on registers that are not accessible in user
+    mode. Therefore, it’s not easy for malware to check these registers and clear
+    them to remove these breakpoints.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 硬件断点基于在用户模式下无法访问的寄存器。因此，恶意软件很难检查这些寄存器并清除它们以移除这些断点。
+- en: For malware to be able to access them, it needs to have them pushed to the stack
+    and pulled out from it again. To do that, many malware families rely on SEH.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了让恶意软件能够访问它们，它需要将它们压入堆栈并再从中取出。为了实现这一点，许多恶意软件家族依赖于SEH。
+- en: What is SEH?
+  id: totrans-120
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 什么是SEH？
+- en: For any program to handle exceptions, Windows provides a mechanism called SEH.
+    This is based on setting a callback function to handle the exception and then
+    resume execution. If this callback failed to handle the exception, it can pass
+    this exception to the previous callback that was set. If the last callback was
+    unable to handle the exception, the operating system terminates the process and
+    informs the user about the unhandled exception, and it often suggests that they
+    send it to the developer company.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了让任何程序能够处理异常，Windows提供了一种叫做SEH的机制。它基于设置回调函数来处理异常，然后继续执行。如果该回调未能处理异常，它可以将异常传递给上一个设置的回调。如果最后一个回调也无法处理该异常，操作系统会终止进程并通知用户未处理的异常，通常还会建议用户将其发送给开发公司。
+- en: 'A pointer to the first callback to be called is stored in the **thread environment
+    block** (**TEB**) and can be accessed via FS:[0x00]. The structure is a linked
+    list, which means that each item in this list contains the address of the callback
+    function and follows the address of the previous item in the list (the previous
+    callback). In the stack, the linked list looks like this:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个回调函数的指针存储在**线程环境块**（**TEB**）中，可以通过FS:[0x00]访问。该结构是一个链表，这意味着列表中的每一项都包含回调函数的地址，并且跟随在前一项地址之后（即上一个回调）。在堆栈中，链表的结构如下：
+- en: '![Figure 6.7 – The SEH linked list in the stack'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.7 – 堆栈中的SEH链表'
+- en: '](img/Figure_6.7_B18500.jpg)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.7_B18500.jpg)'
+- en: Figure 6.7 – The SEH linked list in the stack
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.7 – 堆栈中的SEH链表
+- en: 'The setup of the SEH callback generally looks like this:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SEH回调的设置通常如下所示：
+- en: '[PRE5]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'As you can see, the SEH linked list is mostly saved in the stack. Each item
+    points to the previous one. When an exception occurs, the operating system executes
+    this callback function and passes the necessary information about the exception
+    and the thread state to it (the registers, the instruction pointer, and more).
+    This callback has the ability to modify the registers, the instruction pointer,
+    and the whole thread context. Once the callback returns, the operating system
+    takes the modified thread’s state and registers (which is called the context)
+    and resumes execution based on it. The callback function looks like this:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，SEH链表大多数保存在堆栈中。每个项都指向前一个。当发生异常时，操作系统执行这个回调函数，并将关于异常和线程状态的必要信息传递给它（寄存器、指令指针等）。这个回调函数有能力修改寄存器、指令指针和整个线程上下文。回调函数返回后，操作系统采用修改后的线程状态和寄存器（称为上下文），并基于此恢复执行。回调函数如下所示：
+- en: '[PRE6]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The important arguments are the following:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要的参数如下：
+- en: '`ExceptionRecord`: This contains information related to the exception or the
+    error that has been generated. It contains the exception code number, the address,
+    and other information.'
+  id: totrans-131
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ExceptionRecord`：该结构包含与已生成的异常或错误相关的信息。它包含异常代码号、地址和其他信息。'
+- en: '`ContextRecord`: This is a structure that represents the state of that thread
+    at the time of the exception. It’s a long structure that contains all the registers
+    and other information. A snippet of this structure would look as follows:'
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ContextRecord`：这是一个结构体，表示异常发生时该线程的状态。它是一个长结构，包含所有寄存器和其他信息。该结构的一个片段如下所示：'
+- en: '[PRE7]'
+  id: totrans-133
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: There are multiple ways to detect a debugger using SEH. One of them is by detecting
+    and removing hardware breakpoints.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有多种方法可以通过SEH检测调试器。其中一种方法是通过检测并移除硬件断点。
+- en: Detecting hardware breakpoints
+  id: totrans-135
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 检测硬件断点
+- en: 'To detect or remove hardware breakpoints, malware can use SEH to get the thread
+    context, check the values of the DR registers, and exit if a debugger has been
+    detected. The code is as follows:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了检测或移除硬件断点，恶意软件可以使用SEH获取线程上下文，检查DR寄存器的值，如果检测到调试器，则退出。代码如下：
+- en: '[PRE8]'
+  id: totrans-137
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Another way to detect hardware breakpoints is to use the `GetThreadContext`
+    API to access the current thread (or another thread) context and check for the
+    presence of hardware breakpoints or clear them using the `SetThreadContext` API.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种检测硬件断点的方法是使用`GetThreadContext` API访问当前线程（或其他线程）的上下文，并检查是否存在硬件断点，或者使用`SetThreadContext`
+    API清除它们。
+- en: The best way to deal with these techniques is to set a breakpoint on `GetThreadContext`,
+    `SetThreadContext`, or the exception callback function to make sure they don’t
+    reset or detect your hardware breakpoints.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理这些技术的最佳方法是，在`GetThreadContext`、`SetThreadContext`或异常回调函数上设置断点，以确保它们不会重置或检测到你的硬件断点。
+- en: Memory breakpoints
+  id: totrans-140
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 内存断点
+- en: The last type of breakpoints we will talk about is memory breakpoints. It’s
+    not very common to see techniques targeting them, but they are possible. Memory
+    breakpoints can be easily detected by using the `ReadProcessMemory` API with the
+    malware’s base as an argument and its image size as the size. `ReadProcessMemory`
+    will return *False* if any page inside the malware is guarded (`PAGE_GUARD`) or
+    set to no-access protection (`PAGE_NOACCESS`).
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将讨论的最后一种断点类型是内存断点。针对它们的技术并不常见，但它们是可能的。内存断点可以通过使用`ReadProcessMemory` API并将恶意软件的基址作为参数、其映像大小作为大小来轻松检测。如果恶意软件的任何页面被保护（`PAGE_GUARD`）或设置为无访问保护（`PAGE_NOACCESS`），`ReadProcessMemory`将返回*False*。
+- en: For a malware sample to detect a memory breakpoint on write or execute, it can
+    query any memory page protection flags using the `VirtualQuery` API. Alternatively,
+    it can evade them by using `VirtualProtect` with the `PAGE_EXECUTE_READWRITE`
+    argument to overwrite them.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于恶意软件样本，检测写入或执行时的内存断点，它可以通过`VirtualQuery` API查询任何内存页的保护标志。或者，它可以通过使用带有`PAGE_EXECUTE_READWRITE`参数的`VirtualProtect`来规避这些断点，从而覆盖它们。
+- en: The best way to deal with these anti-debugging tricks is to set breakpoints
+    on all of these APIs and force them to return the desired result to the malware
+    in order to resume normal execution.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理这些反调试技巧的最佳方法是，在所有这些API上设置断点，并强制它们返回所需的结果给恶意软件，从而恢复正常执行。
+- en: Now, it’s time to talk about how malware might attempt to escape the debugger.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，是时候讨论恶意软件如何尝试逃避调试器了。
+- en: Escaping the debugger
+  id: totrans-145
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 脱离调试器
+- en: Apart from detecting debuggers and removing their breakpoints, there are multiple
+    tricks that malware uses to escape the whole debugging environment altogether.
+    Let’s cover some of the most common tricks.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了检测调试器并移除其断点之外，恶意软件还使用多种技巧来完全逃避整个调试环境。我们来看看一些最常见的技巧。
+- en: Process injection
+  id: totrans-147
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程注入
+- en: We talked about process injection before, in [*Chapter 5*](B18500_05.xhtml#_idTextAnchor446),
+    *Inspecting Process Injection and API Hooking*. Process injection is a very well-known
+    technique, not only for man-in-the-browser attacks but also for escaping the debugged
+    process into a process that is not currently debugged. By injecting code into
+    another process, malware can get out of the debugger’s control and execute code
+    before the debugger can attach to it.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们之前在[*第 5 章*](B18500_05.xhtml#_idTextAnchor446)中讨论过进程注入，*检查进程注入与 API 挂钩*。进程注入是一种非常著名的技术，不仅用于浏览器中的“中间人”攻击，还用于将调试中的进程逃离，进入一个未被调试的进程。通过将代码注入到另一个进程中，恶意软件可以逃脱调试器的控制，并在调试器附加到进程之前执行代码。
+- en: A commonly used solution to bypass this trick is to add an infinite loop instruction
+    to the entry point of the injected code before it gets executed. Usually, this
+    is in the injector code either before the `WriteProcessMemory` call when the code
+    hasn’t been injected yet or before `CreateRemoteThread`, this time in another
+    process’s memory.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种常用的绕过该技巧的解决方案是在注入代码的入口点添加一个无限循环指令，直到代码被执行。通常，这个指令是在注入器代码中，通常是在 `WriteProcessMemory`
+    调用之前（此时代码尚未注入），或者是在 `CreateRemoteThread` 之前，这时代码会注入到另一个进程的内存中。
+- en: 'An infinite loop can be created by writing two bytes (0xEB 0xFE) that represent
+    a `jmp` instruction to itself, as you can see in the following screenshot:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过写入两个字节（0xEB 0xFE）来创建一个无限循环，这两个字节表示一个 `jmp` 指令，使其跳转到自身，如下截图所示：
+- en: '![Figure 6.8 – The injected JMP instruction to create an inﬁnite loop'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.8 – 注入的 JMP 指令，用于创建无限循环'
+- en: '](img/Figure_6.8_B18500.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.8_B18500.jpg)'
+- en: Figure 6.8 – The injected JMP instruction to create an inﬁnite loop
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.8 – 注入的 JMP 指令，用于创建无限循环
+- en: Next, we are going to talk about another popular technique using TLS callbacks.
+    Read on!
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将讨论另一种流行的技术——使用 TLS 回调。继续阅读！
+- en: TLS callbacks
+  id: totrans-155
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: TLS 回调
+- en: Many reverse engineers start the debugging phase from the entry point of the
+    malware, which usually makes sense. However, some malicious code can start before
+    the entry point. Some malware families use **Thread Local Storage** (**TLS**)
+    to execute code that initializes every thread (which runs before the thread’s
+    actual code starts). This gives the malware the ability to escape the debugging
+    and do some preliminary checks, and maybe even run most of the malicious code
+    this way while having benign code at the entry point.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多逆向工程师从恶意软件的入口点开始调试，这通常是有道理的。然而，一些恶意代码可能会在入口点之前就开始执行。有些恶意软件家族使用**线程局部存储**（**TLS**）来执行初始化每个线程的代码（这段代码在线程的实际代码开始之前运行）。这使得恶意软件能够逃避调试，并进行一些初步检查，甚至可能在入口点使用良性代码的同时以这种方式运行大部分恶意代码。
+- en: 'In the *data directory* block of the PE header, there is an entry for TLS.
+    It is commonly stored in the *.tls* section, and its structure looks like this:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 PE 头的 *数据目录* 块中，有一个 TLS 条目的入口。它通常存储在 *.tls* 区段中，其结构如下所示：
+- en: '![Figure 6.9 – The TLS structure'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.9 – TLS 结构'
+- en: '](img/Figure_6.9_B18500.jpg)'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.9_B18500.jpg)'
+- en: Figure 6.9 – The TLS structure
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.9 – TLS 结构
+- en: Here, *AddressOfCallBacks* points to a null-terminated array (the last element
+    is zero) of callback functions, which are to be called after each other every
+    time a thread has been created. Any malware can set its malicious code to start
+    inside the *AddressOfCallBacks* array and ensure that this code is executed before
+    the entry point.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，*AddressOfCallBacks* 指向一个以零结尾的回调函数数组（最后一个元素为零），这些回调函数会在每次创建线程后依次调用。任何恶意软件都可以将其恶意代码设置为在
+    *AddressOfCallBacks* 数组内启动，并确保这些代码在入口点之前执行。
+- en: A solution for this trick is to check the PE header before debugging the malware
+    and set a breakpoint on every callback function registered inside the *AddressOfCallBacks*
+    field. In addition, **IDA** will display them together with the entry point and
+    exported functions (if present).
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 针对这个技巧的一种解决方案是在调试恶意软件之前检查 PE 头，并在 *AddressOfCallBacks* 字段中注册的每个回调函数上设置断点。此外，**IDA**
+    会将这些回调函数与入口点和导出函数（如果存在）一起显示。
+- en: Windows events callbacks
+  id: totrans-163
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Windows 事件回调
+- en: Another trick used by malware authors to evade the reverse engineer’s single-stepping
+    and breakpoints is by setting callbacks. Callbacks are each called for a specific
+    event (such as a mouse click, keyboard keystroke, or a window moving to the front).
+    If you are single-stepping over the malware instructions, the callback would still
+    be executed without you noticing. In addition, if you are setting breakpoints
+    based on the code flow, it will still bypass your breakpoints.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种恶意软件作者用来规避逆向工程师单步调试和断点的方法是通过设置回调函数。回调函数会在特定事件发生时被调用（例如鼠标点击、键盘敲击或窗口移到最前面）。如果你在单步调试恶意软件指令时，回调函数仍会被执行，而你不会注意到。另外，如果你根据代码流设置断点，它仍然会绕过你的断点。
+- en: 'There are so many ways to set callback functions. Therefore, we will just mention
+    two of them here, as follows:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设置回调函数的方式有很多。因此，我们这里只提到其中的两种，如下所示：
+- en: 'Using the `RegisterClass` API: The `RegisterClass` API creates a window class
+    that can be used to create a window. This API takes a structure called `WNDCLASSA`
+    as an argument. The `WNDCLASSA` structure contains all the necessary information
+    related to this window, including the icon, the cursor icon, the style, and most
+    importantly the callback function to receive window events. The code looks as
+    follows:'
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`RegisterClass` API：`RegisterClass` API用于创建一个窗口类，该类可以用于创建窗口。此API接受一个名为`WNDCLASSA`的结构作为参数。`WNDCLASSA`结构包含与窗口相关的所有必要信息，包括图标、光标图标、样式，以及最重要的回调函数，用于接收窗口事件。代码如下所示：
+- en: '[PRE9]'
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Using `SetWindowLong`: Another way to set the window callback is to use `SetWindowLong`.
+    If you have the window handle (from `EnumWindows`, `FindWindow`, or other APIs),
+    you can call the `SetWindowLong` API to change the window callback function. Here
+    is what this code looks like:'
+  id: totrans-168
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`SetWindowLong`：设置窗口回调的另一种方法是使用`SetWindowLong`。如果你有窗口句柄（来自`EnumWindows`、`FindWindow`或其他API），你可以调用`SetWindowLong`
+    API来更改窗口回调函数。以下是代码示例：
+- en: '[PRE10]'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: The best solution for this is to set breakpoints on all the APIs that register
+    callbacks or their callback functions. You can check the malware’s import table,
+    any calls to `GetProcAddress`, or other functions that dynamically resolve and
+    call APIs.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 针对这种情况，最好的解决方案是在所有注册回调或其回调函数的API上设置断点。你可以检查恶意软件的导入表、任何调用`GetProcAddress`的函数或其他动态解析和调用API的函数。
+- en: Attacking the debugger
+  id: totrans-171
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 攻击调试器
+- en: In some cases, malware might attempt to attack the debugging session. For example,
+    the `BlockInput` API can be used to block mouse and keyboard events making the
+    attached debugger unusable. Another similar option is to use `SwitchDesktop` to
+    hide mouse and keyboard events from the debugger.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，恶意软件可能会尝试攻击调试会话。例如，`BlockInput` API可以用于阻止鼠标和键盘事件，使附加的调试器无法使用。另一个类似的选项是使用`SwitchDesktop`来隐藏调试器的鼠标和键盘事件。
+- en: Speaking of threads, the `NtSetInformationThread` API with the `ThreadHideFromDebugger`
+    (0x11) argument can be used to hide the thread from the debugger. Any exceptions
+    taking place in the hidden thread including triggered breakpoints won’t be intercepted
+    by the debugger making the program crash instead. Finally, the `SuspendThread`/`NtSuspendThread`
+    API can be used by malware against the debugger’s thread itself.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 说到线程，`NtSetInformationThread` API与`ThreadHideFromDebugger`（0x11）参数可以用于将线程隐藏起来，使调试器无法看到。任何发生在隐藏线程中的异常，包括触发的断点，都不会被调试器拦截，反而会导致程序崩溃。最后，恶意软件还可以使用`SuspendThread`/`NtSuspendThread`
+    API来对调试器的线程本身进行攻击。
+- en: These are some of the most common ways how malware might attempt to affect the
+    debugging process itself. Next, let’s talk about various types of obfuscation.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些是恶意软件可能尝试影响调试过程的最常见方式。接下来，让我们谈谈各种类型的混淆技术。
+- en: Understanding obfuscation and anti-disassemblers
+  id: totrans-175
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解混淆技术和反反汇编器
+- en: Dissemblers are one of the most common tools that are used in reverse engineering,
+    and so they are actively targeted by malware authors. Now, we will take a look
+    at the different techniques that are used in malware to obfuscate its code and
+    make it harder for reverse engineers to analyze it.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反汇编工具是逆向工程中最常用的工具之一，因此它们是恶意软件作者的攻击目标。现在，我们将看看恶意软件在代码混淆上使用的不同技术，使其更难以被逆向工程师分析。
+- en: Encryption
+  id: totrans-177
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 加密
+- en: Encryption is the most common technique as it also protects malware from static
+    antivirus signatures. Malware can encrypt its own code and have a small piece
+    of stub code to decrypt the malicious code before executing it. Additionally,
+    the malware can encrypt its own data, such as strings including API names or the
+    whole configuration block.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密是最常见的技术，它还能保护恶意软件免受静态杀毒软件签名的检测。恶意软件可以加密自己的代码，并拥有一个小的存根代码，在执行恶意代码之前解密它。此外，恶意软件还可以加密自己的数据，例如包括API名称的字符串或整个配置块。
+- en: Dealing with encryption is not always easy. One solution is to execute the malware
+    and dump the memory after it has been decrypted. For example, many sandboxes can
+    now make process dumps of the monitored processes, which could help you get the
+    malware in the decrypted form.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理加密并不总是容易的。一种解决方案是执行恶意软件并在解密后转储内存。例如，现在许多沙箱可以对被监控的进程进行转储，这有助于你获得解密后的恶意软件。
+- en: But for cases such as encrypting strings and decrypting each string on demand,
+    you will need to reverse the encryption algorithm and write a script to go through
+    all the calls to the decryption function and use its parameters to decrypt the
+    strings. You can check out [*Chapter 4*](B18500_04.xhtml#_idTextAnchor238), *Unpacking,
+    Decryption, and Deobfuscation*, for more information on how to handle encryption
+    and write such scripts.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，对于像加密字符串并按需解密每个字符串这样的情况，你需要逆向加密算法，并编写脚本遍历所有解密函数的调用，利用它的参数解密字符串。你可以查看[*第 4
+    章*](B18500_04.xhtml#_idTextAnchor238)，*解包、解密和去混淆*，以了解如何处理加密并编写此类脚本。
+- en: Junk code
+  id: totrans-181
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 垃圾代码
+- en: Another well-known technique that’s used in many samples and that became increasingly
+    popular in the late 1990s and early 2000s is junk code insertion. With this technique,
+    the malware author inserts lots of code that never gets executed. For example,
+    the code can be placed after unconditional jumps, calls that never return, or
+    conditional jumps with conditions that would never be met. The main goal of this
+    code is to waste the reverse engineer’s time analyzing useless code or make the
+    code graph look more complicated than it actually is.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个在许多样本中使用并在1990年代末和2000年代初变得越来越流行的技术是垃圾代码插入。通过这种技术，恶意软件作者插入大量永远不会被执行的代码。例如，这些代码可以放在无条件跳转、永不返回的调用或条件跳转且条件永远不会满足的地方。此代码的主要目的是浪费逆向工程师分析无用代码的时间，或者让代码图看起来比实际复杂。
+- en: 'Another similar technique is to insert ineffective code. This ineffective code
+    could be something such as `nop`, `push` and `pop,` `inc` and `dec`, or repetition
+    of the same instruction. A combination of these instructions could look like real
+    code; however, the same operation in reality would be encoded much simpler, as
+    you can see in the following screenshot:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个类似的技术是插入无效代码。这些无效代码可能是像`nop`、`push`和`pop`、`inc`和`dec`，或者是重复相同的指令。这些指令的组合看起来像真实的代码；然而，实际上相同的操作会被编码得简单得多，正如你在以下截图中看到的那样：
+- en: '![Figure 6.10 – Pointless junk code'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.10 – 无意义的垃圾代码](img/Figure_6.11_B18500.jpg)'
+- en: '](img/Figure_6.10_B18500.jpg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.10_B18500.jpg)'
+- en: Figure 6.10 – Pointless junk code
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.10 – 无意义的垃圾代码
+- en: There are different forms of this junk code, including the expansion of an instruction;
+    for example, `inc edx` becomes `add edx, 3` and `sub edx, 2`, and so on. This
+    way, it is possible to obfuscate the actual values, such as 0x5a4D (*MZ*) or any
+    other values that could represent specific functionality for this subroutine.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种垃圾代码有不同的形式，包括指令的扩展；例如，`inc edx`变成`add edx, 3`和`sub edx, 2`，以此类推。通过这种方式，可以混淆实际的值，如0x5a4D（*MZ*）或任何其他可能代表此子程序特定功能的值。
+- en: This technique has been around since the 1990s in metamorphic engines, but it’s
+    still used by some families to obfuscate their code.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术自1990年代起就在变形引擎中存在，但一些家族仍然使用它来混淆他们的代码。
+- en: 'It is worth mentioning that while strings stored in local variables are more
+    complicated to analyze, the following is **not** an example of such a technique
+    but a legitimate compiler’s behavior:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得提到的是，虽然存储在本地变量中的字符串分析起来更复杂，但以下**不是**这种技术的示例，而是一个合法编译器的行为：
+- en: '![Figure 6.11 – A string stored in local variables'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.11 – 存储在本地变量中的字符串](img/Figure_6.11_B18500.jpg)'
+- en: '](img/Figure_6.11_B18500.jpg)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.11_B18500.jpg)'
+- en: Figure 6.11 – A string stored in local variables
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.11 – 存储在本地变量中的字符串
+- en: Now, let’s talk about the code transportation technique.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来谈谈代码传输技术。
+- en: Code transportation
+  id: totrans-194
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 代码传输
+- en: Another trick that’s commonly used by malware authors is code transportation.
+    This technique doesn’t insert junk code; instead, it rearranges the code inside
+    each subroutine with lots of unconditional jumps, including `call` + `pop` or
+    conditional jumps that are always true or false.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件作者常用的另一个技巧是代码传输。这种技术不会插入垃圾代码，而是通过大量的无条件跳转（包括`call` + `pop` 或总为真或总为假的条件跳转）重新安排每个子程序中的代码。
+- en: 'It makes the function graph look as though it is very complicated to analyze
+    and wastes the reverse engineer’s time. An example of such code can be seen in
+    the following screenshot:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这使得函数图看起来非常复杂，难以分析，从而浪费逆向工程师的时间。以下截图展示了这样的代码示例：
+- en: '![Figure 6.12 – Code transportation with unconditional jumps'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.12 – 使用无条件跳转进行代码传输'
+- en: '](img/Figure_6.12_B18500.jpg)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.12_B18500.jpg)'
+- en: Figure 6.12 – Code transportation with unconditional jumps
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.12 – 使用无条件跳转进行代码传输
+- en: There is a more complicated form of this where malware rearranges the code of
+    each subroutine in the middle of the other subroutines. This form makes it harder
+    for the disassembler to connect each subroutine, as it makes it miss the `ret`
+    instruction at the end of the function and then not consider it as a function.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有一种更复杂的形式，恶意软件会将每个子程序的代码重新安排到其他子程序的中间。这种形式使得反汇编工具更难连接每个子程序，因为它会错过函数末尾的`ret`指令，从而不将其视为一个函数。
+- en: Some other malware families don’t put a `ret` instruction at the end of the
+    subroutine and, instead, substitute it with `pop` and `jmp` to hide this subroutine
+    from the disassembler. These are just some of the many forms of code transportation
+    and junk code insertion techniques.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其他一些恶意软件家族不会在子程序末尾放置`ret`指令，而是用`pop`和`jmp`来代替，隐藏该子程序不被反汇编工具识别。这些只是代码传输和垃圾代码插入技术的多种形式之一。
+- en: Dynamic API calling with checksum
+  id: totrans-202
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用校验和的动态API调用
+- en: Dynamic API calling is a famous anti-disassembling trick used by many malware
+    families. The main reason behind using it is that, in this way, they hide API
+    names from static analysis tools and make it harder to understand what each function
+    inside the malware does.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 动态API调用是许多恶意软件家族使用的一种著名的反反汇编技巧。其背后的主要原因是，通过这种方式，它们可以将API名称隐藏在静态分析工具之外，使得理解恶意软件中每个函数的功能更加困难。
+- en: 'For a malware author to implement this trick, they need to pre-calculate a
+    checksum for this API name and push this value, as an argument, to a function
+    that scans export tables of different libraries and searches for an API by this
+    checksum. An example of this is shown in the following screenshot:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于恶意软件作者来说，要实现这一技巧，他们需要预先计算该API名称的校验和，并将该值作为参数传递给一个扫描不同库的导出表并通过此校验和查找API的函数。以下截图展示了这个例子：
+- en: '![Figure 6.13 – Library and API names’ checksums (hash)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.13 – 库和API名称的校验和（哈希）'
+- en: '](img/Figure_6.13_B18500.jpg)'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.13_B18500.jpg)'
+- en: Figure 6.13 – Library and API names’ checksums (hash)
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.13 – 库和API名称的校验和（哈希）
+- en: The code for resolving the function actually goes through the PE header of the
+    library, loops through the export table, and calculates the checksum of each API
+    to compare it with the given checksum (or hash) that’s provided as an argument.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解决函数的代码实际上会通过库的PE头，遍历导出表，并计算每个API的校验和，与作为参数提供的给定校验和（或哈希值）进行比较。
+- en: The solution to this approach could require scripting to loop through all known
+    API names and calculate their checksums. Alternatively, it could require executing
+    this function multiple times, giving each checksum as input and saving the equivalent
+    API name for it.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法的解决方案可能需要编写脚本，遍历所有已知的API名称并计算它们的校验和。或者，它可能需要多次执行此函数，分别输入每个校验和，并保存相应的API名称。
+- en: Proxy functions and proxy argument stacking
+  id: totrans-210
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 代理函数和代理参数堆叠
+- en: The Nymaim banking trojan took anti-disassembling to another level by adding
+    additional techniques, such as proxy functions and proxy argument stacking.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nymaim银行木马通过增加一些额外的技巧，如代理函数和代理参数堆叠，将反反汇编技巧提升到了另一个层次。
+- en: 'With the proxy functions technique, malware doesn’t directly call the required
+    function; instead, it calls a proxy function that calculates the address of the
+    required function and transfers the execution there. Nymaim included more than
+    100 different proxy functions with different algorithms (four or five algorithms
+    in total). The proxy function call looks like this:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用代理函数技术，恶意软件不会直接调用所需的函数；相反，它调用一个代理函数，该函数计算所需函数的地址并将执行转移到那里。Nymaim 包含了超过 100
+    个不同的代理函数，使用了四到五种不同的算法。代理函数调用如下所示：
+- en: '![Figure 6.14 – The proxy function arguments used to calculate the function
+    address'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.14 – 用于计算函数地址的代理函数参数'
+- en: '](img/Figure_6.14_B18500.jpg)'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.14_B18500.jpg)'
+- en: Figure 6.14 – The proxy function arguments used to calculate the function address
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.14 – 用于计算函数地址的代理函数参数
+- en: 'The proxy function code itself looks like this:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代理函数的代码如下所示：
+- en: '![Figure 6.15 – The Nymaim proxy function'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.15 – Nymaim 代理函数'
+- en: '](img/Figure_6.15_B18500.jpg)'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.15_B18500.jpg)'
+- en: Figure 6.15 – The Nymaim proxy function
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.15 – Nymaim 代理函数
+- en: 'For arguments, Nymaim uses a function to push arguments to the stack rather
+    than just using the push instruction. This trick could prevent the disassembler
+    from recognizing the arguments that were given to each function or API. An example
+    of proxy argument stacking is as follows:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于参数，Nymaim 使用一个函数将参数推送到堆栈，而不是仅仅使用 `push` 指令。这一技巧可以防止反汇编工具识别传递给每个函数或 API 的参数。代理参数堆叠的示例如下：
+- en: '![Figure 6.16 – The proxy argument stacking technique in Nymaim'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.16 – Nymaim 中的代理参数堆叠技术'
+- en: '](img/Figure_6.16_B18500.jpg)'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.16_B18500.jpg)'
+- en: Figure 6.16 – The proxy argument stacking technique in Nymaim
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.16 – Nymaim 中的代理参数堆叠技术
+- en: This malware included many different forms of the techniques that we introduced
+    in this section. So, as long as the main idea is clear, you should be able to
+    understand all of them.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该恶意软件包括了我们在本节中介绍的多种不同形式的技术。因此，只要掌握了主要思路，你应该能够理解所有这些技术。
+- en: Using the COM functionality
+  id: totrans-225
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用 COM 功能
+- en: 'Instead of hiding APIs by dynamically resolving their names using hashes, malware
+    might attempt to achieve the same result using different technologies. A good
+    example would be using the `Wscript.Shell` COM object’s functionality to execute
+    a program instead of calling APIs such as `CreateProcess`, `ShellExecute`, or
+    `WinExec`, which would immediately draw the researcher’s attention. To create
+    its object, malware can use the `CoCreateInstance` API specifying the required
+    object’s class in the form of the IID, as you can see in the following screenshot:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件可能尝试通过不同的技术实现与动态解析哈希值来隐藏 API 名称相同的效果。一个好的例子是使用 `Wscript.Shell` COM 对象的功能来执行程序，而不是直接调用
+    `CreateProcess`、`ShellExecute` 或 `WinExec` 等 API，这些 API 会立刻引起研究人员的注意。为了创建该对象，恶意软件可以使用
+    `CoCreateInstance` API，并指定所需对象的类形式为 IID，如下截图所示：
+- en: '![Figure 6.17 – Creating an instance of the Wscript.Shell object by its IID,
+    F935DC21-1CF0-11d0-ADB9-00C04FD58A0B'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.17 – 通过其 IID 创建 Wscript.Shell 对象的实例，F935DC21-1CF0-11d0-ADB9-00C04FD58A0B'
+- en: '](img/Figure_6.17_B18500.jpg)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.17_B18500.jpg)'
+- en: Figure 6.17 – Creating an instance of the Wscript.Shell object by its IID, F935DC21-1CF0-11d0-ADB9-00C04FD58A0B
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.17 – 通过其 IID 创建 Wscript.Shell 对象的实例，F935DC21-1CF0-11d0-ADB9-00C04FD58A0B
+- en: 'After this, the actual method will be accessed by its offset. To figure out
+    the method’s name by its offset, you can use the **COMView** tool:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，实际方法将通过其偏移量进行访问。为了通过偏移量查找方法的名称，你可以使用 **COMView** 工具：
+- en: '![Figure 6.18 – Finding the name of the method of the COM object by its offset
+    found in assembly'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.18 – 通过在汇编中找到的偏移量查找 COM 对象方法的名称'
+- en: '](img/Figure_6.18_B18500.jpg)'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.18_B18500.jpg)'
+- en: Figure 6.18 – Finding the name of the method of the COM object by its offset
+    found in assembly
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.18 – 通过在汇编中找到的偏移量查找 COM 对象方法的名称
+- en: As you can see here, the `Run` method of the `Wscript.Shell` class would be
+    accessed by its offset of 36 (0x24).
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，`Wscript.Shell` 类的 `Run` 方法通过其偏移量 36 (0x24) 来访问。
+- en: As we can see, obfuscation can take various forms, so the more examples you
+    are aware of, the less time it will take to find the right approach to handle
+    it. Now, it is time to learn how behavioral analysis tools can be detected using
+    malware.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，混淆可以有多种形式，所以你了解的示例越多，找到处理它的正确方法所需的时间就越短。现在，是时候学习如何使用恶意软件检测行为分析工具了。
+- en: Detecting and evading behavioral analysis tools
+  id: totrans-236
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检测和规避行为分析工具
+- en: There are multiple ways in which malware can detect and evade behavioral analysis
+    tools, such as ProcMon, Wireshark, API Monitor, and more, even if they don’t directly
+    debug the malware or interact with it. In this section, we will talk about two
+    common examples of how it can be done.
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件可以通过多种方式检测并规避行为分析工具，如 ProcMon、Wireshark、API Monitor 等，即使这些工具并没有直接调试恶意软件或与其交互。在本节中，我们将讨论两种常见的恶意软件规避方法。
+- en: Finding the tool process
+  id: totrans-238
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 查找工具进程
+- en: One of the simplest and most common ways that malware can deal with malware-analysis
+    tools (and antivirus tools, too) is to loop through all the running processes
+    and detect any unwanted entries. Then, it is possible to either terminate or stop
+    them to avoid further analysis.
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件处理恶意软件分析工具（以及杀毒工具）的一种最简单且最常见的方法是循环检查所有正在运行的进程，并检测任何不需要的条目。然后，它可以终止或停止它们，以避免进一步分析。
+- en: 'In [*Chapter 5*](B18500_05.xhtml#_idTextAnchor446), *Inspecting Process Injection
+    and API Hooking*, we covered how malware can loop through all running processes
+    using the `CreateToolhelp32Snapshot`, `Process32First`, and `Process32Next` APIs.
+    In this anti-reverse engineering trick, the malware uses these APIs in exactly
+    the same way to check the process name against a list of unwanted process names
+    or their hashes. If there’s a match, the malware terminates itself or uses an
+    approach such as calling the `TerminateProcess` API to kill that process. The
+    following screenshot shows an example of this trick being implemented in Gozi
+    malware:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 [*第 5 章*](B18500_05.xhtml#_idTextAnchor446)，*检查进程注入和 API Hook* 中，我们讲解了恶意软件如何使用
+    `CreateToolhelp32Snapshot`、`Process32First` 和 `Process32Next` APIs 循环检查所有正在运行的进程。在这个反反向工程技巧中，恶意软件以完全相同的方式使用这些
+    API 来检查进程名是否与不需要的进程名或其哈希值匹配。如果匹配，恶意软件会终止自身，或者通过调用 `TerminateProcess` API 来杀死该进程。以下截图展示了这个技巧在
+    Gozi 恶意软件中的实现：
+- en: '![Figure 6.19 – Gozi malware looping through all of the running processes'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.19 – Gozi 恶意软件循环检查所有正在运行的进程'
+- en: '](img/Figure_6.19_B18500.jpg)'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.19_B18500.jpg)'
+- en: Figure 6.19 – Gozi malware looping through all of the running processes
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.19 – Gozi 恶意软件循环检查所有正在运行的进程
+- en: 'The following screenshot shows an example of Gozi malware code using the `TerminateProcess`
+    API to kill a process of its choice found by its name in a custom `ProcOpenProcessByNameW`
+    routine:'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了 Gozi 恶意软件代码的一个示例，使用 `TerminateProcess` API 通过自定义的 `ProcOpenProcessByNameW`
+    程序终止其选择的进程：
+- en: '![Figure 6.20 – Gozi malware terminating a process with the help of the ProcOpenProcessByNameW
+    function'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.20 – Gozi 恶意软件借助 ProcOpenProcessByNameW 函数终止进程'
+- en: '](img/Figure_6.20_B18500.jpg)'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.20_B18500.jpg)'
+- en: Figure 6.20 – Gozi malware terminating a process with the help of the ProcOpenProcessByNameW
+    function
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.20 – Gozi 恶意软件借助 ProcOpenProcessByNameW 函数终止进程
+- en: This trick can be bypassed by renaming the tools you are using before executing
+    them. This simple solution could hide your tools perfectly if you just avoid using
+    any known keywords in the newer names, such as *dbg*, *disassembler*, *AV*, and
+    more.
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个技巧可以通过在执行工具之前重命名它们来绕过。如果你避免在新名称中使用任何已知的关键词，如*dbg*、*反汇编器*、*AV*等，这个简单的解决方案可以完美地隐藏你的工具。
+- en: Searching for the tool window
+  id: totrans-249
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 查找工具窗口
+- en: Another trick would be not to search for the tool’s process name, but to search
+    for its window name (the window’s title) instead. By searching for a program window
+    name, malware can bypass any renaming that could be performed on the process name,
+    which gives it an opportunity to detect new tools, too (for the most part, window
+    names are more descriptive than process names).
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种技巧是，不搜索工具的进程名，而是搜索其窗口名称（窗口标题）。通过搜索程序窗口名称，恶意软件可以绕过任何可能对进程名进行的重命名，这也为它提供了检测新工具的机会（大多数情况下，窗口名称比进程名称更具描述性）。
+- en: 'This trick can be carried out in the following two ways:'
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个技巧可以通过以下两种方式实现：
+- en: 'Using `FindWindow`: Malware can use either the full window title, such as *Microsoft
+    network monitor*, or the window class name. The window class name is a name that
+    was given to this window when it was created, and it’s different from the title
+    that appears on the window. For example, the `OllyDbg` window class name is `OLLYDBG`,
+    while the full title could change based on the process name of the malware under
+    analysis. An example of this is as follows:'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`FindWindow`：恶意软件可以使用完整的窗口标题，如*Microsoft network monitor*，或者窗口类名。窗口类名是在窗口创建时分配给它的名称，它与窗口上显示的标题不同。例如，`OllyDbg`的窗口类名是`OLLYDBG`，而完整标题可能会根据正在分析的恶意软件进程名称而变化。以下是一个示例：
+- en: '[PRE11]'
+  id: totrans-253
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'Using `EnumWindows`: Another way to avoid searching for the window class name
+    or dealing with the change of window titles is to just go through all the window
+    names that are accessible and scan their titles, searching for suspicious window
+    names such as *Debugger*, *Wireshark*, *Disassembler*, and more. This is a more
+    flexible way to deal with new tools or tools the malware author forgot to cover.
+    With the `EnumWindows` API, you need to set a callback to receive all of the windows.'
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`EnumWindows`：另一种避免搜索窗口类名或处理窗口标题变化的方法是遍历所有可访问的窗口名称并扫描它们的标题，寻找诸如*Debugger*、*Wireshark*、*Disassembler*等可疑的窗口名称。这是一种更灵活的处理新工具或恶意软件作者遗忘覆盖的工具的方法。使用`EnumWindows`
+    API时，你需要设置一个回调函数来接收所有窗口。
+- en: 'For each top-level window, this callback will receive the handle of this window,
+    from which it can get its name using the `GetWindowText` API. An example of this
+    is as follows:'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个顶级窗口，这个回调函数将接收到该窗口的句柄，从中可以使用`GetWindowText` API获取其名称。以下是一个示例：
+- en: '![Figure 6.21 – The FinFisher threat using EnumWindows to set its callback
+    function'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.21 – FinFisher 威胁利用 EnumWindows 设置其回调函数'
+- en: '](img/Figure_6.21_B18500.jpg)'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.21_B18500.jpg)'
+- en: Figure 6.21 – The FinFisher threat using EnumWindows to set its callback function
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.21 – FinFisher 威胁利用 EnumWindows 设置其回调函数
+- en: 'The callback function declaration looks like this:'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回调函数的声明如下所示：
+- en: '[PRE12]'
+  id: totrans-260
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: The *hwnd* value is the handle of the window, while *lParam* is a user-defined
+    argument (it’s passed by the user to the callback function). Malware can use the
+    `GetWindowText` API with this handle (*hwnd*) to get the window title and scan
+    it against a predefined list of keywords.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*hwnd*值是窗口的句柄，而*lParam*是用户定义的参数（由用户传递给回调函数）。恶意软件可以使用这个句柄（*hwnd*）与`GetWindowText`
+    API获取窗口标题，并与预定义的关键词列表进行比对。'
+- en: It’s more complicated to modify window titles or classes than actually set breakpoints
+    on these APIs and track the callback function to bypass them. There are plugins
+    for popular tools, such as OllyDbg and IDA, that can help rename their title window
+    to avoid detection (such as OllyAdvanced), which you can also use as a solution.
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 修改窗口标题或类比实际上在这些API上设置断点并跟踪回调函数要复杂。流行工具如OllyDbg和IDA的插件可以帮助重命名它们的标题窗口，以避免被检测（如OllyAdvanced），你也可以使用它作为一种解决方案。
+- en: Now we know how behavioral analysis tools can be detected, let’s learn about
+    sandbox and VM detection.
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们了解了行为分析工具如何被检测到，接下来让我们了解沙盒和虚拟机检测。
+- en: Detecting sandboxes and VMs
+  id: totrans-264
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检测沙盒和虚拟机
+- en: Malware authors know that if their malware sample is running on a VM, then it’s
+    probably being analyzed by a reverse engineer or it’s probably running under the
+    analysis of an automated tool such as a sandbox. There are multiple ways in which
+    malware authors can detect VMs and sandboxes. Let’s go over some of them now.
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件作者知道，如果他们的恶意软件样本正在虚拟机上运行，那么它很可能正在被逆向工程师分析，或者它可能正在沙盒等自动化工具的分析下运行。有多种方法可以检测虚拟机和沙盒，接下来我们将逐一介绍。
+- en: Different output between VMs and real machines
+  id: totrans-266
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 虚拟机和真实机器之间的不同输出
+- en: 'Malware authors could use certain unique characteristics of some assembly instructions
+    when executed on VMs. Some examples of these are listed as follows:'
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件作者可以利用一些汇编指令在虚拟机上执行时的独特特征来检测虚拟机。一些例子如下：
+- en: '`CPUID` instruction returns information about the CPU and provides a leaf/ID
+    of this information in `eax`. For leaf 0x01 (*eax = 1*), the `CPUID` instruction
+    sets bit 31 to 1, indicating that the operating system is running inside a VM
+    or a hypervisor.'
+  id: totrans-268
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CPUID`指令返回有关CPU的信息，并提供该信息在`eax`中的叶/ID。对于叶0x01（*eax = 1*），`CPUID`指令将第31位设置为1，表示操作系统正在虚拟机或虚拟化程序中运行。'
+- en: '`CPUID` instruction, given *eax = 0x40000000*, it could return the name of
+    the virtualization tool (if present) in the EBX, ECX, and EDX registers as if
+    they comprised a single string. Examples of such name strings include *VMwareVMware*,
+    *Microsoft Hv*, *VBoxVBoxVBox*, and *XenVMMXenVMM*.'
+  id: totrans-269
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CPUID` 指令，给定 *eax = 0x40000000*，它可以返回虚拟化工具的名称（如果存在），并将其作为单个字符串存储在 EBX、ECX
+    和 EDX 寄存器中。这些名称字符串的示例包括 *VMwareVMware*、*Microsoft Hv*、*VBoxVBoxVBox* 和 *XenVMMXenVMM*。'
+- en: '**MMX registers**: MMX registers are a set of registers that were introduced
+    by Intel that help speed up graphics calculations. While rare, some virtualization
+    tools don’t support them. Some malware or packers use them for unpacking in order
+    to detect or avoid running on a VM.'
+  id: totrans-270
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**MMX 寄存器**：MMX 寄存器是英特尔推出的一组寄存器，旨在加速图形计算。虽然很少见，但有些虚拟化工具不支持它们。一些恶意软件或打包工具利用它们进行解包，以检测或避免在虚拟机上运行。'
+- en: '`IN` instruction, when executed on the VMware VM with a port argument set to
+    0x5658 (which stands for *VX* in ASCII, a VMware hypervisor port) and with the
+    EAX value equal to 0x564D5868 (the *VMXh* magic value), will return the same magic
+    value of *VMXh* in the EBX register, this way revealing the presence of the VM.'
+  id: totrans-271
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`IN` 指令，当在 VMware 虚拟机上执行并将端口参数设置为 0x5658（在 ASCII 中表示 *VX*，即 VMware 超级监视器端口）时，且
+    EAX 值等于 0x564D5868（*VMXh* 魔术值），将返回 EBX 寄存器中的相同魔术值 *VMXh*，从而揭示虚拟机的存在。'
+- en: Detecting virtualization processes and services
+  id: totrans-272
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检测虚拟化进程和服务
+- en: 'Virtualization software commonly installs some tools on the guest machine to
+    enable clipboard synchronization, drag and drop, mouse synchronization, and other
+    useful features. These tools can be easily detected by scanning for these processes
+    using the `CreateToolhelp32Snapshot`, `Process32First`, and `Process32Next` APIs.
+    Some of these processes are listed as follows:'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟化软件通常会在客户机上安装一些工具，以启用剪贴板同步、拖放、鼠标同步和其他有用的功能。这些工具可以通过扫描这些进程，使用 `CreateToolhelp32Snapshot`、`Process32First`
+    和 `Process32Next` API 来轻松检测到。以下是一些此类进程：
+- en: '`VMware`:'
+  id: totrans-274
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VMware`：'
+- en: '`vmacthlp.exe`'
+  id: totrans-275
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`vmacthlp.exe`'
+- en: '`VMwareUser.exe`'
+  id: totrans-276
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VMwareUser.exe`'
+- en: '`VMwareService.exe`'
+  id: totrans-277
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VMwareService.exe`'
+- en: '`VMwareTray.exe`'
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VMwareTray.exe`'
+- en: '`VirtualBox`:'
+  id: totrans-279
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualBox`：'
+- en: '`VBoxService.exe`'
+  id: totrans-280
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VBoxService.exe`'
+- en: '`VBoxTray.exe`'
+  id: totrans-281
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VBoxTray.exe`'
+- en: The same approach can be used to search for particular files or directories
+    on the filesystem.
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用相同的方法搜索文件系统中的特定文件或目录。
+- en: Detecting virtualization through registry keys
+  id: totrans-283
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 通过注册表键检测虚拟化
+- en: 'There are multiple registry keys that can be used to detect virtualization
+    environments. Some of them are related to the hard disk name (which is, usually,
+    named after the virtualization software), the installed virtualization sync tools,
+    or other settings in the virtualization process. Some of these registry entries
+    are as follows:'
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有多个注册表键可以用来检测虚拟化环境。它们中的一些与硬盘名称（通常以虚拟化软件命名）、已安装的虚拟化同步工具或虚拟化过程中的其他设置相关。以下是一些注册表条目：
+- en: '[PRE13]'
+  id: totrans-285
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Detecting VMs using WMI
+  id: totrans-286
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用 WMI 检测虚拟机
+- en: 'It’s not just registry values that reveal lots of information about the virtualization
+    software—Windows-managed information, which is accessible using, for example,
+    PowerShell, can also be used, as shown in the following screenshot:'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不仅是注册表值能揭示有关虚拟化软件的很多信息——Windows 管理的信息也能揭示这些信息，例如通过 PowerShell 访问的内容，如下图所示：
+- en: '![Figure 6.22 – The PowerShell command to detect VMWare'
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.22 – 检测 VMWare 的 PowerShell 命令'
+- en: '](img/Figure_6.22_B18500.jpg)'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.22_B18500.jpg)'
+- en: Figure 6.22 – The PowerShell command to detect VMWare
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.22 – 检测 VMWare 的 PowerShell 命令
+- en: 'This information can be accessed through a WMI query, such as the following:'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过 WMI 查询访问此信息，例如以下内容：
+- en: '[PRE14]'
+  id: totrans-292
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'For Microsoft Hyper-V, it would be as follows:'
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 Microsoft Hyper-V，命令如下：
+- en: '[PRE15]'
+  id: totrans-294
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: These techniques make it harder to hide the fact that this malware is running
+    inside virtualization software and not on a real machine.
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些技术使得隐藏恶意软件运行在虚拟化软件中而非真实机器上的事实变得更加困难。
+- en: Other VM detection techniques
+  id: totrans-296
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 其他虚拟机检测技术
+- en: 'There are lots of other techniques that malware families can use to detect
+    virtualized environments, such as the following:'
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件家族可以使用许多其他技术来检测虚拟化环境，例如以下方法：
+- en: Named pipes and devices, for example, *\\.\pipe\VBoxTrayIPC*
+  id: totrans-298
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 命名管道和设备，例如 *\\.\pipe\VBoxTrayIPC*
+- en: Window titles or class names, such as *VBoxTrayToolWndClass* or *VBoxTrayToolWnd*
+  id: totrans-299
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 窗口标题或类名，例如 *VBoxTrayToolWndClass* 或 *VBoxTrayToolWnd*
+- en: 'The first part of the MAC address on their network adapter:'
+  id: totrans-300
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络适配器的 MAC 地址的第一部分：
+- en: 00:1C:14, 00:50:56, 00:05:69, 00:0C:29 – VMWare
+  id: totrans-301
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 00:1C:14, 00:50:56, 00:05:69, 00:0C:29 – VMWare
+- en: 08:00:27 – VirtualBox
+  id: totrans-302
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 08:00:27 – VirtualBox
+- en: 00:03:FF – Hyper-V
+  id: totrans-303
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 00:03:FF – Hyper-V
+- en: The preceding list can be further expanded with many similar techniques and
+    approaches for detecting a virtualized environment.
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述列表可以通过许多类似的技巧和方法进一步扩展，用以检测虚拟化环境。
+- en: Detecting sandboxes using default settings
+  id: totrans-305
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用默认设置检测沙箱
+- en: 'Sandboxes can also be easy to detect. They have lots of default settings that
+    malware authors can use to identify them:'
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 沙箱也很容易被检测到。它们有许多默认设置，恶意软件作者可以用来识别它们：
+- en: The usernames could be default values, such as *cuckoo* or *user*.
+  id: totrans-307
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户名可能是默认值，例如*cuckoo*或*user*。
+- en: The filesystem could include the same decoy files and the same structure of
+    the files (if not, then the same number of files). Even the name of the sample
+    itself can always be the same, such as *sample.exe*.
+  id: totrans-308
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件系统可以包含相同的诱饵文件和相同的文件结构（如果没有，则是相同数量的文件）。即使是样本本身的名称也可以始终相同，例如*sample.exe*。
+- en: These settings can be easily detected for commonly used sandboxes, without even
+    looking at their known tools and processes.
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些设置可以很容易地被常用沙箱检测到，甚至不需要查看它们已知的工具和进程。
+- en: 'Apart from that, sandboxes are commonly detected by the following characteristics:'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除此之外，沙箱通常通过以下特点被检测到：
+- en: Too weak system hardware (mainly disk space and RAM)
+  id: totrans-311
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 系统硬件过于薄弱（主要是磁盘空间和内存）
+- en: Unusual system settings (very low screen resolution or no software installed)
+  id: totrans-312
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不寻常的系统设置（非常低的屏幕分辨率或没有安装软件）
+- en: No user interaction (lack of mouse moves or recent file modifications)
+  id: totrans-313
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 没有用户交互（缺乏鼠标移动或近期的文件修改）
+- en: One more common way to evade sandboxes is to avoid performing malicious activities
+    in their analysis time window. In many cases, sandboxes execute malware only for
+    several seconds or minutes and then collect the necessary information before terminating
+    the VM. Some malware families use APIs such as `Sleep` or perform long calculations
+    to delay the execution for quite some time or run it after a machine restart.
+    This trick can help malware evade sandboxes and ensure that they don’t collect
+    important information, such as C&C domains or malware-persistence techniques.
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种常见的逃避沙箱的方法是避免在它们的分析时间窗口内执行恶意活动。在许多情况下，沙箱只执行恶意软件几秒钟或几分钟，然后收集必要的信息后终止虚拟机。一些恶意软件家族使用如`Sleep`这样的API，或者执行长时间的计算来延迟执行，或者在机器重启后再执行。这种技巧可以帮助恶意软件逃避沙箱，确保它们不会收集重要信息，比如C&C域名或恶意软件持久化技术。
+- en: These are some of the most common sandbox detection techniques. It is worth
+    mentioning that malware developers keep inventing more and more novel approaches
+    to achieve this goal, so staying on top of them requires constant learning and
+    practice.
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些是一些最常见的沙箱检测技巧。值得一提的是，恶意软件开发者不断发明更多新颖的方法来实现这一目标，因此，跟上它们的步伐需要持续学习和实践。
+- en: Summary
+  id: totrans-316
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we covered many tricks that malware authors use to detect and
+    evade reverse engineering, from detecting the debugger and its breakpoints to
+    detecting VMs and sandboxes, as well as incorporating obfuscation and debugger-escaping
+    techniques. You should now be able to analyze more advanced malware equipped with
+    multiple anti-debugging or anti-VM tricks. Additionally, you will be able to analyze
+    a highly obfuscated malware implementing lots of anti-disassembling tricks.
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们介绍了恶意软件作者用来检测和逃避逆向工程的许多技巧，从检测调试器及其断点，到检测虚拟机和沙箱，再到融合混淆和逃避调试器技术。现在你应该能够分析更先进的恶意软件，这些恶意软件配备了多个反调试或反虚拟机的技巧。此外，你还将能够分析实现大量反反汇编技巧的高度混淆恶意软件。
+- en: In [*Chapter 7*](B18500_07.xhtml#_idTextAnchor669), *Understanding Kernel-Mode
+    Rootkits*, we are going to enter the operating system’s core. We are going to
+    cover the kernel mode and learn how each API call and operation works internally
+    in the Windows operating system, as well as how rootkits can hook each of these
+    steps to hide malicious activity from antivirus products and the user’s eyes.
+  id: totrans-318
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[*第7章*](B18500_07.xhtml#_idTextAnchor669)《理解内核模式Rootkit》中，我们将进入操作系统的核心。我们将覆盖内核模式，学习每个API调用和操作如何在Windows操作系统内部工作，以及Rootkit如何挂钩这些步骤，以隐藏恶意活动，从而避开杀毒软件和用户的眼睛。

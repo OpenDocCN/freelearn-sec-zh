@@ -1,0 +1,3166 @@
+- en: '11'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '11'
+- en: Dissecting Linux and IoT Malware
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解剖 Linux 和物联网恶意软件
+- en: Many reverse engineers working in antivirus companies spend most of their time
+    analyzing 32-bit malware for Windows, and even the idea of analyzing something
+    beyond that may be daunting at first. However, as we will see in this chapter,
+    the ideas behind file formats and malware behavior have so many similarities that,
+    once you become familiar with one of them, it becomes easier and easier to analyze
+    all the subsequent ones.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多在杀毒公司工作的逆向工程师，花费大部分时间分析 Windows 平台上的 32 位恶意软件，最初可能会觉得分析超出此范围的东西是一项艰巨的任务。然而，正如我们在本章中所看到的，文件格式和恶意软件行为背后的思想有很多相似之处，一旦你熟悉其中的一种，就能越来越容易地分析所有后续的恶意软件。
+- en: In this chapter, we will mainly focus on malware for Linux and Unix-like systems.
+    We will cover file formats that are used on these systems, go through various
+    tools for static and dynamic analysis, including disassemblers, debuggers, and
+    monitors, and explain the malware’s behavior on **Mirai**.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将主要关注 Linux 和类 Unix 系统中的恶意软件。我们将涵盖这些系统中使用的文件格式，介绍各种静态和动态分析工具，包括反汇编器、调试器和监控器，并解释恶意软件在
+    **Mirai** 中的行为。
+- en: By the end of this chapter, you will know how to start analyzing samples not
+    only for the x86 architecture but also for various **Reduced Instruction Set Computer**
+    (**RISC**) platforms that are widely used in the **Internet of Things** (**IoT**)
+    space.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章结束时，你将了解如何不仅分析 x86 架构的样本，还能分析广泛应用于 **物联网**（**IoT**）领域的各种 **精简指令集计算机**（**RISC**）平台。
+- en: 'To that end, this chapter is divided into the following sections:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为此，本章分为以下几个部分：
+- en: Explaining ELF files
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解释 ELF 文件
+- en: Exploring common behavioral patterns
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 探索常见的行为模式
+- en: Static and dynamic analysis of x86 (32- and 64-bit) samples
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对 x86（32 位和 64 位）样本的静态和动态分析
+- en: Learning about Mirai, its clones, and more
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 了解 Mirai 及其克隆体等
+- en: Static and dynamic analysis of RISC samples
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对 RISC 样本的静态和动态分析
+- en: Handling other architectures
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 处理其他架构
+- en: Explaining ELF files
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解释 ELF 文件
+- en: Many engineers think that the `.so`, `.ko`, `.o`, and `.mod`. It might also
+    be a surprise for analysts who mainly work with Windows systems and are used to
+    `.exe` files that one of the most common file extensions for ELF executables is,
+    in fact, not having any.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多工程师认为 `.so`、`.ko`、`.o` 和 `.mod` 是常见的文件类型。对于主要在 Windows 系统上工作的分析师来说，他们习惯了 `.exe`
+    文件，可能会感到惊讶的是，ELF 可执行文件最常见的文件扩展名实际上是没有任何扩展名的。
+- en: ELF files can also be found on multiple embedded systems and game consoles (for
+    example, PlayStation and Wii), as well as mobile phones. For example, in modern
+    Android, as part of **Android Runtime** (**ART**), applications are compiled or
+    translated into ELF files as well.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ELF 文件也可以在多个嵌入式系统和游戏主机（例如 PlayStation 和 Wii）以及手机上找到。例如，在现代 Android 系统中，作为 **Android
+    Runtime**（**ART**）的一部分，应用程序也会被编译或转换为 ELF 文件。
+- en: The ELF structure
+  id: totrans-15
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: ELF 结构
+- en: One of the main advantages of the ELF that contributed to its popularity is
+    that it is extremely flexible and supports multiple address sizes (32 and 64 bit),
+    as well as its endianness, which means that it can work on many different architectures.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ELF 的主要优势之一，正是由于它的高度灵活性，并且支持多种地址大小（32 位和 64 位），以及其字节序，这意味着它可以在许多不同的架构上运行。
+- en: 'Here is a diagram depicting a typical ELF structure:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个展示典型 ELF 结构的图表：
+- en: '![Figure 11.1 – ELF structures for executable and linkable ﬁles'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.1 – 可执行和可链接文件的 ELF 结构'
+- en: '](img/Figure_11.1_B18500.jpg)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.1_B18500.jpg)'
+- en: Figure 11.1 – ELF structures for executable and linkable ﬁles
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.1 – 可执行和可链接文件的 ELF 结构
+- en: As we can see, it differs slightly between linkable and executable files, but
+    in any case, it should start with a file header. It contains the 4-byte `\x7F’ELF’`
+    signature at the beginning (part of the `e_ident` field, which we will cover shortly),
+    followed by several fields mainly specifying the file’s format characteristics,
+    some details of the target system, and information about other structure blocks.
+    The size of this header can be either 52 or 64 bytes for 32- and 64-bit platforms,
+    respectively (as for the 64-bit platforms, three of its fields are 8 bytes long
+    in order to store 64-bit addresses, as opposed to the same three 4-byte fields
+    for the 32-bit platforms).
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们所见，它在可链接文件和可执行文件之间略有不同，但无论如何，它应该以文件头开始。它包含位于文件开头的 4 字节 `\x7F'ELF'` 签名（属于
+    `e_ident` 字段，我们稍后会介绍），然后是几个字段，主要指定文件的格式特性、目标系统的一些细节以及其他结构块的信息。这个头部的大小可以是 32 位平台和
+    64 位平台分别为 52 字节或 64 字节（对于 64 位平台，其三个字段为 8 字节，以便存储 64 位地址，而 32 位平台的三个字段为 4 字节）。
+- en: 'Here are some of the fields useful for analysis:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一些对分析有用的字段：
+- en: '`e_ident`: This is a set of bytes responsible for ELF identification. For example,
+    a 1-byte field at the offset `0x07` is supposed to define the target operating
+    system (for example, `0x03` for Linux or `0x09` for FreeBSD), but it is commonly
+    set to zero, so it can only give you a clue about the target OS in some cases.'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`e_ident`：这是一个负责 ELF 标识的字节集。例如，在偏移量 `0x07` 处有一个 1 字节的字段，通常定义目标操作系统（例如，`0x03`
+    表示 Linux，或 `0x09` 表示 FreeBSD），但它通常设置为零，因此它只能在某些情况下为你提供关于目标操作系统的线索。'
+- en: '`e_type`: This 2-byte field at the offset `0x10` defines the type of the file—whether
+    it is an executable, a shared object (`.so`), or maybe something else.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`e_type`：在偏移量 `0x10` 处的 2 字节字段，定义文件的类型——它是可执行文件、共享对象（`.so`）还是其他什么文件。'
+- en: '`e_machine`: A 2-byte field at the offset `0x12`, which is generally more useful,
+    as it specifies the target platform (instruction set), for example, `0x03` for
+    x86 or `0x28` for ARM.'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`e_machine`：在偏移量 `0x12` 处的 2 字节字段，它通常更有用，因为它指定目标平台（指令集），例如，`0x03` 表示 x86，或
+    `0x28` 表示 ARM。'
+- en: '`e_entry`: A 4- or 8-byte field (for the 32- or 64-bit platform, respectively)
+    at the offset 0x18, this specifies the entry point of the sample. It points to
+    the first instruction of the program that will be executed once the process is
+    created.'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`e_entry`：在偏移量 `0x18` 处的 4 字节或 8 字节字段（分别适用于 32 位或 64 位平台），它指定示例的入口点。它指向程序的第一条指令，该指令将在进程创建后执行。'
+- en: The file header is followed by the program header; its offset is stored in the
+    `e_phoff` field. The main purpose of this block is to give the system enough information
+    to load the file to memory when creating the process. For example, it contains
+    fields describing the type of segment, its offset, virtual address, and size.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件头后面是程序头；其偏移量存储在 `e_phoff` 字段中。该块的主要目的是为系统提供足够的信息，在创建进程时将文件加载到内存中。例如，它包含描述段类型、偏移量、虚拟地址和大小的字段。
+- en: Finally, the section header contains information about each section, which includes
+    its name, type, attributes, virtual address, offset, and size. Its offset is stored
+    in the `e_shoff` field of the file header. From a reverse-engineering perspective,
+    it makes sense to pay attention to the code section (usually, this is `.text`),
+    as well as the section containing the strings (such as `.rodata`), as they can
+    give plenty of information about the purposes of malware.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，节头包含有关每个节的信息，包括其名称、类型、属性、虚拟地址、偏移量和大小。其偏移量存储在文件头的 `e_shoff` 字段中。从逆向工程的角度来看，关注代码节（通常是
+    `.text`）以及包含字符串的节（例如 `.rodata`）是有意义的，因为它们可以提供关于恶意软件目的的大量信息。
+- en: 'There are many open source tools that can parse the ELF header and present
+    it in a human-friendly way. Here are some of them:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多开源工具可以解析 ELF 头部并以人类友好的方式呈现它。以下是其中一些工具：
+- en: '**readelf**'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**readelf**'
+- en: '**objdump**'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**objdump**'
+- en: '**elfdump**'
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**elfdump**'
+- en: Now, let’s talk about syscalls.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们谈谈系统调用。
+- en: System calls
+  id: totrans-34
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 系统调用
+- en: '**System calls** (**syscalls**) are the interface between the program and the
+    kernel of the OS it is running on. They allow user-mode software to get access
+    to things such as hardware-related or process management services in a structured
+    and secure way.'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**系统调用**（**syscalls**）是程序与其运行的操作系统内核之间的接口。它们允许用户模式的软件以结构化和安全的方式访问硬件相关服务或进程管理服务等。'
+- en: Here are some examples of the syscalls that are commonly used by malware.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是恶意软件常用的系统调用示例。
+- en: The filesystem
+  id: totrans-37
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 文件系统
+- en: 'These syscalls provide all the necessary functionality to interact with the
+    **filesystem** (**FS**). Here are some examples:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些系统调用提供了与**文件系统**（**FS**）交互所需的所有功能。以下是一些示例：
+- en: '`open/openat/creat`: Open and possibly create a file.'
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`open/openat/creat`：打开并可能创建文件。'
+- en: '`read/readv/preadv`: Get data from the file descriptor.'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`read/readv/preadv`：从文件描述符获取数据。'
+- en: '`write/writev/pwritev`: Put data in the file descriptor.'
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`write/writev/pwritev`：将数据放入文件描述符。'
+- en: '`readdir/getdents`: Read the content of the directory, for example, to search
+    for files of interest.'
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`readdir/getdents`：读取目录内容，例如，查找感兴趣的文件。'
+- en: '`access`: Check file permissions, for example, for valuable data or own modules.'
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`access`：检查文件权限，例如，检查重要数据或自身模块。'
+- en: '`chmod`: Change file permissions.'
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`chmod`：更改文件权限。'
+- en: '`chdir/chroot`: Change the current or root directory.'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`chdir/chroot`：更改当前目录或根目录。'
+- en: '`rename`: Change the name of a file.'
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rename`：更改文件名称。'
+- en: '`unlink/unlinkat`: Can be used to delete a file, for example, to corrupt the
+    system or hide traces of malware.'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`unlink/unlinkat`：可以用来删除文件，例如，破坏系统或隐藏恶意软件的痕迹。'
+- en: '`rmdir`: Remove the directory.'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rmdir`：删除目录。'
+- en: Malware can use these for various purposes, including reading and writing other
+    modules and configuration files.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件可以使用这些调用执行各种操作，包括读取和写入其他模块和配置文件。
+- en: The network
+  id: totrans-50
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 网络
+- en: 'Network-related syscalls are built around sockets. So far, there are no syscalls
+    working with high-level protocols such as HTTP. Here are the ones that are commonly
+    used by malware:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与网络相关的系统调用是围绕套接字构建的。目前，没有与高级协议（如HTTP）协作的系统调用。以下是恶意软件常用的一些系统调用：
+- en: '`socket`: Create a socket.'
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`socket`：创建套接字。'
+- en: '`connect`: Connect to the remote server, for example, a command and control
+    server or another malicious peer.'
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`connect`：连接到远程服务器，例如，命令与控制服务器或其他恶意对等体。'
+- en: '`bind`: Bind an address to the socket, for example, a port to listen on.'
+  id: totrans-54
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`bind`：将地址绑定到套接字，例如，绑定一个用于监听的端口。'
+- en: '`listen`: Listen for connections on a particular socket.'
+  id: totrans-55
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`listen`：在特定的套接字上监听连接。'
+- en: '`accept`: Accept a remote connection.'
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`accept`：接受远程连接。'
+- en: '`send/sendto/write/...`: Send data, for example, to steal some information
+    or request new commands.'
+  id: totrans-57
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`send/sendto/write/...`：发送数据，例如，窃取信息或请求新命令。'
+- en: '`sendfile`: Move data between two descriptors. It is optimized in terms of
+    performance compared to using the combination of `read` and `write`.'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sendfile`：在两个描述符之间移动数据。与使用`read`和`write`的组合相比，它在性能上进行了优化。'
+- en: '`recv/recvfrom/read/...`: Receive data, for example, new modules to deploy
+    or new commands.'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`recv/recvfrom/read/...`：接收数据，例如，部署新模块或接收新命令。'
+- en: Network syscalls are commonly used to communicate with C&C, peers, and legitimate
+    services.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络系统调用通常用于与C&C、对等体和合法服务进行通信。
+- en: Process management
+  id: totrans-61
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 进程管理
+- en: 'These syscalls can be used by malware to either create new processes or search
+    for existing ones. Here are some common examples:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些系统调用可以被恶意软件用来创建新进程或查找现有进程。以下是一些常见的示例：
+- en: '`fork/vfork`: Create a child process, a copy of the current one.'
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`fork/vfork`：创建一个子进程，当前进程的副本。'
+- en: '`execve/execveat`: Execute a specified program, for example, another module.'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`execve/execveat`：执行指定的程序，例如，另一个模块。'
+- en: '`prctl`: Allows various operations on the process, for example, changing its
+    name.'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`prctl`：允许对进程进行各种操作，例如，改变其名称。'
+- en: '`kill`: Send a signal to the program, for example, to force it to stop operating.'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`kill`：向程序发送信号，例如，强制它停止操作。'
+- en: There are multiple use cases for them, such as detecting and affecting AV software,
+    reverse-engineering tools, and competitors, or finding a process containing valuable
+    data.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它们有多种用途，例如，检测和影响AV软件、逆向工程工具、竞争对手，或查找包含有价值数据的进程。
+- en: Other
+  id: totrans-68
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 其他
+- en: 'Some syscalls can be used by malware for more specific purposes, for example,
+    self-defense:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些系统调用可以被恶意软件用于更特定的目的，例如，自我防御：
+- en: '`signal`: This can be used to set a new handler for a particular signal and
+    then invoke it to disrupt debugging, for example, for `SIGTRAP`, which is commonly
+    used for breakpoints.'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`signal`：这可以用于为特定信号设置新的处理程序，然后调用它以干扰调试，例如，`SIGTRAP`，它通常用于断点。'
+- en: '`ptrace`: This syscall is commonly used by debugging tools in order to trace
+    executable files, but it can also be used by malware to detect their presence
+    or to prevent them from doing tracing by performing it itself.'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ptrace`：此系统调用通常用于调试工具中，以便跟踪可执行文件，但恶意软件也可以利用它来检测其存在，或通过自行执行跟踪来防止调试工具的跟踪。'
+- en: Of course, there are many more syscalls, and the sample you’re working on may
+    use several of them in order to operate properly. The selection that’s been provided
+    describes some of the top picks that may be worth paying attention to when trying
+    to understand malware functionality.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，还有许多其他的系统调用，你正在处理的样本可能会使用其中的几个来正常运行。这里提供的选择描述了一些可能值得关注的主要系统调用，用于帮助理解恶意软件的功能。
+- en: Syscalls in assembly
+  id: totrans-73
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 汇编中的系统调用
+- en: 'When an engineer starts analyzing a sample and opens it in a disassembler,
+    here is how the syscalls will look:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当工程师开始分析一个样本并在反汇编器中打开时，系统调用将呈现如下：
+- en: '![Figure 11.2 – A Mirai clone compiled for the ARM platform using the connect
+    syscall'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.2 – 使用 connect 系统调用为 ARM 平台编译的 Mirai 克隆'
+- en: '](img/Figure_11.2_B18500.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.2_B18500.jpg)'
+- en: Figure 11.2 – A Mirai clone compiled for the ARM platform using the connect
+    syscall
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.2 – 使用 connect 系统调用为 ARM 平台编译的 Mirai 克隆
+- en: 'In the preceding screenshot, we can see that the number `0x90011B` is used
+    in assembly, instead of a more human-friendly `connect` string. Hence, it is required
+    to map these numbers to strings first. The exact approach will vary depending
+    on the tools that are used. For example, in IDA, in order to find the proper syscall
+    mappings for ARM, the engineer needs to do the following:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们可以看到数字 `0x90011B` 在汇编中被使用，而不是更易于理解的 `connect` 字符串。因此，首先需要将这些数字映射为字符串。具体方法将根据所使用的工具有所不同。例如，在
+    IDA 中，为了找到 ARM 的正确系统调用映射，工程师需要执行以下操作：
+- en: First, they need to add the corresponding type library. Go to `gnulnx_arm` (GNU
+    C++ arm Linux).
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，他们需要添加相应的类型库。进入 `gnulnx_arm`（GNU C++ ARM Linux）。
+- en: Then, go to the `MACRO_SYS`.
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，进入 `MACRO_SYS`。
+- en: This enum will contain the list of all the syscalls. It might be easier to present
+    them in the hexadecimal format used in assembly, rather than in the decimal format
+    used by default. In order to do so, select this enum, then right-click | **Edit
+    enum** (using the *Ctrl* + *E* hotkey), and choose the **Hexademical** representation
+    instead of **Decimal**.
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个枚举将包含所有系统调用的列表。可能更容易以汇编中使用的十六进制格式呈现它们，而不是默认使用的十进制格式。为了做到这一点，选择该枚举，然后右键点击 |
+    **编辑枚举**（使用 *Ctrl* + *E* 快捷键），并选择 **十六进制** 表示，而不是 **十进制**。
+- en: 'Now, it becomes easy to find the corresponding syscall, as in the following
+    figure:'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，找到相应的系统调用变得更加容易，如下图所示：
+- en: '![Figure 11.3 – The ARM syscall mappings in IDA'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.3 – ARM 平台在 IDA 中的系统调用映射'
+- en: '](img/Figure_11.3_B18500.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.3_B18500.jpg)'
+- en: Figure 11.3 – The ARM syscall mappings in IDA
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.3 – ARM 平台在 IDA 中的系统调用映射
+- en: In this case, it definitely makes sense to use a script in order to find all
+    the places where syscalls are being used throughout the code and map them to their
+    actual names to speed up the analysis.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，使用脚本来查找代码中所有使用系统调用的位置，并将它们映射到实际名称，以加速分析是完全有意义的。
+- en: Now, let’s explore various behavioral patterns commonly found in malware.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们探索在恶意软件中常见的各种行为模式。
+- en: Exploring common behavioral patterns
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索常见的行为模式
+- en: 'Generally, all malware of the same type shares similar needs regardless of
+    the platform, mainly the following:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，所有同类型的恶意软件无论平台如何，都会有类似的需求，主要包括以下几点：
+- en: It needs to get into the target system.
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它需要进入目标系统。
+- en: In many cases, it may want to achieve persistence in order to survive the reboot.
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在许多情况下，它可能希望实现持久性，以便在重启后仍能存活。
+- en: It may need to get a higher level of privileges, for example, to achieve system-wide
+    persistence or to get access to valuable data.
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它可能需要获得更高的权限，例如，获得系统范围的持久性或访问有价值的数据。
+- en: 'In many cases, it needs to communicate with the remote system (C&C) in order
+    to do some of the following:'
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在许多情况下，它需要与远程系统（C&C）进行通信，以完成以下任务之一：
+- en: Get commands.
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取命令。
+- en: Get new configurations.
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取新配置。
+- en: Get self-updates, as well as additional payloads.
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取自我更新以及额外的有效载荷。
+- en: Upload responses, collected information, and files of interest.
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 上传响应、收集的信息和相关文件。
+- en: It needs to actually achieve what it was actually created for.
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它需要实现其真正创建的目的。
+- en: In many cases, it may want to protect itself from being detected or analyzed.
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在许多情况下，它可能希望避免被检测或分析。
+- en: Some malware families behave as worms do, aiming to penetrate deeper into reached
+    networks; this behavior is commonly called lateral movement.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些恶意软件家族的行为类似蠕虫，旨在深入渗透到已到达的网络中；这种行为通常被称为横向移动。
+- en: The implementation depends on the target systems, given that they may use different
+    default tools and file paths. In this section, we will go through the common attack
+    stages and provide examples of actual implementations.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实现依赖于目标系统，因为它们可能使用不同的默认工具和文件路径。在本节中，我们将通过常见的攻击阶段并提供实际实现的示例。
+- en: Initial access and lateral movement
+  id: totrans-102
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 初始访问和横向移动
+- en: 'There are multiple ways that malware can get into a target system. While some
+    approaches might be similar to those with the Windows platform, others will be
+    different because of the different purposes they serve. Let’s summarize the most
+    common situations:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件进入目标系统的方式有很多种。虽然有些方法可能与 Windows 平台类似，但由于目的不同，其他方法会有所不同。我们来总结一下最常见的情况：
+- en: '`root/12345`'
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`root/12345`'
+- en: '`admin/1111`'
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`admin/1111`'
+- en: '`guest/guest`'
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`guest/guest`'
+- en: '`user/user`'
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`user/user`'
+- en: '`support/support`'
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`support/support`'
+- en: 'This is how they look in Mirai’s source code:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是它们在 Mirai 源代码中的样子：
+- en: '![Figure 11.4 – Hardcoded encrypted credentials in Mirai’s source code'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.4 – Mirai 源代码中的硬编码加密凭证'
+- en: '](img/Figure_11.4_B18500.jpg)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.4_B18500.jpg)'
+- en: Figure 11.4 – Hardcoded encrypted credentials in Mirai’s source code
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.4 – Mirai 源代码中的硬编码加密凭证
+- en: As you can see, in this case, attackers preferred to store them in the encrypted
+    form, but they still stored the original values as comments for easier maintenance.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，在这种情况下，攻击者倾向于将凭证以加密形式存储，但仍然将原始值作为注释保留，以便于维护。
+- en: '**Dynamic passwords**: Some companies tried to avoid this situation by using
+    a so-called password of the day. However, the algorithm is generally easily accessible,
+    as it has to be implemented on the end-user device, and it is too costly for low-end
+    devices to put it inside a dedicated chip or use a unique hardware ID as part
+    of the secret. Eventually, this means that the infamous security through obscurity
+    approach won’t work in this case, and it becomes pretty straightforward for the
+    attacker to generate the correct pairs of credentials every time they are needed.'
+  id: totrans-114
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**动态密码**：一些公司通过使用所谓的“每日密码”来避免这种情况。然而，由于算法通常很容易获得，因为它必须在终端用户设备上实现，而对于低端设备来说，内置专用芯片或使用独特的硬件
+    ID 作为一部分秘密代价太高。最终，这意味着臭名昭著的“安全通过模糊化”方法在这种情况下不起作用，攻击者每次需要凭证时，生成正确的凭证对变得相当简单。'
+- en: '**Exploits**: Generally, the process of updating any system may require user
+    interaction to complete with desired results, which is more troublesome for embedded
+    devices compared to PCs. As a result, many of them are not updated frequently
+    (or ever) and as long as some vulnerability becomes publicly known, the list of
+    devices that it can affect remains huge over a long period of time. The same situation
+    may happen with generic Linux-based servers as well when the owners don’t bother
+    installing any required updates as long as the machine does its job.'
+  id: totrans-115
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**漏洞利用**：通常，更新任何系统的过程可能需要用户交互才能完成并获得期望的结果，相比于 PC，这对于嵌入式设备来说更为麻烦。因此，许多嵌入式设备更新不频繁（甚至从不更新），只要某个漏洞被公开，受其影响的设备列表在长时间内仍然庞大。当设备拥有者不在意安装任何必要的更新时，基于通用
+    Linux 的服务器也可能出现同样的情况，只要机器能正常工作。'
+- en: '![Figure 11.5 – Multiple exploits embedded into a Mozi malware sample'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.5 – 多个漏洞利用嵌入到 Mozi 恶意软件样本中'
+- en: '](img/Figure_11.5_B18500.jpg)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.5_B18500.jpg)'
+- en: Figure 11.5 – Multiple exploits embedded into a Mozi malware sample
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.5 – 多个漏洞利用嵌入到 Mozi 恶意软件样本中
+- en: For lateral movement, the same approaches are often used. Beyond this, it is
+    also possible to collect credentials on the first system and try to reuse them
+    with nearby devices.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于横向移动，通常采用相同的方法。除此之外，还可以在第一个系统上收集凭证，并尝试在附近的设备上重复使用它们。
+- en: As we can see, there is no easy solution regarding how to fix these issues for
+    already existing devices. Regarding the future, the situation will improve only
+    when the device manufacturers become interested in bringing security to their
+    devices (either because of customer demands so that it is a competitive advantage,
+    or because of specific legislation imposed); it is quite unlikely that the state
+    of affairs will change drastically any time soon.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，对于已存在的设备，如何修复这些问题没有简单的解决办法。至于未来，只有当设备制造商开始关注将安全性引入他们的设备（无论是因为客户需求使其成为竞争优势，还是因为施加的特定立法），情况才会有所改善；很难预见到现状在短期内会发生根本性变化。
+- en: Persistence
+  id: totrans-121
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 持续性
+- en: 'Persistence mechanisms can vary greatly depending on the target system. In
+    most cases, they rely on the automatic ways of executing code that are already
+    supported by the relevant OS. Here are the most common examples of how this can
+    be achieved:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 持久化机制可能因目标系统而异。在大多数情况下，它们依赖于相关操作系统已经支持的自动执行代码的方式。以下是一些最常见的实现方式：
+- en: '`crontab`, which periodically attempts to execute (or download and execute)
+    the payload. This approach guarantees that the malware will be executed again
+    after the reboot and, beyond this, it may revive malware if it is killed, either
+    deliberately or accidentally. The easiest way to interact with `cron` is by using
+    the `crontab` utility. It is also possible to do this using `/var/spool/cron/crontabs/`,
+    modifying `/etc/crontab`, or placing a script in `/etc/cron.d/` or `/etc/cron.hourly/`
+    (`.daily/.weekly/.monthly`) manually, but it may require elevated privileges.'
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`crontab`，它会定期尝试执行（或下载并执行）负载。此方法保证在重新启动后恶意软件会再次执行，而且除此之外，如果恶意软件被故意或意外杀死，它也可能复活。与
+    `cron` 交互的最简单方式是使用 `crontab` 工具。也可以通过 `/var/spool/cron/crontabs/`、修改 `/etc/crontab`
+    或手动将脚本放入 `/etc/cron.d/` 或 `/etc/cron.hourly/`（`.daily/.weekly/.monthly`）来实现，但可能需要提升权限。'
+- en: '`/etc/init.d/` location. After this, it can be invoked by using the symbolic
+    link in the `/etc/rc?.d/` location. It is also possible to add malicious commands
+    to the `/etc/inittab` file by defining commands for different runlevels directly.
+    Another common option is to modify the `/etc/rc.local` file that’s executed after
+    normal system services.'
+  id: totrans-124
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/init.d/` 位置。之后，可以通过在 `/etc/rc?.d/` 位置使用符号链接来调用它。也可以通过直接为不同的运行级别定义命令，向
+    `/etc/inittab` 文件添加恶意命令。另一个常见的选项是修改在正常系统服务执行后运行的 `/etc/rc.local` 文件。'
+- en: '`/etc/init/`.'
+  id: totrans-125
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/init/`。'
+- en: '`/etc/systemd/`.'
+  id: totrans-126
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/systemd/`。'
+- en: '`˜/.bash_profile` (another option is `~/.bash_login` and the older `sh` file’s
+    `~/.profile`) or `~/.bashrc` files are being misused with some malicious commands
+    added there. The difference between these two is that the former is executed for
+    login shells (that is, when the user logs in, either locally or remotely), while
+    the latter is for interactive non-login shells (for example, when `/bin/bash`
+    is being called, or a new Terminal window is opened). Interactive here means that
+    it won’t be executed if the bash just executes a shell script or is called with
+    the `-c` argument. Other shells have their own profile files, for example, `zsh`
+    uses the `.zprofile` file. This approach requires no elevated privileges. The
+    `/etc/profile` file can be used in the same way but, in this case, elevated privileges
+    are required, as this file is shared across multiple users.*   `.desktop` files
+    are placed in the `~/.config/autostart` location. Another more proprietary location
+    for executing scripts this way is `~/.config/autostart-scripts`.*   **Actual file
+    replacement**: This approach doesn’t touch the configuration files and instead
+    modifies or replaces actual original programs that are run periodically: either
+    scripts or files. It generally requires elevated privileges to replace system
+    files that can be reliably found on multiple systems, but it can also be applied
+    to some specific setup files with normal privileges.*   `find` utility has the
+    SUID permission, it will allow the execution of virtually any command with escalated
+    privileges using the `-exec` argument. Another common option is to modify the
+    scripts that are executed by these kinds of files or change the environment variables
+    that they use so that they execute the attacker’s script placed in some different
+    location.'
+  id: totrans-127
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`˜/.bash_profile`（另一个选项是 `~/.bash_login` 和较旧的 `sh` 文件中的 `~/.profile`）或 `~/.bashrc`
+    文件被滥用，并且添加了一些恶意命令。这两者的区别在于，前者在登录外壳中执行（即用户登录时，无论是本地还是远程），而后者用于交互式非登录外壳（例如，当调用 `/bin/bash`
+    时，或者打开一个新的终端窗口时）。这里的“交互式”意味着如果 bash 只是执行一个脚本或使用 `-c` 参数调用，则不会执行。其他外壳也有自己的配置文件，例如，`zsh`
+    使用 `.zprofile` 文件。此方法不需要提升权限。`/etc/profile` 文件也可以以相同的方式使用，但在这种情况下，需要提升权限，因为该文件是多个用户共享的。*
+    `.desktop` 文件被放置在 `~/.config/autostart` 位置。另一种执行脚本的专有位置是 `~/.config/autostart-scripts`。*
+    **实际文件替换**：这种方法不涉及配置文件，而是修改或替换定期运行的实际原始程序：脚本或文件。通常需要提升权限才能替换系统文件，这些文件可以在多个系统中可靠地找到，但它也可以应用于一些特定的设置文件，且不需要特殊权限。*   `find`
+    工具具有 SUID 权限，它允许使用 `-exec` 参数执行几乎任何命令并提升权限。另一个常见的选项是修改这些文件执行的脚本，或者更改它们使用的环境变量，以便它们执行攻击者放置在其他位置的脚本。'
+- en: Other custom options specific to certain operating systems are also possible,
+    but these are some of the most common cases often used by hackers and modern malware.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也有一些针对特定操作系统的自定义选项，但这些是黑客和现代恶意软件常用的最常见情况之一。
+- en: It is also worth mentioning that some malware families don’t bother with implementing
+    persistence mechanisms at all, as they expect to be able to easily come back to
+    the same device after its reboot through the same channel.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还值得一提的是，一些恶意软件家族根本不采取持久性机制，因为它们期望在设备重启后通过相同的渠道轻松恢复到同一设备。
+- en: Privilege escalation
+  id: totrans-130
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 提升权限
+- en: As we can see, there are multiple ways that malware can achieve persistence
+    with the privileges it obtains immediately after penetration. It comes as no surprise
+    that malware targeting IoT devices will try them first. For example, the VPNFilter
+    malware incorporated `crontab` to achieve persistence, and Torii, incorporating
+    some of Mirai’s code, tries several techniques, one of which is using the local
+    `~/.bashrc` file.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，恶意软件可以通过其在渗透后立即获得的权限实现持久性，存在多种方式。毫不奇怪，针对IoT设备的恶意软件首先会尝试这些方式。例如，VPNFilter恶意软件通过整合`crontab`实现持久性，而Torii恶意软件通过整合Mirai的一些代码，尝试了多种技术，其中之一是使用本地的`~/.bashrc`文件。
+- en: 'However, if at any stage the privilege escalation is required, there are several
+    common ways that this can be achieved:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，如果在任何阶段需要提升权限，以下是几种常见的实现方式：
+- en: '**Exploit**: Privilege escalation exploits are quite common and there is always
+    a chance that the owner of a particular system didn’t patch it in time.'
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**漏洞利用**：提升权限的漏洞利用非常常见，总有可能特定系统的所有者未及时修补漏洞。'
+- en: '**SUID executables**: As we discussed in the previous section, it is possible
+    to execute commands with elevated privileges in the case of misconfigured SUID
+    files.'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SUID可执行文件**：正如我们在上一节中讨论的，如果SUID文件配置错误，可以使用提升的权限执行命令。'
+- en: '`sudo` without even needing to provide a password, this can be easily exploited
+    by attackers. Even if the password is required, it can still be brute-forced by
+    the attackers.'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sudo`甚至无需提供密码，攻击者可以轻松利用这一点。即便需要密码，攻击者仍然可以通过暴力破解来突破。'
+- en: '**Brute-forcing credentials**: While this approach is unlikely to be applicable
+    to mass infection malware, it is possible to get access to the hash of the required
+    password (for example, the one that belongs to the root), and then either brute-force
+    it or use rainbow tables containing a huge amount of pre-computed pairs of passwords
+    and their hashes in order to find a match.'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**暴力破解凭证**：虽然这种方法不太可能适用于大规模感染的恶意软件，但可以获得所需密码的哈希值（例如，属于root的密码），然后通过暴力破解或使用包含大量预计算密码对及其哈希值的彩虹表来寻找匹配。'
+- en: There are other creative ways that persistence can be achieved. For example,
+    on older Linux kernels, it is possible to set the current directory of an attacker’s
+    program to `/etc/cron.d`, request the dump’s creation in case of failure, and
+    then deliberately crash it. In this case, the dump, the content of which is controlled
+    by the attacker, will be written to `/etc/cron.d` and then treated as a text file,
+    and therefore its content will be executed with elevated privileges.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有其他创造性的方法可以实现持久性。例如，在较旧的Linux内核上，可以将攻击者程序的当前目录设置为`/etc/cron.d`，在失败时请求创建转储文件，然后故意使其崩溃。在这种情况下，攻击者控制的转储文件将写入`/etc/cron.d`并作为文本文件处理，因此其内容将在提升的权限下执行。
+- en: Now, let’s dive deeper into the various ways that malware may communicate with
+    a remote server controlled by the attackers.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们深入探讨恶意软件与攻击者控制的远程服务器之间可能的多种通信方式。
+- en: Command and control
+  id: totrans-139
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 命令与控制
+- en: 'There are multiple standard system tools found by default on many systems that
+    can be used to interact with remote machines to either download or upload data,
+    depending on their availability:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在许多系统中，有多个默认存在的标准系统工具，可以用来与远程机器交互，从而下载或上传数据，具体取决于它们的可用性：
+- en: '`wget`'
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wget`'
+- en: '`curl`'
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`curl`'
+- en: '`ftpget`'
+  id: totrans-143
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ftpget`'
+- en: '`ftp`'
+  id: totrans-144
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ftp`'
+- en: '`tftp`'
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tftp`'
+- en: '![Figure 11.6 – IoT malware trying to download payloads using either wget or
+    curl'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.6 – IoT恶意软件尝试使用wget或curl下载有效载荷'
+- en: '](img/Figure_11.6_B18500.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.6_B18500.jpg)'
+- en: Figure 11.6 – IoT malware trying to download payloads using either wget or curl
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.6 – IoT恶意软件尝试使用wget或curl下载有效载荷
+- en: 'For devices using the `busybox wget` or `busybox ftpget` can be used instead.
+    `nc` (netcat) and `scp` tools can also be used for similar purposes. Another advantage
+    of `nc` is that some versions of it can be used to establish the reverse shell:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于使用`busybox wget`或`busybox ftpget`的设备，也可以使用它们。`nc`（netcat）和`scp`工具也可以用于类似的目的。`nc`的另一个优势是，它的某些版本可以用于建立反向Shell：
+- en: '[PRE0]'
+  id: totrans-150
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'There are many ways this can be achieved – even bash-only (some versions of
+    it) may be enough:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有很多方法可以实现这一点——即使仅使用bash（某些版本）也可能足够：
+- en: '[PRE1]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Pre-installed script languages such as Python or Perl provide plenty of options
+    for communicating with remote servers, including the creation of interactive shells.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 预安装的脚本语言如Python或Perl提供了多种与远程服务器通信的选项，包括创建交互式Shell。
+- en: 'An example of a more advanced way to exfiltrate data bypassing strong firewalls
+    is by using the `ping` utility and storing data in padding bytes (ICMP tunneling)
+    or sending data using third-level (or above) domain names with the `nslookup`
+    utility (DNS tunneling):'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种更先进的方式来突破强大的防火墙并外泄数据的例子是使用`ping`工具并将数据存储在填充字节中（ICMP隧道）或使用`nslookup`工具通过第三层（或更高层）域名发送数据（DNS隧道）：
+- en: '[PRE2]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The compiled malware generally uses standard network syscalls to interact with
+    the C&C or peers; see the preceding list of common entries for more information.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译后的恶意软件通常使用标准的网络系统调用与C&C或对等方进行交互；有关更多信息，请参见前面的常见条目列表。
+- en: Impact
+  id: totrans-157
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 影响
+- en: 'The main purposes of malware attacking IoT devices and Linux-based servers
+    are generally as follows:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件攻击物联网设备和基于Linux的服务器的主要目的通常如下：
+- en: '**DDoS attacks**: These can be monetized in multiple ways: fulfilling orders
+    to organize them, extorting companies, or providing DDoS protection services for
+    affected entities.'
+  id: totrans-159
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**DDoS攻击**：这些攻击可以通过多种方式获利：组织攻击以履行订单、勒索公司，或为受影响的实体提供DDoS保护服务。'
+- en: '**Cryptocurrency mining**: Even though each affected device generally has a
+    pretty basic CPU and often no GPU to provide substantial computation power independently,
+    the combination of them can generate quite impressive numbers in the case of proper
+    implementation:'
+  id: totrans-160
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**加密货币挖矿**：尽管每个受影响的设备通常具有相当基础的CPU，且通常没有GPU来独立提供大量的计算能力，但它们的结合在适当实施的情况下可以生成相当可观的数字：'
+- en: '![Figure 11.7 – Part of the script used by the IoT cryptocurrency mining malware'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.7 – 物联网加密货币挖矿恶意软件使用的脚本部分'
+- en: '](img/Figure_11.7_B18500.jpg)'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.7_B18500.jpg)'
+- en: Figure 11.7 – Part of the script used by the IoT cryptocurrency mining malware
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.7 – 物联网加密货币挖矿恶意软件使用的脚本部分
+- en: '**Cyber-espionage and infostealing**: Infected cameras can be a source of valuable
+    information for the attackers, as with smart TVs or smart home devices that often
+    have either a camera or a microphone (or both). Infected routers can also be used
+    to intercept and modify important data. Finally, some web servers may store valuable
+    information stored in their databases.'
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网络间谍活动和信息窃取**：感染的摄像头可以成为攻击者获取宝贵信息的来源，就像智能电视或智能家居设备常常拥有摄像头或麦克风（或两者）一样。感染的路由器也可以用于拦截和修改重要数据。最后，一些Web服务器可能会存储数据库中存储的宝贵信息。'
+- en: '**Denial of service**: Malware can destroy essential infrastructure hardware
+    and make certain systems or data inaccessible.'
+  id: totrans-165
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**拒绝服务攻击**：恶意软件可以摧毁关键的基础设施硬件，使某些系统或数据无法访问。'
+- en: '**Ad fraud**: Multiple infected devices can generate good revenue for attackers
+    by performing fraud clicking.'
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**广告欺诈**：多个感染的设备可以通过执行欺诈点击为攻击者带来丰厚的收入。'
+- en: '**Proxy**: In this case, infected devices provide an anonymous proxy service
+    for attackers.'
+  id: totrans-167
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**代理**：在这种情况下，感染的设备为攻击者提供匿名代理服务。'
+- en: As we can see, the focus here is quite different from the traditional Windows
+    malware due to the nature of the targeted systems.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，这里的重点与传统的Windows恶意软件有所不同，这是由于所针对的系统性质所致。
+- en: Defense evasion
+  id: totrans-169
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 防御规避
+- en: 'Generic anti-reverse-engineering tricks such as detecting breakpoints using
+    checksums or an exact match, stripping symbol information, incorporating data
+    encryption, or using custom exceptions or signal handlers (setting them using
+    the `signal` syscall that we discussed previously) will work perfectly for ELF
+    files, pretty much the same as they do for PE files:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通用的反逆向工程技巧，如使用校验和或精确匹配检测断点、剥离符号信息、结合数据加密，或使用自定义异常或信号处理程序（通过之前讨论的`signal`系统调用设置）在ELF文件中同样有效，和PE文件几乎没有区别：
+- en: '![Figure 11.8 – An example of a custom xor-based string decryption algorithm
+    in IoT malware'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.8 – 一个自定义的基于异或的字符串解密算法示例，用于物联网恶意软件'
+- en: '](img/Figure_11.8_B18500.jpg)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.8_B18500.jpg)'
+- en: Figure 11.8 – An example of a custom xor-based string decryption algorithm in
+    IoT malware
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.8 – IoT 恶意软件中基于自定义XOR的字符串解密算法示例
+- en: 'There are multiple ways that the malware can take advantage of the ELF structure
+    in order to complicate analysis. The two most popular ways are as follows:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件可以利用ELF结构的多种方式来复杂化分析。最常见的两种方法如下：
+- en: '**Make the sample unusual, but still follow the ELF specification**: In this
+    case, the malware complies with the documentation, but there are no compilers
+    that would generate such code. An example of this kind of technique could be a
+    wrong target OS specified in the header (we know that it can actually be 0, which
+    means this value is largely ignored by programs). Another example is a stripped
+    section table, which is, as we saw earlier, actually optional for executable files.'
+  id: totrans-175
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使样本不寻常，但仍遵循ELF规范**：在这种情况下，恶意软件遵循文档要求，但没有编译器会生成这样的代码。此类技术的一个例子是头部指定错误的目标操作系统（我们知道实际上它可以是0，这意味着该值被程序忽略）。另一个例子是去除的节表，正如我们之前看到的，它实际上是可选的，用于可执行文件。'
+- en: '`e_shoff`, `e_shnum` or `e_shstrndx` describing the section header table, bogus
+    `sh_addr` value for particular sections, or mismatching memory protection flags
+    used for segments and sections describing the same memory regions.'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`e_shoff`、`e_shnum`或`e_shstrndx`描述节头表，为特定节提供虚假的`sh_addr`值，或者为描述相同内存区域的段和节使用不匹配的内存保护标志。'
+- en: 'In relation to existing open source packing tools, `upx –d` functionality to
+    unpack them straight away. The most common corruption techniques involve the following:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于现有的开源打包工具，`upx -d`功能可以直接解包它们。最常见的破坏技术包括以下几种：
+- en: 'Modifying the hardcoded `UPX!` magic value (the `l_magic` field of its `l_info`
+    structure):'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 修改硬编码的`UPX!`魔术值（其`l_info`结构中的`l_magic`字段）：
+- en: To circumvent this change, just restore the original `UPX!` magic value back.
+  id: totrans-179
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为了绕过此变化，只需恢复原始的`UPX!`魔术值。
+- en: 'Modifying the sizes (the `p_filesize` and `p_blocksize` fields of the `p_info`
+    structure):'
+  id: totrans-180
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 修改大小（`p_info`结构中的`p_filesize`和`p_blocksize`字段）：
+- en: Here, the original values can be copied from the end of the sample.
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在这里，原始值可以从样本的末尾复制。
+- en: In addition, attackers may use a not-yet-released development version of the
+    UPX to protect their samples. In this case, the latest release version of the
+    UPX may be not able to process them even with the aforementioned modifications
+    reverted. To circumvent this technique, use packer detection tools such as **DiE**
+    to correctly identify the version of the packer applied and then use the right
+    version of the UPX tool compiling it on your own if necessary.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，攻击者可能会使用尚未发布的UPX开发版本来保护他们的样本。在这种情况下，即使回滚上述修改，UPX的最新版本可能也无法处理这些样本。为了绕过这种技术，使用像**DiE**这样的打包检测工具正确识别应用的打包版本，并在必要时使用正确版本的UPX工具重新编译。
+- en: In terms of syscalls, the most common way to detect debuggers and tools such
+    as `ptrace` with the `PTRACE_TRACEME` or `PTRACE_ATTACH` arguments to either make
+    it harder to attach to the sample using the debugger or detect the debugging that
+    is already happening.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就系统调用而言，最常见的检测调试器和工具（如使用`ptrace`的`PTRACE_TRACEME`或`PTRACE_ATTACH`参数）的方法是，或者使调试器更难附加到样本，或者检测已经发生的调试过程。
+- en: Finally, the `prctl` (with a `PR_SET_NAME` argument) and `chroot` syscalls can
+    be used to change the name of the process and its root directory respectively
+    to avoid detection.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，`prctl`（带有`PR_SET_NAME`参数）和`chroot`系统调用可分别用于更改进程名称及其根目录，从而避免被检测。
+- en: Some malware families go well beyond using classic anti-analysis techniques.
+    An example would be the ZHtrap botnet, which is not only able to figure out whether
+    it is running in a real environment or a honeypot but also to set up its own honeypot
+    on a compromised device to passively build up a list of devices attempting to
+    connect to it.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些恶意软件家族远远超出了使用经典反分析技术的范畴。例如，ZHtrap 僵尸网络不仅能够判断它是运行在真实环境中还是蜜罐中，还能够在被攻陷的设备上设置自己的蜜罐，主动收集试图连接到它的设备列表。
+- en: Another great example is rootkits, which can be used to achieve stealth capabilities,
+    for example, to hide particular files, directories, or processes from the user.
+    These are generally kernel modules that can be installed using the standard `insmod`
+    command. The most common way that hiding can happen in this case is by hooking
+    syscalls. Many rootkit malware families are based on public open source projects
+    such as **Adore-Ng** or **Knark**.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个很好的例子是rootkit，它可以用于实现隐身能力，例如，隐藏特定的文件、目录或进程。这些通常是内核模块，可以通过标准的`insmod`命令安装。在这种情况下，隐藏通常是通过挂钩系统调用实现的。许多rootkit恶意软件家族是基于公开的开源项目，如**Adore-Ng**或**Knark**。
+- en: Now, let’s talk about which tools can help us analyze IoT threats and how to
+    use them properly.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们讨论哪些工具可以帮助我们分析物联网威胁，以及如何正确使用它们。
+- en: Static and dynamic analysis of x86 (32- and 64-bit) samples
+  id: totrans-188
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: x86（32位和64位）样本的静态和动态分析
+- en: There are multiple tools available to engineers that may facilitate both static
+    and dynamic analysis of Linux malware. In this section, we will cover the most
+    popular solutions and provide basic guidelines on how to start using them efficiently.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工程师们可以使用多种工具来促进Linux恶意软件的静态和动态分析。在这一节中，我们将介绍最流行的解决方案，并提供如何高效使用它们的基本指南。
+- en: Static analysis
+  id: totrans-190
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 静态分析
+- en: We have already covered the tools that can present the ELF structure information
+    in a human-friendly way. Beyond this, there are many other categories of tool
+    that will help speed up analysis.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经介绍了可以以人类友好的方式展示ELF结构信息的工具。除此之外，还有许多其他类别的工具可以帮助加速分析。
+- en: File type detectors
+  id: totrans-192
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 文件类型检测器
+- en: 'The most popular solution, in this case, would be the standard **file** utility.
+    It not only recognizes the type of data but also provides other important information.
+    For example, for ELF files, it will also confirm the following:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，最流行的解决方案是标准的**file**工具。它不仅能识别数据的类型，还能提供其他重要信息。例如，对于ELF文件，它还会确认以下内容：
+- en: Whether it is a 32- or 64-bit sample
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 是否是32位还是64位样本
+- en: What is the target platform
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 目标平台是什么
+- en: Whether the symbol information was stripped or not
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 符号信息是否被剥离
+- en: Whether it is statically or dynamically linked (as in, whether it is using embedded
+    libraries or external ones)
+  id: totrans-197
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 是否是静态链接还是动态链接（即，是否使用嵌入式库或外部库）
+- en: '![Figure 11.9 – The output of a file tool used against an IoT malware sample'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.9 – 用于物联网恶意软件样本的文件工具输出](img/Figure_11.9_B18500.jpg)'
+- en: '](img/Figure_11.9_B18500.jpg)'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.9_B18500.jpg)'
+- en: Figure 11.9 – The output of a file tool used against an IoT malware sample
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.9 – 用于物联网恶意软件样本的文件工具输出
+- en: Its functionality is also incorporated into the **libmagic** library.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其功能也已集成到**libmagic**库中。
+- en: Another free for non-commercial use solution is the **TrID** tool, which introduces
+    a nice, expandable database.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个免费的非商业用途解决方案是**TrID**工具，它提供了一个漂亮的、可扩展的数据库。
+- en: Data carving
+  id: totrans-203
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 数据雕刻
+- en: 'While this term is mainly used in forensics, it is always handy to extract
+    all possible artifacts from the binary before going deeper into analysis. Here
+    are some of the handy tools that are available:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然这个术语主要用于法医领域，但在深入分析之前，提取二进制文件中所有可能的痕迹总是非常有用。以下是一些可用的便捷工具：
+- en: '**strings**: This standard tool can be used to quickly extract all the strings
+    of a particular length from the sample, which can give you a quick insight into
+    its functionality, and sometimes can even provide valuable **Indicators of Compromise**
+    (**IoCs**), such as the C&C that was used.'
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**strings**：这个标准工具可以用来快速提取样本中所有特定长度的字符串，这可以帮助你快速了解它的功能，有时还可以提供有价值的**妥协指标**（**IoCs**），比如使用的
+    C&C。'
+- en: '**scalpel**: Mainly used in forensics, it can be used to quickly extract embedded
+    resources.'
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**手术刀**：主要用于法医领域，它可以用来快速提取嵌入式资源。'
+- en: '**foremost**: This is another free, file-carving tool from the forensic world.'
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**foremost**：这是另一个来自法医领域的免费的文件雕刻工具。'
+- en: Disassemblers
+  id: totrans-208
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 反汇编器
+- en: These are heavy weapons that can give you the best idea about malware functionality
+    but they may also take the longest time to master and work with. If you are unfamiliar
+    with assembly, it is recommended to go through [*Chapter 2*](B18500_02.xhtml#_idTextAnchor043),
+    *A Crash Course in Assembly and Programming Basics*, first to get an idea of how
+    it works. The list of known players is actually quite big, so let’s split it roughly
+    into two categories – tools and frameworks.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些是可以帮助你了解恶意软件功能的重型武器，但它们可能也是最需要时间来掌握和使用的。如果你对汇编不熟悉，建议先阅读 [*第2章*](B18500_02.xhtml#_idTextAnchor043)，*汇编与编程基础速成课程*，以了解其工作原理。已知的工具其实相当多，因此我们可以大致将它们分为两类——工具和框架。
+- en: Tools
+  id: totrans-210
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 工具
+- en: 'Here is a list of common tools that can be used to quickly access the assembly
+    code:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里列出了一些常用的工具，可以用来快速访问汇编代码：
+- en: '`-D/--disassemble-all` argument. It supports multiple architectures; a list
+    of them can be obtained using the `-i` argument. Generally, it is distributed
+    as part of **binutils** and has to be compiled for the specific target for the
+    disassembler to work.'
+  id: totrans-212
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-D/--disassemble-all` 参数。它支持多种架构；可以通过 `-i` 参数获取架构列表。通常，它作为 **binutils** 的一部分进行分发，且必须为特定目标编译，才能使反汇编器正常工作。'
+- en: '`objdump`, it shouldn’t be used to disassemble object files.'
+  id: totrans-213
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`objdump`，它不应该用于反汇编目标文件。'
+- en: '**ODA**: This is a unique **online disassembler**; it provides basic disassembler
+    functionality, as well as some neat dialog windows, for example, to provide a
+    list of functions or strings. It supports an impressive number of architectures,
+    as we can see in the following figure:'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**ODA**：这是一款独特的 **在线反汇编器**；它提供基本的反汇编功能，以及一些实用的对话框窗口，例如提供函数或字符串的列表。它支持令人印象深刻的架构数量，正如我们在下图中所看到的：'
+- en: '![Figure 11.10 – A list of architectures supported by ODA'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![Figure 11.10 – ODA支持的架构列表](img/Figure_11.10_B18500.jpg)'
+- en: '](img/Figure_11.10_B18500.jpg)'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.10_B18500.jpg)'
+- en: Figure 11.10 – A list of architectures supported by ODA
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Figure 11.10 – ODA支持的架构列表
+- en: '**radare2**: This is a powerful framework combining multiple features to facilitate
+    both static and dynamic analysis, and it also supports multiple architectures.
+    Many engineers treat it as a proper open source alternative to IDA; it even supports
+    FLIRT signatures in addition to its own **zignatures**, which can be used similarly.
+    Apart from the console, it also has two graphics modes, including control flow
+    graphs. While it takes time to master some of the hotkeys that are used, it helps
+    to drastically speed up analysis. We will dive deeper into how to use it within
+    a dedicated section, *A radare2 cheat sheet*, shortly.'
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**radare2**：这是一个强大的框架，结合了多种功能，既支持静态分析也支持动态分析，并且支持多种架构。许多工程师将其视为 IDA 的一个合适的开源替代品；它甚至支持
+    FLIRT 签名，除了自身的 **zignatures** 外，还可以类似使用。除了控制台，radare2 还提供了两种图形模式，包括控制流图。虽然掌握一些常用快捷键需要时间，但它能大大加快分析速度。我们将在一个专门的章节
+    *A radare2 cheat sheet* 中进一步深入讲解如何使用它。'
+- en: '**RetDec**: This decompiler supports multiple file formats, platforms, and
+    architectures, and includes multiple other features, such as compiler and packer
+    detection, as well as recognition of statically linked library code.'
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**RetDec**：这款反编译器支持多种文件格式、平台和架构，还包括多个其他功能，如编译器和打包器检测，以及识别静态链接库代码。'
+- en: '**Snowman**: This is another powerful decompiler that supports multiple file
+    formats and architectures. It can be used in the forms of both plugins and standalone
+    tools.'
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Snowman**：这是一款强大的反编译器，支持多种文件格式和架构。它可以作为插件或独立工具使用。'
+- en: '**Ghidra**: A powerful cross-platform, open source reverse-engineering toolkit
+    focused on static analysis – it was released to the public by the NSA in March
+    2019\. It supports an impressive number of architectures and corresponding instruction
+    sets, as well as multiple file formats (in both the disassembler and decompiler).
+    It features a comprehensive GUI with the ability to work on multiple files simultaneously
+    in separate tabs. In addition, it has built-in functionality for creating scripts
+    and collaborative work, as well as program diffing and version tracking:'
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Ghidra**：一款强大的跨平台开源逆向工程工具包，专注于静态分析——它由美国国家安全局（NSA）于2019年3月公开发布。它支持令人印象深刻的架构和相应的指令集，以及多种文件格式（在反汇编器和反编译器中均支持）。它具有一个全面的图形用户界面，可以在多个文件之间同时工作，每个文件都有独立的标签。此外，它还内建了创建脚本、协作工作、程序对比和版本跟踪的功能。'
+- en: '![Figure 11.11 – The multiple analysis options in Ghidra'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![Figure 11.11 – Ghidra中的多种分析选项](img/Figure_11.11_B18500.jpg)'
+- en: '](img/Figure_11.11_B18500.jpg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.11_B18500.jpg)'
+- en: Figure 11.11 – The multiple analysis options in Ghidra
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.11 – Ghidra中的多种分析选项
+- en: '**Relyze** (commercial and demo versions available): A relatively new player
+    on the market, it supports both PE and ELF files for x86, x64, and ARM architectures.
+    It has multiple modern features, such as control flow graphs, function analysis
+    and references, and strong visualization functionality.'
+  id: totrans-225
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Relyze**（商业版和演示版可用）：这是市场上的一个相对新兴的工具，支持x86、x64和ARM架构的PE和ELF文件。它拥有多个现代化特性，如控制流图、函数分析和引用、以及强大的可视化功能。'
+- en: '**Binary Ninja** (commercial and demo versions available): This is a strong
+    cross-platform reversing platform that introduced multiple advanced features,
+    such as multi-threaded analysis.'
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Binary Ninja**（商业版和演示版可用）：这是一个强大的跨平台逆向工程平台，引入了多个先进功能，例如多线程分析。'
+- en: '**Hopper** (commercial and demo versions available): Originally developed for
+    Mac, it now supports both Windows and Linux systems as well. Among other features,
+    it also provides decompiling capabilities.'
+  id: totrans-227
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Hopper**（商业版和演示版可用）：最初为Mac开发，现在也支持Windows和Linux系统。除了其他功能外，它还提供反编译能力。'
+- en: '**IDA** (commercial – both demo and free versions are available): This is one
+    of the most powerful and, at the same time, easy-to-use solutions available on
+    the market. The number of supported architectures and file formats is daunting,
+    and the rich functionality can be further extended with the help of plugins and
+    scripts. The associated **Hex-Rays Decompiler** runs on multiple platforms and
+    can handle assembly for x86, x64, ARM32, ARM64, and PowerPC processors.'
+  id: totrans-228
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IDA**（商业版 - 提供演示版和免费版）：这是市场上最强大、同时也是最易于使用的解决方案之一。支持的架构和文件格式种类繁多，丰富的功能还可以通过插件和脚本进一步扩展。相关的**Hex-Rays反编译器**支持多个平台，并且能够处理x86、x64、ARM32、ARM64和PowerPC处理器的汇编语言。'
+- en: This is definitely not an exhaustive list, and the number of such tools keeps
+    growing, which gives engineers the ability to find the one that suits their needs
+    best.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这绝对不是一个详尽无遗的列表，这类工具的数量还在不断增长，工程师可以找到最适合自己需求的工具。
+- en: Frameworks
+  id: totrans-230
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 框架
+- en: 'These libraries are supposed to be used to develop other tools, or to just
+    solve some particular engineering task, using a custom script to call them:'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些库本应当用于开发其他工具，或者通过自定义脚本来调用它们，解决特定的工程任务：
+- en: '**Capstorm**: This is a lightweight multi-platform disassembly engine that
+    supports multiple architectures, including x86, ARM, MIPS, PowerPC, SPARC, and
+    several others. It provides native support for Windows and multiple *nix systems.
+    It is designed so that other developers can build reverse-engineering tools based
+    on it. Besides the C language, it also provides Python and Java APIs.'
+  id: totrans-232
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Capstorm**：这是一个轻量级的多平台反汇编引擎，支持多个架构，包括x86、ARM、MIPS、PowerPC、SPARC等。它原生支持Windows和多个*nix系统。它的设计目的是让其他开发人员可以基于它构建逆向工程工具。除了C语言，它还提供了Python和Java的API。'
+- en: '**distorm3**: This is a disassembler library for processing x86 or AMD binary
+    streams. Written in C, it also has wrappers in Python, Ruby, and Java.'
+  id: totrans-233
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**distorm3**：这是一个用于处理x86或AMD二进制流的反汇编库。用C语言编写，并且提供Python、Ruby和Java的封装。'
+- en: '**Vivisect**: This is a Python-based framework for static and dynamic analysis
+    that supports, among others, PE, ELF, Mach-O, and Blob binary formats on various
+    architectures. It has multiple convenient features, such as program flow graphs,
+    syntax highlighting, and support for cross-references.'
+  id: totrans-234
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Vivisect**：这是一个基于Python的框架，支持静态和动态分析，支持包括PE、ELF、Mach-O和Blob二进制格式在内的多种格式，适用于不同架构。它具备多个方便的功能，如程序流图、语法高亮和交叉引用支持。'
+- en: '**Miasm**: This is a reverse-engineering framework in Python and it supports
+    several architectures. Among its interesting features are intermediate representations,
+    so-called emulation using **Just-In-Time** (**JIT**) compilation, symbolic execution,
+    and an expression simplifier.'
+  id: totrans-235
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Miasm**：这是一个用Python编写的逆向工程框架，支持多种架构。它的一些有趣特性包括中间表示、所谓的**即时编译**（**JIT**）仿真、符号执行和表达式简化器。'
+- en: '**angr**: This Python library is a binary analysis framework that supports
+    multiple architectures. It has multiple interesting features, including control
+    flow analysis, decompilation capabilities, and its probably most widely used feature:
+    symbolic execution.'
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**angr**：这个Python库是一个二进制分析框架，支持多种架构。它具有多个有趣的功能，包括控制流分析、反编译能力，以及可能最广泛使用的功能：符号执行。'
+- en: '**Metasm**: This Ruby-based engine is a cross-architecture framework that includes
+    an [dis]assembler, [de]compiler, and file structure manipulation functionality.
+    At the moment, multiple architectures including x86, MIPS, and PowerPC are supported.
+    The original official website looks outdated, but the GitHub project is still
+    alive.'
+  id: totrans-237
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Metasm**：这个基于 Ruby 的引擎是一个跨架构框架，包括一个[反]汇编器、[反]编译器和文件结构操作功能。目前，支持多种架构，包括 x86、MIPS
+    和 PowerPC。原始的官方网站看起来有些过时，但 GitHub 项目仍然活跃。'
+- en: With a big list of players on this market, the analyst may have an understandable
+    question – which solution is the best? Let’s try to answer this question together.
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个市场上，参与者众多，分析人员可能会有一个合理的问题——哪种解决方案是最好的？让我们一起尝试回答这个问题。
+- en: How to choose
+  id: totrans-239
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 如何选择
+- en: A tool should always be chosen according to the relevant task and prior knowledge.
+    If the purpose is to understand the functionality of a small shellcode, then even
+    standard tools such as `objdump` may be good enough. Otherwise, it generally makes
+    sense to master more powerful all-in-one solutions that support either multiple
+    architectures or the main architecture of interest. While the learning curve in
+    this case will be much steeper, this knowledge can later be re-applied to handle
+    new tasks and eventually can save an impressive amount of time. The ability to
+    do both static and dynamic analysis in one place would definitely be an advantage
+    as well.
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工具的选择应始终根据相关任务和先前的知识来决定。如果目的是理解一个小的 shellcode 的功能，那么即使是像 `objdump` 这样的标准工具也可能足够。否则，通常更有意义的是掌握更强大的集成解决方案，这些解决方案支持多种架构或主要感兴趣的架构。虽然在这种情况下学习曲线会陡峭得多，但这些知识可以在后续的任务中重新应用，并最终节省大量时间。能够在一个地方进行静态和动态分析，肯定也是一个优势。
+- en: Open source solutions nowadays provide a pretty decent alternative to the commercial
+    ones, so ultimately, the decision should be made by the engineer. If money doesn’t
+    matter, then it makes sense to try several of them; check which one has the better
+    interface, documentation, and community; and eventually, stick to the most comfortable
+    solution.
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如今，开源解决方案为商业产品提供了相当不错的替代选择，因此最终的决定应该由工程师来做。如果不考虑费用，那么试用几种工具是有意义的；检查哪个工具有更好的界面、文档和社区；最终，选择最舒适的解决方案。
+- en: Finally, if you are a developer aiming to automate a certain task (for example,
+    building a custom malware monitoring system for IOC extraction), then it makes
+    sense to have a look at open source engines and modules that can drastically speed
+    up the development.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，如果你是一个开发者，旨在自动化某些任务（例如，构建一个定制的恶意软件监控系统用于 IOC 提取），那么查看开源引擎和模块是有意义的，这可以大大加速开发进程。
+- en: Dynamic analysis
+  id: totrans-243
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态分析
+- en: It always makes sense to debug malicious code in an isolated safe environment
+    that is easy to reset back to the previous state. For these purposes, engineers
+    generally use **virtual machines** (**VMs**) or dedicated physical machines with
+    software that allows quick restoration.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在一个可以轻松恢复到先前状态的隔离安全环境中调试恶意代码总是有意义的。为了这些目的，工程师通常使用**虚拟机**（**VM**）或配备可以快速恢复的软件的专用物理机器。
+- en: Tracers
+  id: totrans-245
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 跟踪器
+- en: 'These tools can be used to monitor malware actions that are performed on the
+    testing system:'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些工具可以用来监控在测试系统上执行的恶意软件行为：
+- en: '`ptrace` call to inspect and manipulate the internal state of the target process.'
+  id: totrans-247
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ptrace` 调用可以检查和操控目标进程的内部状态。'
+- en: '![Figure 11.12 – Analyzing malware using a strace tool'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.12 – 使用 strace 工具分析恶意软件'
+- en: '](img/Figure_11.12_B18500.jpg)'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.12_B18500.jpg)'
+- en: Figure 11.12 – Analyzing malware using a strace tool
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.12 – 使用 strace 工具分析恶意软件
+- en: '**ltrace**: This is another debugging utility that displays calls that an application
+    makes to libraries and syscalls.'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**ltrace**：这是另一个调试工具，显示应用程序对库和系统调用的调用。'
+- en: '**Frida**: This is a dynamic instrumentation toolkit that aims to be used by
+    both security researchers and developers. It allows script injection and the consequent
+    alteration and tracing of target processes, with no source code needed.'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Frida**：这是一款动态插桩工具包，旨在供安全研究人员和开发者使用。它允许脚本注入，并随之改变和跟踪目标进程，无需源代码。'
+- en: It is always worth keeping in mind that behavioral analysis techniques generally
+    produce limited results and, in most cases, should be carefully used together
+    with static analysis to understand the full picture.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 始终值得记住，行为分析技术通常只能产生有限的结果，并且在大多数情况下，应该谨慎与静态分析结合使用，以便全面理解。
+- en: Network monitors
+  id: totrans-254
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 网络监控器
+- en: 'These tools intercept network traffic, which can give the analyst valuable
+    insight into malware behavior:'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些工具拦截网络流量，可以为分析人员提供有关恶意软件行为的宝贵洞察：
+- en: '**tcpdump**: A standard tool to dump and analyze the network traffic'
+  id: totrans-256
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**tcpdump**：一个标准的网络流量捕获和分析工具'
+- en: '**wireshark or tshark**: A free network protocol analyzer with the ability
+    to record network traffic as well'
+  id: totrans-257
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**wireshark 或 tshark**：一个免费的网络协议分析工具，能够录制网络流量。'
+- en: The recorded network traffic can be shared between multiple engineers to speed
+    up the analysis if necessary.
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 录制的网络流量可以在多个工程师之间共享，以加速分析过程（如果需要的话）。
+- en: Debuggers
+  id: totrans-259
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 调试器
+- en: 'Debuggers provide more control over the execution process and can also be used
+    to tamper and extract data on the fly:'
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调试器提供了更多的执行过程控制，并且还可以用来实时篡改和提取数据：
+- en: '`gdbinit` syntax highlighter configuration file:'
+  id: totrans-261
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gdbinit`语法高亮配置文件：'
+- en: '![Figure 11.13 – Stopping at the entry point in GDB and disassembling the instructions
+    there'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.13 – 在GDB中停在入口点并反汇编该位置的指令'
+- en: '](img/Figure_11.13_B18500.jpg)'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.13_B18500.jpg)'
+- en: Figure 11.13 – Stopping at the entry point in GDB and disassembling the instructions
+    there
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.13 – 在GDB中停在入口点并反汇编该位置的指令
+- en: '**IDA**: IDA is shipped with several so-called debugging server utilities that
+    can be executed on the required platform and be used for remote debugging (in
+    this case, the IDA itself can run on a different machine). For Linux samples,
+    IDA supports x86 (32- and 64-bit) and ARM (32-bit) architectures.'
+  id: totrans-265
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IDA**：IDA附带了几个所谓的调试服务器工具，可以在所需的平台上执行并用于远程调试（在这种情况下，IDA本身可以在不同的机器上运行）。对于Linux样本，IDA支持x86（32位和64位）和ARM（32位）架构。'
+- en: '`radare2` provides plenty of options for dynamic analysis, and is accompanied
+    by a UI that supports multiple output modes. A project called **Cutter** that
+    provides a more mouse-friendly GUI is based on its fork, called **rizin**.'
+  id: totrans-266
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`radare2`提供了丰富的动态分析选项，并伴有一个支持多种输出模式的UI。一个名为**Cutter**的项目提供了一个更适合鼠标操作的GUI，基于其分支**rizin**。'
+- en: '`vivisect` can be used for both static and dynamic analysis, as well as a framework
+    to automate multiple tasks with the help of scripting.'
+  id: totrans-267
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`vivisect`可以用于静态和动态分析，也可以作为一个框架，通过脚本自动化多个任务。'
+- en: Now, let’s talk about emulators.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们来谈谈模拟器。
+- en: Binary emulators
+  id: totrans-269
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 二进制模拟器
+- en: 'This software can be used to emulate instructions of the samples without actually
+    executing them directly on the testing machine. It can be extremely useful when
+    analyzing malware that’s been compiled for a platform that’s different from the
+    one being used for analysis:'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该软件可用于模拟样本的指令，而不需要直接在测试机器上执行它们。对于分析恶意软件时，这在样本是为与分析平台不同的架构编译时，特别有用：
+- en: '**libemu**: This is a small emulator library that supports the x86 ISA. It’s
+    shipped with a small tool, **sctest**, which prints the emulation state.'
+  id: totrans-271
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**libemu**：这是一个支持x86指令集架构的小型模拟器库。它附带一个小工具**sctest**，用于打印模拟状态。'
+- en: '`-g` argument can be used to specify the port for running the GDB server with
+    the requested tool. This way, it becomes possible to connect to it using various
+    debuggers (see the following examples).'
+  id: totrans-272
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-g`参数可用于指定运行所需工具的GDB服务器端口。这样，可以使用各种调试器连接到它（见下文示例）。'
+- en: '**Unicorn**: This is a powerful QEMU-based cross-platform CPU emulation engine,
+    and it supports multiple architectures, including x86, ARM, MIPS, SPARC, and PowerPC:'
+  id: totrans-273
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Unicorn**：这是一个强大的基于QEMU的跨平台CPU仿真引擎，支持多种架构，包括x86、ARM、MIPS、SPARC和PowerPC：'
+- en: '![Figure 11.14 – An example of the Unicorn-based code used to emulate the shellcode'
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.14 – 一个基于Unicorn的示例代码，用于模拟Shellcode'
+- en: '](img/Figure_11.14_B18500.jpg)'
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.14_B18500.jpg)'
+- en: Figure 11.14 – An example of the Unicorn-based code used to emulate the shellcode
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.14 – 一个基于Unicorn的示例代码，用于模拟Shellcode
+- en: '**Qiling**: An advanced binary emulation framework supporting tons of architectures
+    and associated executable file formats, based on the Unicorn engine.'
+  id: totrans-277
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Qiling**：一个基于Unicorn引擎的高级二进制仿真框架，支持多种架构及相关的可执行文件格式。'
+- en: Finally, as an example, let’s talk about how to use `radare2` for both static
+    and dynamic analysis.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，作为一个示例，我们来讨论如何使用`radare2`进行静态和动态分析。
+- en: A radare2 cheat sheet
+  id: totrans-279
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: radare2备忘单
+- en: 'Many first-time users struggle with using `radare2` because of the impressive
+    number of commands and hotkeys supported. However, there is no need to use it
+    as an analog for GDB. `radare2` features very convenient graphical interfaces
+    that can be used similarly to IDA or other high-end commercial tools. In addition,
+    multiple third-party UIs are available. To begin with, to enable debugging, the
+    sample should be opened with the `-d` command-line argument, as in the following
+    example:'
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多初学者在使用 `radare2` 时会因为命令和快捷键的数量庞大而感到困惑。然而，实际上不必将其作为 GDB 的替代品来使用。`radare2` 提供了非常方便的图形界面，可以像使用
+    IDA 或其他高级商业工具一样使用。此外，还有多个第三方用户界面可供选择。首先，为了启用调试，应该使用 `-d` 命令行参数打开示例程序，如下所示：
+- en: '[PRE3]'
+  id: totrans-281
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Here is a list of some of the most common commands supported (all the commands
+    are case-sensitive):'
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是支持的一些常用命令列表（所有命令区分大小写）：
+- en: '`:` key).'
+  id: totrans-283
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`:` 键)。'
+- en: '`?`: Shows the help. Detailed information about some particular command (and
+    all commands with this prefix) can be obtained by entering it followed by the
+    `?` sign, for example, `dc?`.'
+  id: totrans-284
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`?`: 显示帮助。有关某个特定命令（以及所有带有该前缀的命令）的详细信息，可以通过在命令后加上 `?` 来获取，例如，`dc?`。'
+- en: '`?*~...`: This allows easy interactive navigation through all the help commands.
+    The last three dots should be typed as they are, not replaced with anything.'
+  id: totrans-285
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`?*~...`: 允许通过所有帮助命令进行轻松的交互式导航。最后三个点应按原样输入，而非替换为其他内容。'
+- en: '`ie`: Lists the available entry points.'
+  id: totrans-286
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ie`: 列出可用的入口点。'
+- en: '`iS`: Lists sections.'
+  id: totrans-287
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`iS`: 列出段。'
+- en: '`aa/aaa/aaaa`: Analyzes functions with various levels of detail.'
+  id: totrans-288
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`aa/aaa/aaaa`: 以不同的详细程度分析函数。'
+- en: '`afl`: Lists functions (requires the `aa` command to be executed first).'
+  id: totrans-289
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`afl`: 列出函数（需要首先执行 `aa` 命令）。'
+- en: '`iz/izz`: List the strings in data sections (usually, the `.rodata` section)
+    and in the whole binary (which often produces lots of garbage), respectively.'
+  id: totrans-290
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`iz/izz`: 列出数据段中的字符串（通常是 `.rodata` 段）以及整个二进制文件中的字符串（通常会产生大量垃圾数据）。'
+- en: '`ii`: Lists the imports that are available.'
+  id: totrans-291
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ii`: 列出可用的导入。'
+- en: '`is`: Lists symbols.'
+  id: totrans-292
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`is`: 列出符号。'
+- en: '`dc`: Continues execution.*   `dcr`, `dcs`, or `dcf`: Continues execution up
+    until `ret`, `syscall`, or `fork`, respectively.*   `ds` or `dso`: Steps in or
+    over.*   `dsi`: Continues until a condition matches, for example, `dsi eax==5,ebx>0`.*   `db`:
+    Lists the breakpoints (without an argument) or sets a breakpoint (with an address
+    as an argument).*   `db-`, `dbd`, or `dbe`: Removes, disables, and enables the
+    breakpoint, respectively.*   `dbi`, `dbid`, or `dbie`: Lists, disables, and enables
+    breakpoints, but using their indices in a list this time; this saves time, as
+    it is no longer required to type the corresponding addresses.*   `drx`: Modifies
+    hardware breakpoints.*   `dr`: Displays registers or changes the value of a specified
+    one.*   `/`, `/w`, `/x`, `/e`, or `/a`: Searches for a specified string, wide
+    string, `hex` string, regular expression, or assembly opcode, respectively (check
+    `/?` for more options).*   `px` or `pd`: Prints a `hexdump` or a disassembly,
+    respectively, for example, `pd 5 @eip` to print five disassembly lines at the
+    current program counter.*   `w` or `wa`: Writes a string or an opcode, respectively,
+    to the address specified with the `@` prefix.*   `afn`: Renames a function.*   `afvn`:
+    Renames the argument or local variable.*   `CC`: Lists or edits comments.*   `;`:
+    A separator for commands that allows you to chain them to sequences.*   `|`: Pipes
+    the command output to shell commands.*   `~`: Uses `grep`, for example, `f~abc`
+    and `f|grep abc` will pretty much do the same job![Figure 11.15 – An example of
+    the commands supported by radare2'
+  id: totrans-293
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`dc`: 继续执行。* `dcr`、`dcs` 或 `dcf`: 分别继续执行直到 `ret`、`syscall` 或 `fork`。* `ds`
+    或 `dso`: 步进执行或者跨过。* `dsi`: 继续执行直到条件匹配，例如，`dsi eax==5,ebx>0`。* `db`: 列出断点（无参数时）或者设置断点（带地址参数时）。*
+    `db-`、`dbd` 或 `dbe`: 分别移除、禁用和启用断点。* `dbi`、`dbid` 或 `dbie`: 列出、禁用和启用断点，但使用它们在列表中的索引，这样可以节省时间，因为不再需要输入对应的地址。*
+    `drx`: 修改硬件断点。* `dr`: 显示寄存器或更改指定寄存器的值。* `/`、`/w`、`/x`、`/e` 或 `/a`: 分别搜索指定的字符串、宽字符串、`hex`
+    字符串、正则表达式或汇编操作码（可以查看 `/?` 获取更多选项）。* `px` 或 `pd`: 分别打印 `hexdump` 或反汇编，例如，`pd 5
+    @eip` 打印当前程序计数器的五行反汇编。* `w` 或 `wa`: 分别将字符串或操作码写入由 `@` 前缀指定的地址。* `afn`: 重命名函数。*
+    `afvn`: 重命名参数或局部变量。* `CC`: 列出或编辑注释。* `;`: 命令分隔符，允许将多个命令链式执行。* `|`: 将命令输出通过管道传递给
+    shell 命令。* `~`: 使用 `grep`，例如，`f~abc` 和 `f|grep abc` 基本上完成相同的任务！[图 11.15 – radare2
+    支持的命令示例'
+- en: '](img/Figure_11.15_B18500.jpg)'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.15_B18500.jpg)'
+- en: Figure 11.15 – An example of the commands supported by radare2
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.15 – radare2 支持的命令示例
+- en: '`V` command:'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`V` 命令：'
+- en: '`?`: Help.'
+  id: totrans-297
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`?`：帮助。'
+- en: '`V`: Enters graph mode (especially useful for those used to it in IDA).'
+  id: totrans-298
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`V`：进入图形模式（对那些习惯使用 IDA 的人特别有用）。'
+- en: '`!`: Enters visual panel mode. It only supports a limited set of hotkeys.'
+  id: totrans-299
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`!`：进入可视面板模式。它仅支持有限的热键集。'
+- en: '`q`: Returns to the previous visual mode or shell.'
+  id: totrans-300
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`q`：返回到上一个可视模式或命令行。'
+- en: '`p/P`: Switches forward and backward between print modes, such as *hex*, *disasm*,
+    or *debug*.'
+  id: totrans-301
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`p` 或 `P`：在打印模式之间向前或向后切换，例如 *hex*、*disasm* 或 *debug*。'
+- en: '`/`: Highlights specified values.'
+  id: totrans-302
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/`：高亮显示指定的值。'
+- en: '`:`: Enters a generic command.'
+  id: totrans-303
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`:`：进入通用命令。'
+- en: '`.`: Seeks to the program counter (current instruction).*   `1-9`: Follows
+    the jump or call with the corresponding shortcut number in a comment (the numbering
+    always starts from the top of the displayed area).*   `c`: Enables or disables
+    cursor mode, which allows more detailed navigation. In the debug print mode, it
+    is possible to move the cursor between windows using the `Tab` key.*   `Enter`:
+    Follows the jump or call, either on the top-displayed instruction or at the current
+    location of the cursor.*   `o`: Seeks to the specified offset. Recent versions
+    of `radare2` use the `g` key instead.*   `u` or `U`: Undoes or redoes the seek.*   `x`
+    or `X`: Searches for cross-references and references, respectively, and optionally
+    seeks there.*   `b`: Displays lists of entries such as functions, comments, symbols,
+    xrefs, flags (strings, sections, imports), and navigates to particular values
+    using the `Enter` key.*   `F2` or `FB`: Sets a breakpoint*   `F7` or `Fs`: Takes
+    a single step*   `F8` or `FS`: Steps over*   `F9`: Continues execution*   `SHIFT`
+    + `h/j/k/l` or `arrows`: Selects the block (in the cursor mode) and then does
+    one of the following:'
+  id: totrans-304
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.`：寻址到程序计数器（当前指令）。*   `1-9`：在注释中跟随跳转或调用的相应快捷键编号（编号始终从显示区域的顶部开始）。*   `c`：启用或禁用光标模式，允许更详细的导航。在调试打印模式中，可以使用
+    `Tab` 键在窗口之间移动光标。*   `Enter`：跟随跳转或调用，无论是顶部显示的指令还是光标的当前位置。*   `o`：寻址到指定的偏移量。较新版本的
+    `radare2` 使用 `g` 键代替。*   `u` 或 `U`：撤销或重做寻址操作。*   `x` 或 `X`：分别搜索交叉引用和引用，并可以选择性地跳转到那里。*   `b`：显示条目列表，如函数、注释、符号、交叉引用、标志（字符串、节、导入），并使用
+    `Enter` 键跳转到特定值。*   `F2` 或 `FB`：设置断点*   `F7` 或 `Fs`：单步执行*   `F8` 或 `FS`：步过*   `F9`：继续执行*   `SHIFT`
+    + `h/j/k/l` 或箭头：在光标模式下选择块，然后执行以下操作之一：'
+- en: '`y`: Copies the selected block'
+  id: totrans-305
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`y`：复制选定的块'
+- en: '`Y`: Pastes the copied block'
+  id: totrans-306
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Y`：粘贴复制的块'
+- en: '`i`: Changes the block to the hex data specified'
+  id: totrans-307
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`i`：将块更改为指定的十六进制数据'
+- en: '`a` or `A`: Changes the block to the assembly instruction(s) specified*   `F`
+    or `f-`: Sets or unsets flags (names for selected addresses).*   `d`: This supports
+    multiple operations, such as renaming functions, and defining the block as data,
+    code, and functions.*   `;`: Sets a comment.'
+  id: totrans-308
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`a` 或 `A`：将块更改为指定的汇编指令*   `F` 或 `f-`：设置或取消设置标志（为选定的地址设置名称）。*   `d`：支持多种操作，例如重命名函数，并将块定义为数据、代码和函数。*   `;`：设置注释。'
+- en: 'Here is how debugging using `radare2`’s visual mode will look:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是使用 `radare2` 的可视模式进行调试的效果：
+- en: '![Figure 11.16 – Staying at the entry point of malware in radare2 using its
+    visual mode'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.16 – 在 radare2 的可视模式中保持在恶意软件的入口点'
+- en: '](img/Figure_11.16_B18500.jpg)'
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.16_B18500.jpg)'
+- en: Figure 11.16 – Staying at the entry point of malware in radare2 using its visual
+    mode
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.16 – 在 radare2 的可视模式中保持在恶意软件的入口点
+- en: 'Many engineers prefer to start the debugging process by running the `aaa` command
+    (or using the `–A` command-line option) in order to analyze functions and then
+    switch to visual mode and continue working there, but it depends on personal preference:'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多工程师喜欢通过运行 `aaa` 命令（或使用 `–A` 命令行选项）来启动调试过程，以便分析函数，然后切换到可视模式并继续在其中工作，但这取决于个人喜好：
+- en: '![Figure 11.17 – Running an aaa command in radare2 before starting the actual
+    analysis'
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.17 – 在开始实际分析之前，在 radare2 中运行 aaa 命令'
+- en: '](img/Figure_11.17_B18500.jpg)'
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.17_B18500.jpg)'
+- en: Figure 11.17 – Running an aaa command in radare2 before starting the actual
+    analysis
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.17 – 在开始实际分析之前，在 radare2 中运行 aaa 命令
+- en: Now, it is time to apply all this knowledge and dive deep into the internals
+    of one of the most notorious IoT malware families – Mirai.
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，是时候应用所有这些知识，深入研究其中一个臭名昭著的物联网恶意软件家族——Mirai的内部结构了。
+- en: Learning about Mirai, its clones, and more
+  id: totrans-318
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解 Mirai 及其克隆，更多内容
+- en: For many years, the Windows platform was the main target of attackers because
+    it was the most common desktop OS. This means that many beginner malware developers
+    had it at home to experiment with, and many organizations used it on the desktops
+    of non-IT personnel, for example, accountants that had access to financial transactions,
+    or maybe diplomats that had access to some high-profile confidential information.
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 多年来，Windows平台一直是攻击者的主要目标，因为它是最常见的桌面操作系统。这意味着许多初学者的恶意软件开发者会在家里用它进行实验，许多组织也会在非IT人员的桌面上使用它，例如，拥有财务交易访问权限的会计人员，或者可能拥有一些高敏感信息的外交人员。
+- en: 'As far as this is concerned, the Mirai (meaning *future* in Japanese) malware
+    fully deserved its notoriety, as it opened a door to a new, previously largely
+    unexplored area for malware – the IoT. While it wasn’t the first malware to leverage
+    it (other botnets, such as Qbot, were known a long time before), the scale of
+    its activity clearly showed everybody how hardcoded credentials such as *root/123456*
+    on largely ignored smart devices could now represent a really serious threat when
+    thousands of compromised appliances suddenly start DDoS attacks against benign
+    organizations across the world. To make things worse, the author of Mirai released
+    its source code to the public, which led to the appearance of multiple clones
+    in a short time. Here is the structure of the released project:'
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就此而言，Mirai（在日语中意为*未来*）恶意软件无疑配得上它的恶名，因为它打开了一个恶意软件以前基本未曾涉足的新领域——物联网。虽然它不是第一个利用物联网的恶意软件（例如，Qbot等其他僵尸网络在它之前就已存在），但它的活动规模清楚地向所有人展示了如何硬编码的凭据，例如*root/123456*，会在被忽视的智能设备上带来多么严重的威胁——当成千上万台受感染的设备突然开始对世界各地的无辜组织发起DDoS攻击时。更糟糕的是，Mirai的作者将其源代码公开，导致短时间内出现了多个克隆版本。以下是发布的项目结构：
+- en: '![Figure 11.18 – An example of the Mirai source code available on GitHub'
+  id: totrans-321
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.18 – Mirai源代码示例，已在GitHub上公开'
+- en: '](img/Figure_11.18_B18500.jpg)'
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.18_B18500.jpg)'
+- en: Figure 11.18 – An example of the Mirai source code available on GitHub
+  id: totrans-323
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.18 – Mirai源代码示例，已在GitHub上公开
+- en: In this section, we will put our obtained knowledge into practice and become
+    familiar with behavioral patterns used by this malware.
+  id: totrans-324
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将把所获得的知识付诸实践，熟悉这种恶意软件所使用的行为模式。
+- en: High-level functionality
+  id: totrans-325
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 高级功能
+- en: Luckily for reverse engineers, the malware author provided a good description
+    of the malware functionality, accompanied by the source code, and even corrected
+    some mistakes that were made by the engineers who previously analyzed it.
+  id: totrans-326
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，对于逆向工程师而言，恶意软件作者提供了良好的功能描述，并附带源代码，甚至修正了之前分析该代码的工程师所犯的一些错误。
+- en: Propagation
+  id: totrans-327
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 传播
+- en: 'The bot scans IP addresses, which are selected pseudo-randomly with certain
+    ranges excluded, asynchronously using TCP SYN packets, in order to find target
+    candidates with open default Telnet ports first. Here is how it looks in the source
+    code:'
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该机器人扫描IP地址，选取伪随机的IP地址范围（某些范围被排除），并使用TCP SYN数据包异步地进行扫描，以便首先找到具有开放默认Telnet端口的目标候选者。以下是源代码中的表现形式：
+- en: '![Figure 11.19 – Mirai malware excluding several IP ranges from scanning'
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.19 – Mirai恶意软件排除几个IP范围的扫描'
+- en: '](img/Figure_11.19_B18500.jpg)'
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.19_B18500.jpg)'
+- en: Figure 11.19 – Mirai malware excluding several IP ranges from scanning
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.19 – Mirai恶意软件排除几个IP范围的扫描
+- en: Then, malware brute-forces access to the found candidate machines using pairs
+    of hardcoded credentials. The successful results are passed to the server to balance
+    the load, and all data is stored in a database. The server then activates a loader
+    module that verifies the system and delivers the bot payload using either the
+    `wget` or `tftp` tool if available; otherwise, it uses a tiny embedded downloader.
+    The malware has several pre-compiled binary payloads for several different architectures
+    (ARM, MIPS, SPARC, SuperH, PowerPC, and m68k). After this, the cycle repeats,
+    and the just-deployed bots continue searching for new victims.
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，恶意软件使用一对对硬编码凭据暴力破解对已发现候选机器的访问。成功的结果会传送到服务器进行负载均衡，所有数据都会存储在数据库中。随后，服务器激活一个加载器模块，验证系统并通过`wget`或`tftp`工具传送机器人有效载荷，如果这些工具不可用，则使用一个小型嵌入式下载器。该恶意软件具有多个预编译的二进制有效载荷，支持多种不同的架构（ARM、MIPS、SPARC、SuperH、PowerPC和m68k）。之后，循环继续，刚刚部署的机器人将继续寻找新受害者。
+- en: Weaponry
+  id: totrans-333
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 武器
+- en: 'The main purpose of this malware is to organize DDoS attacks on demand. Several
+    types of attacking techniques are supported, including the following:'
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该恶意软件的主要目的是按需组织DDoS攻击。支持多种攻击技术，包括以下几种：
+- en: A UDP flood
+  id: totrans-335
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: UDP洪水
+- en: A SYN flood
+  id: totrans-336
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SYN洪水
+- en: An ACK flood
+  id: totrans-337
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: ACK洪水
+- en: A GRE flood
+  id: totrans-338
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GRE洪水
+- en: An HTTP flood
+  id: totrans-339
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: HTTP洪水
+- en: A DNS flood
+  id: totrans-340
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DNS洪水
+- en: 'Here is a snippet of Mirai’s source code mentioning them:'
+  id: totrans-341
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是Mirai源代码中的一段，提到了它们：
+- en: '![Figure 11.20 – The diﬀerent attack vectors of Mirai malware'
+  id: totrans-342
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.20 – Mirai恶意软件的不同攻击向量'
+- en: '](img/Figure_11.20_B18500.jpg)'
+  id: totrans-343
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.20_B18500.jpg)'
+- en: Figure 11.20 – The diﬀerent attack vectors of Mirai malware
+  id: totrans-344
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.20 – Mirai恶意软件的不同攻击向量
+- en: As we can see here, the authors implemented multiple options so that they could
+    select the most efficient attack against a particular victim.
+  id: totrans-345
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们所见，作者实现了多种选项，以便他们可以选择对特定受害者最有效的攻击方式。
+- en: Self-defense
+  id: totrans-346
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 自我防护
+- en: The original Mirai doesn’t survive the reboot. Instead, the malware kills the
+    software associated with Telnet, SSH, and HTTP ports in order to prevent other
+    malware from entering the same way, as well as to block legitimate remote administration
+    activity. Doing this complicates the remediation procedure. It also tries to kill
+    rival bots such as Qbot and Wifatch if found on the same device.
+  id: totrans-347
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 原版的Mirai在重启后无法存活。相反，恶意软件会终止与Telnet、SSH和HTTP端口相关的软件，以防止其他恶意软件通过相同方式进入，同时也阻止合法的远程管理活动。这样做使得修复过程变得复杂。它还会尝试杀死同一设备上存在的竞争性机器人，例如Qbot和Wifatch。
+- en: Beyond this, the malware hides its process name using the `prctl` system call
+    with the `PR_SET_NAME` argument, and uses `chroot` to change the root directory
+    and avoid detection by this artifact. In addition, both hardcoded credentials
+    and the actual C&C address are encrypted, so they won’t appear in plain text among
+    the strings that were used.
+  id: totrans-348
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，恶意软件使用`prctl`系统调用和`PR_SET_NAME`参数隐藏其进程名称，并使用`chroot`更改根目录，从而避免通过该特征被检测到。此外，硬编码的凭证和实际的C&C地址也被加密，因此它们不会以明文形式出现在所用的字符串中。
+- en: Later derivatives
+  id: totrans-349
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 后续派生版本
+- en: At first, it is worth noting that not all Mirai modifications end up with a
+    publicly known unique name; often, many of them fall under the same generic Mirai
+    category. An example would be the Mirai variant that, in November 2016, propagated
+    using the RCE attack against DSL modems via TCP port `7547` (`TR-069/CWMP`).
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，需要注意的是，并非所有Mirai的修改版本最终都会有一个公开的唯一名称；通常，它们中的许多会归入同一个通用的Mirai类别。例如，2016年11月，Mirai的一个变种通过TCP端口`7547`（`TR-069/CWMP`）使用RCE攻击传播，攻击的是DSL调制解调器。
+- en: 'Here are some other examples of known botnets that borrowed parts of the Mirai
+    source code:'
+  id: totrans-351
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是一些其他已知的借用了Mirai源代码的僵尸网络的例子：
+- en: '**Satori** (meaning *comprehension* or *understanding* in Japanese): This exploits
+    vulnerabilities for propagation, for example, CVE-2018-10562 to target GPON routers
+    or CVE-2018-10088 to target Xiongmai software.'
+  id: totrans-352
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Satori**（日语中意味着“理解”或“领悟”）：它利用漏洞进行传播，例如，CVE-2018-10562，攻击GPON路由器，或CVE-2018-10088，攻击Xiongmai软件。'
+- en: '**Masuta or PureMasuta** (meaning *master* in Japanese): This exploits a bug
+    in the D-Link HNAP, apparently linked to the Satori creator(s).'
+  id: totrans-353
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Masuta 或 PureMasuta**（日语中意味着“主人”）：这个恶意软件利用D-Link HNAP中的一个漏洞，显然与Satori的创建者相关。'
+- en: '**Okiru** (meaning *to get up* in Japanese): This uses its own configurations
+    and exploits for propagation (CVE-2014-8361 targeting a Realtek SDK and CVE-2017-17215
+    targeting Huawei routers). It has added support for ARC processors.'
+  id: totrans-354
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Okiru**（日语中意味着“起床”）：它使用自己配置和漏洞进行传播（例如，CVE-2014-8361，针对Realtek SDK，和CVE-2017-17215，针对华为路由器）。它还增加了对ARC处理器的支持。'
+- en: '**Owari** and **Sora** (meaning *the end* and *the sky* in Japanese, respectively):
+    These are two projects that were linked to the same author, known under the nickname
+    Wicked. Originally used for credential brute-forcing for propagation, Owari was
+    later upgraded with several exploits, for example, CVE-2017-17215.'
+  id: totrans-355
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Owari**和**Sora**（分别是日语中的“终结”和“天空”）：这两个项目与同一个作者相关，该作者以“Wicked”这个昵称为人所知。Owari最初用于凭证暴力破解以进行传播，后来随着多个漏洞的加入得到了升级，例如CVE-2017-17215。'
+- en: 'Other botnets exist, and often some independent malware also uses pieces of
+    Mirai source code, which can mix up the attribution. There are multiple modifications
+    that different actors incorporate into their clones, including the following:'
+  id: totrans-356
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还存在其他僵尸网络，且通常一些独立的恶意软件也会使用Mirai源代码的部分内容，这可能会混淆归因。有多个修改版本，不同的行为者会将其融入他们的克隆中，包括以下几种：
+- en: '**Improved IP ranges to skip**: Some malware families ignore IP ranges belonging
+    to big VPS providers where many researchers host their honeypots.'
+  id: totrans-357
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**改进的IP范围跳过**：一些恶意软件家族会忽略属于大型VPS提供商的IP范围，因为许多研究人员会将蜜罐部署在这些IP上。'
+- en: '**Extended lists of hardcoded credentials**: Attackers keep exploring new devices
+    and adding extracted credentials to their lists, or even make them updatable.'
+  id: totrans-358
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**扩展的硬编码凭证列表**：攻击者不断探索新的设备并将提取的凭证加入他们的列表，甚至使这些凭证可更新。'
+- en: '**More targeted protocols**: Apart from Telnet, modern Mirai clones also target
+    many other services, such as TR-069, and don’t mind using exploits.'
+  id: totrans-359
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**更多的目标协议**：除了Telnet，现代Mirai克隆也针对许多其他服务，如TR-069，并且不介意使用漏洞进行攻击。'
+- en: '**New attack vectors**: The list of payloads has been extended over time as
+    well.'
+  id: totrans-360
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**新的攻击向量**：随着时间的推移，攻击载荷的列表也在不断扩展。'
+- en: '**Added persistence mechanisms**: Some clones added persistence techniques
+    to survive both the usual reboot and basic remediation procedures.'
+  id: totrans-361
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**增加的持久化机制**：一些克隆添加了持久化技术，以便在常规重启和基本修复程序后仍然存活。'
+- en: Now, let’s talk about other famous IoT malware families.
+  id: totrans-362
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们谈谈其他著名的IoT恶意软件家族。
+- en: Other widespread families
+  id: totrans-363
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 其他广泛传播的家族
+- en: While Mirai became extremely famous due to the scale of the attacks performed,
+    multiple other independent projects existed before and after it. Some of them
+    incorporated pieces of Mirai’s code later in order to extend their functionality.
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然Mirai因其攻击规模而变得极为著名，但在它之前和之后也存在多个独立项目。它们中的一些后来将Mirai的代码片段纳入其中，以扩展其功能。
+- en: Here are some of the most notorious IoT malware families and the approximate
+    years when they became known to the general public. All of them can be roughly
+    split into two categories.
+  id: totrans-365
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一些最臭名昭著的IoT恶意软件家族以及它们大致的公开时间。所有这些恶意软件大致可以分为两类。
+- en: 'The following category consists of malware that actually aims to harm:'
+  id: totrans-366
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下类别包含那些实际上旨在造成危害的恶意软件：
+- en: '**TheMoon** (~2014): Originally propagated through vulnerabilities in Linksys
+    routers, it later extended support to other devices, for example, ASUS through
+    CVE-2014-9583\. Starting as a DDoS botnet, it was extended with new modules. For
+    example, it later started providing proxy functionality.'
+  id: totrans-367
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**TheMoon**（~2014）：最初通过Linksys路由器的漏洞进行传播，后来扩展支持其他设备，例如通过CVE-2014-9583支持ASUS。最初作为DDoS僵尸网络，它后来通过新模块进行扩展。例如，它后来开始提供代理功能。'
+- en: '**Lightaidra** (~2014): It propagates by brute-forcing credentials, communicates
+    with the C&C via IRC, and performs DDoS attacks. The source code is publicly available.'
+  id: totrans-368
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Lightaidra**（~2014）：通过暴力破解凭证进行传播，通过IRC与C&C通信，并执行DDoS攻击。源代码公开可用。'
+- en: '**Qbot/BASHLITE/Gafgyt/LizardStresser/Torlus** (~2014): The original version
+    appeared in 2014, was propagated via Shellshock vulnerability, and aimed to be
+    used for DDoS attacks. The source code was leaked in 2015, which led to the creation
+    of multiple clones.'
+  id: totrans-369
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Qbot/BASHLITE/Gafgyt/LizardStresser/Torlus**（~2014）：原始版本出现在2014年，通过Shellshock漏洞进行传播，旨在用于DDoS攻击。源代码在2015年泄露，导致了多个克隆版本的出现。'
+- en: '**Tsunami/Kaiten** (evolved drastically over the years): This is one more DDoS
+    malware family with a Japanese name (*kaiten* meaning *rotation*) that also uses
+    the no-longer-so-popular IRC protocol to communicate with the C&C. Apart from
+    hardcoded credentials, it also actively explores new propagation methods, including
+    exploits.'
+  id: totrans-370
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**海啸/Kaiten**（多年来发生了显著演变）：这是另一个具有日本名称的DDoS恶意软件家族（*kaiten* 意为 *旋转*），它仍然使用已经不那么流行的IRC协议与C&C进行通信。除了硬编码的凭证外，它还积极探索新的传播方法，包括利用漏洞。'
+- en: '**LuaBot** (~2016): This is a DDoS botnet written in Lua and it propagates
+    mainly using known vulnerabilities.'
+  id: totrans-371
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**LuaBot**（~2016）：这是一个用Lua编写的DDoS僵尸网络，主要通过已知漏洞进行传播。'
+- en: '**Imeij** (~2017): Another DDoS-oriented malware, this propagates through a
+    CGI vulnerability and focuses on AVTech CCTV equipment.'
+  id: totrans-372
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Imeij**（~2017）：另一个以DDoS为目标的恶意软件，它通过CGI漏洞传播，主要针对AVTech监控设备。'
+- en: '**Persirai** (~2017): This mainly focuses on cameras, accessing them via a
+    web interface. It specializes in DDoS attacks.'
+  id: totrans-373
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Persirai**（~2017）：主要集中在摄像头，通过Web界面访问它们，专门进行DDoS攻击。'
+- en: '**Reaper/IoTroop** (~2017): This botnet became infamous for exploiting at least
+    nine known vulnerabilities against various devices, and it shares some of its
+    code base with Mirai.'
+  id: totrans-374
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Reaper/IoTroop**（~2017）：这个僵尸网络因利用至少九个已知漏洞攻击各种设备而臭名昭著，并且与Mirai共享一些代码库。'
+- en: '**Torii** (~2018): It got its name because the first recorded hits were coming
+    from Tor nodes. Torii is a Japanese word for the gate at the entrance of a shrine.
+    It allegedly focuses on data exfiltration, incorporating several persistence and
+    anti-reverse-engineering techniques. Since the FTP credentials that were used
+    to communicate with the C&C were hardcoded, researchers immediately got access
+    to its backend, including logs.'
+  id: totrans-375
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Torii** (~2018)：由于最早的攻击记录来自 Tor 节点，因此得名 Torii。Torii 是日语中指神社入口处的鸟居。该恶意软件据称专注于数据外泄，采用了多种持久性和反逆向工程技术。由于用于与
+    C&C 通信的 FTP 凭证是硬编码的，研究人员立即访问了其后台，包括日志。'
+- en: '**Muhstik** (~2018): In addition to DDoS attacks, this botnet is also specializing
+    in cryptocurrency mining.'
+  id: totrans-376
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Muhstik** (~2018)：除了 DDoS 攻击外，这个僵尸网络还专注于加密货币挖掘。'
+- en: '**Echobot** (~2019): Targeting more than 50 different vulnerabilities, this
+    Mirai successor went much further than just using different filenames for the
+    delivered modules commonly found in its clones.'
+  id: totrans-377
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Echobot** (~2019)：该 Mirai 后继者瞄准了超过 50 个不同的漏洞，比仅仅使用与其克隆体中常见模块不同的文件名要进步得多。'
+- en: '**Mozi** (~2019): Based on the DHT protocol for building its own P2P network,
+    this botnet utilizes parts of multiple botnets whose source code was leaked before,
+    coupled with the original code:'
+  id: totrans-378
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Mozi** (~2019)：基于 DHT 协议构建自己的 P2P 网络，这个僵尸网络利用了多个先前泄露的僵尸网络的部分源代码，并结合了原始代码：'
+- en: '![Figure 11.21 – Some of the public DHT servers misused by Mozi malware'
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.21 – Mozi 恶意软件滥用的一些公共 DHT 服务器'
+- en: '](img/Figure_11.21_B18500.jpg)'
+  id: totrans-380
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.21_B18500.jpg)'
+- en: Figure 11.21 – Some of the public DHT servers misused by Mozi malware
+  id: totrans-381
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.21 – Mozi 恶意软件滥用的一些公共 DHT 服务器
+- en: '**Dark Nexus** (~2020): Specializing mainly in DDoS attacks, this botnet features
+    a unique scoring system in an attempt to efficiently kill competitor samples.'
+  id: totrans-382
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Dark Nexus** (~2020)：该僵尸网络主要专注于 DDoS 攻击，具有独特的评分系统，旨在高效地击败竞争对手的样本。'
+- en: '**Meris** (~2021): This botnet became famous for launching an attack against
+    Brian Krebs’s website that far exceeded the one originally performed by Mirai.'
+  id: totrans-383
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Meris** (~2021)：这个僵尸网络因发起对 Brian Krebs 网站的攻击而出名，这次攻击的规模远超 Mirai 最初发动的攻击。'
+- en: '**BotenaGo** (~2021): Unlike many other IoT malware families, this one is written
+    in Go language and is shipped with a few dozen exploits. Similar to Mirai, its
+    source code is now available to the public on Github.'
+  id: totrans-384
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**BotenaGo** (~2021)：与许多其他物联网恶意软件家族不同，这款恶意软件是用 Go 语言编写的，并且附带了几十个漏洞。与 Mirai
+    类似，它的源代码现在已经公开发布在 Github 上。'
+- en: 'Then, there’s malware whose author’s intent was allegedly to make the world
+    a better place. Examples of such families include the following:'
+  id: totrans-385
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，还有一些恶意软件，作者的意图据称是为了让世界变得更好。以下是这类家族的一些例子：
+- en: '**Carna** (~2012): The author’s aim was to measure the extent of the internet
+    before it became too complicated with the adoption of the IPv6 protocol.'
+  id: totrans-386
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Carna** (~2012)：作者的目标是测量互联网的规模，特别是在 IPv6 协议被采纳之前，互联网尚未变得过于复杂。'
+- en: '**Wifatch** (~2014): This is an open source malware that attempts to secure
+    devices. Once penetration is successful, it removes known malware and disables
+    Telnet access, leaving a message for the owners to update them.'
+  id: totrans-387
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Wifatch** (~2014)：这是一款开源恶意软件，旨在保护设备。一旦渗透成功，它会清除已知恶意软件并禁用 Telnet 访问，给设备所有者留下消息，提醒他们更新设备。'
+- en: '**Hajime** (~2017): Another owner of a Japanese name (meaning *the beginning*),
+    it contains a signed message stating that the author’s aim is to secure devices.'
+  id: totrans-388
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Hajime** (~2017)：另一个拥有日本名字的恶意软件（意为*开始*），其包含一条签名信息，声明作者的目标是保护设备。'
+- en: '**BrickerBot** (~2017): Surprisingly, according to the author, it was created
+    to destroy insecure devices and this way, get rid of them, eventually making the
+    internet safer.'
+  id: totrans-389
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**BrickerBot** (~2017)：令人惊讶的是，根据作者的说法，它是为了摧毁不安全的设备，并通过这种方式摆脱这些设备，最终使互联网更安全。'
+- en: Now, let’s talk about how to analyze samples compiled for different architectures.
+  id: totrans-390
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，来谈谈如何分析为不同架构编译的样本。
+- en: Static and dynamic analysis of RISC samples
+  id: totrans-391
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 静态与动态分析 RISC 样本
+- en: Generally, it is much easier to find tools for more widespread architectures,
+    such as x86\. Still, there are plenty of options available to analyze samples
+    that have been built for other instruction sets. As a rule of thumb, always check
+    whether you can get the same sample compiled for an architecture you have more
+    experience with. This way, you can save lots of time and provide a higher-quality
+    report.
+  id: totrans-392
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常来说，找到针对更广泛架构的工具，比如 x86，往往会更容易。不过，仍然有很多工具可以用来分析为其他指令集构建的样本。作为经验法则，始终检查是否可以获取为你更熟悉的架构编译的相同样本。这样，你可以节省大量时间，并提供更高质量的报告。
+- en: 'All basic tools, such as file type detectors, as well as data carving tools,
+    will more than likely process samples associated with most of the architectures
+    that currently exist. `radare2` will also handle the static analysis part in most
+    cases, regardless of the host architecture. If the engineer has access to the
+    physical RISC machine to run the corresponding sample, it is always possible to
+    either debug it there using GDB (or another supported debugger) or to use the
+    **gdbserver** tool to let other debuggers connect to it via the network from the
+    preferred platform:'
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有基本工具，如文件类型检测器以及数据雕刻工具，很可能会处理当前存在的大多数架构相关的样本。`radare2` 在大多数情况下也会处理静态分析部分，无论宿主架构如何。如果工程师能够访问物理
+    RISC 机器来运行相应的样本，那么总是可以在那里使用 GDB（或其他支持的调试器）进行调试，或者使用 **gdbserver** 工具通过网络让其他调试器从首选平台连接到它：
+- en: '![Figure 11.22 – IDA processing a Mirai clone for a SPARC architecture'
+  id: totrans-394
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.22 – IDA 处理一个针对 SPARC 架构的 Mirai 克隆样本'
+- en: '](img/Figure_11.22_B18500.jpg)'
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.22_B18500.jpg)'
+- en: Figure 11.22 – IDA processing a Mirai clone for a SPARC architecture
+  id: totrans-396
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.22 – IDA 处理一个针对 SPARC 架构的 Mirai 克隆样本
+- en: 'Here is how a Mirai-like sample can be analyzed using `radare2`:'
+  id: totrans-397
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是如何使用 `radare2` 分析类似 Mirai 的样本：
+- en: '![Figure 11.23 – radare2 processing the same Mirai clone for the PowerPC architecture'
+  id: totrans-398
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.23 – radare2 处理同一个 Mirai 克隆样本，针对 PowerPC 架构'
+- en: '](img/Figure_11.23_B18500.jpg)'
+  id: totrans-399
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.23_B18500.jpg)'
+- en: Figure 11.23 – radare2 processing the same Mirai clone for the PowerPC architecture
+  id: totrans-400
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.23 – radare2 处理同一个 Mirai 克隆样本，针对 PowerPC 架构
+- en: Now, let’s go through the most popular RISC architectures that are currently
+    targeted by IoT malware in detail.
+  id: totrans-401
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们详细了解当前 IoT 恶意软件主要针对的最流行的 RISC 架构。
+- en: ARM
+  id: totrans-402
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: ARM
+- en: As time shows, all static analysis tools aiming to support other architectures
+    beyond x86 generally start from the 32-bit ARM, so it is generally easier to find
+    good solutions for it. Since the 64-bit ARM was introduced more recently, support
+    for it is still more limited. Still, besides IDA and `radare2`, tools such as
+    Relyze, Binary Ninja, and Hopper support it as well.
+  id: totrans-403
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着时间的推移，所有旨在支持除 x86 外其他架构的静态分析工具，通常都会从 32 位 ARM 开始，因此对于它来说，通常更容易找到好的解决方案。由于
+    64 位 ARM 是最近才推出的，因此对它的支持仍然相对有限。不过，除了 IDA 和 `radare2`，像 Relyze、Binary Ninja 和 Hopper
+    等工具也支持它。
+- en: 'However, this becomes especially relevant in terms of dynamic analysis. For
+    example, at the moment, IDA only ships the debugging server for the 32-bit version
+    of ARM for Linux. While it may be time-consuming to get and use the physical ARM
+    machine to run a sample, one of the possible solutions here is to use QEMU and
+    run a GDB server on the x86-based machine:'
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，这在动态分析中尤为重要。例如，目前，IDA 仅提供 32 位 ARM 架构的 Linux 调试服务器。虽然获取并使用物理 ARM 机器来运行样本可能比较耗时，但这里的一个可能解决方案是使用
+    QEMU 并在基于 x86 的机器上运行 GDB 服务器：
+- en: '[PRE4]'
+  id: totrans-405
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: If the sample is dynamically linked, then additional ARM libraries may need
+    to be installed separately, for example, using the `armel` can be used instead
+    of `armhf` for ARM versions older than 7) for a 32-bit ARM or `/usr/arm-linux-gnueabihf`
+    or `/usr/arm-linux-gnueabi` for 32-bit and `/usr/aarch64-linux-gnu` for 64-bit
+    respectively) can be provided by either using the `-L` argument or setting the
+    `QEMU_LD_PREFIX` environment variable.
+  id: totrans-406
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果样本是动态链接的，则可能需要单独安装额外的 ARM 库，例如，使用 `armel` 可以代替 `armhf`（针对 ARM 7 以下版本）用于 32
+    位 ARM，或者分别为 32 位和 64 位 ARM 提供 `/usr/arm-linux-gnueabihf` 或 `/usr/arm-linux-gnueabi`
+    和 `/usr/aarch64-linux-gnu`）可以通过使用 `-L` 参数或设置 `QEMU_LD_PREFIX` 环境变量来提供。
+- en: 'Now, it becomes possible to attach to this sample using other debuggers, for
+    example, `radare2` from another Terminal:'
+  id: totrans-407
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，便可以通过其他调试器连接到这个样本，例如，可以从另一个终端使用 `radare2`：
+- en: '[PRE5]'
+  id: totrans-408
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'IDA supports the remote GDB debugger for the ARM architecture as well:'
+  id: totrans-409
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA 也支持 ARM 架构的远程 GDB 调试器：
+- en: '![Figure 11.24 – Available debuggers for the 32-bit ARM sample in IDA'
+  id: totrans-410
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.24 – 在 IDA 中可用的 32 位 ARM 样本调试器'
+- en: '](img/Figure_11.24_B18500.jpg)'
+  id: totrans-411
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.24_B18500.jpg)'
+- en: Figure 11.24 – Available debuggers for the 32-bit ARM sample in IDA
+  id: totrans-412
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.24 – IDA 中适用于 32 位 ARM 示例的可用调试器
+- en: GDB has to be compiled for the specified target platform before it can be used
+    to connect to this server; the popular solution here is to use a universal **gdb-multiarch**
+    tool.
+  id: totrans-413
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在可以连接到该服务器之前，必须为指定的目标平台编译 GDB；此处流行的解决方案是使用通用的 **gdb-multiarch** 工具。
+- en: MIPS
+  id: totrans-414
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: MIPS
+- en: The MIPS architecture remains popular nowadays, so it is no surprise that the
+    number of tools supporting it is growing as well. While Hopper and Relyze don’t
+    support it at the moment, Binary Ninja mentions it among its supported architectures.
+    And of course, solutions such as IDA or `radare2` can also be used.
+  id: totrans-415
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MIPS 架构在现代依然流行，因此支持它的工具数量也在不断增加。虽然 Hopper 和 Relyze 目前不支持它，但 Binary Ninja 已将其列为支持的架构之一。当然，像
+    IDA 或 `radare2` 这样的解决方案也可以使用。
+- en: The situation becomes more complicated when it comes to dynamic analysis. For
+    example, IDA still doesn’t provide a dedicated debugging server tool for it. Again,
+    in this case, the engineer mainly has to rely on the QEMU emulation, with IDA’s
+    remote GDB debugger, `radare2`, or GDB itself this time.
+  id: totrans-416
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在动态分析方面，情况变得更加复杂。例如，IDA 仍然没有为该架构提供专用的调试服务器工具。同样，在这种情况下，工程师主要需要依赖 QEMU 仿真，配合
+    IDA 的远程 GDB 调试器、`radare2` 或 GDB 本身。
+- en: 'To connect to the GDB server using GDB itself, the following command needs
+    to be used once it’s been started:'
+  id: totrans-417
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 GDB 本身连接到 GDB 服务器，需要在启动后使用以下命令：
+- en: '[PRE6]'
+  id: totrans-418
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Once connected, it becomes possible to start analyzing the sample.
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦连接成功，就可以开始分析样本。
+- en: PowerPC
+  id: totrans-420
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: PowerPC
+- en: 'As with the previous two cases, static analysis is not a big problem here,
+    as multiple tools support PPC architecture, for example, `radare2`, IDA, Binary
+    Ninja, ODA, or Hopper. In terms of dynamic analysis, the combination of QEMU and
+    either IDA or GDB should do the trick:'
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与前两个案例一样，静态分析在这里不是一个大问题，因为有多个工具支持 PPC 架构，例如 `radare2`、IDA、Binary Ninja、ODA 或
+    Hopper。在动态分析方面，结合 QEMU 和 IDA 或 GDB 就能解决问题：
+- en: '![Figure 11.25 – Debugging Mirai for PowerPC in IDA on Windows via a QEMU GDB
+    server on x86'
+  id: totrans-422
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.25 – 通过 QEMU GDB 服务器在 Windows 上使用 IDA 调试 PowerPC 的 Mirai（x86）'
+- en: '](img/Figure_11.25_B18500.jpg)'
+  id: totrans-423
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.25_B18500.jpg)'
+- en: Figure 11.25 – Debugging Mirai for PowerPC in IDA on Windows via a QEMU GDB
+    server on x86
+  id: totrans-424
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.25 – 通过 QEMU GDB 服务器在 Windows 上使用 IDA 调试 PowerPC 的 Mirai（x86）
+- en: As we can see, less prevalent architectures may require a more sophisticated
+    setup to perform comfortable debugging.
+  id: totrans-425
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，较为冷门的架构可能需要更复杂的设置才能进行舒适的调试。
+- en: SuperH
+  id: totrans-426
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SuperH
+- en: 'SuperH (also known as Renesas SH) is the collective name of several instruction
+    sets (as in, SH-1, SH-2, SH-2A, etc.), so it makes sense to double-check exactly
+    which one needs to be emulated. Most samples should work just fine on the SH4,
+    as these CPU cores are supposed to be upward-compatible. This architecture is
+    not the top choice for either attackers or reverse engineers, so the range of
+    available tools may be more limited. For static analysis, it makes sense to stick
+    to solutions such as `radare2`, IDA, or ODA. Since IDA doesn’t seem to provide
+    remote GDB debugger functionality for this architecture, dynamic analysis has
+    to be handled through QEMU and either `radare2` or GDB, the same way that we described
+    earlier:'
+  id: totrans-427
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SuperH（也称为 Renesas SH）是多个指令集的统称（例如 SH-1、SH-2、SH-2A 等），因此有必要仔细检查需要仿真的具体是哪一个。大多数样本应该能在
+    SH4 上正常工作，因为这些 CPU 核心应该是向后兼容的。该架构不是攻击者或逆向工程师的首选，因此可用的工具范围可能较为有限。对于静态分析，建议使用像 `radare2`、IDA
+    或 ODA 这样的解决方案。由于 IDA 似乎没有为该架构提供远程 GDB 调试器功能，因此动态分析必须通过 QEMU 配合 `radare2` 或 GDB
+    来处理，方式与我们之前描述的相同：
+- en: '![Figure 11.26 – Debugging Mirai for SuperH on the x86 VM using radare2 and
+    QEMU'
+  id: totrans-428
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 11.26 – 使用 radare2 和 QEMU 在 x86 虚拟机上调试 Mirai（针对 SuperH）'
+- en: '](img/Figure_11.26_B18500.jpg)'
+  id: totrans-429
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.26_B18500.jpg)'
+- en: Figure 11.26 – Debugging Mirai for SuperH on the x86 VM using radare2 and QEMU
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.26 – 使用 radare2 和 QEMU 在 x86 虚拟机上调试 Mirai（针对 SuperH）
+- en: If for some reason, the binary emulation doesn’t work properly, then it may
+    make sense to obtain real hardware and perform debugging either there or remotely
+    using the GDB server functionality.
+  id: totrans-431
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果由于某些原因，二进制仿真无法正常工作，那么可能需要获取实际硬件，并在硬件上进行调试，或者通过使用 GDB 服务器功能远程调试。
+- en: SPARC
+  id: totrans-432
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SPARC
+- en: 'The SPARC design was terminated by Oracle in 2017, but there are still lots
+    of devices that implement it. The number of static analysis tools supporting it
+    is quite limited, so it makes sense to mainly use universal solutions such as
+    ODA, `radare2`, Ghidra, and IDA. For dynamic analysis, QEMU can be used with GDB
+    the same way that we described previously, as it looks as though neither `radare2`
+    nor IDA supports a GDB debugger for this architecture at the moment:'
+  id: totrans-433
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SPARC架构在2017年由Oracle终止，但仍有许多设备实现了该架构。支持该架构的静态分析工具数量非常有限，因此主要使用像ODA、`radare2`、Ghidra和IDA这样的通用解决方案是有意义的。对于动态分析，可以像我们之前描述的那样，使用QEMU和GDB，因为目前看起来`radare2`和IDA都不支持该架构的GDB调试器：
+- en: '![Figure 11.27 – Debugging a Mirai sample for SPARC on the x86 VM using GDB
+    with TUI and QEMU'
+  id: totrans-434
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.27 – 在x86虚拟机上使用带TUI和QEMU的GDB调试Mirai样本以支持SPARC架构'
+- en: '](img/Figure_11.27_B18500.jpg)'
+  id: totrans-435
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.27_B18500.jpg)'
+- en: Figure 11.27 – Debugging a Mirai sample for SPARC on the x86 VM using GDB with
+    TUI and QEMU
+  id: totrans-436
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.27 – 在x86虚拟机上使用带TUI和QEMU的GDB调试Mirai样本以支持SPARC架构
+- en: Various GDB-syntax-highlighting tools can be used to make the debugging process
+    more enjoyable.
+  id: totrans-437
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用各种GDB语法高亮工具，使调试过程更加愉快。
+- en: Now, you know how to deal with the most common architectures targeted by IoT
+    malware families. In the following section, we will talk about what to do if you
+    have to deal with something not covered here.
+  id: totrans-438
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，你已经知道如何处理IoT恶意软件家族所针对的最常见架构。在接下来的部分中，我们将讨论如何处理这里没有涵盖的其他问题。
+- en: Handling other architectures
+  id: totrans-439
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 处理其他架构
+- en: What happens if you have to analyze a sample that doesn’t belong to any of the
+    architectures mentioned at some stage? There are many other options available
+    at the moment and more will very likely appear in the future. As long as there
+    is a meaningful amount of devices (or these devices are of particular potential
+    interest to attackers), and especially if it is pretty straightforward to add
+    support for them, sooner or later, the new malware family exploiting their functionality
+    may appear. In this section, we will provide guidelines on how to handle malware
+    for virtually any architecture.
+  id: totrans-440
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果在某个阶段，你需要分析一个不属于上述任何架构的样本，应该怎么办？目前有许多其他可用的选项，而且未来可能会有更多新的出现。只要这些设备具有足够的数量（或者这些设备对攻击者具有特别的潜在兴趣），尤其是如果它们的支持能够相对简单地添加，迟早，利用其功能的新恶意软件家族就可能会出现。在这一部分，我们将提供处理几乎任何架构的恶意软件的指南。
+- en: What to start from
+  id: totrans-441
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从哪里开始
+- en: 'At first, identify the exact architecture of the sample; for this purpose,
+    open source tools such as `file` will work perfectly. Next, check whether this
+    architecture is supported by the most popular reverse engineering tools for static
+    and dynamic analysis. IDA, Ghidra, `radare2`, and GDB are probably the best candidates
+    for this task because of an impressive number of architectures supported, very
+    high-quality output, and, in some cases, the ability to perform both static and
+    dynamic analysis in one place:'
+  id: totrans-442
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，确定样本的确切架构；为此，像`file`这样的开源工具将非常有效。接下来，检查这种架构是否得到最流行的静态和动态分析逆向工程工具的支持。IDA、Ghidra、`radare2`和GDB可能是完成此任务的最佳候选工具，因为它们支持的架构数量令人印象深刻，输出质量非常高，并且在某些情况下，能够在一个地方同时进行静态和动态分析：
+- en: '![Figure 11.28 – The radare2 main page describing the argument to specify the
+    architecture'
+  id: totrans-443
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图11.28 – 描述指定架构参数的radare2主页'
+- en: '](img/Figure_11.28_B18500.jpg)'
+  id: totrans-444
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_11.28_B18500.jpg)'
+- en: Figure 11.28 – The radare2 main page describing the argument to specify the
+    architecture
+  id: totrans-445
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.28 – 描述指定架构参数的radare2主页
+- en: The ability to debug may drastically speed up the analysis, so it makes sense
+    to check whether it is possible to make the corresponding setup for the required
+    architecture. This may involve running a sample on the physical machine or an
+    emulator such as QEMU and connecting to it locally or remotely. Check for native
+    architecture debugging tools; is it GDB or maybe something else? Some engineers
+    prefer to use more high-end tools such as IDA with GDB together but separately
+    (so, debug only specific blocks using GDB and keep the markup knowledge base in
+    IDA).
+  id: totrans-446
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调试功能可能大大加速分析过程，因此检查是否可以为所需架构进行相应的设置是很有意义的。这可能涉及在物理机器或如QEMU这样的模拟器上运行样本，并通过本地或远程连接到它。检查是否有本地架构的调试工具；是GDB，还是其他工具？一些工程师更喜欢使用更高端的工具，如IDA与GDB结合使用，但分开使用（即只用GDB调试特定代码块，同时在IDA中保持标记知识库）。
+- en: When you get access to the disassembly, check which entity currently administrates
+    this architecture. Then, find the official documentation describing the architecture
+    on their website, particularly the parts describing registers, groups, and syntax
+    for the supported instructions. Generally, the more time you have available to
+    familiarize yourself with the nuances, the less time you will spend later on analysis.
+  id: totrans-447
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你获得反汇编结果时，检查当前管理该架构的实体。然后，查找他们网站上描述该架构的官方文档，特别是描述寄存器、组和支持指令的语法部分。通常，你越有时间熟悉细节，后续分析所花的时间就越少。
+- en: Finally, never be ashamed to run a quick search for unique strings that have
+    been extracted from the sample on the internet, as there is always a chance that
+    someone else has already encountered and analyzed it. In addition, the same sample
+    may be available for a more widespread architecture.
+  id: totrans-448
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，千万不要羞于快速搜索从样本中提取的独特字符串，因为总有可能其他人已经遇到并分析过它。此外，某个样本可能也适用于更广泛的架构。
+- en: Summary
+  id: totrans-449
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we became familiar with malware targeting non-Windows systems
+    such as Linux that commonly power IoT devices. Firstly, we went through the basics
+    of the ELF structure and covered syscalls. We described the general malware behavior
+    patterns shared across multiple platforms, went through some of the most prevalent
+    examples, and covered the common tools and techniques used in static and dynamic
+    analysis.
+  id: totrans-450
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们熟悉了针对非Windows系统（如Linux）的恶意软件，这些系统通常用于物联网设备。首先，我们讲解了ELF结构的基础知识，并讨论了系统调用。接着，我们描述了跨多个平台共享的一般恶意软件行为模式，回顾了一些最常见的例子，并介绍了在静态和动态分析中使用的常见工具和技术。
+- en: Then, we took a look at the Mirai malware and put our newly obtained knowledge
+    into practice by using it as an example and coming to understand various aspects
+    of its behavior. Finally, we summarized the techniques that are used in static
+    and dynamic analysis for the malware targeting the most common RISC platforms
+    and beyond. By this point, you should have enough fundamental knowledge to start
+    analyzing malware related to virtually any common architecture.
+  id: totrans-451
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们研究了Mirai恶意软件，并通过使用它作为例子，应用我们新获得的知识，理解其行为的各个方面。最后，我们总结了针对最常见RISC平台及其他平台的恶意软件静态和动态分析中使用的技术。到此为止，你应该具备了足够的基础知识，能够开始分析与几乎任何常见架构相关的恶意软件。
+- en: In [*Chapter 12*](B18500_12.xhtml#_idTextAnchor1327), *Introduction to macOS
+    and iOS Threats*, we will cover the malware that targets Apple systems, as this
+    has become increasingly common nowadays.
+  id: totrans-452
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[*第12章*](B18500_12.xhtml#_idTextAnchor1327)《macOS和iOS威胁简介》中，我们将介绍针对Apple系统的恶意软件，因为这种情况现在变得越来越普遍。

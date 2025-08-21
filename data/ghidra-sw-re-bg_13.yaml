@@ -1,0 +1,1969 @@
+- en: '*Chapter 10*: Developing Ghidra Plugins'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第10章*：开发 Ghidra 插件'
+- en: In this chapter, we will dig into the details of Ghidra plugin development,
+    as introduced in [*Chapter 4*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063),
+    *Using Ghidra Extensions*. Throughout this chapter, you will learn how to implement
+    your own plugins in order to arbitrarily extend Ghidra's features.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将深入了解 Ghidra 插件开发的细节，正如在[*第4章*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063)中介绍的那样，*使用
+    Ghidra 扩展*。在本章中，你将学习如何实现你自己的插件，以便任意扩展 Ghidra 的功能。
+- en: We will start by providing an overview of some existing plugins so that you
+    can explore some ideas from other developers that may inspire you. Next, we will
+    analyze the source code of the plugin skeleton included with Ghidra and available
+    from Eclipse when creating a new plugin.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将首先提供一些现有插件的概述，以便你可以从其他开发者那里探索一些可能启发你的创意。接下来，我们将分析 Ghidra 附带的插件骨架的源代码，并在 Eclipse
+    中创建新插件时获取它。
+- en: Finally, we will review a Ghidra plugin example based on the skeleton mentioned
+    previously. This will allow us to dig into the details of implementing a new GUI
+    docking window by adding components and actions to it.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们将回顾一个基于之前提到的插件骨架的 Ghidra 插件示例。通过这个示例，我们将深入了解如何通过向其中添加组件和操作来实现一个新的 GUI 停靠窗口。
+- en: 'In this chapter, we''re going to cover the following topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Overview of existing plugins
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 现有插件概述
+- en: The Ghidra plugin skeleton
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Ghidra 插件骨架
+- en: Ghidra plugin development
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Ghidra 插件开发
+- en: Let's get started!
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始吧！
+- en: Technical requirements
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The following are the technical requirements for this chapter:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的技术要求如下：
+- en: This book's GitHub repository, which contains all the necessary code for this
+    chapter, at [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter10](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter10).
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本书的 GitHub 仓库，包含本章所需的所有代码，位于：[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter10](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter10)。
+- en: 'Java JDK 11 for x86_64 (available here: [https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot](https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot)).'
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Java JDK 11 for x86_64（可在此处获取：[https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot](https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot)）。
+- en: 'Eclipse IDE for Java developers (any version that supports JDK 11 that''s available
+    here: [https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/))
+    since it is the IDE that''s officially integrated and supported by Ghidra.'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 适用于 Java 开发者的 Eclipse IDE（任何支持 JDK 11 的版本，可在此处获取：[https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/)），因为它是
+    Ghidra 官方集成和支持的 IDE。
+- en: Gradle, a build automation tool required for compiling Ghidra extensions ([https://gradle.org/install/](https://gradle.org/install/)).
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Gradle，一个构建自动化工具，用于编译 Ghidra 扩展（[https://gradle.org/install/](https://gradle.org/install/)）。
+- en: 'PyDev 6.3.1 (available here: [https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip](https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip)).'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PyDev 6.3.1（可在此处获取：[https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip](https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip)）。
+- en: 'Check out the following video to see the Code in Action: [https://bit.ly/3gmDazk](https://bit.ly/3gmDazk)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看以下视频，看看代码的实际演示：[https://bit.ly/3gmDazk](https://bit.ly/3gmDazk)
+- en: Overview of existing plugins
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 现有插件概述
+- en: As we saw in the *Analyzing the code of the Sample Table Provider plugin* section
+    in [*Chapter 4*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063), *Using Ghidra
+    Extensions*, a plugin extension is a Java program that extends from the `ghidra.app.plugin.ProgramPlugin`
+    class, allowing us to handle the most common program events and implement GUI
+    components.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在[*第4章*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063)的*分析样本表提供者插件代码*部分中看到的那样，*使用
+    Ghidra 扩展*，插件扩展是一个 Java 程序，它继承自`ghidra.app.plugin.ProgramPlugin`类，允许我们处理最常见的程序事件并实现
+    GUI 组件。
+- en: In this section, we will overview how Ghidra features are mostly implemented
+    by plugins which can be easily found on the Ghidra repository. By analyzing an
+    example we will understand the relation between the source code of an existing
+    plugin and the Ghidra component that it implements.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将概述 Ghidra 特性是如何通过插件实现的，这些插件可以在 Ghidra 仓库中轻松找到。通过分析一个示例，我们将了解现有插件的源代码与它所实现的
+    Ghidra 组件之间的关系。
+- en: Plugins included with the Ghidra distribution
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Ghidra 发行版中包含的插件
+- en: A lot of Ghidra features are implemented as plugins, so, in addition to the
+    plugin examples that come with Ghidra and the ones available in the `ghidra_9.1.2\
+    Extensions\Ghidra` folder, you can also learn how to implement your own features
+    by reviewing the source code of the program and/or reusing it.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很多 Ghidra 功能是作为插件实现的，因此，除了 Ghidra 自带的插件示例和 `ghidra_9.1.2\Extensions\Ghidra`
+    文件夹中提供的插件外，你还可以通过查看程序的源代码和/或重用它来学习如何实现自己的功能。
+- en: 'You can easily find plugins by looking for classes containing the string `extends
+    ProgramPlugin` ([https://github.com/NationalSecurityAgency/ghidra/search?p=1&q=extends+ProgramPlugin&unscoped_q=extends+ProgramPlugin](https://github.com/NationalSecurityAgency/ghidra/search?p=1&q=extends+ProgramPlugin&unscoped_q=extends+ProgramPlugin)),
+    as shown in the following screenshot:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过查找包含字符串 `extends ProgramPlugin` 的类来轻松找到插件 ([https://github.com/NationalSecurityAgency/ghidra/search?p=1&q=extends+ProgramPlugin&unscoped_q=extends+ProgramPlugin](https://github.com/NationalSecurityAgency/ghidra/search?p=1&q=extends+ProgramPlugin&unscoped_q=extends+ProgramPlugin))，如下图所示：
+- en: '![Figure 10.1 – Looking for Ghidra features implemented as plugins'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.1 – 查找作为插件实现的 Ghidra 功能'
+- en: '](img/B16207_10_001.jpg)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_001.jpg)'
+- en: Figure 10.1 – Looking for Ghidra features implemented as plugins
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.1 – 查找作为插件实现的 Ghidra 功能
+- en: 'As you can see, 70 plugins (of course, these search results include plugin
+    examples) are part of Ghidra. A lot of the features that are available from Ghidra''s
+    GUI that you are already familiar with are implemented in this way. Remember that
+    when you download a release version of Ghidra, the mentioned source code will
+    be compiled in JAR files and distributed via compressed ZIP files named following
+    the pattern: `*-src.zip`.'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，70 个插件（当然，这些搜索结果包括插件示例）是 Ghidra 的一部分。你已经熟悉的 Ghidra GUI 中可用的很多功能就是以这种方式实现的。请记住，当你下载
+    Ghidra 的发布版本时，提到的源代码将被编译成 JAR 文件，并通过以 `*-src.zip` 命名的压缩 ZIP 文件分发。
+- en: 'For instance, you can locate the `ByteViewer` extension in the `ghidra_9.1.2\Features`
+    folder distributed in both forms: compiled JAR file and source code. These are
+    available in the `lib` directory of the module:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，你可以在 `ghidra_9.1.2\Features` 文件夹中找到 `ByteViewer` 扩展，它以编译的 JAR 文件和源代码两种形式分发。这些文件可以在模块的
+    `lib` 目录中找到：
+- en: '![Figure 10.2 – ByteViewer extension file tree view – I'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.2 – ByteViewer 扩展文件树视图 – I'
+- en: '](img/B16207_10_002.jpg)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_002.jpg)'
+- en: Figure 10.2 – ByteViewer extension file tree view – I
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.2 – ByteViewer 扩展文件树视图 – I
+- en: 'It is implemented as a Ghidra plugin extension located at `ghidra_9.1.2/Ghidra/Features/ByteViewer/src/main/java/ghidra/app/plugin/core/byteviewer/ByteViewerPlugin.java`,
+    as shown in the following screenshot:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它作为一个 Ghidra 插件扩展实现，位于 `ghidra_9.1.2/Ghidra/Features/ByteViewer/src/main/java/ghidra/app/plugin/core/byteviewer/ByteViewerPlugin.java`，如下图所示：
+- en: '![Figure 10.3 – ByteViewer extension file tree view – II'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.3 – ByteViewer 扩展文件树视图 – II'
+- en: '](img/B16207_10_003.jpg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_003.jpg)'
+- en: Figure 10.3 – ByteViewer extension file tree view – II
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.3 – ByteViewer 扩展文件树视图 – II
+- en: 'This plugin implements an essential reverse engineering framework feature.
+    The following screenshot shows the functionality provided by Ghidra''s GUI mode
+    when the [*Chapter 4*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063), *Using
+    Ghidra Extensions*'' `hello_world.exe` program is run:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该插件实现了一个重要的逆向工程框架功能。下图展示了当运行 [*第 4 章*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063)，*使用
+    Ghidra 扩展* 中的 `hello_world.exe` 程序时，Ghidra GUI 模式所提供的功能：
+- en: '![Figure 10.4 – ByteViewer extension file tree view – III'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.4 – ByteViewer 扩展文件树视图 – III'
+- en: '](img/B16207_10_004.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_004.jpg)'
+- en: Figure 10.4 – ByteViewer extension file tree view – III
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.4 – ByteViewer 扩展文件树视图 – III
+- en: By doing this, you can relate the GUI component to its source code, which allows
+    you to modify it or reuse some code snippets when you're developing your own Ghidra
+    plugins.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这样做，你可以将 GUI 组件与其源代码关联起来，从而在开发自己的 Ghidra 插件时，修改它或重用某些代码片段。
+- en: Third-party plugins
+  id: totrans-40
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第三方插件
+- en: 'In addition to the plugins that come with your Ghidra distribution, you can
+    install third-party plugins from the internet. The following are some examples
+    of useful third-party developed plugins:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了 Ghidra 发行版中自带的插件，你还可以从互联网上安装第三方插件。以下是一些有用的第三方开发插件示例：
+- en: '`ret-sync` ([https://github.com/bootleg/ret-sync](https://github.com/bootleg/ret-sync)):
+    A Ghidra plugin extension that allows you to synchronize Ghidra with a lot of
+    common debuggers, such as WinDbg, GDB, LLDB, OllyDbg, OllyDbg2, and x64dbg.'
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ret-sync` ([https://github.com/bootleg/ret-sync](https://github.com/bootleg/ret-sync)):
+    这是一个Ghidra插件扩展，允许你将Ghidra与许多常见的调试器同步，例如WinDbg、GDB、LLDB、OllyDbg、OllyDbg2和x64dbg。'
+- en: '`gdbghidra` ([https://github.com/Comsecuris/gdbghidra](https://github.com/Comsecuris/gdbghidra)):
+    This plugin allows you to synchronize Ghidra with GDB, set breakpoints from Ghidra,
+    show the register values on Ghidra while debugging, and more. Since Ghidra does
+    not incorporate its own debugger, this Ghidra plugin extension can be very useful.'
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gdbghidra` ([https://github.com/Comsecuris/gdbghidra](https://github.com/Comsecuris/gdbghidra)):
+    这个插件允许你将Ghidra与GDB同步，能够从Ghidra设置断点，调试时在Ghidra上显示寄存器值等。由于Ghidra并没有集成自己的调试器，因此这个Ghidra插件扩展非常有用。'
+- en: '`OOAnalyzer` ([https://github.com/cmu-sei/pharos/tree/master/tools/ooanalyzer/ghidra/OOAnalyzerPlugin](https://github.com/cmu-sei/pharos/tree/master/tools/ooanalyzer/ghidra/OOAnalyzerPlugin)):
+    A plugin that allows you to import C++ object-oriented information provided by
+    the OOAnalyzer component of the Pharos Static Binary Analysis Framework (https://github.com/cmu-sei/pharos/blob/master/tools/ooanalyzer/ooanalyzer.pod).
+    This is extremely useful for reverse engineering C++ binary files.'
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`OOAnalyzer` ([https://github.com/cmu-sei/pharos/tree/master/tools/ooanalyzer/ghidra/OOAnalyzerPlugin](https://github.com/cmu-sei/pharos/tree/master/tools/ooanalyzer/ghidra/OOAnalyzerPlugin)):
+    这是一个插件，允许你导入由Pharos静态二进制分析框架的OOAnalyzer组件提供的C++面向对象信息（https://github.com/cmu-sei/pharos/blob/master/tools/ooanalyzer/ooanalyzer.pod）。这个插件对于反向工程C++二进制文件非常有用。'
+- en: 'In the next section, we will provide an overview of the structure of the simplest
+    Ghidra plugin: the plugin skeleton.'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分，我们将提供最简单的Ghidra插件结构的概述：插件骨架。
+- en: The Ghidra plugin skeleton
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Ghidra插件骨架
+- en: As we explained in the *Deveeloping a Ghidra extension* section of [*Chapter
+    4*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063), *Using Ghidra Extensions*,
+    by clicking on **New** | **Ghidra Module Project…**, you can create any kind of
+    Ghidra extension by starting from a given skeleton.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在[*第4章*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063)的*开发Ghidra扩展*部分中所解释的那样，*使用Ghidra扩展*，通过点击**新建**
+    | **Ghidra模块项目…**，你可以从给定的骨架开始创建任何类型的Ghidra扩展。
+- en: In this section, we will provide an overview of the Ghidra plugin extension
+    skeleton in order to understand the basics that allow us to develop complex plugins.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将概述Ghidra插件扩展骨架，以便了解允许我们开发复杂插件的基础知识。
+- en: The plugin documentation
+  id: totrans-49
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 插件文档
+- en: 'The first part of a plugin''s skeleton is the documentation that describes
+    the plugin. Its documentation contains four required fields (optionally, you can
+    add some others):'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 插件骨架的第一部分是描述插件的文档。其文档包含四个必填字段（你可以选择添加一些其他字段）：
+- en: 'The status of the plugin, which can be one of four possible values: `HIDDEN`,
+    `RELEASED`, `STABLE`, or `UNSTABLE`. (See line `01` of the following code).'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 插件的状态，它可以是以下四个值之一：`HIDDEN`（隐藏）、`RELEASED`（发布）、`STABLE`（稳定）或`UNSTABLE`（不稳定）。（见下面代码的第`01`行）。
+- en: The package of the plugin (see line `02`).
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 插件的包（见第`02`行）。
+- en: A short description of the plugin (see line `03`).
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 插件的简短描述（见第`03`行）。
+- en: A long description of the plugin (see line `04`).
+  id: totrans-54
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 插件的详细描述（见第`04`行）。
+- en: 'The following code is a plugin documentation skeleton that you can customize:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码是插件文档骨架，你可以根据需要进行定制：
+- en: '[PRE0]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-60
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: PluginInfo documentation
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PluginInfo文档
+- en: 'If you want to include optional description fields inside `PluginInfo`, check
+    out the following link: https://ghidra.re/ghidra_docs/api/ghidra/framework/plugintool/PluginInfo.html.'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想在`PluginInfo`中包括可选描述字段，请查看以下链接：https://ghidra.re/ghidra_docs/api/ghidra/framework/plugintool/PluginInfo.html。
+- en: 'As shown in the following screenshot, the plugin''s information is shown by
+    Ghidra once the plugin has been installed and detected:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如下截图所示，一旦插件安装并被检测到，Ghidra会显示插件的信息：
+- en: '![Figure 10.5 – Plugin configuration'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.5 – 插件配置'
+- en: '](img/B16207_10_005.jpg)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_005.jpg)'
+- en: Figure 10.5 – Plugin configuration
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.5 – 插件配置
+- en: After installing `PluginInfo`, you can write the code for the plugin.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装`PluginInfo`后，你可以编写插件的代码。
+- en: Writing the plugin code
+  id: totrans-70
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 编写插件代码
+- en: 'Plugins and their actions are managed by `PluginTool`, so, it is provided as
+    a parameter to the plugin class. There are three important things in all Ghidra
+    plugin source code:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 插件及其操作由`PluginTool`管理，因此它作为参数传递给插件类。在所有Ghidra插件源代码中，有三件重要的事情：
+- en: '`provider` (line `09`) implements the plugin''s GUI. It can be permanent (closing
+    the plugin only hides it) or transient (closing the plugin removes the plugin,
+    such as when you''re showing the results of a search).'
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`provider`（第 `09` 行）实现了插件的 GUI。它可以是永久性的（关闭插件只会隐藏它）或瞬时性的（关闭插件会移除插件，例如在显示搜索结果时）。'
+- en: The constructor can customize `provider` and the plugin's help options.
+  id: totrans-73
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 构造函数可以自定义 `provider` 和插件的帮助选项。
+- en: 'The `init()` method can be used to acquire services like `FileImporterService`
+    or `GraphService`. Check the following link for a full list of documented services:
+    https://ghidra.re/ghidra_docs/api/ghidra/app/services/package-.summary.html.'
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`init()` 方法可以用来获取如 `FileImporterService` 或 `GraphService` 等服务。请查看以下链接，获取完整的服务文档列表：https://ghidra.re/ghidra_docs/api/ghidra/app/services/package-.summary.html。'
+- en: 'The following code is the body of an extremely simple plugin example named
+    `SkeletonPlugin`. Of course, the `MyProvider` class (line `09`), as we mentioned
+    previously, is a plugin `provider` that implements the GUI of the plugin. We will
+    explain this in detail later:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码是一个极其简单的插件示例 `SkeletonPlugin` 的主体部分。当然，我们之前提到的 `MyProvider` 类（第 `09` 行）是一个插件
+    `provider`，实现了插件的 GUI。我们稍后会详细解释：
+- en: '[PRE7]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: '[PRE9]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: '[PRE12]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-82
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-85
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-86
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-87
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-88
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '[PRE20]'
+  id: totrans-89
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: '[PRE21]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '[PRE22]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '[PRE23]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-93
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: '[PRE25]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '[PRE28]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '[PRE29]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: '[PRE30]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '[PRE31]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: '[PRE32]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: '[PRE33]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: '[PRE34]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: If you want to offer a GUI feature with your plugin, then you need to implement
+    a provider. This can be developed using a separate Java file. In the next section,
+    we will provide an overview of the structure of a Ghidra plugin provider.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想为插件提供 GUI 功能，则需要实现一个提供者。这个提供者可以使用一个单独的 Java 文件进行开发。在下一节中，我们将概述 Ghidra 插件提供者的结构。
+- en: The provider for a plugin
+  id: totrans-105
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 插件的提供者
+- en: 'The provider implements the GUI component of a plugin. It is usually stored
+    in a separated file named `*Provider.java`, which consists of the following things:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提供者实现了插件的 GUI 组件。它通常存储在一个名为 `*Provider.java` 的独立文件中，该文件包含以下内容：
+- en: The constructor (lines `05-09`), which builds the panel and creates the required
+    actions.
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 构造函数（第 `05-09` 行），用于构建面板并创建所需的操作。
+- en: The panel (lines `11-18`), which creates the GUI components and customizes them.
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 面板（第 `11-18` 行），用于创建 GUI 组件并进行自定义。
+- en: The actions of the GUI (lines `21-43`), which are added using `addLocalAction(docking.action.DockingActionIf)`.
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GUI 的操作（第 `21-43` 行），通过 `addLocalAction(docking.action.DockingActionIf)` 添加。
+- en: A getter that lets us get the panel (lines `46-48`).
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 getter 方法，让我们可以获取面板（第 `46-48` 行）。
+- en: 'The following code is the implementation for a custom plugin `provider`; that
+    is, the one for the `MyProvider` class (used in line `09` of the preceding code):'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码实现了一个自定义插件 `provider`，即用于 `MyProvider` 类（在前述代码的第 `09` 行使用）：
+- en: '[PRE35]'
+  id: totrans-112
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '[PRE37]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: '[PRE38]'
+  id: totrans-115
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: '[PRE39]'
+  id: totrans-116
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: '[PRE40]'
+  id: totrans-117
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: '[PRE41]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '[PRE42]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: '[PRE43]'
+  id: totrans-120
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: '[PRE44]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: '[PRE45]'
+  id: totrans-122
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: '[PRE46]'
+  id: totrans-123
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: '[PRE47]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: '[PRE48]'
+  id: totrans-125
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: '[PRE49]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: '[PRE50]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: '[PRE51]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: '[PRE52]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: '[PRE53]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: '[PRE54]'
+  id: totrans-131
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: '[PRE55]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: '[PRE56]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: '[PRE57]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: '[PRE58]'
+  id: totrans-135
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: '[PRE59]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: '[PRE60]'
+  id: totrans-137
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: '[PRE61]'
+  id: totrans-138
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: '[PRE62]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: '[PRE63]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: '[PRE64]'
+  id: totrans-141
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: '[PRE65]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: '[PRE66]'
+  id: totrans-143
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: '[PRE67]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: '[PRE68]'
+  id: totrans-145
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: '[PRE69]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: '[PRE70]'
+  id: totrans-147
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: '[PRE71]'
+  id: totrans-148
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: '[PRE72]'
+  id: totrans-149
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: '[PRE73]'
+  id: totrans-150
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: '[PRE74]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: '[PRE75]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE75]'
+- en: '[PRE76]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE76]'
+- en: '[PRE77]'
+  id: totrans-154
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE77]'
+- en: '[PRE78]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE78]'
+- en: '[PRE79]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE79]'
+- en: '[PRE80]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE80]'
+- en: '[PRE81]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE81]'
+- en: '[PRE82]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE82]'
+- en: '[PRE83]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE83]'
+- en: '[PRE84]'
+  id: totrans-161
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE84]'
+- en: The Provider Actions documentation
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提供者操作文档
+- en: 'You can learn more about the `addLocalAction` method (used in line `31` of
+    the preceding code) at the following link: [https://ghidra.re/ghidra_docs/api/docking/ComponentProvider.html#addLocalAction(docking.action.DockingActionIf](https://ghidra.re/ghidra_docs/api/docking/ComponentProvider.html#addLocalAction(docking.action.DockingActionIf)).
+    You can learn more about Docking Actions by looking for the `DockingActionIf`
+    interface known implementing classes at: [https://ghidra.re/ghidra_docs/api/docking/action/DockingActionIf.html](https://ghidra.re/ghidra_docs/api/docking/action/DockingActionIf.html).'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过以下链接了解更多关于 `addLocalAction` 方法（在前述代码的第 `31` 行使用）的信息：[https://ghidra.re/ghidra_docs/api/docking/ComponentProvider.html#addLocalAction(docking.action.DockingActionIf](https://ghidra.re/ghidra_docs/api/docking/ComponentProvider.html#addLocalAction(docking.action.DockingActionIf))。你还可以通过以下链接了解更多关于
+    Docking Actions 的信息： [https://ghidra.re/ghidra_docs/api/docking/action/DockingActionIf.html](https://ghidra.re/ghidra_docs/api/docking/action/DockingActionIf.html)。
+- en: 'The following screenshot shows the result of executing this plugin, which you
+    can do by going to **Window** | **SkeletonPlugin** via **CodeBrowser**, and clicking
+    on the green cross button located at the top-right of the screen, which triggers
+    the action (a message box appears once you''ve done this):'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了执行此插件的结果，你可以通过在 **CodeBrowser** 中选择 **Window** | **SkeletonPlugin**，然后点击屏幕右上角的绿色十字按钮来触发该操作（执行此操作后会出现消息框）：
+- en: '![Figure 10.6 – Plugin configuration'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.6 – 插件配置'
+- en: '](img/B16207_10_006.jpg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_006.jpg)'
+- en: Figure 10.6 – Plugin configuration
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.6 – 插件配置
+- en: In the next section, we will learn how to implement a plugin using this skeleton
+    as a reference.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将学习如何使用这个框架作为参考来实现一个插件。
+- en: Developing a Ghidra plugin
+  id: totrans-169
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发 Ghidra 插件
+- en: In this section, we'll analyze how the `ShowInfoPlugin` Ghidra plugin example
+    is implemented in order to understand how to develop a more complex plugin.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将分析如何实现`ShowInfoPlugin` Ghidra插件示例，以便了解如何开发一个更复杂的插件。
+- en: The source code for ShowInfoPlugin
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ShowInfoPlugin的源代码
+- en: 'The source code for `ShowInfoPlugin` is available here: [https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoPlugin.java](https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoPlugin.java).
+    The component provider used by this plugin is available in a separate file: [https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoComponentProvider.java](https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoComponentProvider.java).'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`ShowInfoPlugin`的源代码可以在这里找到：[https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoPlugin.java](https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoPlugin.java)。该插件使用的组件提供者代码在一个单独的文件中：[https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoComponentProvider.java](https://github.com/NationalSecurityAgency/ghidra/blob/49c2010b63b56c8f20845f3970fedd95d003b1e9/Ghidra/Extensions/sample/src/main/java/ghidra/examples/ShowInfoComponentProvider.java)。'
+- en: To implement a plugin, you need to master three key steps. Let's take a look
+    at each!
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要实现一个插件，你需要掌握三个关键步骤。让我们一起看一下每个步骤！
+- en: Documenting the plugin
+  id: totrans-174
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 插件文档
+- en: 'To document a plugin, you must describe it using the `PluginInfo` structure:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要记录插件文档，必须使用`PluginInfo`结构来描述它：
+- en: '[PRE85]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE85]'
+- en: '[PRE86]'
+  id: totrans-177
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE86]'
+- en: '[PRE87]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE87]'
+- en: '[PRE88]'
+  id: totrans-179
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE88]'
+- en: '[PRE89]'
+  id: totrans-180
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE89]'
+- en: '[PRE90]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE90]'
+- en: '[PRE91]'
+  id: totrans-182
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE91]'
+- en: '[PRE92]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE92]'
+- en: '[PRE93]'
+  id: totrans-184
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE93]'
+- en: '[PRE94]'
+  id: totrans-185
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE94]'
+- en: As you can see, the documentation indicates that this is a release version of
+    the plugin (line `01`). The package that the plugin belongs to is `ExamplesPluginPackage.NAME`,
+    as established in line `02`. The plugin is classified in the `PluginCategoryNames.EXAMPLES`
+    category to indicate that this is an example plugin. Finally, the plugin is described
+    in both short (line `04`) and full (lines `05`-`08`).
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，文档指出这是插件的发布版本（`01`行）。插件所属的包是`ExamplesPluginPackage.NAME`，如`02`行所定义。插件被归类到`PluginCategoryNames.EXAMPLES`类别，以表明这是一个示例插件。最后，插件的描述既有简短版本（`04`行），也有完整版本（`05`-`08`行）。
+- en: Implementing the plugin class
+  id: totrans-187
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 实现插件类
+- en: The plugin class is called `ShowInfoPlugin` and extends from `ProgramPlugin`
+    (line `00`), as expected by Ghidra when you're developing a plugin extension.
+    It declares a `ShowInfoComponentProvider` (for implementing the GUI of the plugin)
+    named provider (line `02`) that is initialized inside the constructor of the class
+    (line `06`). This, as usual, receives `PluginTool` as a parameter (line `04`).
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 插件类被命名为`ShowInfoPlugin`，并从`ProgramPlugin`继承（`00`行），这是Ghidra在开发插件扩展时的标准要求。它声明了一个名为`provider`的`ShowInfoComponentProvider`（用于实现插件的GUI）（`02`行），该提供者在类的构造函数中初始化（`06`行）。与往常一样，它接收`PluginTool`作为参数（`04`行）。
+- en: 'On the other hand, two of the methods provided by `ProgramPlugin` are overridden.
+    The first method, `programDeactivated`, allows us to perform certain actions when
+    the program becomes inactive – in this case, it lets us clear the provider (line
+    `11`). The second method, `locationChanged`, allows us to act once we''ve received
+    program location events. In this case, it passes the current program and the location
+    to the provider''s `locationChanged` method (line `19`). The body of the plugin
+    looks as follows:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，`ProgramPlugin`提供的两个方法被重写。第一个方法`programDeactivated`允许我们在程序变为非活动状态时执行某些操作——在这种情况下，它让我们清除提供者（`11`行）。第二个方法`locationChanged`允许我们在接收到程序位置事件后执行操作。在这种情况下，它将当前程序和位置传递给提供者的`locationChanged`方法（`19`行）。插件的主体代码如下所示：
+- en: '[PRE95]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE95]'
+- en: '[PRE96]'
+  id: totrans-191
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE96]'
+- en: '[PRE97]'
+  id: totrans-192
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE97]'
+- en: '[PRE98]'
+  id: totrans-193
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE98]'
+- en: '[PRE99]'
+  id: totrans-194
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE99]'
+- en: '[PRE100]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE100]'
+- en: '[PRE101]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE101]'
+- en: '[PRE102]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE102]'
+- en: '[PRE103]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE103]'
+- en: '[PRE104]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE104]'
+- en: '[PRE105]'
+  id: totrans-200
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE105]'
+- en: '[PRE106]'
+  id: totrans-201
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE106]'
+- en: '[PRE107]'
+  id: totrans-202
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE107]'
+- en: '[PRE108]'
+  id: totrans-203
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE108]'
+- en: '[PRE109]'
+  id: totrans-204
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE109]'
+- en: '[PRE110]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE110]'
+- en: '[PRE111]'
+  id: totrans-206
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE111]'
+- en: '[PRE112]'
+  id: totrans-207
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE112]'
+- en: '[PRE113]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE113]'
+- en: '[PRE114]'
+  id: totrans-209
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE114]'
+- en: '[PRE115]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE115]'
+- en: '[PRE116]'
+  id: totrans-211
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE116]'
+- en: As we mentioned previously, the preceding code declares a `ShowInfoComponentProvider`
+    for implementing the plugin's GUI on line `02`. In the next section, we will cover
+    the implementation of this class.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前提到的，前面的代码在`02`行声明了一个`ShowInfoComponentProvider`，用于实现插件的GUI。在接下来的章节中，我们将详细介绍该类的实现。
+- en: Implementing the provider
+  id: totrans-213
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 实现提供者
+- en: As we mentioned previously, the provider consists of a class (in this case,
+    `ShowInfoComponentProvider`) that extends from `ComponentProviderAdapter` (lines
+    `00` and `01`) that implements the GUI of a Ghidra plugin and handles related
+    events and actions.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前提到的，提供者由一个类（在本例中是`ShowInfoComponentProvider`）组成，该类继承自`ComponentProviderAdapter`（第`00`和`01`行），实现了
+    Ghidra 插件的 GUI，并处理相关事件和操作。
+- en: 'It starts by loading two image resources (lines `02` and `05`). The appropriate
+    way to load resources in Ghidra is by using the resource manager ([https://ghidra.re/ghidra_docs/api/resources/ResourceManager.html](https://ghidra.re/ghidra_docs/api/resources/ResourceManager.html)),
+    as shown in the following code snippet:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它首先加载两个图像资源（第`02`和`05`行）。在 Ghidra 中加载资源的正确方法是使用资源管理器（[https://ghidra.re/ghidra_docs/api/resources/ResourceManager.html](https://ghidra.re/ghidra_docs/api/resources/ResourceManager.html)），如下所示：
+- en: '[PRE117]'
+  id: totrans-216
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE117]'
+- en: '[PRE118]'
+  id: totrans-217
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE118]'
+- en: '[PRE119]'
+  id: totrans-218
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE119]'
+- en: '[PRE120]'
+  id: totrans-219
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE120]'
+- en: '[PRE121]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE121]'
+- en: '[PRE122]'
+  id: totrans-221
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE122]'
+- en: To implement the GUI, the `06`) and a text area component (line `07`).
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了实现 GUI，`06`）和文本区域组件（第`07`行）。
+- en: A `DockingAction` (line `08`) associating a user action with a toolbar icon
+    and/or menu item ([https://ghidra.re/ghidra_docs/api/docking/action/DockingAction.html](https://ghidra.re/ghidra_docs/api/docking/action/DockingAction.html))
+    is also defined here. Finally, two attributes are also declared for accessing
+    the current location (line `09`) of the current program (line `10`).
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此处还定义了一个`DockingAction`（第`08`行），它将用户操作与工具栏图标和/或菜单项关联起来（[https://ghidra.re/ghidra_docs/api/docking/action/DockingAction.html](https://ghidra.re/ghidra_docs/api/docking/action/DockingAction.html)）。最后，还声明了两个属性，用于访问当前程序的当前位置（第`09`行）和当前程序（第`10`行）。
+- en: 'The following code corresponds to the aforementioned provider attributes:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码对应上述提供者的属性：
+- en: '[PRE123]'
+  id: totrans-225
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE123]'
+- en: '[PRE124]'
+  id: totrans-226
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE124]'
+- en: '[PRE125]'
+  id: totrans-227
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE125]'
+- en: '[PRE126]'
+  id: totrans-228
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE126]'
+- en: '[PRE127]'
+  id: totrans-229
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE127]'
+- en: 'Next, the class constructor creates the GUI by calling the `create()` function
+    declared on lines `13` and `55`. It sets some provider attributes, including the
+    provider icon (line `14`), the default window position (line `15`), and its title
+    (`16`) before setting the provider to visible on line `17`. It also creates the
+    `DockingActions` call to the `createActions()` function that''s defined on line
+    `18` and implemented on line `62`:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，类构造函数通过调用在第`13`和`55`行声明的`create()`函数来创建 GUI。它设置了一些提供者属性，包括提供者图标（第`14`行）、默认窗口位置（第`15`行）及其标题（第`16`行），然后在第`17`行将提供者设置为可见。它还创建了`DockingActions`并调用在第`18`行定义、在第`62`行实现的`createActions()`函数：
+- en: '[PRE128]'
+  id: totrans-231
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE128]'
+- en: '[PRE129]'
+  id: totrans-232
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE129]'
+- en: '[PRE130]'
+  id: totrans-233
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE130]'
+- en: '[PRE131]'
+  id: totrans-234
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE131]'
+- en: '[PRE132]'
+  id: totrans-235
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE132]'
+- en: '[PRE133]'
+  id: totrans-236
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE133]'
+- en: '[PRE134]'
+  id: totrans-237
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE134]'
+- en: '[PRE135]'
+  id: totrans-238
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE135]'
+- en: '[PRE136]'
+  id: totrans-239
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE136]'
+- en: '[PRE137]'
+  id: totrans-240
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE137]'
+- en: '[PRE138]'
+  id: totrans-241
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE138]'
+- en: 'Since the `getComponent()` (line `21`) function of a component provider returns
+    the component to be displayed, it returns `panel` (line `22`), which contains
+    the GUI components:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于组件提供者的`getComponent()`（第`21`行）函数返回要显示的组件，它返回`panel`（第`22`行），其中包含了 GUI 组件：
+- en: '[PRE139]'
+  id: totrans-243
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE139]'
+- en: '[PRE140]'
+  id: totrans-244
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE140]'
+- en: '[PRE141]'
+  id: totrans-245
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE141]'
+- en: '[PRE142]'
+  id: totrans-246
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE142]'
+- en: 'The `clear` function clears the current program and current location by setting
+    it to `null` (lines `25` and `26`) and clears the text of the text area component
+    (line `27`):'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`clear`函数通过将当前程序和当前位置设置为`null`（第`25`和`26`行）来清除当前程序，并清除文本区域组件的文本（第`27`行）：'
+- en: '[PRE143]'
+  id: totrans-248
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE143]'
+- en: '[PRE144]'
+  id: totrans-249
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE144]'
+- en: '[PRE145]'
+  id: totrans-250
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE145]'
+- en: '[PRE146]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE146]'
+- en: '[PRE147]'
+  id: totrans-252
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE147]'
+- en: 'When the location of the program changes, its location information is updated
+    (lines `33` and `34`). Not only does it change the program and its new location,
+    but it also updates the program''s information by calling the `updateInfo()` function
+    (line `36`), which is implemented on line `33`. This is the main feature of this
+    plugin:'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当程序的位置发生变化时，它的位置信息会更新（第`33`和`34`行）。它不仅更改程序及其新位置，还通过调用在第`33`行实现的`updateInfo()`函数更新程序信息（第`36`行）。这是此插件的主要功能：
+- en: '[PRE148]'
+  id: totrans-254
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE148]'
+- en: '[PRE149]'
+  id: totrans-255
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE149]'
+- en: '[PRE150]'
+  id: totrans-256
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE150]'
+- en: '[PRE151]'
+  id: totrans-257
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE151]'
+- en: '[PRE152]'
+  id: totrans-258
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE152]'
+- en: '[PRE153]'
+  id: totrans-259
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE153]'
+- en: '[PRE154]'
+  id: totrans-260
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE154]'
+- en: '[PRE155]'
+  id: totrans-261
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE155]'
+- en: '[PRE156]'
+  id: totrans-262
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE156]'
+- en: '[PRE157]'
+  id: totrans-263
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE157]'
+- en: The `updateInfo()` function starts checking whether it can access the address
+    of the current location (line `34`). If this is not possible, then it returns.
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`updateInfo()`函数首先检查是否可以访问当前位置的地址（第`34`行）。如果无法访问，则返回。'
+- en: 'In this case, the `updateInfo()` function obtains `CodeUnit` ([https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/CodeUnit.html](https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/CodeUnit.html))
+    from the current location address of the listing of the program ([https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/Listing.html](https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/Listing.html))
+    by using the `getCodeUnitContaining` function (line `46`). Finally, it shows the
+    `CodeUnit` string representation (line `52`) for prepending a substring, which
+    indicates whether the current `CodeUnit` is an instruction (lines `55`-`57`),
+    a defined piece of data (lines `58`-`62`), or an undefined piece of data (lines
+    `63`-`65`):'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，`updateInfo()` 函数通过使用 `getCodeUnitContaining` 函数（第`46`行）从程序列表的当前位置地址获取
+    `CodeUnit`（[https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/CodeUnit.html](https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/CodeUnit.html)），并显示
+    `CodeUnit` 的字符串表示（第`52`行），用于在前面加上子字符串，指示当前的 `CodeUnit` 是一个指令（第`55`-`57`行），一个已定义的数据段（第`58`-`62`行），还是一个未定义的数据段（第`63`-`65`行）：
+- en: '[PRE158]'
+  id: totrans-266
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE158]'
+- en: '[PRE159]'
+  id: totrans-267
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE159]'
+- en: '[PRE160]'
+  id: totrans-268
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE160]'
+- en: '[PRE161]'
+  id: totrans-269
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE161]'
+- en: '[PRE162]'
+  id: totrans-270
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE162]'
+- en: '[PRE163]'
+  id: totrans-271
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE163]'
+- en: '[PRE164]'
+  id: totrans-272
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE164]'
+- en: '[PRE165]'
+  id: totrans-273
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE165]'
+- en: '[PRE166]'
+  id: totrans-274
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE166]'
+- en: '[PRE167]'
+  id: totrans-275
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE167]'
+- en: '[PRE168]'
+  id: totrans-276
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE168]'
+- en: '[PRE169]'
+  id: totrans-277
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE169]'
+- en: '[PRE170]'
+  id: totrans-278
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE170]'
+- en: '[PRE171]'
+  id: totrans-279
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE171]'
+- en: '[PRE172]'
+  id: totrans-280
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE172]'
+- en: '[PRE173]'
+  id: totrans-281
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE173]'
+- en: '[PRE174]'
+  id: totrans-282
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE174]'
+- en: '[PRE175]'
+  id: totrans-283
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE175]'
+- en: '[PRE176]'
+  id: totrans-284
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE176]'
+- en: '[PRE177]'
+  id: totrans-285
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE177]'
+- en: '[PRE178]'
+  id: totrans-286
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE178]'
+- en: '[PRE179]'
+  id: totrans-287
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE179]'
+- en: '[PRE180]'
+  id: totrans-288
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE180]'
+- en: '[PRE181]'
+  id: totrans-289
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE181]'
+- en: '[PRE182]'
+  id: totrans-290
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE182]'
+- en: '[PRE183]'
+  id: totrans-291
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE183]'
+- en: '[PRE184]'
+  id: totrans-292
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE184]'
+- en: '[PRE185]'
+  id: totrans-293
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE185]'
+- en: '[PRE186]'
+  id: totrans-294
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE186]'
+- en: The `create()` method creates a new panel containing `BorderLayout` (line `69`).
+    This allows us to put GUI components on any of the four borders of the panel,
+    as well as in the center of it.
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`create()` 方法创建一个包含 `BorderLayout` 的新面板（第`69`行）。这使我们可以将 GUI 组件放置在面板的四个边界上，也可以放置在面板的中央。'
+- en: 'Then, it creates a non-editable text area that''s 5 rows and 25 columns in
+    size (lines `70`-`71`) with scroll capabilities (line `72`) and attaches it to
+    the panel (line `73`):'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，它创建一个不可编辑的文本区域，大小为 5 行 25 列（第`70`-`71`行），并具有滚动功能（第`72`行），并将其附加到面板（第`73`行）：
+- en: '[PRE187]'
+  id: totrans-297
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE187]'
+- en: '[PRE188]'
+  id: totrans-298
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE188]'
+- en: '[PRE189]'
+  id: totrans-299
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE189]'
+- en: '[PRE190]'
+  id: totrans-300
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE190]'
+- en: '[PRE191]'
+  id: totrans-301
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE191]'
+- en: '[PRE192]'
+  id: totrans-302
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE192]'
+- en: '[PRE193]'
+  id: totrans-303
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE193]'
+- en: Finally, the `createActions()` function creates a `DockingAction` to clear the
+    text area (you can locate it on line `76` of the following code snippet).
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，`createActions()` 函数创建了一个 `DockingAction` 用于清除文本区域（您可以在以下代码片段的第 `76` 行找到它）。
+- en: 'In the following screenshot, you can see how the implementation of `createActions()`produces
+    a GUI button that allows us to trigger the **Clear Text Area** action:'
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的截图中，您可以看到 `createActions()` 的实现是如何产生一个 GUI 按钮，从而允许我们触发 **清除文本区域** 操作的：
+- en: '![Figure 10.7 – Docking Action – Clear Text Area'
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.7 – 停靠操作 – 清除文本区域'
+- en: '](img/B16207_10_007.jpg)'
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_007.jpg)'
+- en: Figure 10.7 – Docking Action – Clear Text Area
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.7 – 停靠操作 – 清除文本区域
+- en: 'The `createActions()` function also overrides the `actionPerformed()` function
+    ([https://ghidra.re/ghidra_docs/api/ghidra/app/context/ListingContextAction.html#actionPerformed(docking.ActionContext](https://ghidra.re/ghidra_docs/api/ghidra/app/context/ListingContextAction.html#actionPerformed(docking.ActionContext))
+    with the implementation of the clearing action (line `82`). It also establishes
+    a link between the action''s logic and the GUI by preparing the toolbar icon of
+    the action (lines `85`-`87`), setting it to enabled (line `89`), and adding it
+    to the current tool (line `90`):'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`createActions()` 函数还重写了 `actionPerformed()` 函数（[https://ghidra.re/ghidra_docs/api/ghidra/app/context/ListingContextAction.html#actionPerformed(docking.ActionContext](https://ghidra.re/ghidra_docs/api/ghidra/app/context/ListingContextAction.html#actionPerformed(docking.ActionContext))），并实现了清除操作（第`82`行）。它还通过准备操作的工具栏图标（第`85`-`87`行）、将其设置为启用状态（第`89`行）并将其添加到当前工具（第`90`行），在操作的逻辑和
+    GUI 之间建立了联系：'
+- en: '![Figure 10.8 – ShowInfo plugin extension available from CodeBrowser''s Window
+    menu option'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 10.8 – 从 CodeBrowser 的窗口菜单选项可用的 ShowInfo 插件扩展'
+- en: '](img/B16207_10_008.jpg)'
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_10_008.jpg)'
+- en: Figure 10.8 – ShowInfo plugin extension available from CodeBrowser's Window
+    menu option
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.8 – 从 CodeBrowser 的窗口菜单选项可用的 ShowInfo 插件扩展
+- en: 'When the GUI component is shown (line `94`), it immediately populates the text
+    area with the corresponding `CodeUnit` information (line `95`):'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当 GUI 组件显示时（第`94`行），它立即将对应的 `CodeUnit` 信息填充到文本区域中（第`95`行）：
+- en: '[PRE194]'
+  id: totrans-314
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE194]'
+- en: '[PRE195]'
+  id: totrans-315
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE195]'
+- en: '[PRE196]'
+  id: totrans-316
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE196]'
+- en: '[PRE197]'
+  id: totrans-317
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE197]'
+- en: '[PRE198]'
+  id: totrans-318
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE198]'
+- en: '[PRE199]'
+  id: totrans-319
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE199]'
+- en: '[PRE200]'
+  id: totrans-320
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE200]'
+- en: '[PRE201]'
+  id: totrans-321
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE201]'
+- en: '[PRE202]'
+  id: totrans-322
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE202]'
+- en: '[PRE203]'
+  id: totrans-323
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE203]'
+- en: '[PRE204]'
+  id: totrans-324
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE204]'
+- en: '[PRE205]'
+  id: totrans-325
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE205]'
+- en: '[PRE206]'
+  id: totrans-326
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE206]'
+- en: '[PRE207]'
+  id: totrans-327
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE207]'
+- en: '[PRE208]'
+  id: totrans-328
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE208]'
+- en: '[PRE209]'
+  id: totrans-329
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE209]'
+- en: '[PRE210]'
+  id: totrans-330
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE210]'
+- en: '[PRE211]'
+  id: totrans-331
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE211]'
+- en: '[PRE212]'
+  id: totrans-332
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE212]'
+- en: '[PRE213]'
+  id: totrans-333
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE213]'
+- en: '[PRE214]'
+  id: totrans-334
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE214]'
+- en: '[PRE215]'
+  id: totrans-335
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE215]'
+- en: '[PRE216]'
+  id: totrans-336
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE216]'
+- en: Here, we learned how to implement a simple plugin provider. If you are interested
+    in implementing more complex GUI extensions, it is highly recommended that you
+    learn more about the **Swing widget toolkit**. For learning about it, please,
+    check the online documentation ([https://docs.oracle.com/javase/7/docs/api/javax/swing/package-summary.html](https://docs.oracle.com/javase/7/docs/api/javax/swing/package-summary.html))
+    or refer to *Further reading* section located at the end of this chapter.
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们学习了如何实现一个简单的插件提供者。如果你有兴趣实现更复杂的 GUI 扩展，强烈建议你深入了解 **Swing 小部件工具包**。学习相关内容时，请查阅在线文档（[https://docs.oracle.com/javase/7/docs/api/javax/swing/package-summary.html](https://docs.oracle.com/javase/7/docs/api/javax/swing/package-summary.html)），或者参考本章末尾的
+    *深入阅读* 部分。
+- en: Summary
+  id: totrans-338
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we learned how to incorporate both official and third-party
+    extensions for Ghidra. This new skill allowed us to mitigate Ghidra's drawback
+    of not including a debugger. We performed a search over Ghidra's source code to
+    discover that a lot of Ghidra's core features are implemented as Ghidra plugins.
+    Finally, we learned how to extend Ghidra with our own ideas, access the program
+    being analyzed by it, implement custom GUI socking windows, and add actions to
+    it.
+  id: totrans-339
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中，我们学习了如何结合官方和第三方扩展来使用 Ghidra。这项新技能使我们能够弥补 Ghidra 没有内置调试器的缺点。我们对 Ghidra 的源代码进行了搜索，发现
+    Ghidra 的许多核心功能实际上是以 Ghidra 插件的形式实现的。最后，我们学习了如何利用自己的创意扩展 Ghidra，访问被分析的程序，实现自定义
+    GUI 插件窗口，并向其添加功能。
+- en: In the next chapter, we will learn how to incorporate support for new binary
+    formats in Ghidra. This skill will be very valuable to you because it will enable
+    you to reverse-engineer exoteric binary files using Ghidra.
+  id: totrans-340
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将学习如何在 Ghidra 中支持新的二进制格式。这项技能将对你非常有价值，因为它将使你能够使用 Ghidra 进行外部二进制文件的逆向工程。
+- en: Questions
+  id: totrans-341
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Ghidra plugin extensions are implemented in the Java language. Is Ghidra fully
+    implemented using Java?
+  id: totrans-342
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Ghidra 插件扩展是用 Java 语言实现的。那 Ghidra 是完全用 Java 实现的吗？
+- en: How can you add external debugging synchronization to Ghidra?
+  id: totrans-343
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如何将外部调试同步功能添加到 Ghidra 中？
+- en: What is a provider in the context of Ghidra plugin development?
+  id: totrans-344
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Ghidra 插件开发中，什么是提供者（provider）？
+- en: Further reading
+  id: totrans-345
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入阅读
+- en: 'Please refer to the following links for more information on the topics that
+    were covered in this chapter:'
+  id: totrans-346
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考以下链接，获取更多关于本章内容的信息：
+- en: '*From 0 to 1: JavaFX and Swing for Awesome Java UIs* [Video]: [https://www.packtpub.com/product/from-0-to-1-javafx-and-swing-for-awesome-java-uis-video/9781789132496](https://www.packtpub.com/product/from-0-to-1-javafx-and-swing-for-awesome-java-uis-video/9781789132496)'
+  id: totrans-347
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*从0到1：JavaFX和Swing打造超炫Java界面* [视频]：[https://www.packtpub.com/product/from-0-to-1-javafx-and-swing-for-awesome-java-uis-video/9781789132496](https://www.packtpub.com/product/from-0-to-1-javafx-and-swing-for-awesome-java-uis-video/9781789132496)'
+- en: '*Swing Extreme Testing*, *Lindsay Peters, Tim Lavers*, *June 2008*: [https://www.packtpub.com/product/swing-extreme-testing/9781847194824](https://www.packtpub.com/product/swing-extreme-testing/9781847194824)'
+  id: totrans-348
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Swing 极限测试*，*Lindsay Peters, Tim Lavers*，*2008年6月*：[https://www.packtpub.com/product/swing-extreme-testing/9781847194824](https://www.packtpub.com/product/swing-extreme-testing/9781847194824)'
+- en: '*Java 9 Cookbook*, *Mohamed Sanaulla, Nick Samoylov*, *August 2017*: [https://www.packtpub.com/product/java-9-cookbook/9781786461407](https://www.packtpub.com/product/java-9-cookbook/9781786461407)'
+  id: totrans-349
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Java 9 烹饪书*，*Mohamed Sanaulla, Nick Samoylov*，*2017年8月*：[https://www.packtpub.com/product/java-9-cookbook/9781786461407](https://www.packtpub.com/product/java-9-cookbook/9781786461407)'

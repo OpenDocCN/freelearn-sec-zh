@@ -1,0 +1,848 @@
+- en: 'Chapter 2: Acquisition Process'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第二章：获取过程
+- en: '**Memory acquisition** is usually referred to as the process of copying the
+    contents of volatile memory to a non-volatile storage device for preservation.
+    To have a good understanding of the process, the investigator needs to know at
+    least some **memory management** principles, understand how tools for **memory
+    extraction** work, and be able to choose the most appropriate tool and use it
+    correctly. In addition, it is important to understand that creating full memory
+    dumps is not always the only solution. There is **live memory analysis**, which
+    also has its advantages and, in some cases, may be preferable to memory acquisition.'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**内存获取**通常指的是将易失性内存的内容复制到非易失性存储设备中以供保存的过程。为了充分理解这一过程，调查员需要至少了解一些**内存管理**原则，理解**内存提取**工具的工作原理，并能够选择最合适的工具并正确使用。此外，重要的是要理解，创建完整的内存转储并不总是唯一的解决方案。还有**实时内存分析**，它也有其优点，在某些情况下，可能比内存获取更为合适。'
+- en: 'In this chapter, you''ll learn about the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你将学习以下内容：
+- en: Introducing memory management concepts
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 介绍内存管理概念
+- en: What's live memory analysis?
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 什么是实时内存分析？
+- en: Understanding partial versus full memory acquisition
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解部分与完整内存获取
+- en: Exploring popular acquisition tools and techniques
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 探索流行的获取工具和技术
+- en: Introducing memory management concepts
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍内存管理概念
+- en: There are several concepts related to the organization and management of **random-access
+    memory** (**RAM**). Understanding these concepts will allow you to make the memory
+    investigation process more conscious and effective. Let's start with the **address
+    space**.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有几个与**随机访问内存**（**RAM**）的组织和管理相关的概念。理解这些概念将帮助你使内存调查过程更加有意识和有效。我们从**地址空间**开始。
+- en: Address space
+  id: totrans-9
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 地址空间
+- en: RAM is an array of memory cells, each with its own physical address used to
+    access that cell. However, processes do not have direct access to physical memory.
+    This is because processes can easily harm the operating system and even cause
+    it to crash completely when interacting with physical memory. Moreover, the use
+    of physical addresses by processes makes it difficult to organize the simultaneous
+    execution of programs. To solve these problems, an abstraction known as *address
+    space* was created.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RAM 是一个内存单元的数组，每个单元都有自己的物理地址，用于访问该单元。然而，进程不能直接访问物理内存。这是因为进程与物理内存交互时，可能会轻易损害操作系统，甚至导致其完全崩溃。此外，进程使用物理地址使得同时执行程序的组织变得困难。为了解决这些问题，创建了一个叫做*地址空间*的抽象概念。
+- en: An address space is a set of addresses that can be used to access memory. Each
+    process has its own isolated address space, which solves the problem of security
+    and isolation of processes from each other and from the operating system. But
+    what if there is not enough physical memory to contain all the code and data of
+    the running processes?
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 地址空间是一组可以用来访问内存的地址。每个进程都有自己隔离的地址空间，这解决了进程之间以及进程与操作系统之间的安全和隔离问题。但是，如果没有足够的物理内存来容纳所有正在运行的进程的代码和数据，该怎么办呢？
+- en: Here we come to the next abstraction.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里我们来到了下一个抽象概念。
+- en: Virtual memory
+  id: totrans-13
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 虚拟内存
+- en: '`0x00000000` to `0x7FFFFFFFF`, as depicted in the following diagram:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`0x00000000` 到 `0x7FFFFFFFF`，如下面的图示所示：'
+- en: '![Figure 2.1 – Default allocation of kernel and user space on x86 systems'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.1 – x86 系统中内核空间和用户空间的默认分配'
+- en: '](img/Fig_2.1.jpg)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.1.jpg)'
+- en: Figure 2.1 – Default allocation of kernel and user space on x86 systems
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.1 – x86 系统中内核空间和用户空间的默认分配
+- en: Splitting in half is standard, but not required. For example, in Windows, there
+    is an option to use a 3:1 split, where 3 GB belongs to user space.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对半分割是标准做法，但不是强制要求。例如，在 Windows 中，有一个选项可以使用 3:1 的分割，其中 3 GB 属于用户空间。
+- en: In the x64 architecture, a greater amount of memory can be allocated to processes.
+    In this case, user space occupies addresses `0x0000000000000000` to `0x000007ffffffffffffff`,
+    and kernel space begins with address `0xffffff08000000000000`.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 x64 架构中，可以为进程分配更多的内存。在这种情况下，用户空间占用地址 `0x0000000000000000` 到 `0x000007ffffffffffffff`，而内核空间从地址
+    `0xffffff08000000000000` 开始。
+- en: Paging
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分页
+- en: The entire process address space is divided into blocks of fixed size. Such
+    blocks are called **pages** and represent a continuous range of addresses. It
+    is these pages that are mapped to physical memory.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 整个进程地址空间被划分为固定大小的块。这样的块被称为**页**，它们代表一系列连续的地址。正是这些页被映射到物理内存中。
+- en: The **memory manager** is responsible for unloading pages and freeing physical
+    memory. The memory manager also translates virtual addresses into physical addresses
+    with the help of hardware.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**内存管理器**负责卸载页面并释放物理内存。内存管理器还通过硬件的帮助将虚拟地址转换为物理地址。'
+- en: So, the process accesses the memory using a virtual address from its address
+    space, and the operating system translates this address into a physical address
+    to retrieve the necessary data from the memory.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，进程使用其地址空间中的虚拟地址来访问内存，操作系统将此地址转换为物理地址，以从内存中检索所需的数据。
+- en: 'The following diagram captures **paging** visually:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图表直观地展示了**分页**：
+- en: '![Figure 2.2 – Illustration of the paging concept'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.2 – 分页概念的示意图'
+- en: '](img/Fig_2.2.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.2.jpg)'
+- en: Figure 2.2 – Illustration of the paging concept
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.2 – 分页概念的示意图
+- en: This approach allows us to load into physical memory only those pages that are
+    necessary for the correct operation of the program at a particular time. The remaining
+    pages are stored on disk waiting to be loaded.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法使得我们可以仅将那些在特定时间内程序正常运行所需的页面加载到物理内存中。其余的页面存储在磁盘上，等待加载。
+- en: 'The mechanism that determines which process memory pages should be in physical
+    memory and which should remain on disk is called paging. There are many page replacement
+    algorithms (FIFO, LRU, Clock, WSClock, and so on). All of them have the same purpose:
+    *to improve stability and performance*.'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 决定哪些进程内存页应该位于物理内存中，哪些应该保留在磁盘上的机制称为分页。存在许多页面替换算法（FIFO、LRU、Clock、WSClock等）。它们的共同目标是：*提高稳定性和性能*。
+- en: To store unused memory pages, a separate file (`pagefile`, `swapfile`) or a
+    special partition on disk (swap) is used, depending on the operating system. Thus,
+    during memory dump creation we obtain only the contents of the pages loaded into
+    RAM. At the same time, part of the pages that contain information important for
+    the investigator may be located on disk. To get a complete picture, it is recommended
+    to combine analysis of *memory dumps* with analysis of *non-memory-resident data*.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了存储未使用的内存页面，操作系统会使用一个单独的文件（`pagefile`、`swapfile`）或磁盘上的特殊分区（交换区）。因此，在创建内存转储时，我们只会获取加载到
+    RAM 中的页面内容。同时，包含对调查员有重要信息的页面可能位于磁盘上。为了获得完整的画面，建议将*内存转储*分析与*非内存驻留数据*的分析结合起来。
+- en: Shared memory
+  id: totrans-31
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 共享内存
+- en: As mentioned before, each process has its own isolated address space, but there
+    are exceptions. Developers are always looking to improve performance, increase
+    efficiency, and reduce resource consumption, and memory is not spared. The result
+    is **shared memory**.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，每个进程都有自己的隔离地址空间，但也有例外。开发者总是寻求提高性能、增加效率并减少资源消耗，而内存也不例外。结果就是**共享内存**。
+- en: Shared memory is an area of memory available to several processes at the same
+    time. There are a few uses for this mechanism. First, processes that have access
+    to the same memory space can use it to exchange data or to run the same pieces
+    of code. Secondly, this mechanism improves the effectiveness of using libraries.
+    For example, if there are several processes using the same dynamic library, it
+    is simpler to put one instance of the library in physical memory and map the virtual
+    memory pages of all the processes that need it to that instance.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 共享内存是多个进程可以同时访问的内存区域。这个机制有几个用途。首先，能够访问同一内存空间的进程可以利用它来交换数据或执行相同的代码段。其次，这个机制提高了使用库的效率。例如，如果多个进程使用相同的动态库，那么将库的一个实例放入物理内存，并将所有需要它的进程的虚拟内存页映射到这个实例中会更简单。
+- en: Stack and heap
+  id: totrans-34
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 栈和堆
+- en: 'Each process contains both *static* and *dynamic* data. Static data is placed
+    in the associated regions of a process''s virtual address space. Dynamic data
+    is usually stored in memory regions called the **stack** and **heap**. For a better
+    understanding of these concepts, here is an illustration of a process'' virtual
+    memory:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个进程包含*静态*数据和*动态*数据。静态数据被放置在与进程虚拟地址空间相关联的区域中。动态数据通常存储在称为**栈**和**堆**的内存区域中。为了更好地理解这些概念，这里有一张进程虚拟内存的示意图：
+- en: '![Figure 2.3 – Illustration of a process'' virtual memory'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.3 – 进程虚拟内存的示意图'
+- en: '](img/Fig_2.03.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.03.jpg)'
+- en: Figure 2.3 – Illustration of a process' virtual memory
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.3 – 进程虚拟内存的示意图
+- en: The stack stores data directly related to the executable code. If a function
+    is called during program execution, a separate stack frame is allocated for it.
+    The parameters of the called function, its variables, and the return address are
+    placed in it. The **stack frame data** exists only within the limits of execution
+    of the given function; nevertheless, the contents of this region can tell the
+    investigator what functions were executed by the process at the particular moment.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 堆栈存储与可执行代码直接相关的数据。如果程序执行过程中调用了某个函数，就会为该函数分配一个独立的堆栈帧。被调用函数的参数、变量和返回地址会被放入其中。**堆栈帧数据**只存在于给定函数执行的范围内；然而，这一部分的内容能够告诉调查员在特定时刻该进程执行了哪些函数。
+- en: Unlike a stack, data in a heap is stored for the lifetime of a process, which
+    is extremely important for a digital forensic specialist. Moreover, it stores
+    dynamically allocated data, such as text typed in a text editor, a clipboard that
+    can contain a password, or the content of a chat of a running messenger.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与堆栈不同，堆中的数据会在进程的整个生命周期中存储，这对于数字取证专家来说至关重要。此外，它存储动态分配的数据，例如在文本编辑器中输入的文本、可能包含密码的剪贴板，或正在运行的消息软件中的聊天内容。
+- en: We have broken down the basic concepts, which we will refer to in the following
+    chapters. Now it is time to move on to the next stop, **live analysis**.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经讲解了基本概念，接下来我们将在后续章节中提及。现在是时候进入下一个主题——**实时分析**了。
+- en: What's live memory analysis?
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 什么是实时内存分析？
+- en: There are several situations where it is impossible to create a memory dump.
+    We already discussed these situations in [*Chapter 1*](B17056_01_Final_JM_ePub.xhtml#_idTextAnchor011),
+    *Why Memory Forensics?*. Also, memory extraction may become inefficient for remote
+    systems or systems with more than 32 GB of RAM. In such cases, you can use **live
+    memory analysis** for manual examination of running processes, their memory contents,
+    network connections, and the current system state.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有几种情况是无法创建内存转储的。我们已经在[*第 1 章*](B17056_01_Final_JM_ePub.xhtml#_idTextAnchor011)中讨论了这些情况，*为什么选择内存取证？*
+    另外，对于远程系统或内存大于 32 GB 的系统，内存提取可能变得低效。在这种情况下，您可以使用**实时内存分析**手动检查正在运行的进程、它们的内存内容、网络连接以及当前的系统状态。
+- en: Important Note
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Keep in mind that you will often need a user with administrator rights to perform
+    live analysis. If a threat actor has access to the target system and uses credential
+    carving tools, then logging in as a privileged user simply gives away your credentials.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，您通常需要一个具有管理员权限的用户才能执行实时分析。如果攻击者能够访问目标系统并使用凭证挖掘工具，那么以特权用户身份登录就相当于直接泄露了您的凭证。
+- en: Windows
+  id: totrans-46
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Windows
+- en: To perform live memory analysis on Windows hosts, there is a wide list of various
+    tools, from built-in to advanced forensic frameworks. Also, many EDR/XDR solutions
+    nowadays allow incident responders to perform live memory analysis.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 Windows 主机上执行实时内存分析，有许多工具可供选择，从内置工具到高级取证框架都有。此外，现在许多 EDR/XDR 解决方案也允许事件响应人员执行实时内存分析。
+- en: 'Let''s look at one very common live analysis tool known as **Process Hacker**,
+    as shown in the following screenshot:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一个非常常见的实时分析工具，**Process Hacker**，如下图所示：
+- en: '![Figure 2.4 – Process Hacker Processes tab'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.4 – Process Hacker 进程标签'
+- en: '](img/Fig_2.04.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.04.jpg)'
+- en: Figure 2.4 – Process Hacker Processes tab
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.4 – Process Hacker 进程标签
+- en: 'Process Hacker allows you to get the following information:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Process Hacker 允许您获取以下信息：
+- en: List of running processes
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 正在运行的进程列表
+- en: Services launched
+  id: totrans-54
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启动的服务
+- en: Active network connections
+  id: totrans-55
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 活跃的网络连接
+- en: Disk usage
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 磁盘使用情况
+- en: In addition, double-clicking on a running process takes you to the process memory.
+    There you can find information about resources used, view the address space of
+    the process, including stack and heap, and even search for specific data there
+    using regular expressions.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，双击正在运行的进程可以进入该进程的内存。您可以在其中找到有关使用的资源的信息，查看进程的地址空间，包括堆栈和堆，甚至可以使用正则表达式在其中搜索特定数据。
+- en: Such an approach may be very useful when you already know what to look for.
+    For example, you know that a piece of malware injects the payload to `explorer.exe`
+    (Windows Explorer). Usually, there aren't many instances of `explorer.exe`; what's
+    more, it shouldn't normally perform network connections. So, using tools such
+    as Process Hacker and a bit of cyber threat intelligence, you can easily spot
+    rogue processes.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你已经知道需要寻找什么时，这种方法可能非常有用。例如，你知道某个恶意软件将有效负载注入到`explorer.exe`（Windows资源管理器）中。通常，`explorer.exe`的实例不多；而且，它通常不应该进行网络连接。因此，使用如Process
+    Hacker等工具和一些网络威胁情报，你可以轻松地发现恶意进程。
+- en: As was mentioned previously, there are built-in tools such as the **Windows
+    command shell**, **PowerShell**, or **Windows Management Instrumentation** (**WMI**).
+    These tools provide a wide range of functionality that helps you get a list of
+    active processes, the resources they use, the contents of their memory, active
+    network connections, and so on.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，也有一些内建工具，如**Windows命令行**、**PowerShell**或**Windows管理工具**（**WMI**）。这些工具提供了广泛的功能，帮助你获取活动进程列表、它们使用的资源、内存内容、活动网络连接等。
+- en: 'Let''s look at the following command:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看一下以下命令：
+- en: '[PRE0]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The command, prints a list of all active processes, including their command
+    line and the path to the executable file via `wmic` (the WMI command-line utility).
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令通过`wmic`（WMI命令行工具）列出所有活动进程，包括它们的命令行和可执行文件路径。
+- en: Linux and macOS
+  id: totrans-63
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Linux和macOS
+- en: 'For systems running Linux and macOS, the method described previously also works.
+    Both *Apple Terminal* and *Linux Terminal* allow you to view information about
+    network connections, resources used, or processes running, as shown in the following
+    screenshot:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于运行Linux和macOS的系统，前面描述的方法同样有效。*Apple Terminal*和*Linux Terminal*都允许你查看网络连接信息、资源使用情况或正在运行的进程，如下截图所示：
+- en: '![Figure 2.5 – List of active processes on a Linux-based system'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图2.5 – 基于Linux系统的活动进程列表'
+- en: '](img/Fig_2.05.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.05.jpg)'
+- en: Figure 2.5 – List of active processes on a Linux-based system
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图2.5 – 基于Linux系统的活动进程列表
+- en: Despite the convenience and quickness of live analysis, it has its disadvantages.
+    Examining live systems does not allow you to see information about terminated
+    processes and closed network connections, limits interaction with kernel objects,
+    and, among other things, can lead to the erasure of important traces, because
+    any interaction with the target system leads to changes in memory.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管实时分析方便且快速，但它也有其缺点。检查实时系统无法查看已终止进程和关闭的网络连接信息，限制了与内核对象的交互，并且可能导致重要痕迹被抹去，因为与目标系统的任何交互都会导致内存中的变化。
+- en: It is also worth noting that the contents of memory are constantly changing
+    and during a live analysis it is easy to lose sight of something, which is why
+    it will never be superfluous to make a dump when it is possible. We will consider
+    this in the next part.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还值得注意的是，内存内容是不断变化的，在实时分析过程中很容易忽视某些信息，这也是为什么在可能的情况下进行转储永远不会多余。我们将在下一部分中讨论这一点。
+- en: Understanding partial versus full memory acquisition
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解部分与完整内存获取
+- en: We have determined that working with memory dumps has certain advantages. The
+    only remaining question is what to *dump*. There are a few tools that allow you
+    to create dumps of specific processes on Windows systems. One such tool is **ProcDump**,
+    which is a part of *Sysinternals Suite*.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经确定，处理内存转储有其一定的优势。剩下的唯一问题是要*转储*什么。Windows系统上有一些工具允许你创建特定进程的转储。其中一个工具是**ProcDump**，它是*Sysinternals
+    Suite*的一部分。
+- en: 'The following screenshot shows an example of creating a full process dump of
+    the **Telegram messenger** using ProcDump:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了使用**Telegram Messenger**通过ProcDump创建完整进程转储的示例：
+- en: '![Figure 2.6 – Memory dump of the Telegram process'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图2.6 – Telegram进程的内存转储'
+- en: '](img/Fig_2.06.jpg)'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.06.jpg)'
+- en: Figure 2.6 – Memory dump of the Telegram process
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图2.6 – Telegram进程的内存转储
+- en: In *Figure 2.6*, ProcDump also has an analog for Linux-like systems, which provides
+    a convenient way to create core dumps of Linux applications. Similarly, it is
+    possible to create process dumps on macOS using **GDB** (**GNU Debugger**), but
+    it is a more complicated task because it requires direct specification of memory
+    addresses to create dumps.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图2.6*中，ProcDump也有适用于类似Linux系统的工具，它提供了一种方便的方式来创建Linux应用程序的核心转储。同样，通过**GDB**（**GNU调试器**）也可以在macOS上创建进程转储，但这是一项更复杂的任务，因为它需要直接指定内存地址来创建转储。
+- en: 'Dumps of individual processes can be analyzed later using the debugger. The
+    following screenshot shows a dump of the Telegram process opened in **WinDbg**:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 单个进程的转储可以稍后通过调试器进行分析。以下截图展示了在**WinDbg**中打开的 Telegram 进程的转储：
+- en: '![Figure 2.7 – Dump of the Telegram process opened in WinDbg'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.7 – 在 WinDbg 中打开的 Telegram 进程转储'
+- en: '](img/Fig_2.07.jpg)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.07.jpg)'
+- en: Figure 2.7 – Dump of the Telegram process opened in WinDbg
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.7 – 在 WinDbg 中打开的 Telegram 进程转储
+- en: Such analysis techniques are applicable, for example, as part of incident response,
+    when you need to quickly extract certain data from memory, such as IP addresses
+    or executable code. However, if you need to perform a full-scale investigation,
+    extract user data or encryption keys, or build a RAM-based timeline, you will
+    need to create a full memory dump. That is what we are going to talk about next.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种分析技术适用于例如事件响应过程中，当需要从内存中快速提取某些数据（如 IP 地址或可执行代码）时。然而，如果需要进行全面调查，提取用户数据或加密密钥，或者构建基于
+    RAM 的时间线，则需要创建完整的内存转储。接下来，我们将讨论这一点。
+- en: Exploring popular acquisition tools and techniques
+  id: totrans-82
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索流行的获取工具和技术
+- en: The creation of a memory dump is not a trivial task and depends on several factors.
+    We will discuss all of them individually in this part of the chapter.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建内存转储并非一项简单的任务，涉及多个因素。我们将在本章的这一部分单独讨论它们。
+- en: Virtual or physical
+  id: totrans-84
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 虚拟或物理
+- en: The environment plays an important role in the process of dump creation. This
+    is due to the fact that no additional tools are required to dump virtual machine
+    memory.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 环境在转储创建过程中起着重要作用。这是因为虚拟机内存的转储不需要额外的工具。
+- en: 'In fact, the contents of the virtual machine''s memory are partially or completely
+    placed in a file with a certain extension, so getting a dump is reduced to getting
+    that exact file. The following screenshot shows the basic **virtualization** tools
+    and files used to store virtual machine memory:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事实上，虚拟机内存的内容部分或完全被放置在具有特定扩展名的文件中，因此获取转储实际上就是获取该精确的文件。以下截图展示了用于存储虚拟机内存的基本**虚拟化**工具和文件：
+- en: '![Figure 2.8 – Virtualization tools and files containing memory-related data'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 2.8 – 虚拟化工具和包含内存相关数据的文件'
+- en: '](img/Fig_2.08.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_2.08.jpg)'
+- en: Figure 2.8 – Virtualization tools and files containing memory-related data
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 2.8 – 虚拟化工具和包含内存相关数据的文件
+- en: 'An important criterion in obtaining virtual machine memory is its state. It
+    is necessary to understand that if the virtual machine is running, the contents
+    of the memory are constantly changing. Therefore, there are two possible solutions:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取虚拟机内存的一个重要标准是其状态。需要理解的是，如果虚拟机正在运行，内存内容是不断变化的。因此，有两种可能的解决方案：
+- en: '**Suspend**: The virtual machine''s memory in the stable state will be saved
+    to disk. However, some solutions perform a few processes before suspending a virtual
+    machine that may cause important data to be lost. For example, VMware closes all
+    active network connections before the virtual machine enters the suspended state.'
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**挂起**：虚拟机的内存将在稳定状态下保存到磁盘。然而，一些解决方案在挂起虚拟机之前执行几个进程，这可能导致重要数据丢失。例如，VMware 在虚拟机进入挂起状态之前关闭所有活动的网络连接。'
+- en: '**Create a snapshot**: When creating a snapshot, the current state of the virtual
+    machine and its memory are written to separate files without any changes.'
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**创建快照**：创建快照时，虚拟机当前的状态和内存将被写入单独的文件中，不做任何更改。'
+- en: Thus, creating a snapshot to retrieve virtual machine RAM is more preferable
+    in terms of saving the original data. Further work with virtual machine files
+    will depend on the specific vendor and the format in which the memory is saved.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，为了保存原始数据，创建快照以获取虚拟机内存更为可取。之后对虚拟机文件的进一步操作将取决于具体的供应商和内存保存的格式。
+- en: Local or remote
+  id: totrans-94
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 本地或远程
+- en: If our target system is *bare metal*, we cannot avoid additional tools for creating
+    memory dumps. In this case, physical access to the host plays a key role.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们的目标系统是*裸金属*，我们无法避免使用额外的工具来创建内存转储。在这种情况下，物理访问主机起着关键作用。
+- en: 'In today''s world, it is not uncommon to have to collect data from target systems
+    remotely. The following plan can be used to create memory dumps remotely in the
+    simplest case:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在当今世界，远程从目标系统收集数据并不罕见。可以使用以下方案，在最简单的情况下远程创建内存转储：
+- en: Create a *temporary user* with administrator privileges, as this will help you
+    to prevent attackers from stealing the credentials of the privileged user.
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个带有管理员权限的*临时用户*，这将帮助您防止攻击者窃取特权用户的凭据。
+- en: Create a *network share* (`$C` or `$ADMIN`) and copy the tool needed to create
+    the dump.
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个*网络共享*（`$C`或`$ADMIN`），并复制所需的工具以创建转储。
+- en: Use any remote-control tool, service creation, or task scheduling to run your
+    tool and then send a dump to the network share via back-connect.
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用任何远程控制工具、服务创建或任务调度来运行您的工具，然后通过反向连接将转储发送到网络共享。
+- en: Delete the temporary administrator account.
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 删除临时管理员账户。
+- en: Important Note
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Make sure to calculate the checksum of the dump file before and after it is
+    sent over the network to check its integrity.
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 确保在将转储文件发送到网络之前和之后计算其校验和以检查其完整性。
+- en: If physical access to the host is available, the first question we need to solve
+    is where to store the data. It is highly discouraged to save the memory dump on
+    the target system, as it may cause overwriting forensically significant data on
+    the disk. To write the dumps, you should use removable devices prepared in advance.
+    Using the same device to work with several suspected infected hosts, as well as
+    the direct connection of the device to the investigator's computer, is not desirable.
+    This is because there is malware (mostly used for attacks on the energy sector,
+    for example, **USBferry**, **Crimson.USBWorm**, or **USBCulprit**) that uses removable
+    devices for self-distribution and data transfer. In such a situation, it is better
+    to connect the device to an intermediate host, from where all necessary data will
+    be sent to the investigator's host, for instance, over the network.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果可以物理访问主机，则我们需要解决的第一个问题是在哪里存储数据。强烈建议不要将内存转储保存在目标系统上，因为这可能导致在磁盘上覆盖法庭重要数据。在写入转储时，应预先准备可移动设备。不建议使用同一设备处理多个疑似感染主机，以及将设备直接连接到调查员计算机。这是因为存在恶意软件（主要用于对能源部门的攻击，例如**USBferry**、**Crimson.USBWorm**或**USBCulprit**），这些恶意软件使用可移动设备进行自我传播和数据传输。在这种情况下，最好将设备连接到中间主机，从中将所有必要的数据发送到调查员的主机，例如通过网络。
+- en: Both hardware and software solutions can be used to create memory dumps if the
+    target system is physically accessible.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果可以物理访问目标系统，则可以使用硬件和软件解决方案创建内存转储。
+- en: One hardware solution is to use **Direct Memory Access** (**DMA**), such as
+    **FireWire**. It should be noted right away that hardware solutions have a number
+    of limitations (for instance, starting with Windows 10 and macOS 10.7.2, DMA is
+    disabled for locked systems) and often require additional drivers, which is not
+    a benefit at all.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种硬件解决方案是使用**直接内存访问**（**DMA**），例如**FireWire**。应该立即指出的是硬件解决方案有许多限制（例如，从Windows
+    10和macOS 10.7.2开始，对于锁定系统，DMA被禁用），并且通常需要额外的驱动程序，这并不是一个优点。
+- en: It is a completely different story with software solutions. There are a huge
+    number of both free and commercial tools on the market that allow you to create
+    memory dumps of different formats. In general, most tools work in a quite similar
+    way. When dumping, the kernel module is loaded, which maps physical addresses
+    to the process' virtual address space, from which the data is written to the file.
+    It is important to note that there is such a thing as device memory. Device memory
+    is a part of the physical memory, which is reserved for use by the firmware. Attempting
+    to access this part of memory can end unpredictably. That is why most modern tools
+    are designed to skip device memory regions.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用软件解决方案完全是另一回事。市场上有大量免费和商业工具，可以创建不同格式的内存转储。总的来说，大多数工具的工作方式相似。在转储时，加载内核模块，将物理地址映射到进程的虚拟地址空间，从中写入数据到文件。重要的是要注意设备内存的存在。设备内存是保留给固件使用的物理内存的一部分。尝试访问内存的这一部分可能会导致不可预测的结果。这就是为什么大多数现代工具设计为跳过设备内存区域。
+- en: How to choose
+  id: totrans-107
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何选择
+- en: 'The obvious question with such a huge selection of tools is how to choose the
+    most appropriate one. This question is quite individual. We just want to cite
+    a few factors that should be considered when choosing a tool:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这么多工具的显而易见的问题是如何选择最合适的工具。这个问题非常个体化。我们只想列举一些在选择工具时应考虑的因素：
+- en: Supported operating system and hardware architecture
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 支持的操作系统和硬件架构
+- en: Remote dumping capability
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 远程转储能力
+- en: Impact on the target system
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对目标系统的影响
+- en: Reliability
+  id: totrans-112
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可靠性
+- en: The first two factors are situational – depending on the circumstances in which
+    you have to take the dump, you may be suited to certain tools. The last two factors
+    are more general. Regardless of the context, we always try to minimize the impact
+    on the target system. As for reliability, it is necessary to say that you should
+    never use a tool that you have not worked with and tested before on the target
+    system, because it can behave unpredictably. Therefore, it is recommended to test
+    the tool under the same conditions before creating a memory dump of the target.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前两个因素是情境性的——根据必须进行转储的环境，可能适合某些工具。后两个因素则更为普遍。无论背景如何，我们始终尽量减少对目标系统的影响。至于可靠性，必须强调的是，不要使用你之前未在目标系统上使用过并测试过的工具，因为它们可能会出现不可预测的行为。因此，建议在创建目标系统的内存转储之前，先在相同条件下测试该工具。
+- en: It's time
+  id: totrans-114
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 是时候了
+- en: The only thing left for us to figure out is at what point in time it is best
+    to take the dump. Naturally, the moment when the dump is created largely determines
+    its content. Let's think back to the two major cases we discussed in [*Chapter
+    1*](B17056_01_Final_JM_ePub.xhtml#_idTextAnchor011), *Why Memory Forensics?:*
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 唯一需要弄清楚的是，何时进行转储最为合适。显然，转储创建的时刻在很大程度上决定了其内容。让我们回想一下在[*第一章*](B17056_01_Final_JM_ePub.xhtml#_idTextAnchor011)中讨论的两个主要案例，*为什么选择内存取证？*
+- en: '**The alleged victim''s device**: In this case, we are most likely to want
+    to create a memory dump when the attacker is not visibly active. This will help
+    us avoid external tampering with the dumping process.'
+  id: totrans-116
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**嫌疑人设备**：在这种情况下，我们很可能希望在攻击者没有明显活跃时创建内存转储。这将帮助我们避免外部干扰转储过程。'
+- en: '**The suspect''s device**: The situation here is the opposite, as it is important
+    to find evidence of illegal activity by the owner of the device. Based on this,
+    it is best to take a memory dump when there is any activity on the host of interest.'
+  id: totrans-117
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**嫌疑人设备**：这里的情况恰恰相反，因为重要的是要找到设备所有者非法活动的证据。基于这一点，最好在目标主机上有任何活动时进行内存转储。'
+- en: A general recommendation regarding the time of dumping is to choose a time other
+    than startup, shutdown, reboot, system update, and other periods of increased
+    activity.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于转储时间的一般建议是选择启动、关机、重启、系统更新以及其他活动较多的时段之外的时间。
+- en: Summary
+  id: totrans-119
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: A basic understanding of memory structure and memory management concepts is
+    key to an intelligent and effective investigation process.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对内存结构和内存管理概念的基本理解是进行智能有效调查过程的关键。
+- en: In some situations, creating memory dumps can be complicated or simply inefficient.
+    In this case, live memory analysis comes to the rescue, allowing you to get basic
+    information about the current state of the target system.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，创建内存转储可能变得复杂或效率低下。在这种情况下，实时内存分析提供了帮助，它允许你获取目标系统当前状态的基本信息。
+- en: Another alternative to creating complete memory dumps is extracting the memory
+    of individual processes. This can be useful as part of an incident response but
+    does not provide a complete picture and greatly limits the investigator's capabilities.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建完整内存转储的另一种替代方法是提取单个进程的内存。这在事件响应中可能会有所帮助，但它无法提供完整的图景，极大地限制了调查员的能力。
+- en: Creating memory dumps is a tricky process, depending on multiple factors. To
+    successfully create a dump, the examiner should consider various nuances, including
+    the digital environment, the need for remote data extraction, the reliability
+    of the tools used, and the time of dump creation.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建内存转储是一个复杂的过程，取决于多个因素。为了成功创建转储，检查员应考虑各种细微差别，包括数字环境、远程数据提取的需求、使用工具的可靠性以及转储创建的时间。
+- en: In the following chapters, we will take a closer look at the tools needed to
+    create memory dumps on different operating systems and try them out in practice.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将更详细地介绍在不同操作系统上创建内存转储所需的工具，并进行实际操作。

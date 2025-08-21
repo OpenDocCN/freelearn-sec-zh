@@ -1,0 +1,1818 @@
+- en: WLAN Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WLAN取证
+- en: The use of wireless LAN has become an integral part of our lives. Our reliance
+    on it means that it's all too common for criminals to use it to break into your
+    Wi-Fi and steal all your data, see your day-to-day activities through your web
+    camera, or reach a critical data server, in the case of a corporate environment.
+    The possibilities of what a cyber criminal can do once they are in your network
+    (or have forced you into their network) are endless.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无线局域网的使用已成为我们生活中不可或缺的一部分。我们对其的依赖意味着，犯罪分子利用无线网络入侵你的Wi-Fi并窃取所有数据、通过你的网络摄像头查看日常活动，或在企业环境中访问关键数据服务器，已经变得司空见惯。一旦网络犯罪分子进入你的网络（或强迫你进入他们的网络），他们能做的事情几乎是无穷无尽的。
+- en: Over the course of this chapter, we will learn how to identify rogue access
+    points, which can allow an attacker to view all of your communication. We will
+    also look at strategies to identify and physically find these rogue devices. We
+    will also look at some of the attack patterns that an attacker can follow when
+    conducting advanced attacks. We will also look at what to do when a criminal falsifies
+    their MAC address, one of the most important criminal techniques that is used
+    while committing a crime on Wi-Fi. Before we move ahead with the exercises in
+    the chapter, let's learn a bit about the wireless 802.11 standard, and the type
+    of packets that will help us during the wireless forensic exercise.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章过程中，我们将学习如何识别流氓接入点，这些接入点可能允许攻击者查看你的所有通信内容。我们还将探讨识别并物理定位这些流氓设备的策略。我们还会了解攻击者在进行高级攻击时可能采取的一些攻击模式。我们还将学习当犯罪分子伪造其MAC地址时该如何处理，这是在Wi-Fi犯罪中使用的最重要的技术之一。在进行本章的练习之前，让我们先了解一些关于无线802.11标准的基本知识，以及在无线取证练习中将帮助我们的数据包类型。
+- en: 'We will cover the following topics in the chapter:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: The 802.11 standard
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 802.11标准
+- en: Packet types and subtypes
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据包类型和子类型
+- en: Locating wireless devices
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 定位无线设备
+- en: Identifying rogue access points
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别流氓接入点
+- en: Identifying attacks
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别攻击
+- en: Case study—identifying the attacker
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案例研究——识别攻击者
+- en: Technical requirements
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To follow the exercises covered in this chapter, we will require the following:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 跟随本章练习，我们需要以下设备：
+- en: Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    installed on Windows 10 OS/ Ubuntu 14.04.
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    安装在Windows 10操作系统/ Ubuntu 14.04上。
+- en: You can download the codes and PCAP files used in this chapter from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch9](https://github.com/nipunjaswal/networkforensics/tree/master/Ch9).
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你可以从[https://github.com/nipunjaswal/networkforensics/tree/master/Ch9](https://github.com/nipunjaswal/networkforensics/tree/master/Ch9)下载本章中使用的代码和PCAP文件。
+- en: VMWare Player/VirtualBox installation with Kali Operating system installed.
+    You can download it from [https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/).
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装VMWare Player/VirtualBox，并安装Kali操作系统。你可以从[https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/)下载。
+- en: Aircrack-ng suite (already a part of Kali Linux).
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Aircrack-ng套件（已包含在Kali Linux中）。
+- en: An external wireless card (TP-Link WN722N/Alfa card).
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个外部无线网卡（TP-Link WN722N/Alfa卡）。
+- en: Python (already installed on Kali Linux).
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Python（已安装在Kali Linux中）。
+- en: The 802.11 standard
+  id: totrans-18
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 802.11标准
+- en: 'The 802.11 standards denote the family of specifications defined by the IEEE
+    for wireless local area networks. The 802.11 standard describes an over-the-air
+    interface between a client and a base station or between any two wireless clients.
+    There are several standards in the 802.11 family, as shown in the following list:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 802.11标准指的是IEEE为无线局域网定义的一系列规范。802.11标准描述了客户端与基站之间，或任意两个无线客户端之间的空中接口。802.11系列标准包含多个版本，如下所示：
+- en: '**802.11**: 802.11 uses a 1-2 Mbps transmission rate using either **frequency-hopping
+    spread spectrum **(**FHSS**) or **direct-sequence spread spectrum **(**DSSS**).'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11**：802.11使用1-2 Mbps的传输速率，通过**跳频扩频**（**FHSS**）或**直接序列扩频**（**DSSS**）进行传输。'
+- en: '**802.11a**: The speed is increased from 1-2 Mbps to 54 Mbps in the 5 GHz band.
+    Instead of using FHSS or DSSS, it uses an orthogonal frequency division multiplexing (OFDM)
+    encoding.'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11a**：速度从1-2 Mbps提升到在5 GHz频段下的54 Mbps。它不使用FHSS或DSSS，而是使用正交频分复用（OFDM）编码。'
+- en: '**802.11b**: This has an 11 Mbps transmission in the 2.4 GHz band and uses
+    only DSSS.'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11b**：该标准在 2.4 GHz 频段下有 11 Mbps 的传输速度，并且仅使用 DSSS。'
+- en: '**802.11g**: This has an increased speed of up to 54 Mbps in the 2.4 GHz band.'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11g**：该标准在 2.4 GHz 频段下提供高达 54 Mbps 的传输速度。'
+- en: '**802.11n**: The *n* standard adds **multiple-input multiple-output** (**MIMO**).
+    The speeds are over 100 Mbit/s.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11n**：*n* 标准新增了 **多输入多输出**（**MIMO**）。其速度超过 100 Mbit/s。'
+- en: '**802.11ac**: This has a speed of 433 Mbps to 1.3 Gbps and operates only in
+    the 5 GHz band. Hence, its important to have the right Wi-Fi adapter to capture
+    traffic on both 2.4 GHz and 5 GHz bands'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**802.11ac**：该标准的速度为 433 Mbps 至 1.3 Gbps，仅在 5 GHz 频段下工作。因此，拥有正确的 Wi-Fi 适配器对于捕获
+    2.4 GHz 和 5 GHz 频段上的流量至关重要。'
+- en: Having a working knowledge of the wireless standards, let's look at the type
+    of evidence we can have in the wireless forensics scenario in the next section.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解无线标准的工作原理后，让我们在下一部分中看看无线取证场景中可能出现的证据类型。
+- en: Wireless evidence types
+  id: totrans-27
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 无线证据类型
+- en: The evidence from a wireless investigation would come in a PCAP file or logs
+    from the wireless access points. However, in the case of a live environment, you
+    can set up captures using the **aircrack-ng** suite. The aircrack-ng suite we
+    used in the previous chapters allows us to put our wireless network card in a
+    promiscuous mode where we can capture the activity that occurs in the wireless
+    network.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无线调查的证据通常会以 PCAP 文件或无线接入点的日志形式出现。然而，在实际环境中，您可以使用 **aircrack-ng** 套件设置捕获。我们在前几章使用的
+    aircrack-ng 套件允许我们将无线网络卡置于混杂模式，在该模式下我们可以捕获无线网络中的活动。
+- en: 'Let''s see how we can do this by going through the following steps. We will
+    be using a Windows 10 host laptop with Kali Linux installed in VMware Workstation:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过以下步骤来看看如何完成这个操作。我们将使用一台安装了 Kali Linux 的 Windows 10 主机笔记本电脑：
+- en: 'First, we will connect our external Wi-Fi card, which is a TP-Link TL-WN722M
+    150 Mbps high gain external USB adapter. On connecting it to the laptop, we will
+    get the following message:'
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们将连接外部 Wi-Fi 网卡，这是一个 TP-Link TL-WN722M 150 Mbps 高增益外部 USB 适配器。将其连接到笔记本电脑后，我们会看到以下信息：
+- en: '![](img/54a0f95f-e62a-4bee-a888-0e47d4adb8cd.png)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/54a0f95f-e62a-4bee-a888-0e47d4adb8cd.png)'
+- en: 'Click OK and open a terminal on the Kali Linux machine as follows:'
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击“确定”，然后在 Kali Linux 机器上打开一个终端，如下所示：
+- en: '![](img/ffb6fab8-dc34-4537-b07a-d1469dc58db1.png)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ffb6fab8-dc34-4537-b07a-d1469dc58db1.png)'
+- en: Upon running the `iwconfig` command, we can see that the wireless interface
+    is available.
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行 `iwconfig` 命令后，我们可以看到无线接口已经可用。
+- en: 'Next, we need to put this into monitor mode. We can use the `airmon-ng` tool
+    to put the wireless interface in monitor mode by issuing `airmon-ng start wlan0` command,
+    as shown in the following screenshot:'
+  id: totrans-35
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要将其切换到监控模式。我们可以使用 `airmon-ng` 工具，通过执行 `airmon-ng start wlan0` 命令将无线接口置于监控模式，如下所示：
+- en: '![](img/b08e77ae-de3f-45a7-a741-fe3f5355de6c.png)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b08e77ae-de3f-45a7-a741-fe3f5355de6c.png)'
+- en: 'By providing the command `airmon-ng` followed by `start` and the identifier
+    for our wireless interface, airmon-ng creates an additional virtual interface
+    for us called `wlan0mon`. Let''s verify this by again typing the `iwconfig` command
+    as follows:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过输入 `airmon-ng` 命令，然后跟上 `start` 和我们的无线接口标识符，airmon-ng 为我们创建了一个名为 `wlan0mon`
+    的虚拟接口。我们可以通过再次输入 `iwconfig` 命令来验证这一点，如下所示：
+- en: '![](img/5120b3f3-b643-422f-b75e-a97ce3f67244.png)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5120b3f3-b643-422f-b75e-a97ce3f67244.png)'
+- en: We can see that the interface has been created and is in `Monitor` mode.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到接口已成功创建，并处于 `Monitor` 模式。
+- en: Using airodump-ng to tap the air
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 airodump-ng 监听空中信号
+- en: 'Let''s investigate by using another utility from the aircrack suite, `airodump-ng`,
+    as follows:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过使用 aircrack 套件中的另一个工具 `airodump-ng` 来进行调查，如下所示：
+- en: '![](img/a8e2f69f-9913-45eb-8f65-29e32b97cd1a.png)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a8e2f69f-9913-45eb-8f65-29e32b97cd1a.png)'
+- en: By providing the `airodump-ng wlan0mon` command, starts sniffing the wireless
+    networks around us while continually hopping to different channels. This will
+    give us a list containing the numerous wireless networks that are available in
+    the vicinity. The list in the upper half of the screen displays wireless access
+    points that have a BSSID (MAC address of the access point) and an ESSID (name
+    of the network) and many other details. The bottom half of the screenshot contains
+    the stations which are nothing but the endpoint devices.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过输入 `airodump-ng wlan0mon` 命令，开始嗅探我们周围的无线网络，同时不断跳转到不同的频道。这将为我们提供一个列表，列出附近可用的多个无线网络。屏幕上半部分的列表显示了具有
+    BSSID（接入点的 MAC 地址）和 ESSID（网络名称）以及其他许多详细信息的无线接入点。屏幕下半部分显示了站点，即终端设备。
+- en: We can also see that the preceding list contains `CH`, which is the channel
+    number on which the access point is operating. The channels are nothing but frequencies,
+    with channel 1 being 2,412 MHz and channel 14 being 2,484 MHz. The channels are
+    separated by a 5 MHz gap, which means that if channel 1 is 2,412 MHz, then channel
+    2 is 2,417 MHz, channel 3 is 2,422 MHz, and so on.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以看到之前的列表中包含了`CH`，即接入点正在使用的频道号。频道实际上是频率，频道1为2,412 MHz，频道14为2,484 MHz。频道之间相隔5
+    MHz，这意味着如果频道1为2,412 MHz，那么频道2为2,417 MHz，频道3为2,422 MHz，依此类推。
+- en: Additionally, we have a `PWR` field that denotes the power. A lower power value
+    means that the access point is far from our wireless interface. We can see that
+    the wireless network `VIP3R` has `-51` `PWR`, which means that it's quite near
+    to us, while the access point `dlink-DAD9_EXT` is very far from us, with the least
+    power. The power value is very important when physically locating the device in
+    a building or a floor.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们有一个`PWR`字段，用于表示功率。较低的功率值意味着接入点离我们的无线接口较远。我们可以看到无线网络`VIP3R`的`PWR`值为`-51`，这意味着它离我们非常近，而接入点`dlink-DAD9_EXT`则离我们非常远，功率值最低。功率值在物理定位设备时非常重要，尤其是在建筑物或楼层中。
+- en: Moreover, we can see the type of encryption used, the cipher, the authentication
+    type, and much more in the preceding list. In the lower pane, we can see the devices
+    that are connected to the listed Wi-Fi access points.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还可以看到之前列表中显示了加密类型、密码算法、认证类型等信息。在下方窗格中，我们可以看到连接到列出Wi-Fi接入点的设备。
+- en: 'Let''s capture all the details from a single wireless network VIP3R by using
+    the following command:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们通过以下命令来捕获所有来自单个无线网络VIP3R的详细信息：
+- en: '[PRE0]'
+  id: totrans-48
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'In the preceding command, we used the `-bssid` switch to filter the packets
+    originating only from the `78:44:76:E7:B0:58` (VIP3R) access point while only
+    capturing from channel 11 by using the `-c 11` switch. We have also chosen to
+    write all the output to a file named `viper` by using the `-w` switch. The preceding
+    command would yield the following details:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上述命令中，我们使用了`-bssid`开关，仅过滤来自`78:44:76:E7:B0:58`（VIP3R）接入点的数据包，并且使用`-c 11`开关仅捕获11频道的数据。我们还选择将所有输出写入一个名为`viper`的文件，使用的是`-w`开关。该命令将返回以下详细信息：
+- en: '![](img/63df6c4a-a7bf-4351-8cba-955ca44ef274.png)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/63df6c4a-a7bf-4351-8cba-955ca44ef274.png)'
+- en: 'We can see that by running the command, we obtain the details listed in the
+    preceding screenshot. We can see three stations connected to the access point,
+    and, along with that, we have a **WPA handshake** as well. A WPA handshake means
+    that someone tried to authenticate with the wireless network. If there is an increase
+    in the number of stations after a WPA handshake, then this would typically mean
+    that the authentication was successful; if there is no increase, then it was not
+    successful. Again, finding stations can be done through the PWR signal as well.
+    Generally, attackers capture this WPA handshake through two different means:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以通过运行命令来查看先前截图中列出的详细信息。我们可以看到三台设备连接到接入点，并且还有一个**WPA握手**。WPA握手意味着有人尝试与无线网络进行身份验证。如果在WPA握手后设备数量增加，通常意味着认证成功；如果没有增加，则意味着认证失败。同样，找到设备可以通过PWR信号来完成。通常，攻击者通过两种不同方式捕获WPA握手：
+- en: Listening when someone tries to authenticate
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 听取别人尝试认证时的情况
+- en: Intentionally forcing away stations connected to the access point and allowing
+    them to reconnect
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 有意强制断开连接的设备并允许它们重新连接
+- en: 'Attackers will brute-force the handshake to find the network password and gain
+    access to the network. We saw that we captured the handshake using `airodump-ng`
+    as soon as we stop the capturing, `airodump-ng` will create capture file along
+    with some others as shown through the `ls -la` command in the following screenshot:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者将通过暴力破解握手以找到网络密码并访问网络。我们看到，当我们停止捕获时，`airodump-ng`立即创建了捕获文件，并通过`ls -la`命令列出了其他一些文件，如下图所示：
+- en: '![](img/e740d402-b3f0-49f3-96e2-e57f58a24fe1.png)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e740d402-b3f0-49f3-96e2-e57f58a24fe1.png)'
+- en: 'Let''s open the capture (`.cap`) file in Wireshark by issuing `wireshark viper-01.cap
+    &` command and selecting WLAN traffic from the **Wireless** tab:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过执行`wireshark viper-01.cap &`命令在Wireshark中打开捕获的（`.cap`）文件，并从**无线**选项卡中选择WLAN流量：
+- en: '![](img/41e9eda8-2c8b-4510-9a6f-ec360e52a7bc.png)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/41e9eda8-2c8b-4510-9a6f-ec360e52a7bc.png)'
+- en: 'We will be shown the statistics of the wireless traffic, as shown in the preceding
+    screenshot. Additionally, airodump captures other networks as well. Let''s put
+    a filter on the MAC address of our wireless access point, as follows:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将看到无线流量的统计信息，如前面的截图所示。此外，airodump也会捕获到其他网络。让我们对我们的无线接入点的MAC地址应用过滤器，具体如下：
+- en: '![](img/63a03ebb-3061-46e2-941a-de8e4448b7a9.png)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/63a03ebb-3061-46e2-941a-de8e4448b7a9.png)'
+- en: 'Well, we can see that using `wlan.addr` followed by the MAC/ BSSID of the access
+    point filters all the packets for the **access point** (**AP**) of interest. We
+    can see that one of the client starting with the MAC address `2c:33:61:xx:xx:xx`
+    is from an Apple device. Additionally, all the base stations and MAC addresses
+    can be resolved for the type using the Resolved Addresses option from Wireshark,
+    as shown in the following screenshot:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，我们可以看到，使用`wlan.addr`后接接入点的MAC/BSSID，可以过滤出所有与**接入点**（**AP**）相关的数据包。我们可以看到，MAC地址以`2c:33:61:xx:xx:xx`开头的客户端来自一台苹果设备。此外，所有的基站和MAC地址都可以通过Wireshark中的Resolved
+    Addresses选项解析出其类型，如下图所示：
+- en: '![](img/3e312c46-a54a-40c1-90cd-394dde3388bd.png)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3e312c46-a54a-40c1-90cd-394dde3388bd.png)'
+- en: 'We can see that we are not able to get precise statistics on how many stations
+    our AP is talking to from Wireshark. Let''s use `tshark -r viper-01.cap -2 -R
+    wlan.da==78:44:76:e7:b0:54 -T fields -e wlan.sa | sort | uniq` to help us out,
+    as follows:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，通过Wireshark无法准确统计出我们的AP与多少站点通信。让我们使用`tshark -r viper-01.cap -2 -R wlan.da==78:44:76:e7:b0:54
+    -T fields -e wlan.sa | sort | uniq`来帮助我们，结果如下：
+- en: '![](img/f6ed0bb4-10cb-4983-b41c-8b04156c16c9.png)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f6ed0bb4-10cb-4983-b41c-8b04156c16c9.png)'
+- en: The `tshark` tool runs by reading the file from the `-r` switch and using the
+    filter `wlan.da==78:44:76:e7:b0:54` as the destination address while printing
+    only the `wlan` sources using the `-T` fields and `-e wlan.sa` switch. With the
+    output, we sort and print unique items by using the `sort` and `uniq` Linux commands.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tshark`工具通过读取`-r`开关中的文件运行，并使用过滤器`wlan.da==78:44:76:e7:b0:54`作为目标地址，同时仅通过`-T
+    fields`和`-e wlan.sa`开关打印`wlan`源。利用输出，我们使用`sort`和`uniq` Linux命令对结果进行排序并打印唯一项。'
+- en: In case of LUA errors for the preceding command, disable LUA by editing line
+    29 of the `/usr/share/Wireshark/init.lua` file and setting `disable_lua=true`.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果前述命令出现LUA错误，请通过编辑`/usr/share/Wireshark/init.lua`文件的第29行，设置`disable_lua=true`来禁用LUA。
+- en: 'We can check the found MAC addresses at [https://macvendors.com/](https://macvendors.com/),
+    as follows:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以在[https://macvendors.com/](https://macvendors.com/)查看找到的MAC地址，如下所示：
+- en: '![](img/15999f20-e2f7-478a-8180-44f315eb830a.png)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/15999f20-e2f7-478a-8180-44f315eb830a.png)'
+- en: Additionally, since MAC vendors provide an API, we can always develop a nice
+    Python script to do the MAC checking for us. You can look at one of the scripts
+    at [https://macvendors.co/api/python](https://macvendors.co/api/python).
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，由于MAC厂商提供了API，我们可以随时开发一个不错的Python脚本来帮我们进行MAC地址检查。你可以查看[https://macvendors.co/api/python](https://macvendors.co/api/python)上的一个脚本。
+- en: Packet types and subtypes
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据包类型和子类型
+- en: 'Before we jump into packet types and subtypes, let''s see what happens when
+    we connect to a Wi-Fi access point. For this demonstration, we will be using a
+    **TP-Link router** and an Apple iPhone 7\. I will try to connect to the VIP3R
+    network from the phone, but I will not use the correct password. Look at the following
+    screenshot:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们深入了解数据包类型和子类型之前，先来看看我们连接到Wi-Fi接入点时会发生什么。在这个演示中，我们将使用**TP-Link路由器**和一部苹果iPhone
+    7。我将尝试从手机连接到VIP3R网络，但不会使用正确的密码。请看以下截图：
+- en: '![](img/e6b040e2-7d70-424d-86c0-25a80b7083ea.png)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e6b040e2-7d70-424d-86c0-25a80b7083ea.png)'
+- en: Generally, when we open the settings on the iPhone or any other phone, we start
+    to see the networks in the vicinity of the phone. This is because each access
+    point constantly sends out beacon frames to denote its presence. For the phone
+    to know more about the network, a probe request is sent to the access point. We
+    can see that our Wi-Fi access point (`78:44:76:E7:B0:58`) sends a probe response
+    (8155) to the iPhone with the station parameters and supported rates.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，当我们在iPhone或其他手机上打开设置时，我们会开始看到手机附近的网络。这是因为每个接入点不断地发送信标帧来表示其存在。为了让手机了解更多关于网络的信息，会向接入点发送探测请求。我们可以看到，我们的Wi-Fi接入点（`78:44:76:E7:B0:58`）向iPhone发送了一个探测响应（8155），其中包含了站点参数和支持的速率。
+- en: Next, the authentication process is initiated by the iPhone, and the router
+    responds well to it. Generally, the authentication request/response consists of
+    a few packets exchanged between both of the communicating devices.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，iPhone启动认证过程，路由器对此做出了响应。通常，认证请求/响应由两个通信设备之间交换的几个数据包组成。
+- en: Next, an association request (8162) is sent by the iPhone to associate itself
+    with the network, to which an association response (8164) is sent back with the
+    association ID. Then, the key exchange process happens, and since the key was
+    wrong, a disassociation packet is sent by the router to the iPhone denoting the
+    failed attempt and immediately breaking the association. Since we now know how
+    this stuff works, let's move on and discuss the types of wireless 802.11 frames
+    in detail.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，iPhone发送关联请求（8162）以将自己与网络关联，路由器则返回一个带有关联ID的关联响应（8164）。然后，发生密钥交换过程，由于密钥错误，路由器向iPhone发送一个解除关联数据包，表示尝试失败并立即中断关联。既然我们现在知道这些过程是如何工作的，接下来我们将详细讨论无线802.11帧的类型。
+- en: 'We primarily have data, management, and control frames in the 802.11 standards.
+    From a pure play forensic point of view, the most we will be dealing with are
+    the management frames. The following table highlights the types of frames and
+    their subtypes:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们主要有数据帧、管理帧和控制帧在802.11标准中。从纯粹的取证角度来看，我们最常接触到的是管理帧。以下表格突出显示了帧的类型及其子类型：
+- en: '| **Packet Types** | **Usage** |'
+  id: totrans-76
+  prefs: []
+  type: TYPE_TB
+  zh: '| **数据包类型** | **用途** |'
+- en: '| **Type** | **Subtype** |'
+  id: totrans-77
+  prefs: []
+  type: TYPE_TB
+  zh: '| **类型** | **子类型** |'
+- en: '| 0 | mgmt | 0 | Association request | The transmitter must already be authenticated
+    to gain a successful association with the access point. |'
+  id: totrans-78
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 0 | 关联请求 | 发射器必须已通过认证，才能成功与接入点建立关联。 |'
+- en: '| 0 | mgmt | 1 | Association response | The response to the association request
+    is an association response. If the request is successful, the response packet
+    will contain an identifier known as the association ID. |'
+  id: totrans-79
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 1 | 关联响应 | 对关联请求的响应是关联响应。如果请求成功，响应数据包将包含一个被称为关联ID的标识符。 |'
+- en: '| 0 | mgmt | 10 | Reassociation request | This is similar to an association
+    request, but this packet type is sent when there are lapses in time, or when the
+    station is moving toward another access point. |'
+  id: totrans-80
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 10 | 重新关联请求 | 这类似于关联请求，但该数据包类型在存在时间间隙或站点移动到另一个接入点时发送。 |'
+- en: '| 0 | mgmt | 11 | Reassociation response | This is similar to the association
+    response. |'
+  id: totrans-81
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 11 | 重新关联响应 | 这类似于关联响应。 |'
+- en: '| 0 | mgmt | 100 | Probe request | Used to actively check any, or a particular,
+    access point. |'
+  id: totrans-82
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 100 | 探测请求 | 用于主动检查任何或特定的接入点。 |'
+- en: '| 0 | mgmt | 101 | Probe response | The response contains station parameters
+    and supported data rates. |'
+  id: totrans-83
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 101 | 探测响应 | 响应包含站点参数和支持的数据速率。 |'
+- en: '| 0 | mgmt | 1000 | Beacon | Beacon packets are indicator packets sent continuously
+    by the AP denoting its presence in the network. Beacon frames also help to find
+    rogue access points. |'
+  id: totrans-84
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 1000 | 信标 | 信标数据包是由AP持续发送的指示数据包，表示其在网络中的存在。信标帧也有助于查找恶意接入点。 |'
+- en: '| 0 | mgmt | 1010 | Disassociation | This packet is a notification that an
+    existing association has been broken. |'
+  id: totrans-85
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 1010 | 解除关联 | 该数据包是一种通知，表示现有的关联已被断开。 |'
+- en: '| 0 | mgmt | 1011 | Authentication | Authentication packets are sent time and
+    again between two endpoints in order to establish authenticity. |'
+  id: totrans-86
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 1011 | 认证 | 认证数据包在两个端点之间反复发送，以建立真实性。 |'
+- en: '| 0 | mgmt | 1100 | Deauthentication | This is an announcement message, stating
+    that the receiver is no longer authenticated. |'
+  id: totrans-87
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | mgmt | 1100 | 取消认证 | 这是一条公告消息，声明接收方不再经过认证。 |'
+- en: For more information on wireless packet types and subtypes, refer to [https://www.savvius.com/networking-glossary/wireless_lan_overview/wlan_packet_types/](https://www.savvius.com/networking-glossary/wireless_lan_overview/wlan_packet_types/).
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欲了解更多关于无线数据包类型和子类型的信息，请参考[https://www.savvius.com/networking-glossary/wireless_lan_overview/wlan_packet_types/](https://www.savvius.com/networking-glossary/wireless_lan_overview/wlan_packet_types/)。
+- en: 'We can see that the value of subtypes is given in binary. We can use its hex
+    equivalent in Wireshark as follows:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到子类型的值是以二进制表示的。我们可以在Wireshark中使用其十六进制等效值，如下所示：
+- en: '![](img/f100c989-5906-4935-a208-abf7d43f6156.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f100c989-5906-4935-a208-abf7d43f6156.png)'
+- en: The information that we have gained regarding the packet types and subtypes
+    will help us identify attack patterns in the latter half of the chapter. Let's
+    now dive deep into the exercises.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们获得的关于数据包类型和子类型的信息将帮助我们在本章后半部分识别攻击模式。现在，让我们深入探讨这些练习。
+- en: For more information on the types of management frames, refer to [https://mrncciew.com/2014/09/29/cwap-802-11-mgmt-frame-types/](https://mrncciew.com/2014/09/29/cwap-802-11-mgmt-frame-types/).
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 想了解更多关于管理帧类型的信息，请参考 [https://mrncciew.com/2014/09/29/cwap-802-11-mgmt-frame-types/](https://mrncciew.com/2014/09/29/cwap-802-11-mgmt-frame-types/)。
+- en: Locating wireless devices
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 定位无线设备
+- en: 'As network forensic investigators, sometimes we encounter rogue devices in
+    a building or on a floor. It is important to find these devices, as they may contain
+    vital information about the attacker and the attack itself. Wi-Fi is no exception.
+    Say that we have a rogue access point running in the network. As forensic investigators,
+    let''s try to find the location of the device. We will make use of some scripts
+    to accomplish this. Remember the `PWR` field in the airodump-ng tool? We need
+    to develop something like that to poll the networks continuously. For this purpose,
+    let''s write the following Python 2.7 script:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为网络取证调查员，有时我们会遇到建筑物或楼层中的 rogue 设备。找到这些设备非常重要，因为它们可能包含有关攻击者和攻击本身的关键信息。Wi-Fi
+    也不例外。假设我们在网络中发现了一个 rogue 接入点。作为取证调查员，我们尝试找出该设备的位置。我们将利用一些脚本来完成这项任务。记得 `PWR` 字段在
+    airodump-ng 工具中的作用吗？我们需要开发类似的东西来持续轮询网络。为此，我们编写以下 Python 2.7 脚本：
+- en: '[PRE1]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The code is quite self-explanatory. We used a schedule to run a wireless scan
+    every five seconds using the `iwlist` command. We used regex expressions to filter
+    the data out and displayed it using the `PrettyTable` Python module. To calculate
+    the distance between the AP and our interface, we used a **free-space path loss**
+    (**FSPL**) algorithm and the `PWR` field (power/ signal strength) and `Frequency`
+    (channel ID) to calculate the distance using the following:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码非常直观。我们使用了一个计划任务，每 5 秒运行一次无线扫描，使用 `iwlist` 命令。我们使用正则表达式过滤数据并通过 `PrettyTable`
+    Python 模块显示结果。为了计算接入点和我们接口之间的距离，我们使用了 **自由空间路径损耗** (**FSPL**) 算法，以及 `PWR` 字段（功率/信号强度）和
+    `Frequency`（频道 ID）来计算距离，公式如下：
+- en: '[PRE2]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Let''s use the preceding formula and calculate the reading for a VIP3R access
+    point that is running on channel 11 with a power value of -56\. We can see that
+    we need two values for the preceding formula to work. For `decibel`, we will use
+    its absolute value, which is 56\. To calculate the frequency of channel 11, we
+    use the following:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用前面的公式来计算一个在 11 频道上运行、功率值为 -56 的 VIP3R 接入点的读数。我们可以看到，要使前面的公式成立，我们需要两个值。对于`分贝`，我们将使用它的绝对值，即
+    56。为了计算 11 频道的频率，我们使用以下公式：
+- en: '[PRE3]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Using these expressions, we get the following:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这些表达式，我们得到如下结果：
+- en: '[PRE4]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Therefore, putting these values into the formula, we have the following:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，将这些值代入公式，我们得到如下结果：
+- en: '[PRE5]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Well, the distance equals 6.112 meters, which is almost accurate, given the
+    distance from my current position where I am writing this text to my wireless
+    router. However, an important thing to consider here is that this formula is for
+    free-space path loss, and it may not be too accurate with a ton of walls and objects
+    in between.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，距离为 6.112 米，这几乎是准确的，考虑到从我当前写这篇文章的位置到我的无线路由器的距离。不过，需要注意的一点是，这个公式适用于自由空间路径损耗（free-space
+    path loss），在有大量墙壁和物体阻隔的情况下，可能并不十分准确。
+- en: You can refer to an excellent white paper on the various types of signal loss
+    due to various types of object, along with their values, at [https://arxiv.org/pdf/1707.05554.pdf](https://arxiv.org/pdf/1707.05554.pdf).
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以参考一篇优秀的白皮书，了解各种物体类型引起的信号损耗及其数值，地址为 [https://arxiv.org/pdf/1707.05554.pdf](https://arxiv.org/pdf/1707.05554.pdf)。
+- en: 'Let''s run the preceding Python script we built and see what values we get
+    as we move closer to the AP, as shown in the following screenshot:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们运行之前构建的 Python 脚本，看看当我们靠近接入点时，得到的值是什么，如下截图所示：
+- en: '![](img/ad0facf0-eddf-4858-b971-b5ce06874f1d.png)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ad0facf0-eddf-4858-b971-b5ce06874f1d.png)'
+- en: 'Moving a little closer toward the access point, we get the following:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们稍微靠近接入点时，得到如下结果：
+- en: '![](img/e6b67841-59c7-432c-adea-ea1127a69240.png)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e6b67841-59c7-432c-adea-ea1127a69240.png)'
+- en: We have the distance measured quite correctly. We now know how to use a few
+    of the values from the `iwlist` scan command in Linux to create something that
+    will aid us in wireless network forensics.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经非常准确地测量了距离。现在我们知道如何使用Linux中的`iwlist`扫描命令的某些值来创建有助于无线网络取证的内容。
+- en: For a more precise reading, you can look at the upper and lower frequencies
+    as well; find out how at [https://www.electronics-notes.com/articles/connectivity/wifi-ieee-802-11/channels-frequencies-bands-bandwidth.php](https://www.electronics-notes.com/articles/connectivity/wifi-ieee-802-11/channels-frequencies-bands-bandwidth.php).
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更精确的读取，您可以查看上下频率；了解更多信息请访问[https://www.electronics-notes.com/articles/connectivity/wifi-ieee-802-11/channels-frequencies-bands-bandwidth.php](https://www.electronics-notes.com/articles/connectivity/wifi-ieee-802-11/channels-frequencies-bands-bandwidth.php)。
+- en: Identifying rogue access points
+  id: totrans-112
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别恶意接入点
+- en: '**Rogue access points** are an increasing area of concern. The attackers perform
+    a** denial of service** (**DOS**) attack on the legitimate router and set up a
+    fake access point with the same SSID, forcing the stations to connect to the rogue
+    access point. The attackers can set up a fake access point through a number of
+    ways. Identifying these rogue APs is what we will look at next.'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**恶意接入点**是一个日益受到关注的领域。攻击者对合法路由器执行**拒绝服务**（**DOS**）攻击，并设置一个具有相同SSID的假接入点，迫使站点连接到恶意接入点。攻击者可以通过多种方式设置假接入点。识别这些恶意AP是我们接下来要探讨的内容。'
+- en: Obvious changes in the MAC address
+  id: totrans-114
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: MAC地址明显变化
+- en: 'Say that we have a rogue access point in the vicinity. Using `airodump-ng`
+    to capture packets, we get the following:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们在附近有一个恶意接入点。使用`airodump-ng`捕获数据包，我们得到如下信息：
+- en: '![](img/04fef946-3529-4306-9162-f947d0875b21.png)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/04fef946-3529-4306-9162-f947d0875b21.png)'
+- en: 'We can see that we have two networks with similar configurations, and the only
+    changes we can see for now is the BSSID (MAC address) and the MB (link speed).
+    While the MB is the most obvious change, let''s investigate both MAC addresses
+    at the MAC vendor''s website, as follows:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到我们有两个配置相似的网络，而目前唯一能看到的变化是BSSID（MAC地址）和MB（链路速度）。虽然MB是最明显的变化，让我们在MAC厂商网站上查看这两个MAC地址，如下所示：
+- en: '![](img/eb195e4d-3ee4-489b-a61b-1392f966a10a.png)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/eb195e4d-3ee4-489b-a61b-1392f966a10a.png)'
+- en: 'We can see that the address on the left is from Zioncom, which is a popular
+    company that develops routers, while the address on the right is from a company
+    called Analog & Digital Systems, which is not a router-manufacturing company.
+    However, if the attacker has randomly spoofed this address, they could have done
+    it for a legitimate-looking vendor. Additionally, we found an MB rate (maximum
+    speed) that is missing an `e` from the airodump-ng result  list. The missing `e` denotes
+    whether the AP supports quality of service. The last thing we can denote from
+    the airodump-ng interface is the speed at which beacons are transmitted. So, to
+    sum up our first analysis, we have the following IoCs:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到左侧的地址来自Zioncom，这是一家开发路由器的知名公司，而右侧的地址来自名为Analog & Digital Systems的公司，这不是一家路由器制造公司。然而，如果攻击者随机伪造了这个地址，他们可能是为了让它看起来像一个合法的厂商。此外，我们还发现，在`airodump-ng`结果列表中，MB速率（最大速度）缺少了一个`e`。这个缺失的`e`表示该AP是否支持服务质量。我们从`airodump-ng`接口中还可以看出信标帧传输的速度。因此，综上所述，我们的第一次分析得出以下IoC：
+- en: Change in BSSID
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: BSSID的变化
+- en: BSSID not resolving to a legitimate vendor (MAC vendors)
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: BSSID无法解析为合法的厂商（MAC厂商）
+- en: Change in the data rate's quality of service parameter (a missing `e` means
+    that QOS is not supported)
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据速率的服务质量参数变化（缺少`e`表示不支持QOS）
+- en: An excessive number of beacon frames from the fake AP
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP发出的信标帧数量过多
+- en: While these are all key checks when it comes to a fake AP detection, we will certainly look
+    for more.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这些都是检测假AP时的关键检查，但我们**肯定**会继续寻找更多信息。
+- en: The tagged perimeters
+  id: totrans-125
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 标记的外围
+- en: 'Let''s now investigate the original and fake access point in Wireshark and
+    figure out the missing/modified details from the original access point, as shown
+    in the following screenshot:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们在Wireshark中调查原始接入点和假接入点，找出原始接入点缺失或修改的详细信息，如下图所示：
+- en: '![](img/0ef7e66c-d518-4eba-809a-18129a98467e.png)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0ef7e66c-d518-4eba-809a-18129a98467e.png)'
+- en: 'Looking at the differences between both the beacon frames, we can see that
+    there is plenty of information missing from the fake AP (on the left), and the
+    key indicators are as follows:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看一下两个信标帧之间的差异，我们可以看到假AP（左侧）缺少了大量信息，关键指标如下：
+- en: Fake AP support rates are considerably lower than the original AP
+  id: totrans-129
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP的支持率明显低于原始AP
+- en: No ERP information in the fake AP
+  id: totrans-130
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP没有ERP信息
+- en: No details concerning the **High Throughput** (**HT** capabilities/HT information
+  id: totrans-131
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 没有关于**高吞吐量**（**HT**功能/HT信息）的详细信息
+- en: Completely missing vendor-specific tags
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完全缺失厂商特定标签
+- en: 'Additionally, we can see that the fake AP doesn''t have any tag related to
+    WPS, an original access point; most APs these days have WPS capabilities, which
+    are missing from the fake access point. On investigating the original access point''s
+    WPS tag, we find the following details:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们可以看到假AP没有任何与WPS相关的标签，而原始接入点则有；如今大多数AP都有WPS功能，而假接入点却没有。检查原始接入点的WPS标签，我们可以发现以下细节：
+- en: '![](img/5f389b52-cfd7-4f24-95ab-fe2877c97e44.png)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5f389b52-cfd7-4f24-95ab-fe2877c97e44.png)'
+- en: We can see that the WPS tags and data is present in case of the original access
+    point.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到原始接入点有WPS标签和相关数据。
+- en: The time delta analysis
+  id: totrans-136
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 时间差分析
+- en: Since an advanced attacker can emulate fixes for most of the red flags identified
+    in the preceding section, we need a serious mechanism to identify a rogue access
+    point among the legitimate ones. We will make use of time delta for the beacon
+    frames to identify the fake access point. While the fake access point tries to
+    fool the analysis systems by spoofing the fixed beacon interval, time delta analysis
+    allows us to figure out the exact beacon intervals.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于高级攻击者可以模拟解决前面章节中识别的多数红旗问题，我们需要一种有效的机制来识别非法接入点。我们将利用信标帧的时间差来识别假接入点。虽然假接入点试图通过伪造固定的信标间隔来欺骗分析系统，但时间差分析可以帮助我们准确地确定信标间隔。
+- en: 'A real AP would produce a time delta graph denoting an almost straight line;
+    this is not the case for a fake AP. Let''s confirm what we just said using `tshark
+    -r beacon-01.cap -2 -R "wlan.sa==7c:8b:ca:ea:27:52 && wlan.fc.type_subtype==0x08"
+    -T fields -e frame.time.delta | head -n 20`, as follows:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个真实的AP会生成一条几乎是直线的时间差图，而假AP则不是。我们来通过运行` tshark -r beacon-01.cap -2 -R "wlan.sa==7c:8b:ca:ea:27:52
+    && wlan.fc.type_subtype==0x08" -T fields -e frame.time.delta | head -n 20`来确认我们刚才说的内容，如下所示：
+- en: '![](img/30c0b8b8-6842-420f-ac2d-99a49749f891.png)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/30c0b8b8-6842-420f-ac2d-99a49749f891.png)'
+- en: The preceding command runs `tshark` on the `beacon-01.cap` file while filtering
+    out all the beacon frames originating from `78:44:76:e7:b0:54` and displaying
+    `time_delta`, which is the difference between the arrival time of the packet and
+    the previous packet. Keeping it short to only 20 entries, we can see that most
+    of the values are close to 0.102 ms.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的命令运行` tshark`在`beacon-01.cap`文件上，并过滤掉所有来自`78:44:76:e7:b0:54`的信标帧，显示`time_delta`，即数据包到达时间与上一个数据包到达时间之间的差异。为了简洁起见，我们只显示前20条条目，可以看到大多数值接近0.102毫秒。
+- en: 'Let''s do the same for the suspicious access point `00:20:30:40:43:21`:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们对可疑接入点`00:20:30:40:43:21`做同样的操作：
+- en: '![](img/6ca6841b-a5ff-4566-95c8-325078a02277.png)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6ca6841b-a5ff-4566-95c8-325078a02277.png)'
+- en: 'Well! We can see a clear difference in the values: the suspicious access point
+    has very shaky values compared to the original access point. Plotting a graph
+    with the first 100 time delta values for both, we will look at the differences
+    as shown in the following graph:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的！我们可以看到值之间有明显的差异：与原始接入点相比，可疑接入点的值非常不稳定。我们将前100个时间差值绘制成图表，看看两者之间的差异，如下图所示：
+- en: '![](img/b80d23fc-f7b2-43b6-b733-1c4399cc891c.png)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b80d23fc-f7b2-43b6-b733-1c4399cc891c.png)'
+- en: 'We can see the difference: the original access point has kept it quite linear
+    compared to the shaky fake access point. We now have a clear picture of how we
+    can differentiate between an original and a fake access point. Summarizing the
+    key indicators, we have the following indicators that can very well identify the
+    fake access point from the original one:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到差异：与不稳定的假接入点相比，原始接入点保持了较为线性的状态。现在我们有了一个清晰的图景，了解如何区分原始接入点和假接入点。总结一下关键指标，我们有以下几个标志，可以很好地帮助我们识别假接入点与原始接入点的区别：
+- en: Change in BSSID
+  id: totrans-146
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: BSSID发生变化
+- en: BSSID not resolving to a legitimate vendor (MAC Vendors)
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: BSSID无法解析为合法厂商（MAC厂商）
+- en: Change in the Data Rates Quality of Service parameter (A missing e means QoS
+    is not supported)
+  id: totrans-148
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据速率服务质量（QoS）参数发生变化（缺少字母e表示不支持QoS）
+- en: An excessive number of beacon frames from the fake AP
+  id: totrans-149
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP发送的信标帧数量过多
+- en: Fake AP support rates are fairly less than the original AP
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP的支持率远低于原始AP
+- en: No ERP information in the fake AP
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假AP没有ERP信息
+- en: No information on HT Capabilities/HT Information
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 没有关于HT功能/HT信息的细节
+- en: Completely missing the Vendor Specific Tags
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完全缺少供应商特定标签
+- en: Time-Delta value analysis show a stable graph for the real access point
+  id: totrans-154
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 时间增量值分析显示真实接入点的稳定图形
+- en: Sometimes, you will find that because of the delay and packet loss, the delta
+    value we get is around 0.2, 0.3, or 0.4\. In such cases, we should divide the
+    value by its associated gap. So, for a value of, say, 0.204, we divide the value
+    by 2 and obtain 0.102, or, for a value 0.412, we divide the value by 4 to obtain
+    0.103.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，由于延迟和数据包丢失，我们得到的增量值大约为0.2、0.3或0.4。在这种情况下，我们应该将该值除以其相关的间隔。例如，对于值0.204，我们将该值除以2得到0.102，或者对于值0.412，我们将该值除以4得到0.103。
+- en: The preceding analysis is based on an access point created with a TP TL-WN722N
+    wireless card and would have similar details for Alfa and other cards. However,
+    if an access point has been created using the original router itself, this will
+    pose additional challenges, and making use of all the techniques discussed will
+    lead to a correct analysis. Using the original access point for malicious purposes
+    will have a different MAC address, as it's not easy to spoof a MAC address in
+    the original access point. In the case of an advanced attacker mimicking/spoofing
+    the original MAC, all of the preceding techniques will detect at least some of
+    the changes.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前述分析是基于使用TP TL-WN722N无线网卡创建的接入点，并且对于Alfa和其他网卡也具有类似的细节。然而，如果接入点是使用原始路由器本身创建的，这将带来额外的挑战，并且利用我们讨论过的所有技术将导致正确的分析。使用原始接入点进行恶意目的将具有不同的MAC地址，因为在原始接入点中伪造MAC地址并不容易。在高级攻击者模仿/伪造原始MAC的情况下，所有前述技术将至少检测到一些变化。
+- en: Identifying attacks
+  id: totrans-157
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别攻击
+- en: Attack identification on wireless LANs is not as easy as it is with Ethernet
+    networks. Identifying the attacker is also not straightforward. In the previous
+    exercises, we saw how supplying a wrong password generates a disassociation response
+    from the AP to the station that is trying to connect.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对无线局域网的攻击识别不像以太网网络那样简单。识别攻击者也不是直截了当的。在前面的练习中，我们看到了如何通过提供错误密码使AP生成对试图连接的站点的解关联响应。
+- en: 'Let''s look at more attack patterns that are commonly used against WLANs, as
+    shown in the following list:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看常用于无线局域网的更多攻击模式，如下列表所示：
+- en: Rogue AP attacks
+  id: totrans-160
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 伪造AP攻击
+- en: Peer-to-peer attacks
+  id: totrans-161
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 点对点攻击
+- en: Eavesdropping
+  id: totrans-162
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 窃听
+- en: Cracking encryption
+  id: totrans-163
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 破解加密
+- en: Authentication attacks
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 认证攻击
+- en: Denial of service
+  id: totrans-165
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 拒绝服务
+- en: Rogue AP attacks
+  id: totrans-166
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 伪造AP攻击
+- en: In the previous section, we saw how rogue APs could be identified. Now let's
+    look at what this attack actually does. In this type of attack, the attacker mimics
+    an original access point and, in a parallel manner, disconnects the legitimate
+    users from the original access point. In this case, what happens is that when the
+    station tries to connect back to the network, it is not able to connect to the
+    original access point and instead gets connected to the fake one. Because of this,
+    all the network data passes through the rogue access point, and the attacker can
+    harvest sensitive details about the targets.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前一节中，我们看到了如何识别恶意AP。现在让我们看看这种攻击实际上是什么。在这种类型的攻击中，攻击者模仿原始接入点，并并行地将合法用户从原始接入点断开连接。在这种情况下，当站点尝试重新连接到网络时，它无法连接到原始接入点，而是连接到伪造的接入点。由于这种情况，所有网络数据经过恶意接入点传输，攻击者可以收集目标的敏感信息。
+- en: Peer-to-peer attacks
+  id: totrans-168
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 点对点攻击
+- en: In a **peer-to-peer** attack, the attacker and the target are on the same network,
+    such as a public hotspot, and the attacker tries to carry out network-based attacks,
+    such as exploiting a vulnerability in the network application. SMB-enabled attacks
+    are the most common example of such attacks.
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在**点对点**攻击中，攻击者和目标位于同一网络上，例如公共热点，攻击者试图进行基于网络的攻击，例如利用网络应用程序中的漏洞。启用SMB的攻击是这类攻击的最常见例子。
+- en: Eavesdropping
+  id: totrans-170
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 窃听
+- en: Putting our interface in monitor mode and silently capturing all the data around
+    us, as we did for the first example, is called **eavesdropping**. Once the data
+    is captured, we can see how many stations are connected to an AP and calculate
+    the distances, or even go further and crack the network key and then decrypt the
+    captured data to unveil the activities of the various users. The key challenge
+    in this attack type is that we are not able to detect an attacker, since their
+    device is running passively and collecting data.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将我们的接口设置为监视模式，静默捕获周围的所有数据，就像我们在第一个例子中做的那样，这被称为**窃听**。一旦数据被捕获，我们可以看到有多少站点连接到AP，并计算它们之间的距离，甚至更进一步破解网络密钥，然后解密捕获的数据以揭示各个用户的活动。此类攻击的关键挑战在于我们无法检测到攻击者，因为他们的设备是被动运行的，正在收集数据。
+- en: Cracking encryption
+  id: totrans-172
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 破解加密
+- en: '**Wired equivalent privacy** (**WEP**)  encryption in 802.11 is very weak and
+    is susceptible to cracking. The cracking involves the process of finding how the
+    RC4 key is generated by WEP which is by concatenating the 5 or the 13 byte key
+    with the 3 byte IV value. Additionally, it involves finding that how RC4 processes
+    that key in the initial permutation and finally how the permutation is used to
+    generate the initial key stream. The attacker can see the IV value moreover the
+    first byte in the keystream might directly be related to one of the key bytes.
+    Hence, observing enough of these key bytes, the attacker can find the key'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**有线等效隐私**（**WEP**）加密在802.11中非常弱，容易被破解。破解过程包括寻找WEP如何生成RC4密钥，即通过将5字节或13字节的密钥与3字节的IV值连接。此外，还包括寻找RC4如何处理这个密钥的初始置换，最后如何使用置换生成初始密钥流。攻击者可以看到IV值，并且密钥流中的第一个字节可能直接与密钥字节之一相关。因此，观察足够多的这些密钥字节，攻击者可以找出密钥。'
+- en: Authentication attacks
+  id: totrans-174
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 身份验证攻击
+- en: 'WPA and WPA2 (Wi-Fi protected access) are vulnerable to password-cracking attacks,
+    especially when a weak password is used by the network. In order to break into
+    a WPA-enabled AP, the attacker will use the following techniques:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WPA和WPA2（Wi-Fi保护访问）容易受到密码破解攻击，尤其是当网络使用弱密码时。为了突破WPA启用的AP，攻击者将使用以下技术：
+- en: '**Sniffing wireless packets in the air**: This involves putting the wireless
+    network card in monitor mode and listening and recording everything that is happening
+    around on the local wireless networks.'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**嗅探无线数据包**：这涉及将无线网卡设置为监视模式，监听并记录本地无线网络上发生的一切。'
+- en: '**Wait for a client to authenticate**: APs use a four-way handshake to exchange
+    information with WPA wireless clients for authentication. Mostly, the client needs
+    to prove that they are a legitimate user and has the passcode to the network.
+    This four-way handshake, or the **Extensible Authentication Protocol over LAN**
+    (**EAPOL**), encrypts the password in a way that the APs can decrypt it and check
+    whether it matches the one that has been set on the network.'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**等待客户端进行身份验证**：AP（接入点）使用四次握手与WPA无线客户端交换信息进行身份验证。通常，客户端需要证明自己是合法用户并拥有网络的密码。这个四次握手，或者说**局域网扩展认证协议**（**EAPOL**），以一种加密方式加密密码，AP可以解密它并检查是否与网络上设置的密码匹配。'
+- en: '**Use a brute-force attack**: Having recorded everything and obtaining the
+    EAPOL packets, the attacker can brute-force the password using an offline dictionary
+    attack against the captured file.'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使用暴力破解攻击**：记录了所有数据并获取了EAPOL数据包后，攻击者可以使用离线字典攻击对捕获的文件进行暴力破解密码。'
+- en: An important point here is that if there aren't any users on the network or
+    if there aren't any users connected to the network, then the attack will fail.
+    However, if a user is active and already authenticated, the attacker can use a
+    variety of attacks, such as a deauthentication attack, against the network AP
+    or the connected or clients to disconnect them and force the client's device to
+    authenticate again.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里一个重要的点是，如果网络上没有任何用户，或者没有任何用户连接到网络，那么攻击将会失败。然而，如果用户处于活动状态且已经认证，攻击者可以使用各种攻击方式，如去认证攻击，对网络AP或已连接的客户端发起攻击，迫使客户端的设备重新认证。
+- en: Denial of service
+  id: totrans-180
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 服务拒绝
+- en: Using deauthentication packets, an attacker can force users to disconnect from
+    the AP. Sending a single deauthentication  packet will force the stations to reauthenticate
+    to the access point, and in the process, the attacker captures the WPA handshakes.
+    However, if the attacker sends multiple deauthentication  packets continuously
+    over time, they create a denial-of-service situation, where the clients are not
+    able to connect to the AP for a long time.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 利用去认证数据包，攻击者可以强制用户断开与接入点（AP）的连接。发送一个去认证数据包将迫使设备重新认证到接入点，在此过程中，攻击者可以捕获 WPA 握手信息。然而，如果攻击者连续发送多个去认证数据包，它们会制造一个拒绝服务的情况，使客户端长时间无法连接到接入点。
+- en: Investigating deauthentication packets
+  id: totrans-182
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查去认证数据包
+- en: 'In this section, we will analyze a sample capture file covering the details
+    of an attack on a WPA2 network. Loading the file in Wireshark, we can see that
+    we have 3,818 packets, as shown in the following screenshot:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将分析一个示例捕获文件，涵盖对 WPA2 网络攻击的详细情况。将文件加载到 Wireshark 中后，我们可以看到文件中有 3,818 个数据包，如下图所示：
+- en: '![](img/29ae4e22-8c18-48b1-8d09-a2244949ca93.png)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/29ae4e22-8c18-48b1-8d09-a2244949ca93.png)'
+- en: 'Let''s clear the noise by filtering out only management frames using the `wlan.fc.type`
+    filter and the value `0x0`, as follows:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过仅过滤管理帧，我们可以清除噪声，使用 `wlan.fc.type` 过滤器和值 `0x0`，如下所示：
+- en: '![](img/074b2c44-ab7e-47cf-9f9c-baedde34aec1.png)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/074b2c44-ab7e-47cf-9f9c-baedde34aec1.png)'
+- en: 'We can see that we are left with only 420 packets, and we can also see plenty
+    of deauthentication packets in the screenshot. Let''s find out which device got
+    affected by this deauthentication attack and reinitiated the key handshake:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到剩下的只有 420 个数据包，而且在截图中可以看到大量的去认证数据包。让我们找找看哪个设备受到了这个去认证攻击并重新发起了密钥握手：
+- en: '![](img/c5b13f57-e958-43b0-ace1-315ff8f80214.png)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c5b13f57-e958-43b0-ace1-315ff8f80214.png)'
+- en: 'It looks as though `b0:10:41:c8:46:df` was deauthenticated and reinitiated
+    the key exchange. We can see that the authentication packets started at frame
+    number `377`. Let''s look at what happened before this:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来 `b0:10:41:c8:46:df` 被去认证并重新发起了密钥交换。我们可以看到认证数据包从第 `377` 帧开始。让我们看看在此之前发生了什么：
+- en: '![](img/2c7fa8dc-7164-44d9-9ec5-38c52465296a.png)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2c7fa8dc-7164-44d9-9ec5-38c52465296a.png)'
+- en: 'We can see that plenty of deauthentication packets started arriving, which
+    caused the device with the MAC address `b0:10:41:c8:46:df` to reinitiate the connection.
+    However, we can''t see the key packets anywhere. Let''s find out where they are:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到大量的去认证数据包开始到达，这导致 MAC 地址为 `b0:10:41:c8:46:df` 的设备重新发起了连接。然而，我们无法在任何地方看到密钥数据包。让我们找找看它们在哪里：
+- en: '![](img/a06b1684-657f-46be-8ed2-dd1aa579298e.png)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a06b1684-657f-46be-8ed2-dd1aa579298e.png)'
+- en: Simply putting a filter on `eapol` allows us to see that the key is exchanged
+    between the devices. An attacker with access to this file needs to brute-force
+    it to find the network key. We saw how we could gather details on the deauthentication
+    attack; however, we also saw that we were not able to find the original attacker's
+    MAC address, as they pretended to be one of the victims or the AP itself.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只要在 `eapol` 上加个过滤器，我们就可以看到设备之间交换了密钥。拥有此文件的攻击者需要通过暴力破解来找到网络密钥。我们已经看到了如何收集有关去认证攻击的详细信息；然而，我们也注意到，我们并未找到原始攻击者的
+    MAC 地址，因为他们伪装成了受害者之一或接入点本身。
+- en: Case study – identifying the attacker
+  id: totrans-194
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 案例分析 – 确定攻击者
+- en: 'In this example, we have received two capture files for analysis. We start
+    investigating the first file as follows:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本示例中，我们收到了两个捕获文件进行分析。我们首先分析第一个文件，如下所示：
+- en: '![](img/3234ffed-844d-45a0-bdc1-e6ebb03c083a.png)'
+  id: totrans-196
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3234ffed-844d-45a0-bdc1-e6ebb03c083a.png)'
+- en: 'We can see that the Link type is 802.11, which means that we are investigating
+    a WLAN. Let''s see the endpoints on this network:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到链路类型为 802.11，这意味着我们正在调查一个 WLAN。让我们来看看这个网络中的端点：
+- en: '![](img/02df08c9-8e5c-45fc-a240-97898a686775.png)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/02df08c9-8e5c-45fc-a240-97898a686775.png)'
+- en: 'From the preceding statistics, we can see that we have plenty of deauthenticated
+    packets that have been directed to the broadcast address. We can also see that
+    two stations, `54:99:63:82:64:f5` and `2c:33:61:77:23:ef`, were both involved
+    in deauthentication, which means that they might have received the deauthentication
+    packets as well. Let''s check this in Wireshark, as shown in the following screenshot:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从之前的统计数据中，我们可以看到有大量的去认证数据包被发送到广播地址。我们还可以看到两个设备，`54:99:63:82:64:f5` 和 `2c:33:61:77:23:ef`，都涉及了去认证，这意味着它们也可能收到了去认证数据包。让我们在
+    Wireshark 中检查一下，如下图所示：
+- en: '![](img/f208d965-d700-4373-81a1-a61147f1d8c4.png)'
+  id: totrans-200
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f208d965-d700-4373-81a1-a61147f1d8c4.png)'
+- en: 'We can see that the first deauthentication packet was broadcast at frame 4,175\.
+    Most of the time, the deauthentication packet will contain the reason code: the
+    Class 3 frame received from a non-associated STA (0x0007), which happens mostly
+    in cases of a forced deauth. After the deauthentication packet was received by
+    the station, the station responds with the following:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，第一个去认证数据包是在帧4175广播的。通常，去认证数据包会包含原因代码：来自未关联STA的类3帧（0x0007），这种情况大多发生在强制去认证时。在接收到去认证数据包后，站点会做出如下响应：
+- en: '![](img/cb1442b5-4199-456d-aaba-8e4b71e6c038.png)'
+  id: totrans-202
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cb1442b5-4199-456d-aaba-8e4b71e6c038.png)'
+- en: 'The reason mentioned by the stations is `Deauthenticated` because the sending
+    STA is leaving (or has left) IBSS or ESS (0x0003). Finally, all the clients were
+    disassociated, as shown in the following screenshot:'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 站点提到的原因是 `Deauthenticated`，因为发送STA正在离开（或已离开）IBSS或ESS（0x0003）。最后，所有客户端都被去关联，截图如下所示：
+- en: '![](img/92763128-897d-4bf2-b9e3-c7a6aeded7a5.png)'
+  id: totrans-204
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/92763128-897d-4bf2-b9e3-c7a6aeded7a5.png)'
+- en: 'Let''s look at the stations'' attempts to exchange keys, which the attacker
+    might have captured to obtain information:'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们来看一下站点交换密钥的尝试，攻击者可能已经捕获了这些信息：
+- en: '![](img/e7a8d5ca-2540-45d6-9fac-09d6da0e9c13.png)'
+  id: totrans-206
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e7a8d5ca-2540-45d6-9fac-09d6da0e9c13.png)'
+- en: 'We simply used the filter `-2 -R "eapol"` to view the key exchange and then
+    printed the WLAN destination addresses, sorted them, and found the unique entries.
+    The next thing would be to identify whether there has been any new authentication
+    other than these four addresses. Let''s investigate the second PCAP, as follows:'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们简单地使用过滤器 `-2 -R "eapol"` 来查看密钥交换，然后打印出WLAN目标地址，对其进行排序，找到唯一的条目。接下来我们需要确认是否有其他新的认证，除了这四个地址。让我们调查第二个PCAP，如下所示：
+- en: '![](img/330268fa-5824-4e8b-ad9f-940b1fdd18a2.png)'
+  id: totrans-208
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/330268fa-5824-4e8b-ad9f-940b1fdd18a2.png)'
+- en: 'Running the same `tshark` command on the second PCAP file, we can see that
+    there is a new MAC address that authenticated on the network. Let''s check whether
+    it was successful:'
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第二个PCAP文件上运行相同的 `tshark` 命令时，我们可以看到一个新的MAC地址已经在网络上进行认证。让我们检查它是否成功：
+- en: '![](img/5fbcb467-c57f-48bf-bacb-d8138a38bc25.png)'
+  id: totrans-210
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5fbcb467-c57f-48bf-bacb-d8138a38bc25.png)'
+- en: 'Looking for authentication type packets, we can see that the authentication
+    was successful. Interestingly, there are no signs of deauthentication or dissociations
+    in the PCAP file. Let''s look at the following overview of the timeline by taking
+    input from **Statistics** | **Capture File Properties**, as shown as follows:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查找认证类型的数据包时，我们可以看到认证成功。值得注意的是，在PCAP文件中没有去认证或去关联的迹象。我们来看一下通过 **Statistics** |
+    **Capture File Properties** 获取的时间线概览，如下所示：
+- en: '**Mar 10, 2019 08:18:04.380420000 EDT**: The file capture was started and the
+    first packet was captured'
+  id: totrans-212
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:18:04.380420000 EDT**：文件捕获已开始，捕获了第一个数据包'
+- en: '**Mar 10, 2019 08:20:20.587840000 EDT**: `78:44:76:e7:b0:58` broadcast the
+    first deauthentication packet'
+  id: totrans-213
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:20.587840000 EDT**：`78:44:76:e7:b0:58` 广播了第一个去认证数据包'
+- en: '**Mar 10, 2019 08:20:20.688171000 EDT**: Stations started authenticating (`2c:33:61:77:23:ef`,
+    `54:99:63:82:64:f5`, and `b0:10:41:c8:46:df`)'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:20.688171000 EDT**：站点开始认证（`2c:33:61:77:23:ef`，`54:99:63:82:64:f5`，和
+    `b0:10:41:c8:46:df`）'
+- en: '**Mar 10, 2019 08:20:20.691243000 EDT**: `b0:10:41:c8:46:df` sent the first
+    reassociation request'
+  id: totrans-215
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:20.691243000 EDT**：`b0:10:41:c8:46:df` 发送了第一个重关联请求'
+- en: '**Mar 10, 2019 08:20:20.696323000 EDT**: Key exchange started for all stations'
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:20.696323000 EDT**：所有站点开始密钥交换'
+- en: '**Mar 10, 2019 08:20:22.850949000 EDT**: Stations stopped authenticating (`2c:33:61:77:23:ef`,
+    `54:99:63:82:64:f5`, and `b0:10:41:c8:46:df`)'
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:22.850949000 EDT**：站点停止认证（`2c:33:61:77:23:ef`，`54:99:63:82:64:f5`，和
+    `b0:10:41:c8:46:df`）'
+- en: '**Mar 10, 2019 08:20:25.684608000 EDT**: Deauthentications stopped'
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:25.684608000 EDT**：去认证停止'
+- en: '**Mar 10, 2019 08:20:27.285187000 EDT**: Dissociation started on all stations'
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:27.285187000 EDT**：所有站点开始去关联'
+- en: '**Mar 10, 2019 08:20:27.847874000 EDT**: Key exchange ended for all stations'
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:27.847874000 EDT**：所有站点的密钥交换已结束'
+- en: '**Mar 10, 2019 08:20:28.847362000 EDT**: Dissociation ended'
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:20:28.847362000 EDT**：去关联结束'
+- en: '**Mar 10, 2019 08:23:44.857619000 EDT**: A new MAC address (`f0:79:60:25:be:ac`) that
+    was not seen before was authenticated'
+  id: totrans-222
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:23:44.857619000 EDT**：一个之前未见过的新MAC地址（`f0:79:60:25:be:ac`）已被认证'
+- en: '**Mar 10, 2019, 08:23:48.642582000 EDT**: Key exchange completed for the new
+    MAC address'
+  id: totrans-223
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2019年3月10日 08:23:48.642582000 EDT**：新MAC地址的密钥交换已完成'
+- en: '![](img/5cdffbee-47db-448e-8dea-38f66c1bf021.png)'
+  id: totrans-224
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5cdffbee-47db-448e-8dea-38f66c1bf021.png)'
+- en: 'It''s quite evident that no attacks happened after `08:20:25.684`, and a new
+    MAC address joined the network. This might be our attacker, but we are not sure.
+    Let''s decrypt the conversation exactly in a way we did in [Chapter 5](3d24aeb7-0dd7-4fe4-a29b-8f340fb2d00b.xhtml), *Combatting
+    Tunneling and Encryption*, which is to use Aircrack-ng as shown in the following
+    screenshot:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显然，在 `08:20:25.684` 之后没有发生任何攻击，且一个新的 MAC 地址加入了网络。这个可能是我们的攻击者，但我们不确定。让我们像在[第
+    5 章](3d24aeb7-0dd7-4fe4-a29b-8f340fb2d00b.xhtml)《*对抗隧道和加密*》中那样，使用 Aircrack-ng
+    解密对话，具体操作如下所示：
+- en: '![](img/490e3ea2-1392-43c4-aa82-ee3dcbdc5a12.png)'
+  id: totrans-226
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/490e3ea2-1392-43c4-aa82-ee3dcbdc5a12.png)'
+- en: 'We found the key using Aircrack-ng and applied it in Wireshark, as we did in
+    the previous chapters. Look at the following screenshot:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用 Aircrack-ng 找到了密钥，并像前几章那样在 Wireshark 中应用了它。请看以下截图：
+- en: '![](img/7f1093f7-c4c9-4022-a816-41de29459f00.png)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7f1093f7-c4c9-4022-a816-41de29459f00.png)'
+- en: 'It looks as though the attacker is running a port scan since the destination
+    ports are increasing by one. On filtering the HTTP requests and following the
+    HTTP stream, we can see that the attacker tried to reach the Hue portal which
+    is a popular wireless lighting system by Philips as shown in the following screenshot:'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来攻击者正在进行端口扫描，因为目标端口在逐渐增加。通过过滤 HTTP 请求并跟踪 HTTP 流，我们可以看到攻击者试图访问 Hue 门户，这是飞利浦的一款流行无线照明系统，截图如下所示：
+- en: '![](img/53b7a621-c90f-4299-a7f1-aa8448e8a6cd.png)'
+  id: totrans-230
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/53b7a621-c90f-4299-a7f1-aa8448e8a6cd.png)'
+- en: Moreover, they may have tried conducting further attacks, but the PCAPs were
+    cut short.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，他们可能已经尝试进行更多的攻击，但 PCAP 文件被截断了。
+- en: Over the course of this case study, we saw how we could work with 802.11 packets
+    to reveal a ton of information about the attacker. We developed a timeline and
+    decrypted the 802.11 encapsulation by decrypting the key and finding the real
+    intentions of the attacker.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本案例研究中，我们看到如何通过分析 802.11 数据包揭示攻击者的许多信息。我们制定了时间线，解密了 802.11 封装，通过解密密钥并找出攻击者的真实意图。
+- en: Summary
+  id: totrans-233
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概述
+- en: Over the course of this chapter, we learned a lot about 802.11 packets. We covered
+    tools such as airodump-ng, learned about the packet types and subtypes and locating
+    rogue access points using time delta analysis, and tagged parameters and changes
+    in MAC addresses. We looked at a variety of attack types and worked with deauthentication
+    packets.
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们了解了很多关于 802.11 数据包的知识。我们介绍了工具，如 airodump-ng，学习了数据包的类型和子类型，以及如何通过时间差分析定位恶意接入点，标记参数和
+    MAC 地址的变化。我们还研究了各种攻击类型，并操作了去认证数据包。
+- en: In the next chapter, we will look at summarizing and automating tools and scripts
+    to perform network forensics quickly.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将探讨总结和自动化工具与脚本，快速执行网络取证。
+- en: Questions
+  id: totrans-236
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请回答以下问题：
+- en: Which of the packet is subtype 0 in the management packets?
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在管理数据包中，哪一项是子类型 0 的数据包？
+- en: Association request
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关联请求
+- en: Authentication request
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 认证请求
+- en: Beacon frame
+  id: totrans-241
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Beacon 帧
+- en: Probe request
+  id: totrans-242
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 探测请求
+- en: Which of the packet is subtype 8 in the management packets?
+  id: totrans-243
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在管理数据包中，哪一项是子类型 8 的数据包？
+- en: Association request
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关联请求
+- en: Authentication request
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 认证请求
+- en: Beacon frame
+  id: totrans-246
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Beacon 帧
+- en: Probe request
+  id: totrans-247
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 探测请求
+- en: Which of the packet is subtype 12 or C in the management packets?
+  id: totrans-248
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在管理数据包中，哪一项是子类型 12 或 C 的数据包？
+- en: Deauthentication
+  id: totrans-249
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 去认证
+- en: Disassociation
+  id: totrans-250
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 去关联
+- en: Reassociation
+  id: totrans-251
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 重新关联
+- en: Probe response
+  id: totrans-252
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 探测响应
+- en: Which of the following methods can detect fake AP?
+  id: totrans-253
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下哪种方法可以检测假 AP？
+- en: Investigating HTTP packets
+  id: totrans-254
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查 HTTP 数据包
+- en: Investigating time delta
+  id: totrans-255
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查时间差
+- en: Investigating data frames
+  id: totrans-256
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查数据帧
+- en: Cracking the router's password
+  id: totrans-257
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 破解路由器密码
+- en: Which of the following tools can crack a wireless router's login password?
+  id: totrans-258
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下哪种工具可以破解无线路由器的登录密码？
+- en: Kismet
+  id: totrans-259
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Kismet
+- en: Aircrack-ng
+  id: totrans-260
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Aircrack-ng
+- en: Wireshark
+  id: totrans-261
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Wireshark
+- en: All of the above
+  id: totrans-262
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 上述所有
+- en: None of the above
+  id: totrans-263
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以上都不是
+- en: Further reading
+  id: totrans-264
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入阅读
+- en: 'To gain the most out of this chapter, please go through the following links:'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了最大限度地利用本章内容，请浏览以下链接：
+- en: Read more on wireless forensics at [https://www.sans.org/reading-room/whitepapers/wireless/80211-network-forensic-analysis-33023](https://www.sans.org/reading-room/whitepapers/wireless/80211-network-forensic-analysis-33023)
+  id: totrans-266
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过阅读[https://www.sans.org/reading-room/whitepapers/wireless/80211-network-forensic-analysis-33023](https://www.sans.org/reading-room/whitepapers/wireless/80211-network-forensic-analysis-33023)
+    了解更多关于无线取证的信息
+- en: More on fake AP Detection at [https://www.sans.org/reading-room/whitepapers/detection/detecting-preventing-rogue-devices-network-1866](https://www.sans.org/reading-room/whitepapers/detection/detecting-preventing-rogue-devices-network-1866)
+  id: totrans-267
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 更多关于假 AP 检测的信息，请访问[https://www.sans.org/reading-room/whitepapers/detection/detecting-preventing-rogue-devices-network-1866](https://www.sans.org/reading-room/whitepapers/detection/detecting-preventing-rogue-devices-network-1866)

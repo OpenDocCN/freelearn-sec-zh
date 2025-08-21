@@ -1,0 +1,718 @@
+- en: Combatting Tunneling and Encryption
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 应对隧道技术和加密
+- en: In the last few chapters, we saw how we can capture network packets and gain
+    deep insights into them using various tools and techniques. However, what if the
+    data traveling across the network using a DNS query is not carrying a DNS payload?
+    Alternatively, what if the data makes no sense from the packets under observation?
+    To answer these questions, we will have a look at various stepping stones in our
+    journey of effectively conducting network forensics. The data is sometimes encrypted
+    using TLS, SSL, custom encryption mechanisms, or WEP/ WPA2 in the wireless space.
+    In this chapter, we will look at combating these hurdles and obtaining meaningful
+    data behind the closed doors of encryption.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在最后几章中，我们看到了如何捕获网络数据包，并使用各种工具和技术深入分析它们。然而，如果通过 DNS 查询传输的数据并没有携带 DNS 负载怎么办？或者，如果观察到的数据包内容毫无意义呢？为了回答这些问题，我们将探讨在有效进行网络取证过程中遇到的一些关键步骤。数据有时会使用
+    TLS、SSL、自定义加密机制或在无线网络中使用 WEP/WPA2进行加密。在这一章中，我们将讨论如何应对这些障碍，并获取加密背后的有意义数据。
+- en: 'We will look at the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将讨论以下主题：
+- en: Decrypting TLS using browsers
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用浏览器解密 TLS
+- en: Decoding a malicious DNS tunnel
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解码恶意 DNS 隧道
+- en: Decrypting 802.11 packets
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解密 802.11 数据包
+- en: Decoding keyboard captures
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解码键盘捕获
+- en: This is the final chapter before we make a move into the hands-on network forensic
+    exercises, where we will make use of strategies learned in the first five chapters
+    to decode, decrypt, and solve the exercises in the last five chapters. So, let's
+    get started.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是最后一章，在进入实际的网络取证练习之前，我们将利用前五章中学到的策略来解码、解密并解决最后五章中的练习。让我们开始吧。
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete exercises in this chapter, we will require the following:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了完成本章中的练习，我们将需要以下内容：
+- en: Kali Linux ([https://www.kali.org/downloads/](https://www.kali.org/downloads/))
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Kali Linux ([https://www.kali.org/downloads/](https://www.kali.org/downloads/))
+- en: Wireshark v2.6.6 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    installed on Windows 10 OS
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Windows 10 操作系统上安装的 Wireshark v2.6.6 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+- en: Aircrack-ng Suite (already present in Kali Linux)
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Aircrack-ng 套件（已包含在 Kali Linux 中）
+- en: Scapy Python library (already a part of Kali Linux and can be installed by using
+    `pip install scapy` command)
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Scapy Python 库（已包含在 Kali Linux 中，可通过`pip install scapy`命令安装）
+- en: You can download the codes and PCAP files used in this chapter from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch5](https://github.com/nipunjaswal/networkforensics/tree/master/Ch5)
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 您可以从[https://github.com/nipunjaswal/networkforensics/tree/master/Ch5](https://github.com/nipunjaswal/networkforensics/tree/master/Ch5)下载本章中使用的代码和
+    PCAP 文件
+- en: Decrypting TLS using browsers
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用浏览器解密 TLS
+- en: 'One of the hidden features of the popular Chrome browser is the support of
+    logging the symmetric session key used while encrypting the traffic with TLS to
+    a file of our choice. Let''s see what happens when we try to capture a TLS-encrypted
+    packet:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 流行的 Chrome 浏览器的一个隐藏功能是支持将加密流量时使用的对称会话密钥记录到我们选择的文件中。让我们看看当我们尝试捕获一个 TLS 加密的数据包时会发生什么：
+- en: '![](img/f245a84f-6ec2-4b04-a69b-a6c3a7d9b1e4.png)'
+  id: totrans-17
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f245a84f-6ec2-4b04-a69b-a6c3a7d9b1e4.png)'
+- en: We can see that the network traffic is encrypted using TLS and that the data
+    in the bottom pane is not making much sense to us. Fortunately, browsers such
+    as Chrome support storing the TLS key, which can help us decrypt the data that
+    otherwise is not making sense. To set up logging, we need to export a user environment
+    variable by browsing the Control Panel and opening system.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到网络流量是使用 TLS 加密的，而且底部窗格中的数据对我们来说没有多大意义。幸运的是，像 Chrome 这样的浏览器支持存储 TLS 密钥，这有助于我们解密那些本来无法理解的数据。为了设置日志记录，我们需要通过浏览控制面板并打开系统来导出用户环境变量。
+- en: 'Next, we need to choose **Advanced system settings**. In the next step, we
+    will choose the **Environment Variables...** option. In the **User variable**
+    section, we will add the `SSLKEYLOGFILE` variable by clicking **New** and then
+    set its value as any file of our choice:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要选择**高级系统设置**。在下一步中，我们将选择**环境变量...**选项。在**用户变量**部分，我们将通过点击**新建**来添加`SSLKEYLOGFILE`变量，并将其值设置为我们选择的任何文件：
+- en: '![](img/dc2158e7-958b-4734-8b5f-22a0beafa600.png)'
+  id: totrans-20
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dc2158e7-958b-4734-8b5f-22a0beafa600.png)'
+- en: Make sure you create an empty file with the name used in the variable value;
+    in our case, it's `ssl.log`. Since we now have the setup ready, we can let the
+    user browse the network. The preceding logging option will be helpful in cases
+    of suspicion on a particular user can be confirmed by decrypting his TLS traffic
+    and monitoring their activities.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保您创建一个空文件，文件名与变量值中的名称一致；在我们的案例中，它是`ssl.log`。现在我们已经完成设置，可以让用户浏览网络。上述日志选项将在怀疑某个特定用户时非常有用，通过解密他的
+    TLS 流量并监控其活动，可以确认这一点。
+- en: On a Linux system, the environment variable can be exported using export `SSLKEYLOGFILE=PATH_OF_FILE`
+    command.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 系统中，可以使用命令 export `SSLKEYLOGFILE=PATH_OF_FILE` 来导出环境变量。
+- en: 'Network packets can be captured at the hub or mirror port, but to decrypt the
+    TLS sessions, the log file will be required. Once this file is set up correctly,
+    the administrators and network forensic experts have enough to decrypt the TLS
+    sessions on a different system. Let''s see what kind of data is generated in the
+    log file:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络数据包可以在集线器或镜像端口上捕获，但要解密 TLS 会话，日志文件是必需的。一旦正确设置了该文件，管理员和网络取证专家就可以在不同的系统上解密 TLS
+    会话。让我们看看日志文件中生成了什么样的数据：
+- en: '![](img/d70f1eeb-b9e3-4f9b-9b31-80cedcd0e0f5.png)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d70f1eeb-b9e3-4f9b-9b31-80cedcd0e0f5.png)'
+- en: 'We can see that the file contains session keys. Let''s set up SSL/TLS decryption
+    in Wireshark by navigating to **Edit** and choosing **Preferences**. Then scroll
+    down to **SSL** / **TLS** (Wireshark version 3.0) from the **Protocols** section:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到该文件包含会话密钥。让我们通过导航到**编辑**并选择**首选项**来设置 SSL/TLS 解密。然后向下滚动到**SSL** / **TLS**（Wireshark
+    3.0 版本）中的**协议**部分：
+- en: '![](img/d65b0fea-6898-4eab-9db2-baaf29273173.png)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d65b0fea-6898-4eab-9db2-baaf29273173.png)'
+- en: 'Let''s set the path of the log file in the **(Pre)-Master-Secret log filename**
+    field and press **OK**:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们在**（Pre）-Master-Secret 日志文件名**字段中设置日志文件的路径并按**确定**：
+- en: '![](img/1ad0c2e1-3c33-4e37-97d2-c45c3bf3ad7c.png)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1ad0c2e1-3c33-4e37-97d2-c45c3bf3ad7c.png)'
+- en: 'We will now have the TLS sessions decrypted:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在将解密 TLS 会话：
+- en: '![](img/b303a773-3cef-48ab-9cd0-c7c4b545960b.png)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b303a773-3cef-48ab-9cd0-c7c4b545960b.png)'
+- en: We can see most of the TLS traffic data in plain HTTP format. It is quite obvious
+    that I will not be giving out this PCAP and associated log file, for security
+    and privacy concerns. To perform the preceding exercise, you need to set up your
+    environment variable with the path to the log file and browse some TLS-enabled
+    websites. You will have the log file with various session keys; use it to decrypt
+    your TLS-enabled data.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到大部分 TLS 流量数据以明文 HTTP 格式显示。很显然，由于安全和隐私问题，我不会提供这个 PCAP 和相关的日志文件。要执行前面的操作，您需要设置环境变量，并指定日志文件的路径，然后浏览一些支持
+    TLS 的网站。您将获得包含各种会话密钥的日志文件；使用它来解密支持 TLS 的数据。
+- en: SSL has been replaced by TLS in version 3.0.0 of Wireshark.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SSL 在 Wireshark 3.0.0 版本中已被 TLS 替代。
+- en: Decoding a malicious DNS tunnel
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解码恶意 DNS 隧道
+- en: While preparing the content for this book, I stumbled upon a few of the excellent
+    **Capture the Flag** (**CTF**) challenges, which demonstrate mind-boggling exercises.
+    One of them is the one we are going to discuss next. We covered an exercise on
+    the ICMP shell in the previous chapters, and ICMP tunneling works on the same
+    principle, which is to pass TCP-related data through a series of ICMP requests.
+    Similarly, DNS and SSH tunneling also work; they encapsulate normal TCP traffic
+    within them and pass the common security practices. DNS and SSH tunneling are
+    fairly popular for bypassing captive portal restrictions on airports, cafes, and
+    so on. However, certain malware also makes use of DNS to perform command and control
+    of the compromised machines. Let's see an example that demonstrates strange DNS
+    requests and look at what can we do with them. The PCAP example is taken from
+    HolidayHack 2015, and you can download the sample PCAP from [https://github.com/ctfhacker/ctf-writeups/blob/master/holidayhack-2015/part1/gnome.pcap](https://github.com/ctfhacker/ctf-writeups/blob/master/holidayhack-2015/part1/gnome.pcap) thanks
+    to Cory Duplantis, also known as **ctfhacker**.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在准备本书内容时，我偶然发现了一些出色的 **Capture the Flag** (**CTF**) 挑战，这些挑战展示了令人惊叹的练习。其中一个我们接下来要讨论的就是其中之一。我们在之前的章节中涵盖了关于
+    ICMP shell 的练习，而 ICMP 隧道工作原理相同，即通过一系列 ICMP 请求传递 TCP 相关数据。同样地，DNS 和 SSH 隧道也是有效的；它们将正常的
+    TCP 流量封装在内部，并通过常见的安全实践。DNS 和 SSH 隧道在绕过机场、咖啡馆等地的强制门户限制时相当流行。然而，某些恶意软件也利用 DNS 对受感染的机器执行命令和控制。让我们看一个示例，演示一些奇怪的
+    DNS 请求，并探讨我们可以用它们做什么。PCAP 示例来自 HolidayHack 2015，你可以从 [https://github.com/ctfhacker/ctf-writeups/blob/master/holidayhack-2015/part1/gnome.pcap](https://github.com/ctfhacker/ctf-writeups/blob/master/holidayhack-2015/part1/gnome.pcap)
+    下载样本 PCAP，感谢 Cory Duplantis，也被称为 **ctfhacker**。
+- en: We will soon be requiring Kali Linux for this exercise and the version of Wireshark
+    is 2.6.6 so download the PCAP to both Windows as well as Kali Linux machine.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们很快将需要 Kali Linux 来进行此练习，Wireshark 的版本是 2.6.6，因此请将 PCAP 下载到 Windows 和 Kali
+    Linux 机器上。
+- en: 'Let''s open up `gnome.pcap` in Wireshark:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们在 Wireshark 中打开 `gnome.pcap`：
+- en: '![](img/81a95332-c5aa-4bf4-a5f0-e17b630b6821.png)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/81a95332-c5aa-4bf4-a5f0-e17b630b6821.png)'
+- en: 'We can see that we have a mix of Wireless 802.11 packets and DNS query responses
+    in the PCAP file, which is quite strange, as there are no query requests, only
+    query responses. Let''s investigate the DNS packets a little further:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到在 PCAP 文件中，我们有一些无线 802.11 数据包和 DNS 查询响应，这相当奇怪，因为没有查询请求，只有查询响应。让我们进一步调查一下
+    DNS 数据包：
+- en: '![](img/dfc2ae6c-f161-4012-9d7f-28e04e634c7f.png)'
+  id: totrans-39
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dfc2ae6c-f161-4012-9d7f-28e04e634c7f.png)'
+- en: 'We can see that on filtering the DNS packets, we have many packets with a transaction
+    ID of `0x1337` and with base64-like data incubated in them. Let''s try to extract
+    this data using `tshark`:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在过滤 DNS 数据包时，我们发现有许多带有事务 ID 为 `0x1337` 并且其中孕育了类似 base64 的数据的数据包。让我们试着使用 `tshark`
+    提取这些数据：
+- en: '![](img/27c0bb76-d0bd-49eb-84f4-fb3396d8fae5.png)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/27c0bb76-d0bd-49eb-84f4-fb3396d8fae5.png)'
+- en: The preceding `tshark` command reads from GNOME. The PCAP file uses the `-r`
+    switch and we have set a filter on the DNS transaction ID under observation using
+    the `dns.id==0x1337` filter by using the `-R` switch.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 先前的 `tshark` 命令从 GNOME 读取。PCAP 文件使用 `-r` 开关，并且我们已经设置了一个关于 DNS 事务 ID 的筛选条件，观察使用
+    `-R` 开关的 `dns.id==0x1337` 筛选器。
+- en: Additionally, we chose only to print the DNS response length for all the packets
+    by using the `-T` fields followed by `-e` to denote the field, and `dns.resp.len`
+    to print the response lengths. However, we are more interested in harvesting the
+    TXT record itself that looked like base64, and frankly, using the `dns.txt` instead
+    of `dns.resp.len` does not help. Therefore, we need a mechanism to extract these
+    entries.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们选择仅使用 `-T` 字段打印所有数据包的 DNS 响应长度，后跟 `-e` 表示字段，以及 `dns.resp.len` 来打印响应长度。然而，我们对收集看起来像
+    base64 的 TXT 记录本身更感兴趣，而实际上使用 `dns.txt` 而不是 `dns.resp.len` 并不起作用。因此，我们需要一种机制来提取这些条目。
+- en: Using Scapy to extract packet data
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 提取数据包数据
+- en: '**Scapy** is a packet manipulation tool for networks, written in Python. It
+    can forge or decode packets, send them on the wire, capture them, and match requests
+    and replies. We can use `scapy` to extract the TXT records as follows:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Scapy** 是一个用于网络的数据包操作工具，用 Python 编写。它可以伪造或解码数据包，发送到网络上，捕获它们，并匹配请求和响应。我们可以使用
+    `scapy` 提取 TXT 记录如下：'
+- en: '[PRE0]'
+  id: totrans-46
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'By merely using 15 lines of code in Python, we can extract the data we want.
+    The first two lines are header imports, which will give the python script the
+    functionality from base64 and `scapy`. Next, we have the following:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过仅仅使用15行Python代码，我们就可以提取我们需要的数据。前两行是头部导入，它们为Python脚本提供了来自base64和`scapy`的功能。接下来，我们有以下代码：
+- en: '[PRE1]'
+  id: totrans-48
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'In the preceding code segment, we are reading a PCAP file, `gnome.pcap`, from
+    the current working directory and also declaring a list named `decoded_commands`
+    and a string variable named `decoded_data`. Next, we have the following code:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的代码段中，我们正在从当前工作目录读取一个PCAP文件`gnome.pcap`，同时声明一个名为`decoded_commands`的列表和一个名为`decoded_data`的字符串变量。接下来，我们有以下代码：
+- en: '[PRE2]'
+  id: totrans-50
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The `for` loop will traverse the packets one after the other, and if the packet
+    is of the DNS type, it will check whether the packet ID matches `0x1337`. If it
+    does, it pulls the TXT record data using `packet[DNS].an.rdata`, converts it into
+    a string, and decodes it from base64 to normal text and in case the decoded data
+    contains `FILE:` the execution should continue else the `decoded_data` is appended
+    to `decoded_command`:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`for`循环将依次遍历数据包，如果数据包是DNS类型，它会检查数据包ID是否与`0x1337`匹配。如果匹配，它会使用`packet[DNS].an.rdata`提取TXT记录数据，将其转换为字符串，并从base64解码为普通文本。如果解码后的数据包含`FILE:`，则执行应继续，否则`decoded_data`将附加到`decoded_command`中：'
+- en: '[PRE3]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The preceding section appends the decoded data into the `decoded_command` list
+    and loops over the list while printing all the elements of the list whose length
+    is greater than 1 (to avoid empty lines). Running the script gives us the following
+    output:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上一部分将解码后的数据附加到`decoded_command`列表中，并遍历该列表，同时打印出长度大于1的所有元素（以避免空行）。运行脚本会给出以下输出：
+- en: '![](img/c5387d5b-11cd-4045-9ba4-09143399ad65.png)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c5387d5b-11cd-4045-9ba4-09143399ad65.png)'
+- en: Well, this looks like output from the `iwlist` scan command. The output of a
+    system command is not something to be expected in the DNS responses. This denotes
+    that the system under observation was compromised and the attacker used DNS for
+    command and control.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，这看起来像是`iwlist`扫描命令的输出。系统命令的输出通常不是DNS响应中应该出现的内容。这表明被观察的系统已被攻破，攻击者使用DNS进行命令与控制。
+- en: Decrypting 802.11 packets
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解密802.11数据包
+- en: 'Sometimes, as a forensics investigator, you will receive PCAP files that contain
+    WLAN packets, and to make sense out of them, you need the key. Obtaining the key
+    should not be difficult in forensic scenarios where you have the authority, but
+    as a forensic investigator, you must be prepared for all possible situations.
+    In the next scenario, we have a PCAP file from [https://github.com/ctfs/write-ups-2015/raw/master/codegate-ctf-2015/programming/good-crypto/file.xz](https://github.com/ctfs/write-ups-2015/raw/master/codegate-ctf-2015/programming/good-crypto/file.xz),
+    and as soon as we open it up in Wireshark, we have 802.11 packets right in front
+    of us:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，作为一名取证调查员，你会收到包含WLAN数据包的PCAP文件，为了从中获取有意义的信息，你需要密钥。在取证场景中，如果你有权限，获取密钥应该不难，但作为取证调查员，你必须为所有可能的情况做好准备。在接下来的场景中，我们有一个来自[https://github.com/ctfs/write-ups-2015/raw/master/codegate-ctf-2015/programming/good-crypto/file.xz](https://github.com/ctfs/write-ups-2015/raw/master/codegate-ctf-2015/programming/good-crypto/file.xz)的PCAP文件，当我们在Wireshark中打开它时，立即看到802.11数据包：
+- en: '![](img/7dcd3eca-7674-425d-ac3f-cc6ad06be609.png)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7dcd3eca-7674-425d-ac3f-cc6ad06be609.png)'
+- en: 'We cannot figure out what activities were performed in the network unless we
+    remove the 802.11 encapsulation. However, let''s see what sort of statistics are
+    available in Wireshark by navigating to the **Wireless** tab and choosing WLAN
+    traffic:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们无法确定网络中执行了哪些活动，除非我们去除802.11封装。然而，让我们看看通过导航到**无线**标签并选择WLAN流量，Wireshark提供了哪些统计信息：
+- en: '![](img/fe33f41d-4344-4f1c-8f82-19c9c7415cce.png)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/fe33f41d-4344-4f1c-8f82-19c9c7415cce.png)'
+- en: We can see that we have 100% packets in the Wireless segment and the **SSID**
+    (name of the network) as **cgnetwork** running on channel number **1** and having
+    multiple clients connected to it. To see the activities, we need to remove the
+    802.11 encapsulation, which can be done by providing the network key that we do
+    not have. So, what do we do? Let's try to find the key using the **Aircrack-ng**
+    suite, which is a popular wireless network-cracking tool (already available in
+    Kali Linux).
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到无线段的100%的数据包，以及**SSID**（网络名称）为**cgnetwork**，它运行在频道号**1**上，并且有多个客户端连接到它。为了查看活动，我们需要去除802.11封装，而这可以通过提供我们没有的网络密钥来完成。那么，我们该怎么做呢？让我们尝试使用**Aircrack-ng**套件来查找密钥，它是一个流行的无线网络破解工具（在Kali
+    Linux中已经可用）。
+- en: Decrypting using Aircrack-ng
+  id: totrans-62
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Aircrack-ng进行解密
+- en: 'Let''s use Aircrack-ng to find the network key. We will type `aircrack-ng`
+    followed by the PCAP file:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用 Aircrack-ng 查找网络密钥。我们输入`aircrack-ng`，后跟 PCAP 文件：
+- en: '![](img/736ca413-b17e-4c9f-aca7-1215c8fe239f.png)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/736ca413-b17e-4c9f-aca7-1215c8fe239f.png)'
+- en: 'We can see that we got the WEP key with ease. We can use this key to decrypt
+    packets in Wireshark:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到我们轻松地得到了 WEP 密钥。我们可以使用这个密钥在 Wireshark 中解密数据包：
+- en: '![](img/1a34e6ce-9004-4590-b2ed-128f8fb240e8.png)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1a34e6ce-9004-4590-b2ed-128f8fb240e8.png)'
+- en: 'We will navigate to **Edit...** and choose **Preferences**. Once the dialog
+    box is open, we will choose protocols and scroll down to **IEEE 802.11**, as shown
+    in the preceding screenshot. Next, we will select the **Decryption Keys** option
+    and choose **Edit**, which will populate a separate dialog box, as follows:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将导航到**编辑...**并选择**首选项**。当对话框打开后，我们选择协议并向下滚动到**IEEE 802.11**，如前面的截图所示。接下来，我们选择**解密密钥**选项并点击**编辑**，这将弹出一个单独的对话框，如下所示：
+- en: '![](img/e951dba8-edf0-4696-96a3-f049e2a252da.png)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e951dba8-edf0-4696-96a3-f049e2a252da.png)'
+- en: 'We will click the **+** sign, add the key we found using Aircrack-ng, and press
+    **OK**:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将点击**+**号，添加我们通过 Aircrack-ng 找到的密钥，然后点击**确定**：
+- en: '![](img/34c4c113-6823-467d-8714-90ba0b66ec38.png)'
+  id: totrans-70
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/34c4c113-6823-467d-8714-90ba0b66ec38.png)'
+- en: 'Wow! We can see that we successfully removed the Wireless encapsulation. Alternatively,
+    we could have used `airdecap` from the `aircrack` suite to remove the encapsulation.
+    We just saw how we could work with Wireless protocols and remove encapsulation
+    by cracking the WEP keys. However, this may not apply to WPA and WPA2 standards.
+    Let''s see an example:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哇！我们可以看到我们成功移除了无线封装。或者，我们也可以使用`airdecap`，它是`aircrack`套件中的一个工具来移除封装。我们刚刚看到如何使用无线协议并通过破解
+    WEP 密钥来去除封装。但是，这可能不适用于 WPA 和 WPA2 标准。让我们来看一个例子：
+- en: '![](img/f28a8e3f-2038-4e50-8ef7-476bb508a7d2.png)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f28a8e3f-2038-4e50-8ef7-476bb508a7d2.png)'
+- en: 'We supplied a plaintext password for WPA2, and the PCAP was successfully decrypted:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们提供了一个 WPA2 明文密码，PCAP 文件已成功解密：
+- en: '![](img/a70f969f-ea19-45dc-932a-b97c842e29ab.png)'
+  id: totrans-74
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a70f969f-ea19-45dc-932a-b97c842e29ab.png)'
+- en: 'However, the password-cracking process is not as standardized as it was in
+    the case of WEP. Let''s see what happens when we try to crack PCAP in the `aircrack-ng`
+    suite:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，密码破解过程不像 WEP 的情况那样标准化。让我们看看当我们尝试在`aircrack-ng`套件中破解PCAP时会发生什么：
+- en: '![](img/88f8d855-8392-413e-b588-8f0f76e548a7.png)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/88f8d855-8392-413e-b588-8f0f76e548a7.png)'
+- en: 'We can see that the `aircrack-ng` suite asked us to specify a dictionary file
+    that might contain a password, which means that the only way to obtain the key,
+    in this case, is via brute force. Let''s see how we can supply a dictionary file
+    that contains a password list:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到`aircrack-ng`套件要求我们指定一个可能包含密码的字典文件，这意味着在这种情况下，获得密钥的唯一方法就是暴力破解。让我们看看如何提供一个包含密码列表的字典文件：
+- en: '![](img/17ea5108-be31-4b83-9ee2-7cadc73dfb3c.png)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/17ea5108-be31-4b83-9ee2-7cadc73dfb3c.png)'
+- en: Dictionary files are available in Kali by default under `/usr/share/dict/words`.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Kali 默认提供字典文件，位置在`/usr/share/dict/words`。
+- en: 'We can see that we have supplied an example dictionary file using the `-w`
+    switch, and now Aircrack-ng is trying to crack the passwords. So, at some point,
+    we will get the following result:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到我们已经使用`-w`开关提供了一个示例字典文件，现在 Aircrack-ng 正在尝试破解密码。因此，在某个时刻，我们将得到以下结果：
+- en: '![](img/6992ce29-23f3-47b8-b852-eac72bc74189.png)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6992ce29-23f3-47b8-b852-eac72bc74189.png)'
+- en: Yeah! We got the key. We already saw how we could apply this key in Wireshark
+    and analyze it further. We will be discussing the 802.11 standards in the upcoming
+    chapters, as we have one complete chapter dedicated to it.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 太棒了！我们得到了密钥。我们已经看到如何在 Wireshark 中应用这个密钥并进一步分析它。接下来的章节将讨论 802.11 标准，因为我们有一章完整的内容专门讲解它。
+- en: Decoding keyboard captures
+  id: totrans-83
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解码键盘捕获
+- en: 'Another day and another interesting PCAP capture. Have you ever thought that
+    USB keyboards could also reveal a lot of activity and user behavior? We will look
+    at such scenarios in the upcoming chapters, but for now, let''s prepare for it.
+    I found an interesting packet-capture file from [https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/data.pcap](https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/data.pcap).
+    However, on downloading the PCAP file and loading it in Wireshark, I got the following:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 又是一天，又有了一个有趣的PCAP捕获。你有没有想过USB键盘也能揭示很多活动和用户行为？我们将在接下来的章节中探讨这种场景，但现在，先做些准备。我找到一个有趣的封包捕获文件，来自[https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/data.pcap](https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/data.pcap)。但是，当我下载PCAP文件并将其加载到Wireshark中时，我看到了以下内容：
+- en: '![](img/379a4d11-dc6b-4f35-a821-ff17ff3be129.png)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/379a4d11-dc6b-4f35-a821-ff17ff3be129.png)'
+- en: 'Well, I have not seen anything like this, but we know that this is USB data.
+    We can also see that the leftover column contains some bytes. This is the data
+    of interest; let''s use `tshark` to harvest this data by running the `tshark –r
+    [path to the file]` as follows:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 嗯，我没见过类似的东西，但我们知道这是USB数据。我们还可以看到，剩余列中包含一些字节。这些字节是我们关注的数据；让我们通过运行`tshark –r [文件路径]`命令来使用`tshark`收集这些数据，如下所示：
+- en: '![](img/6e741e80-4f3f-4205-8542-8bdccccc2348.png)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6e741e80-4f3f-4205-8542-8bdccccc2348.png)'
+- en: 'Let''s only print the leftover data, using the `usb.capdata` field:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们只打印剩余的数据，使用`usb.capdata`字段：
+- en: '![](img/3a5ab07d-c5ff-46fb-b61c-90f4973ea6f6.png)'
+  id: totrans-89
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3a5ab07d-c5ff-46fb-b61c-90f4973ea6f6.png)'
+- en: 'We can see that we have only one or two bytes per line, so in order to decode
+    the USB keystrokes, we will require only bytes without zeros and separators. Let''s
+    remove the null and separators from the lines by running the `tshark -r Desktop/data.pcap
+    -T fields -e usb.capdata | sed -e ''s/00//g'' -e ''s/://g'' -e ''s/20//g'' | grep
+    .` command as shown in the following screenshot:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，每行只有一到两个字节，因此为了解码USB按键，我们只需要去除零和分隔符的字节。我们可以通过运行以下命令，删除每行中的空字节和分隔符，如下截图所示：
+- en: '![](img/58190a92-21d5-4d25-9705-fff62d24bf7e.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/58190a92-21d5-4d25-9705-fff62d24bf7e.png)'
+- en: 'When we remove the zeros and separators, we are left with the preceding data. The
+    bytes from the preceding screenshot can be interpreted as keystrokes and can be
+    mapped to the keys listed in page 53 from [https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf](https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf).
+    According to the documentation, **09** maps to **f**, **0F** maps to **l**, **04**
+    maps to **a**, and **0a** to **g**, which means the first four typed-in characters
+    are **flag**. Similarly, a parser for these bytes could allow us to view everything
+    that a user typed from the PCAP capture itself. Let''s also use a small Python-based
+    script that makes use of Scapy to parse the entire PCAP itself:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们去除零和分隔符后，剩下的数据就是前述的数据。前面的截图中的字节可以被解释为按键操作，并可以映射到[https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf](https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf)第53页中列出的键位。根据文档，**09**
+    映射到 **f**，**0F** 映射到 **l**，**04** 映射到 **a**，**0a** 映射到 **g**，这意味着输入的前四个字符是 **flag**。类似地，解析这些字节的工具可以让我们查看用户在PCAP捕获文件中输入的所有内容。接下来，我们还可以使用一个基于Python的小脚本，利用Scapy来解析整个PCAP文件：
+- en: '![](img/c98d4fe8-25a7-4255-9ec7-884d2f289701.png)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c98d4fe8-25a7-4255-9ec7-884d2f289701.png)'
+- en: The preceding script can be obtained from [https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/usbkeymap2.py](https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/usbkeymap2.py)
+    and is very similar to what we have done for the DNS queries.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述脚本可以从[https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/usbkeymap2.py](https://github.com/dbaser/CTF-Write-ups/blob/master/picoCTF-2017/for80-just_keyp_trying/usbkeymap2.py)获取，与我们为DNS查询所做的非常相似。
+- en: Summary
+  id: totrans-95
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概要
+- en: In this chapter, we learned a lot. We started by making use of client-side SSL
+    log files to decrypt SSL/TLS sessions. Then we looked at DNS malicious query responses
+    that carry command and control data. We explored WEP and WPA2 decryption by decrypting
+    the password through the Aircrack-ng suite and made use of decryption keys in
+    Wireshark. We also went through a small snippet of code in Python to segregate
+    and decode data. Finally, we looked at the USB keyboard capture file and decrypted
+    the keystrokes pressed by the user at the time it was recorded in the PCAP file.
+    This is the end of our preparation phase, and we will now jump into the hands-on
+    side of things. We will be making use of the lessons and techniques learned in
+    the first five chapters, and based on the knowledge we gained; we will try to
+    solve the challenges in the upcoming chapters.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们学到了很多内容。我们首先利用客户端SSL日志文件来解密SSL/TLS会话。接着我们查看了携带命令和控制数据的DNS恶意查询响应。我们通过Aircrack-ng套件解密WEP和WPA2密码，并在Wireshark中使用解密密钥。我们还通过一段小的Python代码，分离并解码数据。最后，我们查看了USB键盘捕获文件，解密了在PCAP文件记录时用户按下的按键。这是我们的准备阶段的结束，现在我们将进入实践环节。我们将利用前五章中学到的课程和技术，并基于我们获得的知识，尝试解决接下来章节中的挑战。
+- en: In the next chapter, we will look at live malware samples, and we will perform
+    network forensics over them. We will develop strategies to unfold the root cause
+    of the malware deployment, and find vital details, such as the first point of
+    entry in the network.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将研究活跃的恶意软件样本，并对其进行网络取证。我们将制定策略，揭示恶意软件部署的根本原因，并找到关键的细节，如网络中的第一次入侵点。
+- en: Questions and exercises
+  id: totrans-98
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题与练习
+- en: 'To gain the best out of this chapter, attempt the following:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了从本章中获得最佳效果，请尝试以下内容：
+- en: Do any other browsers exhibit similar behavior to chrome in storing SSL key
+    logs? Find it out
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 是否有其他浏览器在存储SSL密钥日志时表现出与Chrome类似的行为？查找答案。
+- en: Can you decrypt the wireless capture file? If yes find out the password for
+    challenge file `wireless_decryption_challenge.pcap` hosted here [https://github.com/nipunjaswal/networkforensics/tree/master/Challenges](https://github.com/nipunjaswal/networkforensics/tree/master/Challenges)
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你能解密无线捕获文件吗？如果能，请找出挑战文件`wireless_decryption_challenge.pcap`的密码，该文件托管在[https://github.com/nipunjaswal/networkforensics/tree/master/Challenges](https://github.com/nipunjaswal/networkforensics/tree/master/Challenges)。
+- en: Try attaching a keyboard to your laptop/ desktop and capture the USB data and
+    decode the keys
+  id: totrans-102
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 尝试将键盘连接到你的笔记本电脑/台式机，并捕获USB数据，解码按键。
+- en: Further reading
+  id: totrans-103
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: Check out the **Nailing the CTF challenge**: [https://subscription.packtpub.com/book/networking_and_servers/9781784393335/3/ch03lvl1sec26/nailing-the-ctf-challenge](https://subscription.packtpub.com/book/networking_and_servers/9781784393335/3/ch03lvl1sec26/nailing-the-ctf-challenge)
+    for more information on the topics covered in this chapter.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看**攻克CTF挑战**：[https://subscription.packtpub.com/book/networking_and_servers/9781784393335/3/ch03lvl1sec26/nailing-the-ctf-challenge](https://subscription.packtpub.com/book/networking_and_servers/9781784393335/3/ch03lvl1sec26/nailing-the-ctf-challenge)，了解本章涵盖的更多内容。

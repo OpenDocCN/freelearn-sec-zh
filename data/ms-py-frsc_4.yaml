@@ -1,0 +1,353 @@
+- en: Chapter 4. Using Python for Network Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第四章 使用 Python 进行网络取证
+- en: 'In this chapter, we will focus on the parts of the forensic investigation that
+    are specific to the network layer. We will choose one of the most widely used
+    Python packages for the purpose of manipulating and analyzing network traffic
+    (**Scapy**) as well as a newly released open source framework by the U.S. Army
+    Research Laboratory (**Dshell**). For both the toolkits, we have selected the
+    examples of interesting evidence. This chapter will teach you the following:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将重点介绍网络层特定的取证调查部分。我们将选择一个最广泛使用的 Python 包，**Scapy**，用于处理和分析网络流量，以及美国陆军研究实验室发布的一个新开源框架
+    **Dshell**。对于这两个工具包，我们选择了有趣证据的示例。本章将教你以下内容：
+- en: How to search for IOC in network traffic
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何在网络流量中搜索 IOC
+- en: How to extract files for further analysis
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何提取文件进行进一步分析
+- en: How to monitor accessed files through **Server Message Block** (**SMB**)
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何通过 **服务器消息块**（**SMB**）监控访问的文件
+- en: How to build your own port scanner
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何构建自己的端口扫描器
+- en: Using Dshell during an investigation
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在调查过程中使用 Dshell
+- en: '**Dshell** is a Python-based network forensic analysis toolkit that is developed
+    by the U.S. Army Research Laboratory and released as open source at the end of
+    2014\. It can help in making the forensic investigations on the network layer
+    a little easier. The toolkit comes with a large number of decoders that can be
+    used out of the box and are very helpful. Some of these decoders are as follows:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Dshell** 是一个基于 Python 的网络取证分析工具包，由美国陆军研究实验室开发，并在 2014 年末作为开源发布。它可以帮助简化网络层的取证调查。该工具包配备了大量可以开箱即用的解码器，非常有用。以下是其中一些解码器：'
+- en: '**dns**: Extracts and summarizes DNS queries/responses'
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**dns**: 提取并总结 DNS 查询/响应'
+- en: '**reservedips**: Identifies the DNS resolutions that fall in the reserved IP
+    space'
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**reservedips**: 识别落在保留 IP 空间中的 DNS 解析'
+- en: '**large-flows**: Displays the netflows that have at least transferred 1MB'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**large-flows**: 显示至少传输了 1MB 的网络流'
+- en: '**rip-http**: Extracts the files from the HTTP traffic'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**rip-http**: 从 HTTP 流量中提取文件'
+- en: '**protocols**: Identifies non-standard protocols'
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**protocols**: 识别非标准协议'
+- en: '**synrst**: Detects failed attempts to connect (SYN followed by a RST/ACK)'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**synrst**: 检测连接失败的尝试（SYN 后跟 RST/ACK）'
+- en: Dshell can be installed in our lab environment by cloning the sources from GitHub
+    at, [https://github.com/USArmyResearchLab/Dshell](https://github.com/USArmyResearchLab/Dshell)
+    and running `install-ubuntu.py`. This script will automatically download the missing
+    packages and build the executables that we will need afterwards. Dshell can be
+    used against the pcap files that have been recorded during the incidents or as
+    a result of an IDS alert. A **packet capture** (**pcap**) file is either created
+    by libpcap (on Linux) or WinPcap (on Windows).
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过从 GitHub 克隆源代码来安装 Dshell 到我们的实验环境，地址为 [https://github.com/USArmyResearchLab/Dshell](https://github.com/USArmyResearchLab/Dshell)，然后运行
+    `install-ubuntu.py`。此脚本将自动下载缺失的包，并构建之后所需的可执行文件。Dshell 可以用于处理在事件期间记录的 pcap 文件，或作为
+    IDS 警报的结果。**数据包捕获**（**pcap**）文件是由 libpcap（在 Linux 上）或 WinPcap（在 Windows 上）创建的。
+- en: In the following section, we will explain how an investigator can make use of
+    Dshell by demonstrating the toolkit with real-world scenarios that are gathered
+    from [http://malware-traffic-analysis.net](http://malware-traffic-analysis.net).
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将通过展示来自 [http://malware-traffic-analysis.net](http://malware-traffic-analysis.net)
+    的真实场景，说明调查员如何利用 Dshell 工具包。
+- en: 'The first example is a malicious ZIP file that a user has encountered through
+    an email link. The user logged in to Gmail and clicked the download link in the
+    mail. This can easily be seen with the web decoder of Dshell, as follows:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个示例是用户通过邮件链接遇到的恶意 ZIP 文件。用户登录到 Gmail 并点击邮件中的下载链接。这可以通过 Dshell 的 web 解码器轻松查看，如下所示：
+- en: '[PRE0]'
+  id: totrans-17
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'When looking at the previous traffic extract, the ZIP file could be the first
+    Indicator of Compromise. Therefore, we should take a deeper look at it. The easiest
+    way to do this is to rip the ZIP file out of the pcap file and compare its md5
+    hash against the VirusTotal database:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看之前的流量提取时，ZIP 文件可能是第一个妥协指示器（Indicator of Compromise）。因此，我们应当更深入地分析它。最简单的方法是将
+    ZIP 文件从 pcap 文件中提取出来，并将其 md5 哈希值与 VirusTotal 数据库进行比较：
+- en: '[PRE1]'
+  id: totrans-19
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'In this simple case, our first guess was right as the downloaded ZIP file contains
+    another executable that part of an infostealer malware kit, as seen in the following
+    screenshot:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个简单的案例中，我们的第一次猜测是正确的，因为下载的 ZIP 文件包含了另一个可执行文件，该文件是一个信息窃取恶意软件工具包的一部分，如下图所示：
+- en: '![Using Dshell during an investigation](img/2087_04_01.jpg)'
+  id: totrans-21
+  prefs: []
+  type: TYPE_IMG
+  zh: '![在调查过程中使用 Dshell](img/2087_04_01.jpg)'
+- en: 'Another really good example is searching for the accessed files on a network
+    share via the SMB protocol. This can be very helpful when trying to find out whether
+    an attacker was able to access or even exfiltrate the data and—if successful—which
+    data has been potentially leaked:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个非常好的例子是通过 SMB 协议搜索网络共享上的访问文件。当试图找出攻击者是否能够访问甚至外泄数据时，这可以非常有帮助——如果成功的话——哪些数据可能已经泄露：
+- en: '[PRE2]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'With the help of the **rip-smb-uploads** decoder, Dshell is also able to automatically
+    extract all the uploaded files of the recorded pcap file. Another interesting
+    example is searching for the IOC with the help of the snort rules, which can also
+    be done by Dshell, as follows:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在**rip-smb-uploads**解码器的帮助下，Dshell 还能够自动提取记录的 pcap 文件中的所有上传文件。另一个有趣的例子是通过 Snort
+    规则帮助搜索 IOC，这也可以通过 Dshell 完成，如下所示：
+- en: '[PRE3]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: In this example we opened a potentially malicious Word document that we have
+    received within a spam email. The Word document is trying to download the **Vawtrak**
+    malware and thereby communicating over the **Tor** network. The snort rule we
+    are using originates from Emerging Threats, (refer to [http://www.emergingthreats.net/](http://www.emergingthreats.net/)),
+    and is searching for known SSL certificates for the **Tor2Web** service (a service
+    to let users access **Tor Onion Services** without using the Tor Browser). Similar
+    checks can be done using all available snort rules and can be very helpful if
+    you are searching for a specific attack within the network.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们打开了一个可能含有恶意软件的 Word 文档，该文档是通过垃圾邮件收到的。这个 Word 文档试图下载**Vawtrak**恶意软件，并通过**Tor**网络进行通信。我们使用的
+    Snort 规则来源于 Emerging Threats（参考 [http://www.emergingthreats.net/](http://www.emergingthreats.net/)），它正在搜索已知的
+    **Tor2Web** 服务的 SSL 证书（一个允许用户在不使用 Tor 浏览器的情况下访问 **Tor Onion 服务**的服务）。可以使用所有可用的
+    Snort 规则进行类似的检查，如果你在网络中寻找特定的攻击，这些规则会非常有帮助。
+- en: 'As an alternative to the shown pcap files, all the demonstrated examples can
+    also be run against an active network connection with the help of the `–i interface_name`
+    flag as shown in the following:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为示例 pcap 文件的替代方案，所有展示的例子也可以在活动网络连接上运行，通过使用 `–i interface_name` 标志，如下所示：
+- en: '[PRE4]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: In this example, we are generating the netflow data of an active connection.
+    Dshell is purely written in Python, which makes it highly adaptable to all the
+    needs of the forensic investigators and can also be used in a chain with other
+    tools or predefined processes.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们正在生成一个活动连接的 NetFlow 数据。Dshell 完全用 Python 编写，这使得它非常适应法医调查人员的各种需求，也可以与其他工具或预定义流程一起使用。
+- en: If you want to test this, you can download the sample files from [http://www.emergingthreats.net/](http://www.emergingthreats.net/).
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想测试这个，可以从 [http://www.emergingthreats.net/](http://www.emergingthreats.net/)
+    下载示例文件。
+- en: Using Scapy during an investigation
+  id: totrans-31
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在调查过程中使用 Scapy
+- en: 'Another great Python-based tool to analyze and manipulate the network traffic
+    is **Scapy**. According to the developer website, [http://www.secdev.org/projects/scapy/](http://www.secdev.org/projects/scapy/):'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个很棒的基于 Python 的工具是 **Scapy**，它可以分析和操控网络流量。根据开发者网站，[http://www.secdev.org/projects/scapy/](http://www.secdev.org/projects/scapy/)：
+- en: '*"Scapy is a powerful interactive packet manipulation program. It is able to
+    forge or decode packets of a wide number of protocols, send them on the wire,
+    capture them, match requests and replies, and much more."*'
+  id: totrans-33
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*“Scapy 是一个强大的交互式数据包操控程序。它能够伪造或解码多种协议的数据包，发送它们到网络中，捕获它们，匹配请求和回复，等等。”*'
+- en: Scapy differs from the standard tools (and also from Dshell) by providing an
+    investigator with the ability to write small Python scripts that can manipulate
+    or analyze the network traffic—either in a recorded form or in real-time. Furthermore,
+    Scapy has the ability to perform deep packet dissection, passive OS fingerprinting,
+    or plotting via third-party tools, such as **GnuPlot**, as built-in features are
+    already available.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Scapy 与标准工具（以及 Dshell）不同，它提供了一个功能，允许调查人员编写小型 Python 脚本，来操控或分析网络流量——无论是已录制的形式还是实时的。此外，Scapy
+    还具备执行深度数据包解析、被动操作系统指纹识别或通过第三方工具（如 **GnuPlot**）绘图的能力，因为内建功能已经可以使用。
+- en: 'The following Python script, which is taken from *Grow Your Own Forensic Tools:
+    A Taxonomy of Python Libraries Helpful for Forensic Analysis*, *SANS Institute
+    InfoSec Reading Room*, is a very brief example of how powerful Scapy is:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '以下Python脚本摘自*Grow Your Own Forensic Tools: A Taxonomy of Python Libraries Helpful
+    for Forensic Analysis*，*SANS Institute InfoSec Reading Room*，是一个简短的示例，展示了Scapy的强大功能：'
+- en: '[PRE5]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: This script records the statistics about the geolocation of the IP address source
+    and the destination of an ongoing network connection. After importing the Scapy
+    package into our Python script, we call the sniff function and use a filter to
+    detect only the IP packets. The last parameter in the sniff function is very important
+    if you plan to run Scapy scripts for a long time. With the help of the store parameter,
+    you can tell Scapy to not cache all the packages in RAM during the runtime and
+    thus make the script faster and resource saving. The subsequent function looks
+    up the geolocation of the source and destination IP address that is extracted
+    from each packet.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本脚本记录了关于IP地址源和正在进行的网络连接目的地的地理位置统计信息。将Scapy包导入我们的Python脚本后，我们调用sniff函数并使用过滤器只检测IP数据包。如果计划长时间运行Scapy脚本，sniff函数中的最后一个参数非常重要。通过store参数的帮助，可以告诉Scapy在运行时不要将所有数据包缓存到内存中，从而使脚本更快速且节省资源。随后的函数查询从每个数据包中提取的源和目的地IP地址的地理位置。
+- en: 'In the next example, we will illustrate how to build a very simple port scanner
+    with the help of Scapy, as follows:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个示例中，我们将说明如何在Scapy的帮助下构建一个非常简单的端口扫描器，具体如下：
+- en: '[PRE6]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'This small script is able to scan whole IP ranges for a given open port. If
+    you are searching the web servers that are listening on port 80, you can use the
+    script, as follows:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个小脚本能够扫描给定开放端口的整个IP范围。如果你正在寻找监听在端口80上的Web服务器，你可以使用如下的脚本：
+- en: '[PRE7]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'We can also use the **Address Resolution Protocol** (**ARP**) for a reconnaissance
+    of the whole network range that our system is connected to. With the help of the
+    following script, we get a nicely printed table with all the IP addresses that
+    are online and also their corresponding MAC addresses:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以使用**地址解析协议**（**ARP**）对我们的系统连接的整个网络范围进行侦察。借助以下脚本，我们可以获得一个漂亮打印的表格，列出所有在线的IP地址及其相应的MAC地址：
+- en: '[PRE8]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'When executing the script, we will receive something similar to this:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行脚本时，我们将收到类似以下内容的信息：
+- en: '[PRE9]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Scripts such as these two can be very useful if no port scanner is available
+    on the system or if you want to chain a port scanner with the other Python-based
+    scripts for your investigation.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像这两个脚本一样的脚本，在系统上没有可用的端口扫描器，或者你希望将端口扫描器与其他基于Python的脚本串联以进行调查时非常有用。
+- en: Summary
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: This chapter provided an overview of the domains of network-based forensic investigations
+    and the examples with Dshell and Scapy. We have demonstrated how to search for
+    suspicious HTTP connections (such as file downloads) or how to search for leaked
+    data through the SMB protocol with Dshell. In the second section, we created our
+    own port scanner with the help of Scapy and used it to gather more information
+    about the potentially compromised systems.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章提供了基于网络的取证调查领域的概述，并展示了使用Dshell和Scapy的示例。我们演示了如何查找可疑的HTTP连接（如文件下载）或如何通过SMB协议搜索泄露的数据。第二部分，我们利用Scapy创建了我们自己的端口扫描器，并用它来收集更多关于潜在被攻破系统的信息。
+- en: After we discussed the areas of forensic algorithms, Windows and Unix systems,
+    as well as the network layer, the following chapter will deal with virtualized
+    systems and hypervisors that are becoming an important part of every company.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们讨论了取证算法、Windows和Unix系统以及网络层之后，下一章将讨论虚拟化系统和虚拟机监控程序（hypervisor），这些已经成为每个公司不可或缺的一部分。

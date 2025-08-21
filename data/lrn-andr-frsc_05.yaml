@@ -1,0 +1,1168 @@
+- en: Extracting Data Physically from Android Devices
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从Android设备中物理提取数据
+- en: 'In this chapter, we will be covering physical data extraction, using free and
+    open source tools wherever possible. The majority of the material that is covered
+    in this chapter will use the **Android Debug Bridge** (**ADB**) methods that we
+    discussed previously in this book. By the end of this chapter, the reader should
+    be familiar with the following:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将介绍物理数据提取，尽可能使用免费和开源工具。本章中大多数内容将使用我们之前在本书中讨论的**Android调试桥**（**ADB**）方法。到本章结束时，读者应熟悉以下内容：
+- en: What physical extraction means
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 物理提取意味着什么
+- en: Physical data extraction using `dd`, `nanddump`, and Magnet ACQUIRE
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`dd`、`nanddump`和Magnet ACQUIRE进行物理数据提取
+- en: RAM imaging and analysis
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: RAM成像和分析
+- en: SD card acquisitions
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SD卡数据获取
+- en: JTAG and chip-off methods
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: JTAG和芯片拆卸方法
+- en: Physical extraction overview
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 物理提取概述
+- en: In digital forensics, a physical extraction is an exact bit-for-bit image of
+    the electronic media, and this definition remains true for mobile devices. In
+    traditional computer forensics, this typically involves removing the evidence
+    drive from the suspect's computer and imaging it via a write-blocker without ever
+    booting the drive, resulting in an image file containing an exact copy of the
+    suspect's drive. The output is frequently referred to as a **raw image**, or simply
+    a binary (`.bin`) file. Physical extractions differ from logical ones in that
+    they are exact copies of the device's memory, and include unallocated space, file
+    slack, volume slack, and so on.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数字取证中，物理提取是电子媒体的精确位对位镜像，这一定义同样适用于移动设备。在传统计算机取证中，这通常涉及从嫌疑人的计算机中取出证据硬盘，并通过写保护器进行成像，而不启动该硬盘，从而得到一个包含嫌疑人硬盘精确副本的镜像文件。输出通常称为**原始镜像**，或简而言之是二进制（`.bin`）文件。物理提取与逻辑提取的区别在于，物理提取是设备内存的精确副本，包括未分配的空间、文件空白、卷空白等。
+- en: In mobile forensics, the result is the same—an exact bit-for-bit image of the
+    device—but the methods are somewhat different. For example, removing the flash
+    memory from the device to image it can be both time-consuming and expensive, and
+    requires a lot of specialized knowledge (though it can be done, as discussed in
+    the *Chip-off* section later in this chapter). Furthermore, short of using advanced
+    JTAG or chip-off methods, the device must be booted to some degree (and written
+    to in many cases) in order to access the data. Finally, finding a tool that can
+    even parse the final image file can be very difficult. Hard drive images and file
+    systems have long been documented and studied, while mobile images and file systems
+    change frequently; in some cases, mobile file systems are even unique to a specific
+    manufacturer. Knowing what to do with the image after it has been acquired can
+    be just as challenging as acquiring the image in the first place!
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在移动取证中，结果是相同的——设备的精确位对位镜像——但方法略有不同。例如，将闪存从设备中拆卸下来进行成像既费时又昂贵，而且需要大量专业知识（尽管这可以做到，正如本章后面的*芯片拆卸*部分所讨论的那样）。此外，除非使用先进的JTAG或芯片拆卸方法，否则设备必须至少启动一定程度（并且在许多情况下写入）才能访问数据。最后，找到一个可以解析最终镜像文件的工具可能非常困难。硬盘镜像和文件系统早已被文档化和研究，而移动镜像和文件系统则经常变化；在某些情况下，移动文件系统甚至是特定厂商独有的。知道获取镜像后该怎么处理，可能和获取镜像本身一样具有挑战性！
+- en: 'Many of the techniques discussed in [Chapter 4](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml), *Extracting
+    Data Logically from Android Devices*, will still apply here: booting into a custom
+    recovery is still the most forensically sound process; physically acquiring a
+    live device should be avoided if at all possible.'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[第4章](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml)中讨论的许多技术，*从Android设备中逻辑提取数据*，在这里仍然适用：启动自定义恢复模式仍然是最符合取证要求的过程；如果可能的话，应避免物理获取一个活跃的设备。
+- en: What data can be acquired physically?
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 可以通过物理方式获取哪些数据？
+- en: 'The short answer is: everything. Since a physical acquisition is an exact image
+    of the device, every bit of data on the device is in the image file. As mentioned
+    in the preceding section, with a physical extraction, an examiner is usually only
+    limited by their ability to find the relevant data. Generally, this is due to
+    a lack of good image analysis tools in the mobile forensics space. To further
+    compound the matter, applications have been known to encode or otherwise obfuscate
+    user data, so simply browsing through the image in a hex editor will frequently
+    miss valuable evidence. In this chapter, we will cover various methods for mounting
+    or otherwise viewing the file system of a physical extraction, while [Chapter
+    7](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml),* Forensic Analysis of Android
+    Applications*, will focus on analyzing data from specific applications.'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简短的回答是：一切。由于物理采集是设备的精确映像，设备上的每一比特数据都会出现在映像文件中。如前所述，在物理提取中，检查员通常仅受限于他们找到相关数据的能力。通常，这是因为移动取证领域缺乏良好的映像分析工具。更糟糕的是，应用程序已知会对用户数据进行编码或其他形式的混淆，因此仅仅通过十六进制编辑器浏览映像往往会错过宝贵的证据。本章将介绍各种挂载或以其他方式查看物理提取文件系统的方法，而[第七章](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml)《安卓应用程序取证分析》将专注于分析来自特定应用程序的数据。
+- en: Root access
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Root权限
+- en: Once again, just as in logical extractions, root access is going to be a critically
+    important aspect of physical extractions. To manually image a device, we are going
+    to have to execute commands on the device from the ADB shell, and these will require
+    root permissions. If root access cannot be obtained, the SD card can generally
+    still be imaged. The only recourse beyond that is JTAG or chip-off methods.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次强调，就像逻辑提取一样，root权限在物理提取中也至关重要。为了手动创建设备映像，我们必须通过ADB shell在设备上执行命令，而这些命令需要root权限。如果无法获得root权限，SD卡通常仍然可以创建映像。除此之外的唯一备选方法是JTAG或芯片拆除方法。
+- en: Extracting data physically with dd
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`dd`命令提取物理数据
+- en: The `dd` command should be familiar to any examiner who has done traditional
+    hard drive forensics. `dd` is a Linux command-line utility used by definition
+    to convert and copy files, but is frequently used in forensics to create bit-by-bit
+    images of entire drives. Many variations of `dd` also exist and are commonly used,
+    such as `dcfldd`, `dc3dd`, `ddrescue`, and `dccidd`. As `dd` is built for Linux-based
+    systems, it is frequently included on Android platforms. This means that a method
+    for creating an image of the device often already exists on the device!
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dd`命令对于任何做过传统硬盘取证的检查员来说应该都很熟悉。`dd`是一个Linux命令行工具，定义上用于转换和复制文件，但在取证中常常用于创建整个硬盘的逐比特映像。`dd`有很多变种，如`dcfldd`、`dc3dd`、`ddrescue`和`dccidd`，这些工具在实际操作中也很常见。由于`dd`是为Linux系统设计的，它经常包含在Android平台中。这意味着，创建设备映像的方法往往已经存在于设备上！'
+- en: 'The `dd` command has many options that can be set; only the forensically important
+    options are going to be covered in the following list. A full list of command
+    options can be found at [http://man7.org/linux/man-pages/man1/dd.1.html](http://man7.org/linux/man-pages/man1/dd.1.html).
+    The format of the `dd` command is as follows:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dd`命令有许多可设置的选项；以下列表中仅涵盖与取证相关的重要选项。可以在[http://man7.org/linux/man-pages/man1/dd.1.html](http://man7.org/linux/man-pages/man1/dd.1.html)查看完整的命令选项列表。`dd`命令的格式如下：'
+- en: '[PRE0]'
+  id: totrans-18
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Let''s define the preceding format of `dd` command:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们定义`dd`命令的前述格式：
+- en: '`if`: Specifies the input file to read from.'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`if`：指定输入文件的路径。'
+- en: '`of`: Specifies the output file to write to.'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`of`：指定输出文件的路径。'
+- en: '`bs`: Block size. Data is read and written in the size of the block specified,
+    and defaults to 512 bytes if not specified.'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`bs`：块大小。数据按指定的块大小读取和写入，如果未指定，则默认大小为512字节。'
+- en: '`conv`: Conversion options:'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`conv`：转换选项：'
+- en: '`notrunc`: Does not truncate the output file.'
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`notrunc`：不截断输出文件。'
+- en: '`noerror`: Continues imaging if an error is encountered.'
+  id: totrans-25
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`noerror`：遇到错误时继续生成映像。'
+- en: '`sync`: In conjunction with no error, this writes `\x00` for blocks with an
+    error. This is important for maintaining file offsets within the image.'
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sync`：与no error配合使用时，对于发生错误的块，它会写入`\x00`。这对于保持映像中的文件偏移量非常重要。'
+- en: Do not mix up the `if` and `of` flags, as this could result in overwriting the
+    target device!
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不要混淆`if`和`of`标志，因为这可能会导致覆盖目标设备！
+- en: 'Note that there is an important correlation between the `bs`, `noerror`, and `sync`
+    flags: if an error is encountered, `\x00` will be written for the entire block
+    that was read (as determined by the block size). Thus, smaller block sizes result
+    in less data being missed in the event of an error. The downside is that, typically,
+    smaller block sizes result in a slower transfer rate. An examiner will have to
+    decide whether a timely or more accurate acquisition is preferred.'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，`bs`、`noerror`和`sync`标志之间有一个重要的关系：如果遇到错误，将会为读取到的整个块写入`\x00`（这由块大小决定）。因此，较小的块大小会在发生错误时减少丢失的数据。缺点是，通常较小的块大小会导致较慢的传输速率。检查员需要根据是否优先考虑及时性或更准确的获取来做出决定。
+- en: As discussed in the previous chapter, booting into Recovery Mode for the imaging
+    process is the most forensically sound method.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前一章所述，进入恢复模式进行成像处理是最具法医证据效力的方法。
+- en: Determining what to image
+  id: totrans-30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 确定要成像的内容
+- en: 'When imaging a computer, an examiner must first find what the drive is mounted
+    as, for example, `/dev/sda`. The same is true when imaging an Android device.
+    The first step is to launch the ADB shell and view the `/proc/partitions` file
+    by using the following command:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在对计算机进行成像时，检查员首先必须确定磁盘的挂载位置，例如`/dev/sda`。对Android设备的成像也是如此。第一步是启动ADB shell，并通过以下命令查看`/proc/partitions`文件：
+- en: '[PRE1]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The output will show all of the partitions on the device:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出将显示设备上的所有分区：
+- en: '![](img/283d5e63-bddb-4d6c-927b-aa9bc52d2ee1.png)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/283d5e63-bddb-4d6c-927b-aa9bc52d2ee1.png)'
+- en: In the preceding output, `mmcblk0` is the entirety of the flash memory on the
+    device. To image the entire flash memory, we could use `/dev/blk/mmcblk0` as the
+    input file flag (`if`) for the `dd` command. Everything following it, indicated
+    by p1-24, is a partition of the flash memory. The size is shown in blocks. In
+    this case, the block size is 1,024 bytes, for a total internal storage size of
+    approximately 16 GB. To obtain a full image of the device's internal memory, we
+    would run `dd` with `mmcblk0` as the input file.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在之前的输出中，`mmcblk0`是设备上整个闪存的代表。为了提取整个闪存的镜像，我们可以使用`/dev/blk/mmcblk0`作为`dd`命令的输入文件标志（`if`）。接下来的内容，由p1-24表示，是闪存的各个分区。每个分区的大小以块为单位显示。在本例中，块大小为1,024字节，总内存大小约为16
+    GB。为了获取设备内部存储的完整镜像，我们需要运行`dd`命令，并将`mmcblk0`作为输入文件。
+- en: 'Of course, we are not interested in every partition of the device, as most
+    of them hardly contain any relevant information. As you already know, the most
+    interesting part is the `/data` partition. Usually, it''s the largest one, so
+    it may be `mmcblk0p24`, that is, 11,784,192 blocks in size. Let''s learn more
+    about it by running the `df` command:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，我们并不关心设备上的每个分区，因为大多数分区几乎不包含任何相关信息。正如你所知道的，最感兴趣的部分是`/data`分区。通常它是最大的，所以它可能是`mmcblk0p24`，即11,784,192个块。让我们通过运行`df`命令来了解更多关于它的信息：
+- en: '![](img/d3b7d2a5-2fce-4f77-a4ce-3631cd5c6603.png)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d3b7d2a5-2fce-4f77-a4ce-3631cd5c6603.png)'
+- en: As you can see from the preceding screenshot, we were right—`mmcblk0p24` is
+    the userdata partition.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中可以看到，我们的判断是正确的——`mmcblk0p24`就是userdata分区。
+- en: Writing to an SD card
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 写入SD卡
+- en: The output file of `dd` can be written to the device's SD card. This should
+    only be done if the suspect SD card can be removed and replaced with a forensically
+    sterile SD. This ensures that the `dd` output is not overwriting evidence. Obviously,
+    if you're writing to an SD card, ensure that the SD card is larger than the partition
+    being imaged.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dd`的输出文件可以写入设备的SD卡。只有在嫌疑人的SD卡可以移除并替换为法医无菌SD卡的情况下，才应进行此操作。这样可以确保`dd`输出不会覆盖证据。显然，如果你正在写入SD卡，确保SD卡的容量大于要成像的分区。'
+- en: On newer devices, the `/sdcard` partition is actually a symbolic link to `/storage/self/primary`.
+    In this case, using `dd` to copy the `/data` partition to the SD card won't work,
+    and could corrupt the device because the input file is essentially being written
+    to itself.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在较新的设备中，`/sdcard`分区实际上是一个指向`/storage/self/primary`的符号链接。在这种情况下，使用`dd`将`/data`分区复制到SD卡上是行不通的，且可能会损坏设备，因为输入文件实际上会被写入到自身。
+- en: 'Let''s look at what else we can find under `/storage`:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看在`/storage`下还可以找到什么：
+- en: '![](img/5e99a8cb-f97a-4223-8658-013998154ce5.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5e99a8cb-f97a-4223-8658-013998154ce5.png)'
+- en: 'As you can see, we also have the `6264-3264` and `emulated` subdirectories.
+    But where is our SD card mounted? Let''s run the `mount` command:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们还找到了`6264-3264`和`emulated`子目录。那么我们的SD卡挂载在哪里呢？我们来运行`mount`命令：
+- en: '![](img/9b4ea91e-8549-4798-9ddf-89531fa528b7.png)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9b4ea91e-8549-4798-9ddf-89531fa528b7.png)'
+- en: 'We are using a 128 GB SD card, so it must be mounted under `6264-3264`. Now
+    we are ready to start the imaging process of the `/data` partition:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们正在使用 128 GB 的 SD 卡，因此它必须安装在 `6264-3264` 下。现在我们已准备好开始镜像 `/data` 分区的过程：
+- en: '![](img/31619091-1274-4984-8aeb-0de00da86284.png)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/31619091-1274-4984-8aeb-0de00da86284.png)'
+- en: Now, an image of the `/data` partition exists on the SD card. It can be pulled
+    to the examiner's machine with `adb pull`, or simply read from the SD card.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，在 SD 卡上存在 `/data` 分区的镜像。可以使用 `adb pull` 将其拉取到检查人员的机器上，或者直接从 SD 卡中读取。
+- en: Writing directly to an examiner's computer with netcat
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 直接使用 netcat 将数据写入检查人员的计算机
+- en: If the image cannot be written to the SD card, an examiner can use `netcat`
+    to write the image directly to their machine. `netcat` is a Linux-based tool that's
+    used for transferring data over a network connection. We recommend using a Linux
+    or macOS computer for `netcat`, as it is built-in, though Windows versions do
+    exist. The examples that follow were performed on the SIFT workstation (Linux
+    Ubuntu).
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果无法将镜像写入 SD 卡，检查人员可以使用 `netcat` 将镜像直接写入其计算机。`netcat` 是用于通过网络连接传输数据的 Linux 工具。建议在
+    Linux 或 macOS 计算机上使用 `netcat`，因为它是内置的，尽管 Windows 版本也存在。以下示例是在 SIFT 工作站（Linux Ubuntu）上执行的。
+- en: Installing netcat on the device
+  id: totrans-51
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在设备上安装 netcat
+- en: In the past, very few, if any, Android devices come with `netcat` installed.
+    To check, simply open the ADB shell and type `nc`. If it returns saying `nc` is
+    not found, `netcat` will have to be installed manually on the device. `netcat`,
+    compiled for Android, can be found in many places online; for example, at [https://github.com/MobileForensicsResearch/netcat](https://github.com/MobileForensicsResearch/netcat).
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在过去，几乎没有任何 Android 设备预装了 `netcat`。要检查，只需打开 ADB shell 并键入 `nc`。如果返回 `nc` 未找到，则必须手动在设备上安装
+    `netcat`。可以在许多在线资源中找到为 Android 编译的 `netcat`；例如，[https://github.com/MobileForensicsResearch/netcat](https://github.com/MobileForensicsResearch/netcat)。
+- en: 'If we look back at the results from our mount command from the previous section,
+    we can see that the `/dev` partition is mounted as `tmpfs`. The `tmpfs` is a Linux
+    term meaning that the partition is meant to appear as an actual file system on
+    the device, but is truly only stored in RAM. This means that we can push `netcat`
+    here without making any permanent changes to the device, using the following command
+    on the examiner''s computer:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们回顾上一节中挂载命令的结果，可以看到 `/dev` 分区被挂载为 `tmpfs`。`tmpfs` 是 Linux 的一个术语，意味着该分区被视为设备上的实际文件系统，但实际上只存储在
+    RAM 中。这意味着我们可以在不对设备进行任何永久更改的情况下，将 `netcat` 推送到这里，使用以下命令在检查人员的计算机上进行操作：
+- en: '[PRE2]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The command should have created the `Examiner_Folder` in `/dev`, and `nc` should
+    be in it. This can be verified by running the following command in the ADB shell:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令应该在 `/dev` 中创建了 `Examiner_Folder`，并在其中放置了 `nc`。可以通过在 ADB shell 中运行以下命令来验证：
+- en: '[PRE3]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: In current versions of Android (starting from Marshmallow), **Toybox**—a free
+    and open source software implementation of some Unix command-line utilities, including
+    `netcat`—is already installed, so an examiner doesn't need to install it.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在当前版本的安卓系统（从 Marshmallow 开始），**Toybox** ——一款免费且开源的软件，实现了一些 Unix 命令行实用程序，包括 `netcat`——已经预装，因此检查人员无需再次安装它。
+- en: Using netcat
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 netcat
+- en: We will need two Terminal windows open, with the ADB shell open in one of them.
+    The other will be used to listen to the data being sent from the device.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要打开两个终端窗口，其中一个要打开 ADB shell。另一个用来监听从设备发送的数据。
+- en: 'Now, we need to enable port forwarding over ADB from the examiner''s computer:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们需要通过 ADB 在检查人员的计算机上启用端口转发：
+- en: '[PRE4]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '`9999` is the port we chose to use for `netcat`; it can be any arbitrary port
+    number between `1023` and `65535` on a Linux or macOS system (`1023` and below
+    are reserved for system processes, and require root permission to use). Windows
+    will allow any port to be assigned.'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`9999` 是我们选择用于 `netcat` 的端口；在 Linux 或 macOS 系统上，它可以是介于 `1023` 和 `65535` 之间的任意端口号（`1023`
+    及以下保留给系统进程，需要 root 权限才能使用）。Windows 则允许分配任何端口。'
+- en: 'In the Terminal window with ADB shell, run the following:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在具有 ADB shell 的终端窗口中运行以下命令：
+- en: '[PRE5]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '`mmcblk0p24` is the userdata partition on this device, however, the entire
+    flash memory or any other partition could also be imaged with this method. In
+    most cases, it is best practice to image the entirety of the flash memory in order
+    to acquire all possible data from the device. Some commercial forensic tools may
+    also require the entire memory image, and may not properly handle an image of
+    a single partition.'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`mmcblk0p24` 是此设备上的userdata分区，但也可以使用此方法对整个闪存或其他任何分区进行镜像。在大多数情况下，最佳实践是对整个闪存进行镜像，以便获取设备中的所有可能数据。一些商业取证工具可能也要求整个内存镜像，并且可能无法正确处理单个分区的镜像。'
+- en: 'In the other Terminal window, run the following:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在另一个终端窗口中，运行以下命令：
+- en: '[PRE6]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: The `userdata.dd` file should have been created and in the current directory
+    of the examiner's computer. When the data has finished transferring, `netcat`
+    in both Terminals will terminate and return to the Command Prompt. This process
+    can take a significant amount of time, depending on the size of the image.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应该已经在检查员计算机的当前目录中创建了`userdata.dd`文件。当数据传输完成后，两个终端中的`netcat`将终止并返回命令提示符。这个过程可能需要相当长的时间，具体取决于镜像的大小。
+- en: Extracting data physically with nanddump
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用nanddump物理提取数据
+- en: In all of the examples that we've covered thus far, the partitions were all
+    MMC blocks, which is typically seen in newer devices. Older devices, however,
+    are far more likely to consist of **Memory Technology Device** (**MTD**) blocks.
+    We have seen cases in the past where `dd` was unable to properly image an MTD
+    block, although more often than not it works fine. If `dd` fails, there is a widely
+    distributed utility called MTD-Utils that's used to read and write from MTD blocks;
+    `nanddump` is a part of MTD-Utils, and can be used similarly to `dd` in order
+    to read from an MTD block. In the cases where `dd` failed, `nanddump` was always
+    successful.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们迄今为止涵盖的所有示例中，分区都是MMC块，这通常出现在较新的设备中。然而，旧设备更有可能由**内存技术设备**（**MTD**）块组成。我们过去见过`dd`无法正确镜像MTD块的情况，尽管通常情况下它工作正常。如果`dd`失败，有一个广泛分发的工具叫做MTD-Utils，用于读取和写入MTD块；`nanddump`是MTD-Utils的一部分，可以像`dd`一样用于从MTD块中读取。在`dd`失败的情况下，`nanddump`总是能够成功。
+- en: 'Versions of `nanddump` compiled for Android can be found in many places online;
+    we used the one found here: [https://github.com/jakev/android-binaries/blob/master/nanddump](https://github.com/jakev/android-binaries/blob/master/nanddump).'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 适用于Android的`nanddump`版本可以在许多地方找到；我们使用的是在此处找到的版本：[https://github.com/jakev/android-binaries/blob/master/nanddump](https://github.com/jakev/android-binaries/blob/master/nanddump)。
+- en: 'The process to put `nanddump` on the device is the same as used for `netcat`
+    previously:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将`nanddump`放置到设备上的过程与之前使用`netcat`的方法相同：
+- en: '[PRE7]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Just like `dd`, `nanddump` can be used to write either to an SD card or the
+    examiner''s computer via `netcat`:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像`dd`一样，`nanddump`也可以通过`netcat`写入SD卡或检查员的计算机：
+- en: 'From a Terminal window, run the following:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从终端窗口运行以下命令：
+- en: '[PRE8]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'From a separate Terminal window within the ADB shell, run the following:'
+  id: totrans-77
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在ADB Shell中的另一个终端窗口中运行以下命令：
+- en: '[PRE9]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'In the first Terminal window, where `adb forward` was used, run the following:'
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在第一个终端窗口中，使用`adb forward`时，运行以下命令：
+- en: '[PRE10]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Extracting data physically with Magnet ACQUIRE
+  id: totrans-81
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Magnet ACQUIRE物理提取数据
+- en: 'ACQUIRE is a free tool by Magnet Forensics that can be used for the acquisition
+    of a wide range of potential digital evidence sources, from hard drives and smartphones
+    to cloud data. Of course, it supports both logical and physical acquisition of
+    Android devices, up to the latest of those running Android Pie. The tool can be
+    downloaded after registration here: [https://www.magnetforensics.com/magnet-acquire/](https://www.magnetforensics.com/magnet-acquire/).'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ACQUIRE是Magnet Forensics提供的一款免费工具，可以用于获取各种潜在的数字证据来源，从硬盘和智能手机到云数据。当然，它支持对Android设备进行逻辑和物理提取，直到最新的运行Android
+    Pie的设备。注册后可以在此处下载该工具：[https://www.magnetforensics.com/magnet-acquire/](https://www.magnetforensics.com/magnet-acquire/)。
+- en: 'In this example, we are going to image a rooted smartphone running Android
+    Oreo:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个示例中，我们将对一部运行Android Oreo的rooted智能手机进行镜像：
+- en: 'Start by choosing the appropriate device from the list:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从列表中选择合适的设备：
+- en: '![](img/95113152-8c1f-4252-9282-3bf53d4c3a94.png)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/95113152-8c1f-4252-9282-3bf53d4c3a94.png)'
+- en: As you can see, our device has privileged access—this means that it's rooted.
+    Also, we immediately have some metadata, such as OS version, device serial number,
+    and so on. If the device you are going to image isn't listed for some reason,
+    you can use the The device I'm looking for isn't showing up option. This contains
+    step-by-step guides on how to make the tool detect it.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，我们的设备具有特权访问权限 — 这意味着它已 root。此外，我们立即获得了一些元数据，如操作系统版本、设备序列号等。如果因某种原因要镜像的设备未列出，可以使用“没有显示我要查找的设备”选项。这包含了关于如何使工具检测到它的逐步指南。
+- en: 'Once you have chosen the right device, you can select the image type:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦选择了正确的设备，您可以选择镜像类型：
+- en: '![](img/bd621ebd-d091-42a4-8f86-66c3bbf0074b.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bd621ebd-d091-42a4-8f86-66c3bbf0074b.png)'
+- en: 'There are two options: Full and Quick. The first one is a physical acquisition
+    and is not always available, while the second is logical—it''s available for any
+    Android device. As our device is rooted, we can choose the Full option.'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 有两个选项：完整和快速。第一个是物理获取，不总是可用，而第二个是逻辑获取，适用于任何 Android 设备。由于我们的设备已 root，因此我们可以选择完整选项。
+- en: 'Finally, choose the folder and image names, destination, and fill in the other
+    fields if necessary:'
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，选择文件夹和镜像名称，目标以及必要时填写其他字段：
+- en: '![](img/583f31a3-3bf4-46c2-8f78-2d67b14c2216.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/583f31a3-3bf4-46c2-8f78-2d67b14c2216.png)'
+- en: 'Clicking the ACQUIRE button will start the acquisition process. In our example,
+    the imaging of 16 GB of storage only took 10 minutes. If you look in the log file
+    (`activity_log.txt`), you will notice that the same tools are actually used—`dd`
+    and `toybox`:'
+  id: totrans-92
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 单击获取按钮将启动获取过程。在我们的示例中，对 16 GB 存储的成像仅需 10 分钟。如果查看日志文件 (`activity_log.txt`)，您会注意到实际使用了相同的工具
+    — `dd` 和 `toybox`：
+- en: '![](img/d999d425-4783-424e-a7a3-29f31076e1a0.png)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d999d425-4783-424e-a7a3-29f31076e1a0.png)'
+- en: As you can see, imaging an Android device with Magnet ACQUIRE is much easier
+    than with `dd` and `netcat`, but under the hood, the process is the same. Sometimes,
+    the tool may even help you to perform physical acquisition of non-rooted devices,
+    as it contains a number of exploits that are capable of getting temporary privileged
+    access, as well as TWRP custom recoveries that can be used to obtain the full
+    images of unencrypted devices.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，使用 Magnet ACQUIRE 对 Android 设备进行影像的方式比使用 `dd` 和 `netcat` 要简单得多，但在底层，这个过程是相同的。有时，该工具甚至可以帮助您对非
+    root 设备进行物理获取，因为它包含多个能够获取临时特权访问权限的漏洞，以及可用于获取未加密设备完整镜像的 TWRP 自定义恢复。
+- en: Verifying a full physical image
+  id: totrans-95
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 验证完整的物理镜像
+- en: 'Verification that an image file is identical to the device is a critical step
+    in traditional digital forensics. It can be a little trickier, if not impossible,
+    on Android devices. The image that has been created can be hashed using whatever
+    tool the examiner typically uses. Verifying the memory on the device can be done
+    through the ADB shell by using the following command, where the path given is
+    the block or partition that was imaged:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 验证图像文件与设备相同是传统数字取证中的关键步骤。在 Android 设备上，这可能有点棘手，甚至不可能。可以使用检查人员通常使用的任何工具对已创建的图像进行哈希处理。通过
+    ADB shell 可以通过以下命令验证设备上的内存，其中给定的路径是已镜像的块或分区：
+- en: '[PRE11]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: However, the `md5sum` command is not included on all Android devices. If it
+    is not included, an examiner may be able to find a version that's been compiled
+    for their device online, and push it to the device in a `tmpfs` partition, as
+    shown previously, with `netcat` and `nanddump`.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，并非所有 Android 设备都包含 `md5sum` 命令。如果没有包含在内，鉴定人员可以尝试在网上找到适用于其设备的编译版本，并将其推送到设备的
+    `tmpfs` 分区中，就像之前展示的那样，使用 `netcat` 和 `nanddump`。
+- en: Another issue is if the image was acquired live, that is, not in Recovery Mode,
+    as discussed in the previous chapter. It is a virtual certainty that the MD5 hashes
+    will not match, as data is constantly changing on the device (even if it is RF-shielded
+    or in Airplane Mode). In this case, an examiner would have to document that the
+    device was live when acquired and explain that the hashes are not expected to
+    match.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个问题是如果图像是在现场获取的，即不是在恢复模式下获取的，如前一章讨论的。可以几乎肯定地说，MD5 散列值将不匹配，因为设备上的数据不断变化（即使是
+    RF 屏蔽或处于飞行模式）。在这种情况下，鉴定人员必须记录设备在获取时处于活动状态，并解释散列值不匹配是预料之外的情况。
+- en: Analyzing a full physical image
+  id: totrans-100
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析完整的物理镜像
+- en: Once an image has been obtained using one of the preceding methods, an examiner
+    could conceivably go through the image manually and extract each partition, but
+    would probably prefer to avoid doing that. Luckily, there is a wide variety of
+    mobile forensic tools that can ingest a physical image, such as Cellebrite UFED,
+    Oxygen Forensic, Magnet AXIOM, Belkasoft Evidence Center, and many others. Unfortunately,
+    none of these are free or open source; by far the most popular analysis tool that
+    is free and open source is Autopsy by Basis Technology.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦通过前面的方法获取了镜像，检查员可能会手动浏览镜像并提取每个分区，但通常会更倾向于避免这样做。幸运的是，有各种各样的移动取证工具可以处理物理镜像，例如
+    Cellebrite UFED、Oxygen Forensic、Magnet AXIOM、Belkasoft Evidence Center 等等。不幸的是，这些工具都不是免费的或开源的；目前最流行的免费开源分析工具是由
+    Basis Technology 开发的 Autopsy。
+- en: Autopsy
+  id: totrans-102
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Autopsy
+- en: The Sleuth Kit began as a set of Linux-based command-line tools for forensics;
+    eventually, a browser-based GUI named Autopsy was added. Recently, Autopsy has
+    been released as a standalone platform on Windows, and includes support for analyzing
+    Android images. Version 4.9.0 is shown in the following screenshots. The full
+    process for loading and analyzing an image will be covered in [Chapter 8](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml),
+    *Android Forensic Tools Overview*.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Sleuth Kit 最初是一套基于 Linux 的命令行工具，用于取证；后来，加入了一个名为 Autopsy 的基于浏览器的 GUI。最近，Autopsy
+    被作为独立平台在 Windows 上发布，并支持分析 Android 镜像。以下截图展示的是版本 4.9.0。加载和分析镜像的完整过程将在[第 8 章](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml)中介绍，*Android
+    取证工具概览*。
+- en: Autopsy can be downloaded from [https://www.sleuthkit.org/autopsy/download.php](https://www.sleuthkit.org/autopsy/download.php).
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以从[https://www.sleuthkit.org/autopsy/download.php](https://www.sleuthkit.org/autopsy/download.php)下载
+    Autopsy。
+- en: 'Once the image has been loaded, expanding the image will show all of the volumes
+    that Autopsy found:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图像加载完成后，展开图像会显示 Autopsy 找到的所有卷：
+- en: '![](img/989c8428-746d-486f-9220-8ed4a4cbdf77.png)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/989c8428-746d-486f-9220-8ed4a4cbdf77.png)'
+- en: 'One of these volumes will be the data partition, as shown in the following
+    screenshot:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些卷之一将是数据分区，如以下截图所示：
+- en: '![](img/e0c614ad-b0ce-457b-ae0b-2eff7aa3382c.png)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e0c614ad-b0ce-457b-ae0b-2eff7aa3382c.png)'
+- en: 'Note that the media directory in the preceding screenshot is the SD card, as
+    it was symbolically linked to the data partition. The `data` folder within the
+    `/data` partition will contain application data:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，前面截图中的媒体目录就是 SD 卡，因为它与数据分区进行了符号链接。`/data` 分区中的 `data` 文件夹将包含应用程序数据：
+- en: '![](img/b97797c4-91f9-41ac-9569-b56c8168d257.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b97797c4-91f9-41ac-9569-b56c8168d257.png)'
+- en: As each application is installed, a directory is created for it.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当安装一个应用程序时，系统会为其创建一个目录。
+- en: Note that a red X icon on a folder indicates it was deleted, and means that
+    the application was removed from the device.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，文件夹上显示红色 X 图标表示该文件夹已被删除，这意味着应用程序已从设备中移除。
+- en: 'Finally, Autopsy does a good job of pulling out some data automatically for
+    an examiner, but as with all forensic tools, this information should be verified
+    manually. We will cover this in [Chapter 7](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml), *Forensic
+    Analysis of Android Applications*:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，Autopsy 能够自动提取一些数据供检查员使用，但和所有取证工具一样，这些信息应手动验证。我们将在[第 7 章](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml)中介绍，*Android
+    应用程序的取证分析*：
+- en: '![](img/c462454c-8f53-4a11-b9bf-8540192cd914.png)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c462454c-8f53-4a11-b9bf-8540192cd914.png)'
+- en: Issues with analyzing physical dumps
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析物理转储时的问题
+- en: The most common problem we see on many forensic forums and email lists is examiners
+    obtaining a physical dump and then not being able to load that dump into a tool
+    that claims to support the device. The vast majority of the time, this is because
+    the examiner fails to account for the **out-of-band** (**OOB**) area.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在许多取证论坛和邮件列表上看到的最常见问题是，检查员获取了物理转储后，无法将其加载到声称支持该设备的工具中。绝大多数情况下，这是因为检查员没有考虑到**带外**（**OOB**）区域。
+- en: The OOB area, sometimes called spare area, is a small section of the flash memory
+    that's been reserved for metadata. The metadata usually consists of **error-correcting
+    code** (**ECC**), information about bad blocks, and in some cases, information
+    about the file system. This causes an issue for examiners because most mobile
+    forensic tools do not account for the OOB area; they expect it to not be included
+    in the image. When presenting the tool with an image containing spare area, the
+    tool frequently does not know what to do and fails to parse the data properly.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OOB区域，有时称为备用区域，是闪存中的一小部分，专门保留用于元数据。元数据通常包含**错误纠正码**（**ECC**）、坏块信息，有时还包含文件系统信息。这对检查员来说是一个问题，因为大多数移动取证工具没有考虑OOB区域；它们假设图像中不包括此区域。当工具遇到包含备用区域的图像时，通常不知道该如何处理，导致无法正确解析数据。
+- en: The reason that tools fail to account for the OOB area is that it is not included
+    in `dd` images, which is what most tools use to create their images. The OOB area
+    may be included when using `nanddump`, though depending on the binary used, there
+    may be an option to exclude it. The OOB area is included with chip-off and JTAG
+    images.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工具无法考虑OOB区域的原因是，OOB区域未包含在`dd`图像中，而大多数工具使用`dd`来创建图像。当使用`nanddump`时，OOB区域可能会被包含在内，但根据使用的二进制文件，可能会有一个选项来排除它。OOB区域通常会包含在芯片脱离和JTAG图像中。
+- en: To properly load the image into forensic tools, the OOB area will need to be
+    removed first. A general rule of thumb is that the OOB size is based on the page
+    size of the device; for every 512 bytes of page size, there will be 16 bytes of
+    OOB space. For example, a device with 2,048 byte page sizes would likely have
+    64 bytes of OOB area at the end of each page. However, this is completely up to
+    the memory manufacturer. Before attempting to remove OOB area, an examiner should
+    find the datasheet for the specific memory chip to confirm the page and OOB area
+    sizes. This can generally be done by finding the memory chip on the phone's circuit
+    board and searching for the model number of the chip.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了正确地将图像加载到取证工具中，首先需要去除OOB区域。一个常见的经验法则是，OOB大小基于设备的页面大小；每512字节的页面大小会有16字节的OOB空间。例如，一个页面大小为2,048字节的设备，可能会在每个页面的末尾有64字节的OOB区域。然而，这完全取决于内存制造商。在尝试移除OOB区域之前，检查员应该查找特定内存芯片的数据手册，以确认页面和OOB区域的大小。通常可以通过在手机的电路板上找到内存芯片，并搜索该芯片的型号来完成此操作。
+- en: 'The following is some sample code for a Python script that will remove the
+    OOB area from an image. Just as in the last chapter, we don''t claim to be Python
+    experts and we''re sure there are better, more efficient ways to do this, but
+    it does work:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一个Python脚本示例代码，用于从图像中移除OOB区域。正如上一章所述，我们并不声称自己是Python专家，我们确信有更好、更高效的方法来实现这一点，但它确实有效：
+- en: '[PRE12]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'This file, if named `OOB_Remover.py`, would be executed with the following
+    command:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果该文件名为`OOB_Remover.py`，则可以使用以下命令执行：
+- en: '[PRE13]'
+  id: totrans-123
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: The output file, with no OOB area, would be named `file_out.bin` in the directory
+    where the script was executed. The original is not edited or modified in any way.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出文件将命名为`file_out.bin`，并存放在执行脚本的目录中，该文件不包含OOB区域。原始文件不会以任何方式进行编辑或修改。
+- en: Note that the code as it is written assumes a page size of 2,048 and an OOB
+    size of 64; these two numbers would have to be edited for the specific sizes of
+    the memory chip the image was taken from. The output should then be able to be
+    loaded into commercial mobile forensic tools.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，代码的编写假设页面大小为2,048字节，OOB大小为64字节；这两个数字需要根据图像所提取的内存芯片的具体大小进行编辑。之后，输出文件应该能够加载到商业移动取证工具中。
+- en: Imaging and analyzing Android RAM
+  id: totrans-126
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 映像和分析Android内存
+- en: Pulling Android memory is not applicable in a great many cases, due to the fact
+    that it requires root access. Most public root processes involve rebooting the
+    phone, which erases volatile RAM, meaning that by the time an examiner gains root
+    access to image the RAM, it's too late because the RAM has been erased. Because
+    of this, and possibly other reasons, there is not great support for Android RAM
+    imaging and analysis in the commercial forensic world. However, there are cases
+    where imaging RAM is applicable, and may prove invaluable to a case. If a device
+    is already rooted when it is seized, imaging the RAM should be a mandatory step
+    in the seizure process. As powering the phone off will erase the RAM, the device
+    should be placed in Airplane Mode (and any other network connections such as Wi-Fi
+    and Bluetooth should be disabled) and the RAM should be imaged immediately to
+    avoid the device battery dying before the RAM can be pulled.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于需要root权限，提取Android内存在许多情况下是不可行的。大多数公共root过程涉及重启手机，这会清除易失性RAM，这意味着当检查员获得root权限以进行RAM成像时，已经太晚，因为RAM已经被清除。因此，由于这个原因，可能还有其他原因，商业取证领域对Android
+    RAM成像和分析的支持并不强大。然而，也有一些情况可以使用RAM成像，并可能对案件至关重要。如果设备在被扣押时已经root，那么RAM成像应该成为扣押过程中的必备步骤。由于关闭手机会清除RAM，因此设备应该设置为飞行模式（并禁用所有其他网络连接，如Wi-Fi和蓝牙），并应立即对RAM进行成像，以避免设备电池耗尽前无法提取RAM。
+- en: The main challenge when it comes to RAM is the analysis. RAM is completely raw,
+    unstructured data; there is no file system. When viewed in a hex editor, RAM appears
+    to just be a giant blob of data with very little rhyme or reason to help examiners
+    figure out what they are looking at. This difficulty is compounded by the fact
+    that modern devices commonly have gigabytes' worth of RAM. RAM can easily be searched
+    for by keywords using traditional forensic tools and methods, but that presumes
+    that an examiner knows exactly what they are looking for.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RAM分析的主要挑战是数据处理。RAM是完全原始的、无结构的数据；没有文件系统。当在十六进制编辑器中查看时，RAM看起来只是一个巨大的数据块，几乎没有任何规律或提示来帮助检查员理解他们正在查看的内容。这个难度因现代设备通常有数GB的RAM而加剧。RAM可以使用传统的取证工具和方法通过关键词进行搜索，但这要求检查员完全知道他们在寻找什么。
+- en: What can be found in RAM?
+  id: totrans-129
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在RAM中可以找到什么？
+- en: Any data that is written to the flash memory must pass through RAM; there is
+    no other way for the processor to communicate with the flash memory. This means
+    that almost anything done on the device may be found in the contents of a RAM
+    dump. Depending on the amount of device usage, data may remain in RAM indefinitely,
+    until it needs to be overwritten. RAM dumps frequently contain text that's been
+    typed on the device, including usernames and passwords, and application data that
+    is not stored permanently on the device. For example, the Facebook application
+    used to store the contents of a user's News Feed in a database in its application
+    folder. Newer versions do not save the user's News Feed, but it exists in RAM.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 任何写入闪存的数据都必须经过RAM；处理器与闪存的通信只能通过RAM进行。这意味着，几乎所有在设备上进行的操作都可能出现在RAM转储的内容中。根据设备的使用情况，数据可能会在RAM中无限期存在，直到需要被覆盖。RAM转储通常包含设备上输入的文本，包括用户名和密码，以及没有永久存储在设备上的应用数据。例如，Facebook应用程序曾将用户新闻源的内容存储在其应用文件夹中的数据库里。新版本不再保存用户的新闻源，但它仍然存在于RAM中。
+- en: Imaging RAM with LiME
+  id: totrans-131
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用LiME对RAM进行成像
+- en: The most common tool for Android RAM acquisition is the **Linux Memory Extractor**
+    (**LiME**), previously known as DMD. LiME is free and open source, but isn't highly
+    user-friendly as it requires the user to compile it from the source code, which
+    can only be done on a Linux system. The compilation process must also be done
+    for each specific version of Android for each device being examined, which somewhat
+    limits its usability in the field. This is necessary because LiME is not binary
+    (like the `netcat` and `nanddump` tools we used before); instead, it is a kernel
+    module, which must be built specifically for each kernel it will be loaded into.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android RAM获取最常用的工具是**Linux内存提取器**（**LiME**），之前称为DMD。LiME是免费的开源工具，但并不是非常用户友好，因为它要求用户从源代码编译，这只能在Linux系统上完成。编译过程还必须为每个被检查的设备的每个Android版本单独进行，这在一定程度上限制了它在实际应用中的可用性。这是必要的，因为LiME不是二进制工具（像我们之前使用的`netcat`和`nanddump`工具）；相反，它是一个内核模块，必须为每个将要加载的内核专门编译。
+- en: 'In order to ensure that the proper kernel source code is downloaded, we will
+    need to determine the model and software version for a device, which can be done
+    by scrolling through the phone menu to Settings | System | About Phone. Alternatively,
+    this information can be found in the ADB shell by running the following command:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了确保正确的内核源代码被下载，我们需要确定设备的型号和软件版本，可以通过滚动手机菜单至设置 | 系统 | 关于手机来完成。或者，这些信息也可以通过在
+    ADB shell 中运行以下命令来获取：
+- en: '[PRE14]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: The software version of the model should be in the first few lines at the top
+    of the file.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 型号的软件版本应该位于文件顶部的前几行。
+- en: 'Luckily, most Android manufacturers release their kernel source code; a quick
+    Google search can usually turn up source code for each model and software version.
+    The following are the open source release sites for a few major manufacturers:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，大多数 Android 厂商都会发布他们的内核源代码；通过快速的 Google 搜索，通常可以找到每个型号和软件版本的源代码。以下是一些主要厂商的开源发布网站：
+- en: '**Samsung**: [http://opensource.samsung.com/reception.do](http://opensource.samsung.com/reception.do)'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**三星**: [http://opensource.samsung.com/reception.do](http://opensource.samsung.com/reception.do)'
+- en: '**Motorola**: [http://sourceforge.net/motorola/](http://sourceforge.net/motorola/)'
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**摩托罗拉**: [http://sourceforge.net/motorola/](http://sourceforge.net/motorola/)'
+- en: '**HTC**: [http://www.htcdev.com/devcenter](http://www.htcdev.com/devcenter)'
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**HTC**: [http://www.htcdev.com/devcenter](http://www.htcdev.com/devcenter)'
+- en: '**Google (Nexus devices)**: [https://source.android.com/source/building-kernels.html](https://source.android.com/source/building-kernels.html)'
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**谷歌（Nexus 设备）**: [https://source.android.com/source/building-kernels.html](https://source.android.com/source/building-kernels.html)'
+- en: The correct model and version source must be used. Using the wrong kernel source
+    to compile LiME will, at the very least, not work on the device. Loading an incompatible
+    kernel module could also crash the device.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 必须使用正确的型号和版本源。使用错误的内核源来编译 LiME 至少会导致设备无法运行。加载不兼容的内核模块也可能导致设备崩溃。
+- en: To obtain the source code for LiME, navigate to [https://github.com/504ensicsLabs/LiME](https://github.com/504ensicsLabs/LiME)
+    and choose the Download ZIP option, and then extract the `.zip`.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要获取 LiME 的源代码，请访问 [https://github.com/504ensicsLabs/LiME](https://github.com/504ensicsLabs/LiME)，选择“Download
+    ZIP”选项，然后解压 `.zip` 文件。
+- en: 'There are many excellent resources online explaining how to compile LiME for
+    a specific kernel, and even how to create a custom Volatility plugin to examine
+    the resulting RAM dump, so they won''t be duplicated here:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网上有许多优秀的资源解释了如何为特定内核编译 LiME，甚至如何创建自定义的 Volatility 插件来检查生成的 RAM 转储，因此这里不会重复介绍：
+- en: '**Linux Memory Extractor**: [https://github.com/504ensicsLabs/LiME/tree/master/docV](https://github.com/504ensicsLabs/LiME/tree/master/doc)'
+  id: totrans-144
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Linux 内存提取器**: [https://github.com/504ensicsLabs/LiME/tree/master/docV](https://github.com/504ensicsLabs/LiME/tree/master/doc)'
+- en: '**Volatility**: [https://github.com/volatilityfoundation/volatility/wiki/Android](https://github.com/volatilityfoundation/volatility/wiki/Android)'
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**波动性**: [https://github.com/volatilityfoundation/volatility/wiki/Android](https://github.com/volatilityfoundation/volatility/wiki/Android)'
+- en: Acquiring Android SD cards
+  id: totrans-146
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 获取 Android SD 卡
+- en: As discussed previously in this chapter and in previous chapters, the SD card
+    can refer to a physical, external SD card or a partition within the flash memory.
+    A removable external SD card can be imaged separately from the device through
+    a write-blocker with typical computer forensics tools, or using the `dd/nanddump`
+    techniques shown previously, although the former is usually faster due to not
+    needing to write data over `netcat`.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如本章及之前章节所讨论的，SD 卡可以指物理的外部 SD 卡或闪存内的一个分区。可拆卸的外部 SD 卡可以通过写保护器与典型的计算机取证工具分开成像，或者使用之前展示的
+    `dd/nanddump` 技术进行成像，尽管前者通常由于不需要通过 `netcat` 写入数据而更快。
+- en: Physically imaging an SD card is extremely similar to the physical imaging that
+    we discussed previously; in fact, if the SD card is symbolically linked to the
+    `/data` partition, it would be acquired as part of the `/data` partition, as seen
+    in the *Autopsy* section's screenshots. The only difference in the process is
+    that if the SD card is being imaged, the output file cannot be written to the
+    SD card! This means that using the `netcat` methods we covered previously are
+    the best option for physically imaging an internal SD card.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 物理成像 SD 卡与我们之前讨论的物理成像非常相似；事实上，如果 SD 卡与 `/data` 分区符号链接，它将作为 `/data` 分区的一部分被获取，如
+    *Autopsy* 部分的截图所示。唯一的不同之处在于，如果正在对 SD 卡进行成像，输出文件不能写入到 SD 卡中！这意味着，使用我们之前讨论的 `netcat`
+    方法是进行内置 SD 卡物理成像的最佳选择。
+- en: What can be found on an SD card?
+  id: totrans-149
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SD 卡上可以找到什么？
+- en: By default, the SD card is typically used to store large files, including downloaded
+    items and pictures that have been taken with the device. Many applications will
+    also create their own directory on the SD card for storing data such as images
+    that have been sent or received through chat applications. In some cases, as will
+    be seen in [Chapter 8](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml), *Android Forensic
+    Tools Overview*, there are even applications that will routinely perform a backup
+    of all of their data to the SD card. This is especially useful to forensic examiners
+    because they may not be able to access the internal memory due to security settings
+    or the inability of obtaining root access, but may be able to access the SD card.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，SD 卡通常用于存储大文件，包括下载的内容和用设备拍摄的照片。许多应用程序还会在 SD 卡上创建自己的目录，用于存储通过聊天应用发送或接收的图像等数据。在某些情况下，正如在[第
+    8 章](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml)《*Android 取证工具概述*》中所看到的，甚至有些应用程序会定期将所有数据备份到
+    SD 卡。这对取证检查员特别有用，因为他们可能无法访问内部存储器，原因可能是安全设置或无法获取 root 权限，但他们可能能够访问 SD 卡。
+- en: 'Common SD card locations of interest include, but, of course, are not limited
+    to the following:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 常见的 SD 卡位置包括但不限于以下内容：
+- en: '`/Alarms`: May contain custom alarms'
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Alarms`: 可能包含自定义闹钟'
+- en: '`/Android/data`: Storage location for some application data'
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Android/data`: 一些应用程序数据的存储位置'
+- en: '`/DCIM/Camera`: Includes pictures taken with the device''s camera'
+  id: totrans-154
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/DCIM/Camera`: 包括用设备相机拍摄的照片'
+- en: '`/Download`: May contain downloaded files'
+  id: totrans-155
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Download`: 可能包含下载的文件'
+- en: '`/Movies`: May contain downloaded video files'
+  id: totrans-156
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Movies`: 可能包含下载的视频文件'
+- en: '`/Notifications`: May contain custom notifications'
+  id: totrans-157
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Notifications`: 可能包含自定义通知'
+- en: '`/Pictures`: May contains different images, including screenshots taken on
+    the device'
+  id: totrans-158
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Pictures`: 可能包含不同的图像，包括在设备上拍摄的截图'
+- en: '`/Podcasts`: May contain downloaded podcasts'
+  id: totrans-159
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Podcasts`: 可能包含下载的播客'
+- en: '`/Ringtones`: May contain custom ringtones'
+  id: totrans-160
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Ringtones`: 可能包含自定义铃声'
+- en: The `/Android/data` folder may persist, even if the app has been deleted. The
+    contents of the folders will be deleted, but the folders may remain, which is
+    an indication that the application was previously installed on the device.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使应用程序已被删除，`/Android/data` 文件夹仍然可能存在。文件夹的内容将被删除，但文件夹可能会保留，这表明该应用程序之前曾安装在设备上。
+- en: These are just common default locations; if a device is rooted, the user could
+    place any data from the internal memory onto the SD card.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些只是常见的默认位置；如果设备已获取 root 权限，用户可以将任何内部存储的数据转移到 SD 卡上。

@@ -1,0 +1,1360 @@
+- en: Chapter 7. Using Python for Memory Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第7章. 使用Python进行内存取证
+- en: 'Now that you have performed investigations in the infrastructure (refer to
+    [Chapter 4](ch04.html "Chapter 4. Using Python for Network Forensics"), *Using
+    Python for Network Forensics*), common IT equipment (refer to [Chapter 3](ch03.html
+    "Chapter 3. Using Python for Windows and Linux Forensics"), *Using Python for
+    Windows and Linux Forensics*), and even in the virtualized (refer to [Chapter
+    5](ch05.html "Chapter 5. Using Python for Virtualization Forensics"), *Using Python
+    for Virtualization Forensics*) and mobile worlds (refer to [Chapter 6](ch06.html
+    "Chapter 6. Using Python for Mobile Forensics"), *Using Python for Mobile Forensics*),
+    in this chapter, we will show you how to investigate in volatile memory with the
+    help of Volatility, a Python-based forensics framework, on the following platforms:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在你已经在基础设施中进行了调查（参见[第4章](ch04.html "第4章. 使用Python进行网络取证")，*使用Python进行网络取证*），常见的IT设备（参见[第3章](ch03.html
+    "第3章. 使用Python进行Windows和Linux取证")，*使用Python进行Windows和Linux取证*），甚至在虚拟化环境（参见[第5章](ch05.html
+    "第5章. 使用Python进行虚拟化取证")，*使用Python进行虚拟化取证*）和移动世界（参见[第6章](ch06.html "第6章. 使用Python进行移动取证")，*使用Python进行移动取证*）中进行了调查，在本章中，我们将向你展示如何使用基于Python的取证框架Volatility，在以下平台上对易失性内存进行调查：
+- en: Android
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Android
+- en: Linux
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Linux
+- en: After showing you some basic Volatility plugins for Android and Linux and how
+    to get the required RAM dump for analysis, we will go hunting for malware in RAM.
+    Therefore, we will use YARA rules—based on pattern matching—and combine them with
+    the power of Volatility.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在向你展示了一些适用于Android和Linux的基本Volatility插件，并说明如何获取所需的RAM转储进行分析之后，我们将开始在RAM中寻找恶意软件。因此，我们将使用基于模式匹配的YARA规则，并将其与Volatility的强大功能结合起来。
+- en: Understanding Volatility basics
+  id: totrans-5
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解Volatility基础
+- en: 'In general, memory forensics follow the same pattern as other forensic investigations:'
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，内存取证遵循与其他取证调查相同的模式：
+- en: Selecting the target of the investigation.
+  id: totrans-7
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择调查目标。
+- en: Acquiring forensic data.
+  id: totrans-8
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取取证数据。
+- en: Forensic analysis.
+  id: totrans-9
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 取证分析。
+- en: In the previous chapters, we already presented various technologies on how to
+    select the target of an investigation, for example, starting from the system with
+    unusual settings in the virtualization layer.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的章节中，我们已经介绍了多种选择调查目标的技术，例如，从虚拟化层中具有异常设置的系统开始。
+- en: The acquisition of forensic data for memory analysis is highly dependent on
+    the environment and we will discuss it in the *Using Volatility on Linux* and
+    *Using Volatility on Android* sections of this chapter.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存分析的取证数据获取高度依赖于环境，我们将在本章的*在Linux上使用Volatility*和*在Android上使用Volatility*部分进行讨论。
+- en: Tip
+  id: totrans-12
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Always consider the virtualization layer as data source**'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**始终将虚拟化层视为数据源**'
+- en: Acquisition of memory from a running operating system always requires administrative
+    access to this system and it is an intrusive process, that is, the process of
+    data acquisition changes the memory data. Moreover, advanced malware is capable
+    of manipulating the memory management of the operation system to prevent its acquisition.
+    Therefore, always check and try to acquire the memory on the hypervisor layer
+    as described in [Chapter 5](ch05.html "Chapter 5. Using Python for Virtualization
+    Forensics"), *Using Python for Virtualization Forensics*.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从正在运行的操作系统中获取内存始终需要对该系统的管理员权限，并且这是一个侵入性的过程，也就是说，数据获取过程会改变内存数据。此外，先进的恶意软件能够操控操作系统的内存管理，以防止其被获取。因此，始终按照[第5章](ch05.html
+    "第5章. 使用Python进行虚拟化取证")，*使用Python进行虚拟化取证*中所描述的方法，检查并尽量在虚拟机监控程序层面获取内存。
+- en: The, by far, most prominent tool for the analysis of memory data is **Volatility**.
+    Volatility is available at the Volatility Foundation on [http://www.volatilityfoundation.org/](http://www.volatilityfoundation.org/).
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，用于内存数据分析的最重要工具是**Volatility**。Volatility可在[Volatility Foundation](http://www.volatilityfoundation.org/)网站上获取。
+- en: The tool is written in Python and can be used free of charge under the terms
+    of the GNU **General Public License** (**GPL**) version 2\. Volatility is able
+    to read memory dumps in various file formats, for example, hibernation files,
+    raw memory dumps, VMware memory snapshot files, and the **Linux Memory Extractor**
+    (**LiME**) format produced by the LiME module, which will be discussed later in
+    this chapter.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具用 Python 编写，可以在 GNU **通用公共许可证**（**GPL**）第 2 版的条款下免费使用。Volatility 能够读取多种文件格式的内存转储，例如，休眠文件、原始内存转储、VMware
+    内存快照文件，以及将会在本章后面讨论的由 LiME 模块生成的 **Linux 内存提取器**（**LiME**）格式。
+- en: 'The most important terms in the Volatility world are as follows:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 世界中最重要的术语如下：
+- en: '**Profile**: A profile helps Volatility in interpreting the memory offsets
+    and structures of memory. The profile is dependent on the operating system, especially
+    the OS kernel, machine, and CPU architecture. Volatility contains a variety of
+    profiles for the most common use cases. In the *Using Volatility on Linux* section
+    of this chapter, we will describe how to create your profiles.'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**配置文件**：配置文件帮助 Volatility 解释内存偏移量和内存结构。配置文件取决于操作系统，尤其是操作系统内核、机器和 CPU 架构。Volatility
+    包含许多适用于最常见用例的配置文件。在本章的 *在 Linux 上使用 Volatility* 部分中，我们将介绍如何创建您的配置文件。'
+- en: '**Plugin**: Plugins are used to perform actions on the memory dump. Every Volatility
+    command that you use calls a plugin to perform the corresponding action. For example,
+    to get a list of all the processes that were running during the memory dump of
+    a Linux system, the `linux_pslist` plugin is used.'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**插件**：插件用于对内存转储执行操作。您使用的每个 Volatility 命令都会调用一个插件来执行相应的操作。例如，要获取在 Linux 系统内存转储期间运行的所有进程的列表，可以使用
+    `linux_pslist` 插件。'
+- en: Volatility provides a comprehensive documentation and we recommend that you
+    get familiar with all the module descriptions to get the most usage out of Volatility.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 提供了全面的文档，我们建议您熟悉所有模块描述，以便充分利用 Volatility。
+- en: Using Volatility on Android
+  id: totrans-21
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在 Android 上使用 Volatility
+- en: To analyze volatile memory from Android devices, you will first need LiME. LiME
+    is a **Loadable Kernel Module** (**LKM**) that gives access to the whole RAM of
+    the device and can dump it to a physical SD card or network. After acquiring the
+    volatile memory dump with LiME, we will show you how to install and configure
+    Volatility to parse the RAM dump. In the last section, we will demonstrate how
+    to get specific information out of the RAM dump.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要分析 Android 设备的易失性内存，首先需要 LiME。LiME 是一个**可加载内核模块**（**LKM**），它可以访问设备的整个 RAM，并将其转储到物理
+    SD 卡或网络中。在使用 LiME 获取易失性内存转储后，我们将向您展示如何安装和配置 Volatility 以解析 RAM 转储。在最后一节中，我们将演示如何从
+    RAM 转储中提取特定信息。
+- en: LiME and the recovery image
+  id: totrans-23
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: LiME 和恢复映像
+- en: LiME is a Loadable Kernel Module (LKM) that allows for volatile memory acquisition
+    from Linux and Linux-based devices, such as Android. This makes LiME unique, as
+    it is the first tool that allows for full memory captures on Android devices.
+    It also minimizes its interaction between user and kernel space processes during
+    acquisition, which allows it to produce memory captures that are more forensically
+    sound than those of other tools designed for Linux memory acquisition.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LiME 是一个可加载内核模块（LKM），它允许从 Linux 和基于 Linux 的设备（如 Android）获取易失性内存。这使得 LiME 非常独特，因为它是第一个可以在
+    Android 设备上进行完整内存捕获的工具。它还最小化了在获取过程中用户空间和内核空间进程之间的交互，从而使其生成的内存捕获比其他为 Linux 内存获取设计的工具更加法医可靠。
+- en: In order to use LiME on Android, it has to be cross-compiled for the used kernel
+    on the device in question. In the following sections, we will see how these steps
+    are performed for a Nexus 4 with Android 4.4.4 (however, this approach can be
+    adapted to every Android-based device for which the kernel—or at least the kernel
+    configuration—is available as open source).
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了在 Android 上使用 LiME，必须为设备上使用的内核进行交叉编译。在接下来的章节中，我们将展示如何在 Nexus 4 上为 Android
+    4.4.4 执行这些步骤（不过，这种方法可以适配到任何 Android 设备，只要该设备的内核——或者至少是内核配置——作为开源提供）。
+- en: 'First of all, we have to install some additional packages on our lab system,
+    as follows:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要在实验室系统上安装一些额外的软件包，具体如下：
+- en: '[PRE0]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'After installing all the required packages, we now need to configure the access
+    to USB devices. Under GNU/Linux systems, regular users directly can''t access
+    USB devices by default. The system needs to be configured to allow such access.
+    This is done by creating a file named `/etc/udev/rules.d/51-android.rules` (as
+    the root user) and inserting the following lines in it:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装完所有必要的软件包后，我们现在需要配置对 USB 设备的访问。在 GNU/Linux 系统下，普通用户默认无法直接访问 USB 设备。系统需要配置以允许这种访问。通过以
+    root 用户身份创建名为 `/etc/udev/rules.d/51-android.rules` 的文件，并在其中插入以下内容来实现这一点：
+- en: '[PRE1]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Now the most time consuming part is coming—checking the source code of the
+    Android version that is used. Depending on the speed of the hard drive and Internet
+    connection, this step can take several hours so plan it in advance. Furthermore,
+    keep it in mind that the source code is pretty big so use a second partition with
+    at least 40 GB of free space. We install the source code for Android 4.4.4 as
+    follows:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在最耗时的部分来了——检查正在使用的 Android 版本的源代码。根据硬盘和互联网连接的速度，这一步可能需要几个小时，因此请提前规划。此外，请记住源代码文件非常大，所以请使用至少
+    40 GB 空闲空间的第二个分区。我们按如下方式安装 Android 4.4.4 的源代码：
+- en: '[PRE2]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: After we have installed the source code for Android 4.4.4, we now need the sources
+    for the kernel running on the device in question. For the Nexus 4 that we are
+    using here, the right kernel is the **mako** kernel. A list of all available kernels
+    for Google phones can be found at [http://source.android.com/source/building-kernels.html](http://source.android.com/source/building-kernels.html).
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们安装了 Android 4.4.4 的源代码之后，我们现在需要设备上运行的内核源代码。对于我们在此使用的 Nexus 4，正确的内核是 **mako**
+    内核。可以在 [http://source.android.com/source/building-kernels.html](http://source.android.com/source/building-kernels.html)
+    找到所有可用的 Google 手机内核的列表。
+- en: '[PRE3]'
+  id: totrans-33
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Now that we have all the sources needed to cross-compile LiME, it is time to
+    get LiME itself:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经获得了交叉编译 LiME 所需的所有源代码，接下来是获取 LiME 本身：
+- en: '[PRE4]'
+  id: totrans-35
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'After cloning the `git` repository to our lab machine, now we have to set some
+    environmental variables that are needed during the build process:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在将 `git` 仓库克隆到实验机器上之后，我们需要设置一些在构建过程中需要的环境变量：
+- en: '[PRE5]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Next, we need to get the current kernel configuration from the device in question
+    and copy it to the correct location in the LiME source. On our Nexus 4, this is
+    possible by entering the following command:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要获取目标设备的当前内核配置，并将其复制到 LiME 源代码的正确位置。在我们的 Nexus 4 上，可以通过输入以下命令来完成：
+- en: '[PRE6]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Before we can build the LiME kernel module, we need to write our customized
+    Makefile:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们构建 LiME 内核模块之前，我们需要编写我们定制的 Makefile：
+- en: '[PRE7]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: With the help of this Makefile, we can build the kernel module that is needed
+    to get the volatile memory from an Android device. Entering `make` can start this
+    process.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 借助这个 Makefile，我们可以构建从 Android 设备中提取易失性内存所需的内核模块。输入 `make` 可以启动该过程。
+- en: In the following example, we will demonstrate how to push our newly generated
+    kernel module to the device in question and dump the whole volatile memory to
+    our lab environment through TCP.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的示例中，我们将演示如何将我们新生成的内核模块推送到目标设备，并通过 TCP 将整个易失性内存转储到我们的实验环境中。
+- en: If you have a device on which the kernel doesn't allow loading modules on the
+    fly, you should consider creating your own recovery image (for example, a custom
+    version of **TWRP** or **CWM**), include the LiME kernel module and flash it to
+    the device in question. If you are fast enough during the flashing operation,
+    there is nearly no data lost (for more information, refer to [https://www1.informatik.uni-erlangen.de/frost](https://www1.informatik.uni-erlangen.de/frost)).
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你的设备的内核不允许动态加载模块，你应该考虑创建自己的恢复镜像（例如，定制版的 **TWRP** 或 **CWM**），将 LiME 内核模块包含其中，并将其刷入相关设备。如果在刷机操作过程中足够快速，几乎不会丢失数据（更多信息，请参考
+    [https://www1.informatik.uni-erlangen.de/frost](https://www1.informatik.uni-erlangen.de/frost)）。
+- en: 'The LiME module offers three different image formats that can be used to save
+    a captured memory image on the disk: raw, padded, and lime. The third format—lime—
+    is discussed in detail as it is our format of choice. The lime format has been
+    especially developed to be used in conjunction with Volatility. It is supposed
+    to allow easy analysis with Volatility and a special address space has been added
+    to deal with this format. Every memory dump that is based on the lime format has
+    a fixed size header, containing specific address space information for each memory
+    range. This eliminates the need to have additional paddings just to fill up unmapped
+    or memory mapped I/O regions. The LiME header specification is listed in the following:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LiME模块提供了三种不同的镜像格式，可用于将捕获的内存镜像保存到磁盘上：raw、padded和lime。第三种格式——lime——在本文中将详细讨论，因为它是我们首选的格式。lime格式专门开发用于与Volatility配合使用，旨在使得使用Volatility进行分析变得更加简便，且为处理该格式，增加了特定的地址空间。基于lime格式的每个内存转储都有一个固定大小的头部，包含每个内存范围的特定地址空间信息。这消除了仅为了填充未映射或内存映射I/O区域而需要额外填充的需求。LiME头部规范如下所示：
+- en: '[PRE8]'
+  id: totrans-46
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'To get such a dump from the Android device in question, connect to the Android
+    device through `adb` and enter the following commands:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要从相关Android设备获取这样的转储，首先通过`adb`连接到Android设备，然后输入以下命令：
+- en: '[PRE9]'
+  id: totrans-48
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'On the lab machine, enter the following command to accept the data sent through
+    TCP port 4444 from the Android device to the local lab machine:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实验室机器上，输入以下命令，以接受通过TCP端口4444从Android设备发送到本地实验室机器的数据：
+- en: '[PRE10]'
+  id: totrans-50
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: If the preceding commands are executed successfully, you will now have a RAM
+    dump that can be further analyzed with the help of Volatility or other tools (refer
+    to the next section).
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果前述命令执行成功，您将得到一个RAM转储文件，可以借助Volatility或其他工具进行进一步分析（请参见下一节）。
+- en: Volatility for Android
+  id: totrans-52
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Android的Volatility
+- en: 'After acquiring a dump file that represents the physical memory of the target
+    system with the tools that we created in the previous section, we intend to extract
+    data artifacts from it. Without an in-depth analysis of Android''s memory structures,
+    we would only be able to extract known file formats such as JPEG, or just the
+    JPEG headers with the EXIF data (with tools such as **PhotoRec**) or simple ASCII
+    strings, which are stored in a contiguous fashion (with common Linux tools such
+    as **strings**) that could be used to brute force passwords on the devices in
+    question. This approach is very limited as it can be used for any disk or memory
+    dump but does not focus on OS and application-specific structures. As we intend
+    to extract whole data objects from the Android system, we will make use of the
+    popular forensic investigation framework for volatile memory: **Volatility**.'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在通过我们在上一节中创建的工具获取表示目标系统物理内存的转储文件后，我们打算从中提取数据工件。如果不对Android的内存结构进行深入分析，我们只能提取已知的文件格式，如JPEG，或仅提取包含EXIF数据的JPEG头部（使用工具如**PhotoRec**），或者提取存储为连续格式的简单ASCII字符串（使用常见的Linux工具如**strings**），这些字符串可以用来对相关设备的密码进行暴力破解。这种方法非常有限，因为它适用于任何磁盘或内存转储，但并不专注于操作系统和应用程序特定的结构。由于我们打算从Android系统中提取完整的数据对象，因此我们将使用流行的易失性内存取证框架：**Volatility**。
+- en: In this section, we will use a version of Volatility with ARM support (you need
+    version 2.3 at least). Given a memory image, Volatility can extract running processes,
+    open network sockets, memory maps for each process, and kernel modules.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将使用一个支持ARM架构的Volatility版本（至少需要版本2.3）。给定一个内存镜像，Volatility可以提取正在运行的进程、打开的网络套接字、每个进程的内存映射以及内核模块。
+- en: Note
+  id: totrans-55
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Before a memory image can be analyzed, a Volatility profile must be created
+    that is passed to the Volatility framework as a command line parameter. Such Volatility
+    profile is a set of **vtype** definitions and optional symbol addresses that Volatility
+    uses to locate sensitive information and parse it.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析内存镜像之前，必须创建一个Volatility配置文件，并将其作为命令行参数传递给Volatility框架。这样的Volatility配置文件是一组**vtype**定义和可选的符号地址，Volatility用它们来定位敏感信息并解析。
+- en: 'Basically, a profile is a compressed archive that contains two files, as follows:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基本上，配置文件是一个压缩档案，其中包含以下两个文件：
+- en: The `System.map` file contains symbol names and addresses of static data structures
+    in the Linux kernel. In case of Android, this file is found in the kernel source
+    tree after the kernel compilation.
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`System.map`文件包含Linux内核中静态数据结构的符号名称和地址。对于Android设备，该文件可以在内核编译后，在内核源码树中找到。'
+- en: The `module.dwarf` file emerges on compiling a module against the target kernel
+    and extracting the DWARF debugging information from it.
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`module.dwarf`文件是在编译模块并针对目标内核提取DWARF调试信息时生成的。'
+- en: 'In order to create a `module.dwarf` file, a utility called `dwarfdump` is required.
+    The Volatility source tree contains the `tools/linux` directory. If you run `make`
+    in this directory, the command compiles the module and produces the desired DWARF
+    file. Creating the actual profile is done by simply running the following command:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了创建`module.dwarf`文件，需要使用名为`dwarfdump`的工具。Volatility源代码树中包含`tools/linux`目录。如果在该目录下运行`make`命令，该命令会编译模块并生成所需的DWARF文件。创建实际的配置文件只需运行以下命令：
+- en: '[PRE11]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: The resulting ZIP file needs to be copied to `volatility/plugins/overlays/linux`.
+    After successfully copying the file, the profile shows up in the profiles section
+    of the Volatility help output.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成的ZIP文件需要复制到`volatility/plugins/overlays/linux`目录下。成功复制文件后，配置文件将在Volatility帮助输出的配置文件部分显示。
+- en: 'Although the support of Android in Volatility is quite new, there is a large
+    amount of Linux plugins that are working perfectly on Android too. For example:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管Volatility对Android的支持相对较新，但已有大量的Linux插件在Android上也能完美运行。例如：
+- en: '`linux_pslist`: It enumerates all running processes of a system similar to
+    the Linux ps command'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_pslist`：它枚举系统中所有正在运行的进程，类似于Linux的ps命令'
+- en: '`linux_ifconfig`: This plugin simulates the Linux `ifconfig` command'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_ifconfig`：该插件模拟Linux的`ifconfig`命令'
+- en: '`linux_route_cache`: It reads and prints the route cache that stores the recently
+    used routing entries in a hash table'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_route_cache`：它读取并打印路由缓存，存储最近使用的路由条目在哈希表中的信息'
+- en: '`linux_proc_maps`: This plugin acquires memory mappings of each individual
+    process'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_proc_maps`：该插件获取每个独立进程的内存映射'
+- en: 'If you are interested in how to write custom Volatility plugins and parse unknown
+    structures in **Dalvik Virtual Machine** (**DVM**), please take a look at the
+    following paper written by me and my colleagues: *Post-Mortem Memory Analysis
+    of Cold-Booted Android Devices* (refer to [https://www1.informatik.uni-erlangen.de/filepool/publications/android.ram.analysis.pdf](https://www1.informatik.uni-erlangen.de/filepool/publications/android.ram.analysis.pdf)).'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你对如何编写自定义Volatility插件并解析**达尔文虚拟机**（**DVM**）中的未知结构感兴趣，请查看我和我的同事所写的以下论文：*冷启动Android设备的事后内存分析*（参考[https://www1.informatik.uni-erlangen.de/filepool/publications/android.ram.analysis.pdf](https://www1.informatik.uni-erlangen.de/filepool/publications/android.ram.analysis.pdf)）。
+- en: In the next section, we will exemplarily show how to reconstruct the specific
+    application data with the help of LiME and Volatility.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一部分，我们将示范如何借助LiME和Volatility重建特定的应用数据。
+- en: Reconstructing data for Android
+  id: totrans-70
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 为Android重建数据
+- en: Now, we will see how to reconstruct application data with the help of Volatility
+    and custom made plugins. Therefore, we have chosen the call history and keyboard
+    cache. If you are investigating on a common Linux or Windows system, there is
+    already a large amount of plugins that are available, as you will see in the last
+    section of this chapter. Unfortunately, on Android, you have to write your own
+    plugins.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们将展示如何在Volatility的帮助下以及通过自定义插件重建应用程序数据。因此，我们选择了通话历史和键盘缓存。如果你正在调查一个普通的Linux或Windows系统，已经有大量的插件可以使用，正如你将在本章的最后部分看到的那样。不幸的是，在Android上，你必须编写自己的插件。
+- en: Call history
+  id: totrans-72
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 通话历史
+- en: 'One of our goals is to recover the list of recent incoming and outgoing phone
+    calls from an Android memory dump. This list is loaded when the phone app is opened.
+    The responsible process for the phone app and call history is `com.android.contacts`.
+    This process loads the `PhoneClassDetails.java` class file that models the data
+    of all telephone calls in a history structure. One instance of this class is in
+    memory per history entry. The data fields for each instance are typical meta information
+    of a call, as follows:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的目标之一是从Android内存转储中恢复最近的来电和去电电话列表。此列表在打开电话应用时加载。负责电话应用和通话历史记录的进程是`com.android.contacts`。该进程加载`PhoneClassDetails.java`类文件，该文件建模了所有电话通话的数据，保存在历史结构中。每个历史记录条目对应一个类实例。每个实例的数据字段是电话的典型元信息，如下所示：
+- en: Type (incoming, outgoing, or missed)
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 类型（来电、去电或未接）
+- en: Duration
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 时长
+- en: Date and time
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 日期和时间
+- en: Telephone number
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 电话号码
+- en: Contact name
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 联系人姓名
+- en: Assigned photo of the contact
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 联系人指定的照片
+- en: 'To automatically extract and display this metadata, we provide a Volatility
+    plugin called `dalvik_app_calllog`, which is shown as follows:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了自动提取并显示这些元数据，我们提供了一个Volatility插件，名为`dalvik_app_calllog`，如下所示：
+- en: '[PRE12]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'This plugin accepts the following command line parameters:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该插件接受以下命令行参数：
+- en: '`-o`: For an offset to the gDvm object'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-o`：用于指向gDvm对象的偏移量'
+- en: '`-p`: For a process ID (PID)'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-p`：用于进程ID（PID）'
+- en: '`-c`: For an offset to the PhoneClassDetails class'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-c`：用于指向PhoneClassDetails类的偏移量'
+- en: If some of these parameters are known and passed on to the plugin, the runtime
+    of the plugin reduces significantly. Otherwise, the plugin has to search for these
+    values in RAM itself.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果知道并传递这些参数给插件，插件的运行时间将显著减少。否则，插件必须在RAM中自行查找这些值。
+- en: Keyboard cache
+  id: totrans-87
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 键盘缓存
+- en: 'Now, we want to have a look at the cache of the default keyboard application.
+    Assuming that no further inputs were given after unlocking the screen and the
+    smartphone is protected by a PIN, this PIN is equal to the last user input, which
+    can be found in an Android memory dump as a UTF-16 Unicode string. The Unicode
+    string of the last user input is created by the `RichInputConnection` class in
+    the `com.android.inputmethod.latin` process and is stored in a variable called
+    `mCommittedTextBeforeComposingText`. This variable is like a keyboard buffer,
+    that is, it stores the last typed and confirmed key strokes of the on-screen keyboard.
+    To recover the last user input, we provide a Volatility plugin called `dalvik_app_lastInput`,
+    as follows:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们想查看默认键盘应用程序的缓存。假设在解锁屏幕后没有其他输入，并且智能手机受PIN保护，则该PIN等于最后的用户输入，可以在Android内存转储中找到该输入作为UTF-16
+    Unicode字符串。最后的用户输入的Unicode字符串是由`com.android.inputmethod.latin`进程中的`RichInputConnection`类创建的，并存储在名为`mCommittedTextBeforeComposingText`的变量中。这个变量就像一个键盘缓冲区，存储了屏幕键盘最后输入并确认的按键。为了恢复最后的用户输入，我们提供了一个Volatility插件，名为`dalvik_app_lastInput`，如下所示：
+- en: '[PRE13]'
+  id: totrans-89
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Actually, this plugin not only recovers PINs but also arbitrary user inputs
+    that were given last; this might be an interesting artifact of digital evidence
+    in many cases. Similar to the preceding plugin, it accepts the same three command
+    line parameters: `gDvm offset`, `PID`, and `class file offset`. If none, or only
+    some, of these parameters are given, the plugin can also automatically determine
+    the missing values.'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，这个插件不仅恢复PIN码，还恢复最后一次给出的任意用户输入；在许多情况下，这可能是数字证据中的一个有趣的证据。与前面的插件类似，它接受相同的三个命令行参数：`gDvm
+    offset`、`PID`和`class file offset`。如果这些参数中的任何一个或全部没有提供，插件也可以自动确定缺失的值。
+- en: Using Volatility on Linux
+  id: totrans-91
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在Linux上使用Volatility
+- en: In the following section, we will describe memory acquisition techniques and
+    sample use cases to use Volatility for Linux memory forensics.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分，我们将介绍内存获取技术和使用Volatility进行Linux内存取证的示例用例。
+- en: Memory acquisition
+  id: totrans-93
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 内存获取
+- en: If the system is not virtualized and therefore, there is no way of getting the
+    memory directly from the hypervisor layer; then even for Linux, our tool of choice
+    is LiME.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果系统未虚拟化，因此无法从虚拟化层直接获取内存；即使在Linux系统中，我们首选的工具仍然是LiME。
+- en: However, unlike in Android, the tool installation and operation is a lot easier
+    because we generate and run LiME directly on Linux system; however, many steps
+    are quite similar as you will notice in the following paragraphs.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，与Android不同的是，工具的安装和操作要简单得多，因为我们直接在Linux系统上生成并运行LiME；但正如你将在接下来的段落中注意到的，许多步骤是非常相似的。
+- en: 'First, determine the exact kernel version, which is running on the system,
+    that is to be analyzed. If there is no sufficient documentation available, then
+    you may run the following command to get the kernel version:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，确定正在分析的系统上运行的确切内核版本。如果没有足够的文档支持，可以运行以下命令来获取内核版本：
+- en: '[PRE14]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: Tip
+  id: totrans-98
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Use the configuration management in enterprise environments**'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**在企业环境中使用配置管理**'
+- en: Enterprise environments often run configuration management systems that show
+    you the kernel version and Linux distribution of your target system. Asking your
+    customer to provide you with this data or even a system with an identical kernel
+    version and software environment can help you in reducing the risk of incompatibilities
+    between the LiME module and your forensic target.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 企业环境中通常运行配置管理系统，能够显示目标系统的内核版本和Linux发行版。要求客户提供这些数据，甚至是提供一台具有相同内核版本和软件环境的系统，能够帮助你减少LiME模块与取证目标之间的兼容性风险。
+- en: 'In your lab environment, prepare the LiME kernel module for memory acquisition.
+    To compile the module, make sure you have the correct kernel source code version
+    available for your target and then issue the following build command in the `src`
+    directory of LiME:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实验环境中，准备LiME内核模块进行内存采集。要编译该模块，请确保你拥有正确版本的目标内核源代码，然后在LiME的`src`目录中执行以下构建命令：
+- en: '[PRE15]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: This should create the `lime.ko` module in the current directory.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这应在当前目录中创建`lime.ko`模块。
+- en: 'On the target system, this kernel module can be used to dump the memory to
+    disk, as follows:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在目标系统上，可以使用这个内核模块将内存转储到磁盘，如下所示：
+- en: '[PRE16]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: Note
+  id: totrans-106
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: We recommend choosing a path on the network to write the image to. This way,
+    the changes made to the local system are minimal. Transferring the image over
+    network is also an option. Just follow the description in the *Using Volatility
+    on Android* section.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们建议选择网络路径来写入镜像。这样，做出的本地系统更改会很少。也可以通过网络传输镜像。只需按照*在Android上使用Volatility*部分中的描述操作。
+- en: Volatility for Linux
+  id: totrans-108
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Linux上的Volatility
+- en: Volatility comes with a wide range of *profiles*. These profiles are used by
+    Volatility to interpret the memory dump. Unfortunately, the wide variety of Linux
+    kernels, system architectures, and kernel configurations make it impossible to
+    ship the profiles to all versions of Linux kernels.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility提供了各种*配置文件*。这些配置文件由Volatility用于解释内存转储。不幸的是，由于Linux内核、系统架构和内核配置的种类繁多，无法为所有版本的Linux内核提供配置文件。
+- en: Tip
+  id: totrans-110
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Listing all the profiles of Volatility**'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**列出所有Volatility配置文件**'
+- en: The list of all available profiles can be retrieved with the `vol.py --info`
+    command.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过`vol.py --info`命令获取所有可用配置文件的列表。
+- en: 'Consequently, it may be necessary to create your own profile as an ideal match
+    to the forensic target. The Volatility framework supports this step by providing
+    a dummy module that must be compiled against the kernel headers of the target
+    system. This module is available in the Volatility distribution in the `tools/linux`
+    subdirectory. Compile it— similar to LiME— but with debug settings enabled:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，可能需要创建你自己的配置文件，以便与取证目标完美匹配。Volatility框架通过提供一个虚拟模块来支持这一步骤，该模块必须针对目标系统的内核头文件进行编译。这个模块可以在Volatility分发版中的`tools/linux`子目录找到。将其编译——类似于LiME——但启用调试设置：
+- en: '[PRE17]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'This creates `module.ko`. There is no need to load this module; all we need
+    is its debug information. We use the `dwarfdump` tool, which is available as an
+    installation package in most Linux distributions, to extract this debug information:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将创建`module.ko`。无需加载此模块；我们所需要的是其调试信息。我们使用`dwarfdump`工具，该工具在大多数Linux发行版中作为安装包提供，用于提取这些调试信息：
+- en: '[PRE18]'
+  id: totrans-116
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: The next step in the creation of our profile is to acquire the `System.map`
+    file of the target system or a system with identical architecture, kernel version,
+    and kernel configuration. The `System.map` file may be found in the `/boot` directory.
+    Often, the kernel version is included in the filename, therefore be sure to select
+    the `System.map` file for the running kernel of the forensic target system.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建我们配置文件的下一步是获取目标系统或具有相同架构、内核版本和内核配置的系统的`System.map`文件。`System.map`文件通常位于`/boot`目录中。通常，内核版本会包含在文件名中，因此务必选择适用于取证目标系统运行内核的`System.map`文件。
+- en: 'Put `module.dwarf` and `System.map` into a zip archive, which will become our
+    Volatility profile, as shown in the following:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将`module.dwarf`和`System.map`放入一个压缩档案中，这将成为我们的Volatility配置文件，如下所示：
+- en: '[PRE19]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: As shown in the example, the name of the ZIP file should reflect the distribution
+    and kernel version.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如示例所示，ZIP文件的名称应反映发行版和内核版本。
+- en: Note
+  id: totrans-121
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Make sure that you do not add additional path information to the zip archive.
+    Otherwise, Volatility may fail to load the profile data.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保不要向压缩档案中添加额外的路径信息。否则，Volatility可能无法加载配置文件数据。
+- en: 'Copy the new profile to the Linux profile directory of Volatility, as follows:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将新配置文件复制到Volatility的Linux配置文件目录，如下所示：
+- en: '[PRE20]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Instead of using the system-wide profile directory, you may also choose a new
+    one and add the `--plugins=/path/to/profiles` option to your Volatility command
+    line.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了使用系统范围的配置文件目录外，你还可以选择一个新的目录，并将`--plugins=/path/to/profiles`选项添加到Volatility命令行。
+- en: 'Finally, you need to get the name of your new profile for further use. Therefore,
+    use the following call:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，你需要获取新配置文件的名称以供进一步使用。因此，使用以下命令：
+- en: '[PRE21]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'The output should contain one additional line showing the new profile, as shown
+    in the following:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出应包含一行额外的内容，显示新的配置文件，如下所示：
+- en: '[PRE22]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: To use this profile, add `--profile=LinuxUbuntu3_2_0-88x64` as the command line
+    argument for all subsequent calls to `vol.py`.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用此配置文件，请在所有后续调用`vol.py`时，作为命令行参数添加`--profile=LinuxUbuntu3_2_0-88x64`。
+- en: Reconstructing data for Linux
+  id: totrans-131
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 重建Linux的数据
+- en: All plugins that analyze Linux memory dumps have the `linux_` prefix. Therefore,
+    you should use the Linux version of the plugins. Otherwise, you may get an error
+    message notifying that the module is not supported in the selected profile.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有分析Linux内存转储的插件都有`linux_`前缀。因此，你应使用Linux版本的插件。否则，可能会出现错误消息，提示所选配置文件不支持该模块。
+- en: Analyzing processes and modules
+  id: totrans-133
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 分析进程和模块
+- en: A typical first step in the analysis of a memory dump is to list all running
+    processes and loaded kernel modules.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析内存转储的一个典型第一步是列出所有正在运行的进程和加载的内核模块。
+- en: 'The following is how to carve out all running processes from a memory dump
+    with Volatility:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是如何通过Volatility从内存转储中提取所有正在运行的进程：
+- en: '[PRE23]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: As shown in the output, the `linux_pslist` plugin iterates the kernel structure
+    by describing active processes, that is, it starts from the `init_task` symbol
+    and iterates the `task_struct->tasks` linked list. The plugin gets a list of all
+    running processes, including their offset address in the memory, process name,
+    process ID (PID), numerical ID of the user and group of the process (UID, and
+    GID), and start time. The **Directory Table Base** (**DTB**) can be used in the
+    further analysis to translate physical into virtual addresses. Empty DTB entries
+    relate, most likely, to a kernel thread. For example, `kthreadd` in our example
+    output.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如输出所示，`linux_pslist`插件通过描述活动进程来迭代内核结构，即它从`init_task`符号开始，迭代`task_struct->tasks`链表。该插件获取所有正在运行的进程的列表，包括它们在内存中的偏移地址、进程名称、进程ID（PID）、进程的用户和组的数值ID（UID和GID），以及启动时间。**目录表基址**（**DTB**）可用于进一步分析，将物理地址转换为虚拟地址。空的DTB条目最有可能与内核线程相关。例如，在我们的示例输出中是`kthreadd`。
+- en: Analyzing networking information
+  id: totrans-138
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 分析网络信息
+- en: The memory dump contains various information about the network activity of our
+    forensic target system. The following examples show how to utilize Volatility
+    to derive the information about the recent network activity.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存转储包含有关法医目标系统网络活动的各种信息。以下示例展示了如何利用Volatility推导出最近的网络活动信息。
+- en: The **Address Resolution Protocol** (**ARP**) **cache** of the Linux kernel
+    maps MAC addresses to IP addresses. Before a network communication on the *local
+    network* is established, the Linux kernel sends an ARP request to get the information
+    about the corresponding MAC address for a given destination IP address. The response
+    is cached in memory for re-use to further communicate with this IP address on
+    the local network. Consequently, ARP cache entries indicate the systems on the
+    local network that the forensic target was communicating with.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**地址解析协议**（**ARP**）**缓存**用于将MAC地址映射到IP地址。在建立*本地网络*上的网络通信之前，Linux内核会发送ARP请求以获取给定目标IP地址对应的MAC地址信息。响应会被缓存到内存中，以便重新使用并与该IP地址在本地网络上进一步通信。因此，ARP缓存条目指示了法医目标系统与本地网络上的哪些系统进行了通信。'
+- en: 'To read the ARP cache from a Linux memory dump, use the following command:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要从Linux内存转储中读取ARP缓存，请使用以下命令：
+- en: '[PRE24]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: This extract from the output shows that the system had a cache entry for the
+    `192.168.167.20` destination address with `b8:27:eb:01:c2:8f` being the corresponding
+    MAC address. The first entry is most likely a cache entry that results from an
+    unsuccessful communication attempt, that is, the `192.168.167.22` communication
+    partner did not send a response to an ARP request that was transmitted from the
+    system and therefore, the corresponding ARP cache entry remained at its initial
+    value of `00:00:00:00:00:00`. Either the communication partner was not reachable
+    or it is simply nonexistent.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该输出提取显示系统为目标地址`192.168.167.20`保留了一个缓存条目，对应的MAC地址是`b8:27:eb:01:c2:8f`。第一个条目很可能是由于一次不成功的通信尝试而产生的缓存条目，也就是说，`192.168.167.22`的通信伙伴没有对系统发出的ARP请求做出响应，因此，相应的ARP缓存条目保持其初始值`00:00:00:00:00:00`。可能是通信伙伴无法访问，或者它根本不存在。
+- en: Note
+  id: totrans-144
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: If large parts of your local subnet show up in the ARP cache with multiple entries
+    having a MAC address of 00:00:00:00:00:00, then this is an indicator of the scanning
+    activity, that is, the system has tried to detect other systems on the local network.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你在 ARP 缓存中看到本地子网的大部分系统显示出多个 MAC 地址为 00:00:00:00:00:00 的条目，那么这表明存在扫描活动，也就是说，系统尝试在本地网络上探测其他系统。
+- en: For further network analysis, it might be worth checking the list of MAC addresses
+    that are retrieved from the ARP cache against the systems that are supposed to
+    be on the local subnet. While this technique is not bulletproof (as MAC addresses
+    can be forged), it might help in discovering rogue network devices.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了进一步的网络分析，可能值得将从 ARP 缓存中获取的 MAC 地址列表与本地子网中应该存在的系统进行对比。虽然这种方法并非万无一失（因为 MAC 地址可以伪造），但它可能有助于发现不明的网络设备。
+- en: Note
+  id: totrans-147
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '**Looking up the hardware vendor for a MAC address**'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**查找 MAC 地址的硬件供应商**'
+- en: The prefix of a MAC address reveals the hardware vendor of the corresponding
+    network hardware. Sites such as [http://www.macvendorlookup.com](http://www.macvendorlookup.com)
+    provide an indication of the hardware vendor of a network card.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MAC 地址的前缀揭示了相应网络硬件的硬件供应商。像[http://www.macvendorlookup.com](http://www.macvendorlookup.com)这样的网站提供了网络卡硬件供应商的相关信息。
+- en: If we look up the hardware vendor for the `b8:27:eb:01:c2:8f` MAC address from
+    our example, it shows that this device was manufactured by the Raspberry Pi Foundation.
+    In a standard office or data center environment, these embedded devices are rarely
+    used and it is definitely worth checking whether this device is benign.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们查找示例中`b8:27:eb:01:c2:8f` MAC 地址的硬件供应商，它显示该设备是由树莓派基金会制造的。在标准的办公室或数据中心环境中，这些嵌入式设备很少使用，因此检查该设备是否为良性设备是非常值得的。
+- en: 'To get an overview of the network activity at the time the memory dump was
+    created, Volatility provides the means to emulate the `linux_netstat` command,
+    as follows:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了概览创建内存转储时的网络活动，Volatility 提供了模拟 `linux_netstat` 命令的方法，如下所示：
+- en: '[PRE25]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: These three lines are only a small excerpt from the typical output of this command.
+    The first line shows that the `thunderbird` process with the `3746` PID has an
+    active `ESTABLISHED` network connection to the IMAP server (TCP port `143`) with
+    the `109.234.207.112` IP address. The second line merely shows a socket of UNIX
+    type that is used for **Inter-Process Communication** (**IPC**). The last entry
+    shows that `skype` with the `3833` PID is a waiting `LISTEN` for incoming connections
+    on TCP port `7802`.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这三行只是该命令典型输出的一个小片段。第一行显示 `thunderbird` 进程（PID 为 `3746`）与 IMAP 服务器（TCP 端口 `143`）通过
+    `109.234.207.112` IP 地址建立了一个活动的 `ESTABLISHED` 网络连接。第二行仅显示一个 UNIX 类型的套接字，用于**进程间通信**（**IPC**）。最后一行显示
+    `skype`（PID 为 `3833`）正在等待 `LISTEN` 状态，准备接收来自 TCP 端口 `7802` 的传入连接。
+- en: 'Volatility can also be used to narrow down the list of processes to those with
+    raw network access. Typically, this kind of access is only required for **Dynamic
+    Host Configuration Protocol** (**DHCP**) clients, network diagnostics, and, of
+    course, malware in order to construct arbitrary packets on the network interface,
+    for example, conduct a so-called ARP cache poisoning attack. The following shows
+    how to list the processes with raw network sockets:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 还可以用来将进程列表缩小到那些具有原始网络访问权限的进程。通常，这种访问仅对**动态主机配置协议**（**DHCP**）客户端、网络诊断工具以及当然的恶意软件有用，目的是在网络接口上构造任意数据包，例如进行所谓的
+    ARP 缓存中毒攻击。以下展示了如何列出具有原始网络套接字的进程：
+- en: '[PRE26]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Here, only the DHCP client is detected to have the raw network access.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，仅检测到 DHCP 客户端拥有原始网络访问权限。
+- en: Tip
+  id: totrans-157
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Rootkit detection modules**'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Rootkit 检测模块**'
+- en: Volatility provides a variety of mechanisms in order to detect typical rootkit
+    behavior, for example, interrupt hooking, manipulations of the network stack,
+    and hidden kernel modules. We recommend getting familiar with these modules as
+    they can speed up your analysis. Furthermore, check for module updates on a regular
+    basis to leverage new malware detection mechanisms being built in to Volatility.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 提供了多种机制来检测典型的 rootkit 行为，例如中断钩取、网络栈的操作和隐藏的内核模块。我们建议熟悉这些模块，因为它们可以加速你的分析。此外，定期检查模块更新，以利用
+    Volatility 内置的新恶意软件检测机制。
+- en: Some generic methods and heuristics for malware detection are combined in the
+    `linux_malfind` module. This module looks for suspicious process memory mappings
+    and produces a list of possibly malicious processes.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些通用的方法和启发式技术用于恶意软件检测，并已结合在`linux_malfind`模块中。该模块会查找可疑的进程内存映射，并生成可能恶意进程的列表。
+- en: Malware hunting with the help of YARA
+  id: totrans-161
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用YARA进行恶意软件狩猎
+- en: '**YARA** itself is a tool that is able to match a given pattern in arbitrary
+    files and datasets. The corresponding rules—also known as signatures—are a great
+    way to search for known malicious files in dumps of hard drives or memory.'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**YARA** 本身是一个工具，能够在任意文件和数据集中的匹配给定的模式。相应的规则，也称为签名，是在硬盘或内存转储中搜索已知恶意文件的好方法。'
+- en: 'In this section, we want to demonstrate how to search for given malware in
+    an acquired memory dump of a Linux machine. Therefore, you can use two different
+    procedures that we will discuss in the following:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将展示如何在获取的Linux机器内存转储中搜索给定的恶意软件。因此，您可以使用我们将在接下来的内容中讨论的两种不同程序：
+- en: Searching the memory dump directly with the help of YARA
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 直接使用YARA帮助搜索内存转储
+- en: Using `linux_yarascan` and Volatility
+  id: totrans-165
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`linux_yarascan`和Volatility
+- en: The first option has one big disadvantage; as we already know, memory dumps
+    contain fragmented data that is normally contiguous. This fact makes it prone
+    to failure if you are searching this dump for known signatures as they are not
+    necessarily in the order you are searching them.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个选项有一个很大的缺点；正如我们所知，内存转储包含的是通常连续的碎片化数据。这一事实使得如果您在搜索已知签名时遇到失败的风险，因为它们不一定按您搜索的顺序排列。
+- en: The second option—using `linux_yarascan`—is more fail-safe as it uses Volatility
+    and knows the structure of the acquired memory dump. With the help of this knowledge,
+    it is able to resolve the fragmentation and search reliable for known signatures.
+    Although, we are using `linux_yarascan` on Linux, this module is also available
+    for Windows (`yarascan`) and Mac OS X (`mac_yarascan`).
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个选项—使用`linux_yarascan`—更具容错性，因为它使用Volatility并了解获取的内存转储的结构。借助这些知识，它能够解决碎片化问题并可靠地搜索已知签名。虽然我们在Linux上使用`linux_yarascan`，但该模块也可用于Windows（`yarascan`）和Mac
+    OS X（`mac_yarascan`）。
+- en: 'The main capabilities of this module are as follows:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该模块的主要功能如下：
+- en: Scan given processes in the memory dump for a given YARA signature
+  id: totrans-169
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在内存转储中扫描给定进程以查找给定的YARA签名
+- en: Scan the complete range of kernel memory
+  id: totrans-170
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 扫描完整的内核内存范围
+- en: Extract the memory areas to disk that contain positive results to the given
+    YARA rules
+  id: totrans-171
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将包含符合给定YARA规则的正面结果的内存区域提取到磁盘
+- en: The full list of possible command line options can be seen on entering `vol.py
+    linux_yarascan –h`
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入`vol.py linux_yarascan –h`即可查看完整的命令行选项列表
+- en: 'Basically, you can search in many different ways. The simplest way of using
+    this module is by searching for a given URL in the memory dump. This can be done
+    by entering the following command:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基本上，您可以通过多种方式进行搜索。使用此模块的最简单方法是通过在内存转储中搜索给定的URL。可以通过输入以下命令来完成此操作：
+- en: '[PRE27]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'A more complex but also a more realistic way is to search for a given YARA
+    rule. The following YARA rule was made to identify whether a system has been infected
+    with the `Derusbi` malware family:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种更复杂但更实际的方式是搜索给定的YARA规则。以下YARA规则是用来确定系统是否感染了`Derusbi`恶意软件家族：
+- en: '[PRE28]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'If we save this rule as `apt_derusbi_gen.rule`, we can search for it in the
+    acquired memory dump by entering the following command:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们将此规则保存为`apt_derusbi_gen.rule`，我们可以通过输入以下命令在获取的内存转储中进行搜索：
+- en: '[PRE29]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: The result will only show us a short preview that can be enlarged by using the
+    `--size` option.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果只会显示一个简短的预览，您可以通过使用`--size`选项来放大它。
+- en: If you are investigating a predefined scenario (for example, if you already
+    know that the system has been attacked by a known group), you can copy all your
+    rules in one single rule file and search the memory dump for all the rules in
+    the file at once. Volatility and `linux_yarascan` will display every hit and its
+    corresponding rule number. This makes it much faster to scan for known malicious
+    behavior in a memory dump.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您正在调查预定义的场景（例如，如果您已经知道系统已被已知的攻击组攻击），您可以将所有规则复制到一个规则文件中，并一次性在内存转储中搜索该文件中的所有规则。Volatility和`linux_yarascan`将显示每个匹配的结果及其对应的规则编号。这使得扫描已知恶意行为在内存转储中变得更快。
+- en: 'There is a vast number of sources for YARA signatures that are available in
+    the wild and we will only mention some of the most important ones here to help
+    you, starting with the malware hunt as shown in the following:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有大量可用于YARA签名的来源，这些来源在野外可用，我们这里只提及一些最重要的来源，以帮助你开始恶意软件猎杀，具体如下：
+- en: 'The YARA signature exchange group on Google Groups: [http://www.deependresearch.org/](http://www.deependresearch.org/)'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Google Groups上的YARA签名交换组：[http://www.deependresearch.org/](http://www.deependresearch.org/)
+- en: 'Signatures from AlienVault Labs: [https://github.com/AlienVault-Labs/AlienVaultLabs/tree/master/malware_analysis](https://github.com/AlienVault-Labs/AlienVaultLabs/tree/master/malware_analysis)'
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自AlienVault Labs的签名：[https://github.com/AlienVault-Labs/AlienVaultLabs/tree/master/malware_analysis](https://github.com/AlienVault-Labs/AlienVaultLabs/tree/master/malware_analysis)
+- en: 'Antivirus signatures that can be built with the help of ClamAV and recipe 3-3
+    out of the Malware Analyst''s Cookbook: [https://code.google.com/p/malwarecookbook/source/browse/trunk/3/3/clamav_to_yara.py](https://code.google.com/p/malwarecookbook/source/browse/trunk/3/3/clamav_to_yara.py)'
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可以借助ClamAV和《恶意软件分析师手册》中的配方3-3构建的杀毒软件签名：[https://code.google.com/p/malwarecookbook/source/browse/trunk/3/3/clamav_to_yara.py](https://code.google.com/p/malwarecookbook/source/browse/trunk/3/3/clamav_to_yara.py)
+- en: Summary
+  id: totrans-185
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: In this chapter, we provided an overview of memory forensics using the Volatility
+    framework. In the examples, we demonstrated memory acquisition techniques for
+    Android and Linux systems and saw how to use LiME on both systems. We used Volatility
+    to get information about running processes, loaded modules, possibly malicious
+    activity, and recent network activity. The latter is useful to trace the activities
+    of an attacker through the network.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们概述了如何使用Volatility框架进行内存取证。在示例中，我们展示了Android和Linux系统的内存获取技术，并展示了如何在这两个系统上使用LiME。我们使用Volatility获取了有关正在运行的进程、加载的模块、可能的恶意活动和最近的网络活动的信息。后者对于通过网络追踪攻击者的活动非常有用。
+- en: In the last example in this chapter, we demonstrated how to search for a given
+    malware signature or other highly flexible pattern-based rules in such a memory
+    dump. These YARA signatures or rules help in identifying suspicious activities
+    or files really fast.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章的最后一个示例中，我们演示了如何在这样的内存转储中搜索给定的恶意软件签名或其他高度灵活的基于模式的规则。这些YARA签名或规则有助于快速识别可疑活动或文件。
+- en: Furthermore, we demonstrated how to get the keyboard cache as well as call history
+    from an Android device.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们演示了如何获取Android设备的键盘缓存和通话历史。
+- en: Where to go from here
+  id: totrans-189
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 接下来该做什么
+- en: 'If you like to test the tools and knowledge gained from this book, we have
+    the following two tips for you:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想测试从本书中获得的工具和知识，我们给你以下两条建议：
+- en: Create a lab with two virtual machines—**Metasploit** and **Metasploitable**.
+    Try to hack into your **Metasploitable** system and perform a forensic analysis
+    afterwards. Are you able to reconstruct the attack and gather all the Indicators
+    of Compromise?
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建一个包含两台虚拟机的实验室——**Metasploit**和**Metasploitable**。尝试入侵你的**Metasploitable**系统，并随后进行取证分析。你能重建这次攻击并收集所有的妥协指标吗？
+- en: Get some old hard drives, which are no longer used but have been used regularly
+    in the past. Perform a forensic analysis on these drives and try to reconstruct
+    as much data as possible. Are you able to reconstruct former operations on these
+    drives?
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取一些旧的硬盘，这些硬盘已经不再使用，但过去曾经经常使用。对这些硬盘进行取证分析，并尽量重建尽可能多的数据。你能重建这些硬盘上的历史操作吗？
+- en: 'If you like to enhance your knowledge on some of the topics that were covered
+    in this book, the following books are a really good choice:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想增强对本书中一些主题的了解，以下几本书是非常好的选择：
+- en: '*Practical Mobile Forensics* by *Satish Bommisetty*, *Rohit Tamma*, *Heather
+    Mahalik*, *Packt Publishing*'
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*实用移动取证* 由 *Satish Bommisetty*、*Rohit Tamma*、*Heather Mahalik*、*Packt Publishing*出版'
+- en: '*The Art of Memory Forensics: Detecting Malware and Threats in Windows, Linux,
+    and Mac Memory* by *Michael Hale Ligh*, *Andrew Case*, *Jamie Levy* and *AAron
+    Walters*, *Wiley India*'
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*记忆取证的艺术：在Windows、Linux和Mac内存中检测恶意软件和威胁* 由 *Michael Hale Ligh*、*Andrew Case*、*Jamie
+    Levy* 和 *AAron Walters* 编写，*Wiley India*出版'
+- en: '*Handbook of Digital Forensics and Investigation* by *Eoghan Casey*, *Academic
+    Press*'
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*数字取证与调查手册* 由 *Eoghan Casey* 编写，*Academic Press*出版'

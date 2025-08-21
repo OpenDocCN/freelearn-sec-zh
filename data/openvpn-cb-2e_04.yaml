@@ -1,0 +1,2110 @@
+- en: Chapter 4.  PKI, Certificates, and OpenSSL
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第四章 PKI、证书与 OpenSSL
+- en: 'In this chapter, we will cover:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章内容包括：
+- en: Certificate generation
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 证书生成
+- en: 'OpenSSL tricks: x509, pkcs12, verify output'
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OpenSSL 技巧：x509、pkcs12、验证输出
+- en: Revoking certificates
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 撤销证书
+- en: The use of CRLs
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 CRL（证书撤销列表）
+- en: Checking expired/revoked certificates
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检查过期/吊销的证书
+- en: Intermediary CAs
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 中介 CA
+- en: 'Multiple CAs: stacking, using the `capath` directive'
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 多个 CA：堆叠，使用`capath`指令
+- en: Determining which crypto library is used
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定使用的加密库
+- en: Crypto features of OpenSSL and PolarSSL
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OpenSSL 和 PolarSSL 的加密功能
+- en: Pushing ciphers
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 推送密码
+- en: Elliptic curve support
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 椭圆曲线支持
+- en: Introduction
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: This chapter is a small detour into the public key infrastructures (PKIs), certificates,
+    and `openssl` commands. The primary purpose of the recipes in this chapter is
+    to show how the certificates, which are used in OpenVPN, can be generated, managed,
+    viewed, and what kind of interactions exist between OpenSSL and OpenVPN.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章内容是对公钥基础设施（PKI）、证书和`openssl`命令的简单介绍。本章的主要目的是展示如何生成、管理、查看 OpenVPN 中使用的证书，以及
+    OpenSSL 与 OpenVPN 之间的交互。
+- en: Certificate generation
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 证书生成
+- en: This recipe will demonstrate how to create and sign a certificate request using
+    plain `openssl` commands. This is slightly different from using the `easy-rsa`
+    scripts, but very instructive.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本示例将演示如何使用普通的`openssl`命令创建并签署证书请求。这与使用`easy-rsa`脚本略有不同，但非常有指导意义。
+- en: Getting ready
+  id: totrans-17
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the `easy-rsa` certificate environment using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*, by sourcing the `vars` file. This recipe was performed on a
+    computer running Fedora 22 Linux but it can easily be run on Windows or MacOS.
+    Note that the `easy-rsa` package can be downloaded independently of OpenVPN itself.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第二章](part0025.xhtml#aid-NQU21 "第二章。仅限客户端-服务器 IP 网络")中的第一个配方设置`easy-rsa`证书环境，方法是加载`vars`文件。这个示例在运行
+    Fedora 22 Linux 的计算机上执行，但也可以轻松在 Windows 或 MacOS 上运行。请注意，`easy-rsa`包可以独立于 OpenVPN
+    下载。
+- en: How to do it...
+  id: totrans-19
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何实现...
+- en: Before we can use plain `openssl` commands to generate and sign a request, there
+    are a few environment variables that need to be set. These variables are not set
+    in the `vars` file by default.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们使用普通的`openssl`命令生成和签署请求之前，需要设置一些环境变量。默认情况下，这些变量并未在`vars`文件中设置。
+- en: 'Add the missing environment variables:'
+  id: totrans-21
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 添加缺失的环境变量：
+- en: '[PRE0]'
+  id: totrans-22
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Note that the `openssl-1.0.0.cnf` file is part of the easy-rsa distribution
+    and should already be present in the directory `/etc/openvpn/cookbook`.
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，`openssl-1.0.0.cnf`文件是 easy-rsa 分发包的一部分，应该已经存在于`/etc/openvpn/cookbook`目录中。
+- en: 'Next, we generate the certificate request without a password. This is achieved
+    by adding the option `-nodes` to the `openssl req` command:'
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们在不使用密码的情况下生成证书请求。通过将选项`-nodes`添加到`openssl req`命令来实现：
+- en: '[PRE1]'
+  id: totrans-25
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Finally, we sign the certificate request using the Certificate Authority private
+    key:'
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们使用证书颁发机构的私钥对证书请求进行签名：
+- en: '[PRE2]'
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: How it works...
+  id: totrans-28
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The first step is always to generate a private key. In this recipe, we generate
+    a private key without a password, which is not really secure. A certificate request
+    is signed using the private key to prove that the certificate request and the
+    private key belong together. The `openssl req` command generates both the private
+    key and the certificate requests in one go.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一步始终是生成一个私钥。在这个示例中，我们生成一个没有密码的私钥，这样并不安全。证书请求使用私钥签名，以证明证书请求和私钥属于同一对。`openssl
+    req`命令一次性生成私钥和证书请求。
+- en: The second step is to sign the certificate request using the private key of
+    the **Certificate Authority** (**CA**). This results in an X.509 certificate file,
+    which can be used in OpenVPN.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二步是使用**证书颁发机构**（**CA**）的私钥签署证书请求。这样就会生成一个 X.509 证书文件，可用于 OpenVPN。
+- en: A copy of the (public) X.509 certificate is also stored in the `/etc/openvpn/cookbook/keys`
+    directory. This copy is important if the certificate needs to be revoked later
+    on, so do not remove it from that directory.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个（公有）X.509 证书的副本也存储在`/etc/openvpn/cookbook/keys`目录中。如果证书之后需要被撤销，这个副本非常重要，因此不要将其从该目录中删除。
+- en: There's more...
+  id: totrans-32
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'It is also possible to generate a private key protected by a password ("pass
+    phrase" in OpenSSL terms). In order to generate such a private key, simply remove
+    the `-nodes` command line parameter:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以生成一个由密码保护的私钥（在 OpenSSL 中称为“密码短语”）。要生成这样的私钥，只需去掉`-nodes`命令行参数：
+- en: '[PRE3]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The OpenSSL command will now ask for a passphrase:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenSSL命令现在将要求输入密码短语：
+- en: '[PRE4]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: See also
+  id: totrans-37
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The *Setting up the public and private keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    where the initial setup of the PKI using the `easy-rsa` scripts is explained
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP仅网络")的*设置公钥和私钥*配方，*客户端-服务器IP仅网络*，该配方解释了如何使用`easy-rsa`脚本进行PKI的初步设置
+- en: OpenSSL tricks - x509, pkcs12, verify output
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: OpenSSL技巧 - x509，pkcs12，验证输出
+- en: The OpenSSL commands may seem daunting at first, but there are a lot of useful
+    commands in the OpenSSL toolbox for viewing and managing X.509 certificates and
+    private keys. This recipe will show how to use a few of those commands.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenSSL命令一开始可能看起来令人生畏，但OpenSSL工具箱中有很多有用的命令可以用来查看和管理X.509证书及私钥。这个配方将展示如何使用其中一些命令。
+- en: Getting ready
+  id: totrans-41
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the `easy-rsa` certificate environment using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*, by sourcing the `vars` file. This recipe was performed on a
+    computer running Fedora 22 Linux but it can easily be run on Windows or MacOS.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用来自[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP仅网络")的第一个配方，通过源`vars`文件设置`easy-rsa`证书环境。此配方是在运行Fedora
+    22 Linux的计算机上执行的，但也可以在Windows或MacOS上轻松运行。
+- en: How to do it...
+  id: totrans-43
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做...
+- en: 'For this recipe, we need to perform the following steps:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个配方，我们需要执行以下步骤：
+- en: 'To view the subject and expiry date of a given certificate, type:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看给定证书的主题和过期日期，请输入：
+- en: '[PRE5]'
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'To export a certificate and private key in `PKCS12` format:'
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导出证书和私钥为`PKCS12`格式：
+- en: '[PRE6]'
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Note that the `chmod 600` ensures that the PKCS12 file is readable only by the
+    user.
+  id: totrans-49
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，`chmod 600`确保PKCS12文件仅对用户可读。
+- en: 'Verify the purpose of a given certificate:'
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证给定证书的用途：
+- en: '[PRE7]'
+  id: totrans-51
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Notice the error if we select the wrong purpose (`sslclient` versus `sslserver`):'
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果选择了错误的用途（`sslclient`与`sslserver`），请注意错误：
+- en: '[PRE8]'
+  id: totrans-53
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Change the password (passphrase) of a certificate:'
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 更改证书的密码（密码短语）：
+- en: '[PRE9]'
+  id: totrans-55
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: How it works...
+  id: totrans-56
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The OpenSSL toolkit consists of a wide range of commands to generate, manipulate,
+    and view X.509 certificates and their corresponding private keys. The commands
+    in this chapter are but a small subset of the available commands. On Linux and
+    UNIX systems, you can use `openssl -h` and the manual pages for `x509`, `pkcs12`,
+    and `req` for more details. The manual pages are also available online at [http://www.openssl.org/docs/apps/openssl.html](http://www.openssl.org/docs/apps/openssl.html).
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenSSL工具包包含广泛的命令，用于生成、操作和查看X.509证书及其相应的私钥。本章中的命令只是可用命令的一个小子集。在Linux和UNIX系统上，您可以使用`openssl
+    -h`以及`x509`、`pkcs12`和`req`的手册页面来获取更多详细信息。手册页面也可以在线访问：[http://www.openssl.org/docs/apps/openssl.html](http://www.openssl.org/docs/apps/openssl.html)。
+- en: Click on the OpenSSL commands lower down in the list of all commands for direct
+    pointers.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击列表中所有命令下方的OpenSSL命令以直接指引。
+- en: Revoking certificates
+  id: totrans-59
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 撤销证书
+- en: A common task when managing a PKI is to revoke certificates that are no longer
+    needed or that have been compromised. This recipe demonstrates how certificates
+    can be revoked using the `easy-rsa` script and how OpenVPN can be configured to
+    make use of a **Certificate Revocation List** (**CRL**).
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在管理PKI时，一个常见的任务是撤销不再需要的或已被泄露的证书。这个配方演示了如何使用`easy-rsa`脚本撤销证书，以及如何配置OpenVPN以使用**证书撤销列表**（**CRL**）。
+- en: Getting ready
+  id: totrans-61
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. This recipe was performed on a computer running CentOS 6 Linux,
+    but it can easily be run on Windows or Mac OS.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用来自[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP仅网络")的第一个配方设置客户端和服务器证书。此配方是在运行CentOS
+    6 Linux的计算机上执行的，但也可以在Windows或Mac OS上轻松运行。
+- en: How to do it...
+  id: totrans-63
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做...
+- en: 'First, we generate a certificate:'
+  id: totrans-64
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们生成一个证书：
+- en: '[PRE10]'
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Then, we immediately revoke it:'
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们立即撤销它：
+- en: '[PRE11]'
+  id: totrans-67
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'This will also update the CRL list. The CRL can be viewed using the command:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这也将更新CRL列表。可以使用以下命令查看CRL：
+- en: '[PRE12]'
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: How it works...
+  id: totrans-70
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: A CRL contains a list of certificate serial numbers that have been revoked.
+    Each serial number can be handed out by a CA only once, so this serial number
+    is unique to this particular CA. The CRL is signed using the CA's private key,
+    ensuring that the CRL is indeed issued by the appropriate party.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CRL包含已被撤销的证书序列号列表。每个序列号只能由一个CA发放一次，因此该序列号对于这个特定的CA是唯一的。CRL使用CA的私钥签名，确保CRL确实是由适当的方发布的。
+- en: There's more...
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: The question "what exactly is needed to revoke a certificate" is often asked,
+    so the following section goes a bit deeper into this.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: “撤销证书到底需要什么？”这个问题经常被提到，因此接下来的部分会更深入地探讨这个问题。
+- en: What is needed to revoke a certificate
+  id: totrans-74
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 撤销证书所需的内容
+- en: In order to revoke a certificate, the certificate subject ("DN") is required
+    as well as the certificate serial number. If a certificate is lost, then it is
+    simply not possible to revoke it. This shows how important it is to do proper
+    PKI management, including backing up the certificates that have been handed out
+    to users.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要撤销证书，需要提供证书主题（"DN"）和证书序列号。如果证书丢失，则无法撤销它。这表明进行适当的PKI管理非常重要，包括备份已发放给用户的证书。
+- en: See also
+  id: totrans-76
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The next recipe, *The use of CRLs*
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一个配方，*CRL的使用*
+- en: 'The recipe later in this chapter, *Multiple CA''s: stacking, using the -capath directive*'
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本章稍后的配方，*多个CA：堆叠，使用-capath指令*
+- en: The use of CRLs
+  id: totrans-79
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: CRL的使用
+- en: 'This recipe shows how to configure OpenVPN to use a CRL. It uses the CRL created
+    in the previous recipe. This recipe is an extension of the recipe *Routing: masquerading*
+    in [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*, in the sense that the server and client configuration files
+    are almost identical.'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方展示了如何配置OpenVPN使用CRL。它使用前一个配方中创建的CRL。该配方是[第2章](part0025.xhtml#aid-NQU21 "第2章.
+    客户端-服务器仅IP网络")中的*路由：伪装*配方的扩展，意思是服务器和客户端的配置文件几乎相同。
+- en: Getting ready
+  id: totrans-81
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. Generate the CRL using the previous recipe. For this recipe,
+    the server computer was running CentOS 6 Linux and OpenVPN 2.3.10\. The client
+    was running Fedora 22 Linux and OpenVPN 2.3.10\. Keep the server configuration
+    file `basic-udp-server.conf` from the *Server-side routing* recipe in [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器仅IP网络")中的第一个配方，*客户端-服务器仅IP网络*，设置客户端和服务器证书。使用前一个配方生成CRL。在此配方中，服务器计算机运行的是CentOS
+    6 Linux和OpenVPN 2.3.10，客户端运行的是Fedora 22 Linux和OpenVPN 2.3.10。保留第2章中的*服务器端路由*配方中的`basic-udp-server.conf`配置文件，*客户端-服务器仅IP网络*。
+- en: How to do it...
+  id: totrans-83
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Copy the generated CRL to a more public directory:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将生成的CRL复制到更公开的目录：
+- en: '[PRE13]'
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Modify the server config file `basic-udp-server.conf` by adding the lines:'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过添加以下行修改服务器配置文件`basic-udp-server.conf`：
+- en: '[PRE14]'
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: Save it as `example4-6-server.conf`.
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example4-6-server.conf`。
+- en: 'Start the server:'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE15]'
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'Next, create the client configuration file:'
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置文件：
+- en: '[PRE16]'
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: And save it as `example4-6-client.conf`.
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example4-6-client.conf`。
+- en: 'Finally, start the client:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，启动客户端：
+- en: '[PRE17]'
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'The client will not be able to connect but instead, the server log file shows:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端无法连接，而是服务器日志文件中显示：
+- en: '[PRE18]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: This rather cryptic message proves that the client is not allowed to connect
+    because the certificate is not valid.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个相当晦涩的信息证明了客户端由于证书无效而无法连接。
+- en: How it works...
+  id: totrans-99
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Each time a client connects to the OpenVPN server, the CRL is checked to see
+    whether the client certificate is listed. If it is, the OpenVPN server simply
+    refuses to accept the client certificate and the connection will not be established.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每次客户端连接到OpenVPN服务器时，都会检查CRL以查看客户端证书是否列出。如果列出，OpenVPN服务器将拒绝接受客户端证书，连接将无法建立。
+- en: There's more...
+  id: totrans-101
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'Generating a CRL is one thing and keeping it up-to-date is another. It is very
+    important to ensure that the CRL is kept up-to-date. For this purpose, it is best
+    to set up a cron job that updates the server CRL file overnight. There is an outstanding
+    bug in OpenVPN related to CRL updates: each time a client connects, the OpenVPN
+    server tries to access the CRL file. If the file is not present or not accessible,
+    then the OpenVPN server process aborts with an error. The proper behavior would
+    be to temporarily refuse access to the clients but unfortunately, this is not
+    the case.'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成CRL是一回事，保持其最新是另一回事。确保CRL保持最新是非常重要的。为此，最好设置一个cron任务，在夜间更新服务器的CRL文件。OpenVPN中有一个与CRL更新相关的已知bug：每当客户端连接时，OpenVPN服务器都会尝试访问CRL文件。如果文件不存在或不可访问，OpenVPN服务器进程将因错误而中止。正确的行为应该是暂时拒绝客户端的访问，但不幸的是，情况并非如此。
+- en: See also
+  id: totrans-103
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The recipe later in this chapter, *Multiple CAs: stacking, using the -capath
+    directive*, in which a more advanced use of CA and CRL is explained'
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本章后续的示例，*多个CA：堆叠，使用-capath指令*，解释了CA和CRL的更高级用法。
+- en: Checking expired/revoked certificates
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检查过期/撤销的证书
+- en: The goal of this recipe is to give an insight into some of the internals of
+    the OpenSSL CA commands. We will show how a certificate's status is changed from
+    "Valid" to "Revoked", or "Expired".
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本示例的目标是深入了解一些OpenSSL CA命令的内部实现。我们将展示如何将证书的状态从“有效”更改为“撤销”或“过期”。
+- en: Getting ready
+  id: totrans-107
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. This recipe was performed on a computer running CentOS 6 Linux
+    but it can easily be run on Windows or Mac OS.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章：客户端-服务器IP-only网络")中的第一个示例设置客户端和服务器证书，*客户端-服务器IP-only网络*。这个示例是在运行CentOS
+    6 Linux的计算机上执行的，但它也可以在Windows或Mac OS上轻松执行。
+- en: How to do it...
+  id: totrans-109
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Before we can use plain `openssl` commands, there are a few environment variables
+    that need to be set. These variables are not set in the `vars` file by default:'
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在我们可以使用普通的`openssl`命令之前，需要设置几个环境变量。这些变量在`vars`文件中默认并未设置：
+- en: '[PRE19]'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Now, we can query the status of a certificate using its serial number:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们可以使用证书的序列号查询其状态：
+- en: '[PRE20]'
+  id: totrans-113
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: This shows that our OpenVPN server certificate is still valid.
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这表明我们的OpenVPN服务器证书仍然有效。
+- en: 'The certificate we revoked in the *Revoking certificates* recipe, shows the
+    following:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们在*撤销证书*示例中撤销的证书显示如下：
+- en: '[PRE21]'
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'If we look at the file `index.txt` in the `/etc/openvpn/cookbook/keys` directory,
+    we see:'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果我们查看`index.txt`文件，位于`/etc/openvpn/cookbook/keys`目录下，我们可以看到：
+- en: '[PRE22]'
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Next, we modify this file using a normal text editor and replace the `R` with
+    an `E` and we blank out the third field `160422155408Z` with spaces. This field
+    is the timestamp when the certificate was revoked. The second line now becomes:'
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们使用普通的文本编辑器修改此文件，将`R`替换为`E`，并将第三个字段`160422155408Z`用空格清空。该字段是证书撤销的时间戳。现在，第二行变成：
+- en: '[PRE23]'
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'Now, if we check the status again we get:'
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，如果我们再次检查状态，我们会得到：
+- en: '[PRE24]'
+  id: totrans-122
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'If we generate the CRL again, we see that the certificate has been "un-revoked":'
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果我们再次生成CRL，我们可以看到该证书已经被“撤销”：
+- en: '[PRE25]'
+  id: totrans-124
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: How it works...
+  id: totrans-125
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The OpenSSL `ca` command generates its CRL by looking at the `index.txt` file.
+    Each line that starts with an `R` is added to the CRL, after which the CRL is
+    cryptographically signed using the CA private key.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenSSL的`ca`命令通过查看`index.txt`文件来生成CRL。每一行以`R`开头的条目都会被添加到CRL中，之后，CRL会使用CA私钥进行加密签名。
+- en: By changing the status of a revoked certificate to `E` or even `V` we can unrevoke
+    a certificate.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过将撤销证书的状态更改为`E`甚至`V`，我们可以撤销撤销的证书。
+- en: There's more...
+  id: totrans-128
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: In this recipe, we changed a certificate from `Revoked` to `Expired`. This will
+    allow the client from the previous recipe to connect again to the server, as the
+    certificate is still valid. The main reason to change a certificate from `Valid`
+    to `Expired` in the `indext.txt` file is to allow us to generate and hand out
+    a new certificate using the exact same name.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个示例中，我们将一个证书的状态从`撤销`更改为`过期`。这将允许之前示例中的客户端再次连接到服务器，因为该证书仍然有效。从`index.txt`文件中将证书状态从`有效`更改为`过期`的主要原因，是为了允许我们使用完全相同的名称生成并发放新的证书。
+- en: Intermediary CAs
+  id: totrans-130
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 中介CA
+- en: This recipe shows how to set up an intermediary CA and how to configure OpenVPN
+    to make use of an intermediary CA. The OpenVPN `easy-rsa` scripts also include
+    functionality to set up an intermediary CA. The advantage of an intermediary CA
+    (or sub CA) is that the top-level CA (also known as the root CA) can be guarded
+    more closely. The intermediary CAs can be distributed to the people responsible
+    for generating the server and client certificates.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方展示了如何设置中介 CA，并如何配置 OpenVPN 使用中介 CA。OpenVPN 的 `easy-rsa` 脚本也包括设置中介 CA 的功能。中介
+    CA（或子 CA）的优势在于，顶级 CA（也称为根 CA）可以更紧密地保护。中介 CA 可以分发给负责生成服务器和客户端证书的人员。
+- en: Getting ready
+  id: totrans-132
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. This recipe was performed on a computer running CentOS 6 Linux
+    but it can easily be run on Windows or Mac OS.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器仅IP网络")中的第一个配方，设置客户端和服务器证书，*客户端-服务器仅IP网络*。该配方是在运行
+    CentOS 6 Linux 的计算机上执行的，但也可以在 Windows 或 Mac OS 上轻松执行。
+- en: How to do it...
+  id: totrans-134
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'First, we create the intermediary CA certificate:'
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们创建中介 CA 证书：
+- en: '[PRE26]'
+  id: totrans-136
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'Verify that this certificate can indeed act as a Certificate Authority:'
+  id: totrans-137
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证该证书是否可以确实作为证书颁发机构：
+- en: '[PRE27]'
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Next, we create a new `keys` directory for our intermediary CA (the current
+    directory is still `/etc/openvpn/cookbook`):'
+  id: totrans-139
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们为中介 CA 创建一个新的 `keys` 目录（当前目录仍然是 `/etc/openvpn/cookbook`）：
+- en: '[PRE28]'
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'Edit the `vars` file in the new directory and change the `EASY_RSA` line to:'
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 编辑新目录中的 `vars` 文件，并将 `EASY_RSA` 行更改为：
+- en: '[PRE29]'
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'Source this new `vars` file and set up the `keys` directory:'
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 来源这个新的 `vars` 文件，并设置 `keys` 目录：
+- en: '[PRE30]'
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Now we are ready to create our first intermediary certificate:'
+  id: totrans-145
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们准备创建我们的第一个中介证书：
+- en: '[PRE31]'
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Verify that the certificate has the new Intermediary CA as its issuer:'
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证证书是否以新的中介 CA 作为颁发者：
+- en: '[PRE32]'
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: 'And finally, we verify that the certificate is indeed a valid certificate.
+    In order to do this we need to "stack" the root CA (public) certificate and the
+    intermediary CA certificate into a single file:'
+  id: totrans-149
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们验证证书是否确实是有效的证书。为了做到这一点，我们需要将根 CA（公钥）证书和中介 CA 证书堆叠成一个文件：
+- en: '[PRE33]'
+  id: totrans-150
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: How it works...
+  id: totrans-151
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The intermediary CA certificate has the "right" to act as a certificate authority,
+    meaning that it can sign new certificates itself. The intermediary CA needs a
+    directory structure for this, which is very similar to the root CA directory structure.
+    First, we set up this directory structure and then we copy over all the necessary
+    files. After that we create a client certificate and verify that it is a valid
+    certificate. In order to perform this validation, the entire certificate chain
+    from the root-level CA to the intermediary CA to the client certificate need to
+    be present. This is why the root CA public certificate and the intermediary CA
+    public certificate are stacked into a single file. This single file is then used
+    to perform the entire certificate chain validation.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 中介 CA 证书具有作为证书颁发机构（CA）的“权利”，这意味着它可以自行签发新证书。中介 CA 需要一个目录结构，这个结构与根 CA 的目录结构非常相似。首先，我们设置这个目录结构，然后将所有必要的文件复制过来。之后，我们创建一个客户端证书，并验证它是有效的证书。为了进行此验证，从根级
+    CA 到中介 CA 到客户端证书的整个证书链都需要存在。这就是为什么根 CA 公钥证书和中介 CA 公钥证书会堆叠到一个文件中的原因。这个单一文件随后用于执行整个证书链验证。
+- en: There's more...
+  id: totrans-153
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: 'Certificates that have been issued by an intermediary CA also need to be revoked
+    by the same CA. This means that with multiple CAs you will also have to use multiple
+    CRLs. Fortunately, CRLs can be stacked just like CA certificates: concatenate
+    the files together using the `cat` command, as will be explained in the next recipe.'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 已由中介 CA 签发的证书也需要由同一 CA 撤销。这意味着，使用多个 CA 时，您还需要使用多个 CRL。幸运的是，CRL 可以像 CA 证书一样堆叠：将文件连接在一起，使用
+    `cat` 命令，如下一个配方中所述。
+- en: Multiple CAs - stacking, using the capath directive
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 多个 CA - 堆叠，使用 capath 指令
+- en: The goal of this recipe is to create an OpenVPN setup where the client certificates
+    are signed by a "client-only" CA and the server certificate is signed by a different
+    "server-only" CA. This provides an extra level of operational security, where
+    one person is allowed to create only client certificates, whereas another is allowed
+    to generate only a server certificate. This ensures that the client and server
+    certificates can never be mixed for a Man-in-the-Middle attack.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个方案的目标是创建一个 OpenVPN 设置，其中客户端证书由“仅客户端”CA 签发，服务器证书由不同的“仅服务器”CA 签发。这提供了额外的操作安全性，其中一个人只被允许创建客户端证书，而另一个人只被允许生成服务器证书。这确保了客户端和服务器证书永远不能混合，从而避免中间人攻击。
+- en: Getting ready
+  id: totrans-157
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the server certificate using the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    Use the client certificate and the intermediary CA certificate from the previous
+    recipe. For this recipe, the server computer was running CentOS 6 Linux and OpenVPN
+    2.3.10\. The client was running Fedora 22 Linux and OpenVPN 2.3.10.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章 客户端-服务器 IP-only 网络")中的第一个方案设置服务器证书，*客户端-服务器
+    IP-only 网络*。使用之前方案中的客户端证书和中介 CA 证书。对于此方案，服务器计算机运行 CentOS 6 Linux 和 OpenVPN 2.3.10，而客户端运行
+    Fedora 22 Linux 和 OpenVPN 2.3.10。
+- en: How to do it...
+  id: totrans-159
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Create the server configuration file:'
+  id: totrans-160
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE34]'
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Save it as `example4-9-server.conf`.
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example4-9-server.conf`。
+- en: 'Start the server:'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE35]'
+  id: totrans-164
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Next, create the client configuration file:'
+  id: totrans-165
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置文件：
+- en: '[PRE36]'
+  id: totrans-166
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: Save it as `example4-9-client.conf`. Note that we did not specify the `ca+subca.pem`
+    file in the client configuration.
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example4-9-client.conf`。注意，我们没有在客户端配置中指定`ca+subca.pem`文件。
+- en: 'Start the client:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：
+- en: '[PRE37]'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'In the server log files, you can now see the client connecting using the certificate
+    that was created by the Intermediary CA:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在服务器日志文件中，你现在可以看到客户端使用由中介 CA 创建的证书连接：
+- en: '[PRE38]'
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: How it works...
+  id: totrans-172
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When the client connects to the server, the client (public) certificate is sent
+    to the server for verification. The server needs to have access to the full certificate
+    chain in order to do the verification; therefore, we stack the root CA certificate
+    and the intermediary CA (or sub-CA) certificate together. This allows the client
+    to connect to the server.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端连接到服务器时，客户端（公钥）证书会发送给服务器进行验证。服务器需要访问完整的证书链才能进行验证；因此，我们将根 CA 证书和中介 CA（或子
+    CA）证书堆叠在一起。这使得客户端能够连接到服务器。
+- en: Vice versa, when the client connects, the server (public) certificate is also
+    sent to the client. As the server certificate was originally signed by the root
+    CA, we do not need to specify the full certificate stack here.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 相反，当客户端连接时，服务器（公钥）证书也会发送给客户端。由于服务器证书最初是由根 CA 签名的，我们在此不需要指定完整的证书堆栈。
+- en: 'Note that if we had forgotten to specify the `ca+subca.pem` file in the OpenVPN
+    server configuration file, we would have received an error:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，如果我们忘记在 OpenVPN 服务器配置文件中指定`ca+subca.pem`文件，我们将收到错误信息：
+- en: '[PRE39]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: There's more...
+  id: totrans-177
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: Apart from stacking the CA certificates, it is also possible to stack the CRLs
+    or to use an entirely different mechanism to support multiple CA certificates
+    and their corresponding CRLs.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了堆叠 CA 证书外，还可以堆叠 CRL 或使用完全不同的机制来支持多个 CA 证书及其对应的 CRL。
+- en: Using the -capath directive
+  id: totrans-179
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用-capath指令
+- en: 'Another way to include multiple CAs and CRLs in the OpenVPN server configuration
+    is to use the following directive:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种在 OpenVPN 服务器配置中包含多个 CA 和 CRL 的方法是使用以下指令：
+- en: '[PRE40]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'This directory needs to contain all CA certificates and CRLs using a special
+    naming convention:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个目录需要包含所有 CA 证书和 CRL，采用特殊的命名规则：
+- en: All CA certificates must have a name equal to the hash of the CA certificate,
+    and must end with `.0`
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有 CA 证书的名称必须等于 CA 证书的哈希值，并且必须以`.0`结尾。
+- en: All CRLs must have a name equal to the hash of the CA certificate, and must
+    end with `.r0`
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有 CRL 的名称必须等于 CA 证书的哈希值，并且必须以`.r0`结尾。
+- en: 'For our root CA and intermediary CA, we can achieve this using the following
+    commands:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们的根 CA 和中介 CA，我们可以使用以下命令来实现：
+- en: '[PRE41]'
+  id: totrans-186
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'This hexadecimal number `bcd54da9` is the hash of the root CA certificate:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个十六进制数字`bcd54da9`是根 CA 证书的哈希值：
+- en: '[PRE42]'
+  id: totrans-188
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: 'Similarly, for the intermediary CA certificate:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，对于中介 CA 证书：
+- en: '[PRE43]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: When using many different CA certificates and corresponding CRLs, this method
+    is far easier to manage than the "stacked" files.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用多个不同的 CA 证书和相应的 CRL，这种方法比“堆叠”文件管理起来要简单得多。
+- en: Determining the crypto library to be used
+  id: totrans-192
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 确定将使用的加密库
+- en: Starting with OpenVPN 2.3, it became possible to build OpenVPN using either
+    the OpenSSL cryptographic library or the PolarSSL library. The PolarSSL library
+    is nowadays known as "mbedTLS". The PolarSSL library is used in the OpenVPN Connect
+    apps for both Android and iOS, but the library can be used on all other supported
+    platforms as well.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 OpenVPN 2.3 开始，可以使用 OpenSSL 加密库或 PolarSSL 库来构建 OpenVPN。PolarSSL 库现已更名为 "mbedTLS"。PolarSSL
+    库在 OpenVPN Connect 应用程序中用于 Android 和 iOS 平台，但该库也可以在所有其他支持的平台上使用。
+- en: The goal of this recipe is to show how to determine which cryptographic library
+    is used, including the run-time version number.
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方的目标是展示如何确定使用的加密库，包括运行时的版本号。
+- en: Getting ready
+  id: totrans-195
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 正在准备中
+- en: Set up the server certificate using the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    Use the client certificate and the intermediary CA certificate from the previous
+    recipe. For this recipe, the computer was running Fedora 22 Linux and OpenVPN
+    2.3.10, built both for OpenSSL and for PolarSSL. Keep the server configuration
+    file `basic-udp-server.conf` from the *Server-side routing* recipe in [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用来自[第二章](part0025.xhtml#aid-NQU21 "第二章：客户端-服务器仅 IP 网络")的第一个配方设置服务器证书，*客户端-服务器仅
+    IP 网络*。使用前一个配方中的客户端证书和中介 CA 证书。对于本配方，计算机运行的是 Fedora 22 Linux 和 OpenVPN 2.3.10，分别为
+    OpenSSL 和 PolarSSL 构建。保持来自[第二章](part0025.xhtml#aid-NQU21 "第二章：客户端-服务器仅 IP 网络")的
+    *服务器端路由* 配方中的 `basic-udp-server.conf` 配置文件。
+- en: How to do it...
+  id: totrans-197
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the regular version of OpenVPN using the standard configuration file:'
+  id: totrans-198
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用标准配置文件启动常规版本的 OpenVPN：
+- en: '[PRE44]'
+  id: totrans-199
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'Check the first few lines of the server log file:'
+  id: totrans-200
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查服务器日志文件的前几行：
+- en: '[PRE45]'
+  id: totrans-201
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: Stop the server by killing the `openvpn` process.
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过终止 `openvpn` 进程停止服务器。
+- en: 'Next, change the system''s `LD_LIBRARY_PATH` to point to a more recent version
+    of OpenSSL:'
+  id: totrans-203
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，修改系统的 `LD_LIBRARY_PATH`，指向更新版的 OpenSSL：
+- en: '[PRE46]'
+  id: totrans-204
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: 'Check the first few lines of the server log file:'
+  id: totrans-205
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查服务器日志文件的前几行：
+- en: '[PRE47]'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: Again, stop the server by killing the `openvpn` process.
+  id: totrans-207
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次通过终止 `openvpn` 进程停止服务器。
+- en: 'Switch to the PolarSSL-built version of OpenVPN and start the server again:'
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到使用 PolarSSL 构建的 OpenVPN 版本并重新启动服务器：
+- en: '[PRE48]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'Check the first few lines of the server log file:'
+  id: totrans-210
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查服务器日志文件的前几行：
+- en: '[PRE49]'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: How it works...
+  id: totrans-212
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When OpenVPN starts the cryptographics libraries are loaded and initialized.
+    At this point, the library's version string is retrieved and printed. By using
+    different builds of the crypto libraries we see that only the few first lines
+    of the server logfile alter.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当 OpenVPN 启动时，加密库会被加载和初始化。此时，库的版本信息会被检索并打印出来。通过使用不同构建版本的加密库，我们可以看到只有服务器日志文件的前几行会发生变化。
+- en: There's more...
+  id: totrans-214
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: The type and build of cryptographics library used determine some of the more
+    advanced features of OpenVPN, as we will see in the next few recipes. The library
+    version string provides vital information for debugging a non-working setup, as
+    we will see in [Chapter 6](part0071.xhtml#aid-23MNU1 "Chapter 6. Troubleshooting
+    OpenVPN - Configurations"), *Troubleshooting OpenVPN - Configurations*.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用的加密库的类型和构建版本决定了 OpenVPN 一些更高级的功能，正如我们在接下来的几个配方中将看到的那样。库的版本信息对于调试无法正常工作的设置提供了至关重要的信息，正如我们在[第六章](part0071.xhtml#aid-23MNU1
+    "第六章：OpenVPN 故障排除 - 配置")中将看到的，*OpenVPN 故障排除 - 配置*。
+- en: See also
+  id: totrans-216
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The next recipe, in which the differences between the cryptographic libraries
+    is explained
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一个配方将解释加密库之间的差异
+- en: The *How to read the OpenVPN log files* recipe, from [Chapter 6](part0071.xhtml#aid-23MNU1
+    "Chapter 6. Troubleshooting OpenVPN - Configurations"), *Troubleshooting OpenVPN
+    - Configurations*, which shows in detail how to read the OpenVPN log files
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自[第六章](part0071.xhtml#aid-23MNU1 "第六章：OpenVPN 故障排除 - 配置")的 *如何阅读 OpenVPN 日志文件*
+    配方，详细介绍了如何阅读 OpenVPN 日志文件
+- en: Crypto features of OpenSSL and PolarSSL
+  id: totrans-219
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: OpenSSL 和 PolarSSL 的加密功能
+- en: As stated in the previous recipe, it has been possible to build OpenVPN using
+    either the OpenSSL cryptographic library or the PolarSSL library since version
+    2.3\. In this recipe, we will show what some of the key differences between the
+    two cryptographic libraries are.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前一方案所述，从OpenVPN 2.3版本开始，可以使用OpenSSL加密库或PolarSSL库来构建OpenVPN。在此方案中，我们将展示这两种加密库的一些关键区别。
+- en: Getting ready
+  id: totrans-221
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Set up the server certificate using the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    Use the client certificate and the intermediary CA certificate from the previous
+    recipe. For this recipe, the computer was running Fedora 22 Linux and OpenVPN
+    2.3.10, built both for OpenSSL and for PolarSSL.
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章。仅IP网络的客户端-服务器")中的第一个方案设置服务器证书，*仅IP网络的客户端-服务器*。使用来自上一方案的客户端证书和中介CA证书。在此方案中，计算机运行的是Fedora
+    22 Linux和OpenVPN 2.3.10，支持OpenSSL和PolarSSL两种构建方式。
+- en: How to do it...
+  id: totrans-223
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the regular version of OpenVPN with the `--show-ciphers` option:'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动常规版本的OpenVPN并使用`--show-ciphers`选项：
+- en: '[PRE50]'
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'OpenVPN will now list all available ciphers, which can easily exceed 50 ciphers
+    for OpenSSL 1.0+. The most common ciphers are:'
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: OpenVPN现在将列出所有可用的密码，OpenSSL 1.0+的密码列表可能会超过50个。最常用的密码包括：
+- en: '[PRE51]'
+  id: totrans-227
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: 'Next, switch to the PolarSSL-built version of OpenVPN and re-run the same command:'
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，切换到使用PolarSSL构建的OpenVPN版本，并重新运行相同的命令：
+- en: '[PRE52]'
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: 'The list of ciphers now is:'
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当前的密码列表如下：
+- en: '[PRE53]'
+  id: totrans-231
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'Start the regular version of OpenVPN with the `--show-digests` option:'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动常规版本的OpenVPN并使用`--show-digests`选项：
+- en: '[PRE54]'
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: 'OpenVPN will now list all available HMAC algorithms, which can be specified
+    using the `--auth` option. This list can easily exceed 25 entries, therefore only
+    the most commonly used are printed:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: OpenVPN现在将列出所有可用的HMAC算法，这些算法可以使用`--auth`选项进行指定。该列表可能会超过25个条目，因此只会打印出最常用的：
+- en: '[PRE55]'
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'Next, switch to the PolarSSL-built version of OpenVPN and re-run the same command:'
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，切换到使用PolarSSL构建的OpenVPN版本，并重新运行相同的命令：
+- en: '[PRE56]'
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: 'The list of HMAC algorithms now is:'
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当前的HMAC算法列表如下：
+- en: '[PRE57]'
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: How it works...
+  id: totrans-240
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When OpenVPN starts the cryptographics libraries are loaded and initialized.
+    Only at that point are the available encryption algorithms and HMAC algorithms
+    known. Both OpenSSL and PolarSSL provide a mechanism for retrieving the list of
+    available algorithms, which OpenVPN uses for both the `--show-ciphers` and the `--show-digests`
+    options.
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当OpenVPN启动时，加密库会被加载并初始化。仅在此时，才知道可用的加密算法和HMAC算法。OpenSSL和PolarSSL都提供了一种机制来获取可用算法的列表，OpenVPN使用该列表来处理`--show-ciphers`和`--show-digests`选项。
+- en: This recipe shows that the PolarSSL/mbed-TLS library does not support all of
+    the algorithms that OpenSSL does. When you need to support a PolarSSL-built version
+    of OpenVPN (like the OpenVPN Connect clients for Android and iOS) then you can
+    use only ciphers or digests (`--auth` parameter) which are supported by both crypto
+    libraries.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本方案展示了PolarSSL/mbed-TLS库不支持OpenSSL支持的所有算法。当你需要支持PolarSSL构建版本的OpenVPN（例如Android和iOS的OpenVPN
+    Connect客户端）时，你只能使用两种加密库都支持的密码或摘要（`--auth`参数）。
+- en: There's more...
+  id: totrans-243
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'Apart from the data channel cipher and HMAC algorithms, there is one more set
+    of available algorithms that can be listed. This is the set of TLS algorithms
+    that can be used for encrypting and authenticating the control channel. In order
+    to list the set of TLS parameters, use the following command:'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了数据通道密码和HMAC算法外，还有一组可用的算法可以列出。这是用于加密和认证控制通道的TLS算法集。要列出TLS参数集，请使用以下命令：
+- en: '[PRE58]'
+  id: totrans-245
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: AEAD Ciphers
+  id: totrans-246
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: AEAD密码
+- en: 'Starting with OpenVPN 2.4, a new set of ciphers is supported. These ciphers
+    are known as **AEAD** ciphers, which stands for **Authenticated Encryption with
+    Associated Data**. These ciphers combine encryption with authentication, thereby
+    removing the need for a separate HMAC algorithm and thus providing increased performance.
+    Both OpenSSL 1.0+ and mbed-TLS 1.3+ support these ciphers. With OpenVPN 2.4+,
+    the list of ciphers will include:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从OpenVPN 2.4开始，支持一组新的密码。这些密码被称为**AEAD**密码，代表**带相关数据的认证加密**。这些密码将加密与认证结合，从而不再需要单独的HMAC算法，提升了性能。OpenSSL
+    1.0+和mbed-TLS 1.3+都支持这些密码。在OpenVPN 2.4+中，密码列表将包括：
+- en: AES-128-GCM
+  id: totrans-248
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AES-128-GCM
+- en: AES-192-GCM
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AES-192-GCM
+- en: AES-256-GCM
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AES-256-GCM
+- en: Encryption speed
+  id: totrans-251
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 加密速度
+- en: Another major difference between OpenSSL and PolarSSL is the encryption/decryption
+    speed of the algorithms. OpenSSL included hand-tuned assembly routines for maximum
+    encryption speed, especially for the AES algorithms on newer Intel CPUs. However,
+    the encryption speed is not the most important factor when determining the throughput
+    of an OpenVPN network, as we will see in [Chapter 8](part0092.xhtml#aid-2NNJO1
+    "Chapter 8. Performance Tuning"), *Performance Tuning*.
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenSSL和PolarSSL之间的另一个主要区别是算法的加密/解密速度。OpenSSL包含了为最大加密速度而手工调优的汇编例程，特别是对于新款Intel
+    CPU上的AES算法。然而，加密速度并不是决定OpenVPN网络吞吐量时最重要的因素，正如我们将在[第8章](part0092.xhtml#aid-2NNJO1
+    "第8章. 性能调优")中看到的，*性能调优*章节所述。
+- en: Pushing ciphers
+  id: totrans-253
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 推送密码算法
+- en: Another new feature of OpenVPN 2.4+ is the ability to "push" a cipher or HMAC
+    algorithm from the server to the client. This makes it much easier to switch encryption
+    or HMAC authentication algorithms, provided that all clients are using OpenVPN
+    2.4\. This recipe provides a setup for explicitly pushing a cipher, as well as
+    an explanation of the new cipher negotiation protocol.
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 2.4+的另一个新特性是能够从服务器“推送”密码算法或HMAC算法到客户端。这使得切换加密算法或HMAC认证算法变得更加容易，前提是所有客户端都使用OpenVPN
+    2.4。这个教程提供了一个明确推送密码算法的设置，并解释了新的密码协商协议。
+- en: Getting ready
+  id: totrans-255
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: This recipe uses the PKI files created in the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    For this recipe, the server computer was running CentOS 6 Linux and OpenVPN 2.4.0\.
+    The client was running Fedora 22 Linux and OpenVPN 2.4.0\. For the server, keep
+    the server configuration file `basic-udp-server.conf` from the *Server-side routing*
+    recipe in [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*. For the Windows client, keep the
+    corresponding client configuration file `basic-udp-client.ovpn`, from the *Using
+    an ifconfig-pool block* recipe in [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2. 
+    Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本教程使用了[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP专用网络")中*客户端-服务器IP专用网络*教程中创建的PKI文件。对于这个教程，服务器计算机运行CentOS
+    6 Linux和OpenVPN 2.4.0。客户端运行Fedora 22 Linux和OpenVPN 2.4.0。对于服务器，请保留[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP专用网络")中*服务器端路由*教程中的服务器配置文件`basic-udp-server.conf`。对于Windows客户端，请保留[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP专用网络")中*使用ifconfig-pool块*教程中的相应客户端配置文件`basic-udp-client.ovpn`。
+- en: How to do it...
+  id: totrans-257
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Modify the server configuration file, `basic-udp-server.conf`, by adding the
+    following lines:'
+  id: totrans-258
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过添加以下行来修改服务器配置文件`basic-udp-server.conf`：
+- en: '[PRE59]'
+  id: totrans-259
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: Then save it as `example4-10-server.conf`.
+  id: totrans-260
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后将其保存为`example4-10-server.conf`。
+- en: 'Start the server:'
+  id: totrans-261
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE60]'
+  id: totrans-262
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: 'Start the client using the "standard" configuration file but with verbose logging:'
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用“标准”配置文件启动客户端，但启用详细日志：
+- en: '[PRE61]'
+  id: totrans-264
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: The output showing that OpenVPN is now using an AES-256 cipher is shown in bold
+    face.
+  id: totrans-265
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 显示OpenVPN当前正在使用AES-256密码算法的输出将以**粗体**显示。
+- en: 'Verify that we can reach the server using the `ping` command:'
+  id: totrans-266
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用`ping`命令验证我们是否能连接到服务器：
+- en: '[PRE62]'
+  id: totrans-267
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: How it works...
+  id: totrans-268
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Pushing a cipher is now just as simple as pushing other OpenVPN options. Versions
+    prior to 2.4 did not support this, however. This allows VPN administrators to
+    change the encryption parameters used without having to modify all (remote) client
+    configuration files.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 推送密码算法现在和推送其他OpenVPN选项一样简单。2.4之前的版本不支持这一功能。这使得VPN管理员可以更改所用的加密参数，而无需修改所有（远程）客户端配置文件。
+- en: There's more...
+  id: totrans-270
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多…
+- en: Starting with OpenVPN 2.4 a new cipher negotiation protocol is introduced. At
+    startup, the client and server will check whether both sides support the new GCM
+    encryption protocols. The strongest cipher from this list is then chosen as the
+    cipher. If no match is found, then OpenVPN reverts to the default BlowFish (BF-CBC)
+    cipher, to ensure backward compatibility.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从OpenVPN 2.4开始，引入了新的密码协商协议。在启动时，客户端和服务器将检查双方是否都支持新的GCM加密协议。然后，从这个列表中选择最强的密码算法作为加密算法。如果没有找到匹配项，OpenVPN会回退到默认的BlowFish（BF-CBC）密码算法，以确保向后兼容性。
+- en: This feature can be tuned using the new directives `ncp-ciphers` and `disable-ncp`.
+    The first directive specifies the list of ciphers to negotiate, whereas the second
+    directive turns off cipher negotiation altogether.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个功能可以通过新的指令`ncp-ciphers`和`disable-ncp`进行调节。第一个指令指定协商的密码算法列表，而第二个指令则完全关闭密码算法协商。
+- en: When explicitly pushing a cipher from the server to the client you can only
+    specify a cipher from the NCP cipher list. The default NCP cipher list is AES-256-GCM:AES-128-CGM:BF-CBC.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当从服务器显式推送密码算法到客户端时，你只能从NCP密码列表中指定一个密码。默认的NCP密码列表是AES-256-GCM:AES-128-CGM:BF-CBC。
+- en: '[PRE63]'
+  id: totrans-274
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: Future enhancements
+  id: totrans-275
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 未来的增强功能
+- en: 'It is expected that future enhancements of this new feature will be:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 预计未来对这一新功能的增强将包括：
+- en: A separate control channel HMAC algorithm so that you can switch the data channel
+    algorithm independently
+  id: totrans-277
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个单独的控制通道HMAC算法，使你能够独立切换数据通道算法
+- en: The ability to set a "per-client" encryption cipher, allowing you to support
+    different ciphers for different platforms and clients
+  id: totrans-278
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可以设置“每个客户端”加密密码算法，允许为不同的平台和客户端支持不同的密码算法
+- en: Elliptic curve support
+  id: totrans-279
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 椭圆曲线支持
+- en: In version 2.4 of OpenVPN support was added for using **elliptic curve** (**EC**)
+    certificates instead of the more common RSA type certificates. **Elliptic curve
+    cryptography** (**ECC**) provides a fast method for encrypting and authenticating
+    a secure connection, but are not widely used yet. In part, this is due to some
+    patenting issues. As most modern OpenSSL libraries provide ECC support, however,
+    OpenVPN can also use EC certificates. The main advantage of ECC is that you can
+    provide smaller keys to achieve the same level of security than with the more
+    common RSA and DSA type encryption. This will result in a better VPN performance
+    without sacrificing security. As we will see in this recipe, OpenVPN's control
+    channel can be authenticated using an EC algorithm. The data channel is still
+    authenticated using a non-EC HMAC algorithm, such as SHA1.
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在OpenVPN的2.4版本中，增加了使用**椭圆曲线**（**EC**）证书代替更常见的RSA类型证书的支持。**椭圆曲线加密**（**ECC**）提供了一种快速的加密和认证安全连接的方法，但尚未广泛使用。部分原因是一些专利问题。然而，由于大多数现代OpenSSL库提供ECC支持，OpenVPN也可以使用EC证书。ECC的主要优势在于，你可以提供更小的密钥来达到与更常见的RSA和DSA类型加密相同的安全级别。这将提高VPN性能，同时不牺牲安全性。正如我们在本示例中看到的，OpenVPN的控制通道可以使用EC算法进行认证。数据通道仍然使用非EC
+    HMAC算法，如SHA1，进行认证。
+- en: Getting ready
+  id: totrans-281
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: For this recipe, the server computer was running CentOS 6 Linux and OpenVPN
+    2.4.0\. The client was running Fedora 22 Linux and OpenVPN 2.4.0.
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个示例，服务器计算机运行的是CentOS 6 Linux和OpenVPN 2.4.0，客户端运行的是Fedora 22 Linux和OpenVPN
+    2.4.0。
+- en: How to do it...
+  id: totrans-283
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'We first need to generate a new EC-based Certificate Authority:'
+  id: totrans-284
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们首先需要生成一个新的基于EC的证书颁发机构：
+- en: '[PRE64]'
+  id: totrans-285
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: This will result in an `ec-ca.crt` and `ec-ca.key` file using the `sect571k1`
+    elliptic curve that we will use to sign the EC-based client and server certificates.
+  id: totrans-286
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这将生成`ec-ca.crt`和`ec-ca.key`文件，使用`sect571k1`椭圆曲线，我们将用它来签署基于EC的客户端和服务器证书。
+- en: 'Next, generate the new EC server certificate:'
+  id: totrans-287
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，生成新的EC服务器证书：
+- en: '[PRE65]'
+  id: totrans-288
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: This will result in an `ec-server.crt` and `ec-server.key` file.
+  id: totrans-289
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这将生成`ec-server.crt`和`ec-server.key`文件。
+- en: 'Similarly, generate the new EC client certificate:'
+  id: totrans-290
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 类似地，生成新的EC客户端证书：
+- en: '[PRE66]'
+  id: totrans-291
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: This will result in an `ec-client.crt` and `ec-client.key` file.
+  id: totrans-292
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这将生成`ec-client.crt`和`ec-client.key`文件。
+- en: 'Create the server configuration file:'
+  id: totrans-293
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE67]'
+  id: totrans-294
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: Save it as `example4-11-server.conf`.
+  id: totrans-295
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example4-11-server.conf`。
+- en: 'Start the server:'
+  id: totrans-296
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE68]'
+  id: totrans-297
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: 'Next, create the client configuration file:'
+  id: totrans-298
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置文件：
+- en: '[PRE69]'
+  id: totrans-299
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: Then save it as `example4-11-client.conf`.
+  id: totrans-300
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后将其保存为`example4-11-client.conf`。
+- en: Transfer the files such as `ec-ca.crt`, `ec-client.crt`, and `ec-client.key`
+    to the client machine using a secure channel.
+  id: totrans-301
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用安全通道将文件如`ec-ca.crt`、`ec-client.crt`和`ec-client.key`传输到客户端计算机。
+- en: 'Finally, start the client:'
+  id: totrans-302
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，启动客户端：
+- en: '[PRE70]'
+  id: totrans-303
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: 'And observe the chosen control channel cipher:'
+  id: totrans-304
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 观察所选的控制通道密码算法：
+- en: '[PRE71]'
+  id: totrans-305
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: This shows that the control channel is protected using an ECDSA-based cipher.
+  id: totrans-306
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这表明控制通道使用基于ECDSA的密码算法进行保护。
+- en: How it works...
+  id: totrans-307
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: By generating an EC-based Certificate Authority and by using EC-based certificates
+    OpenVPN can now support elliptic curve cryptography on the control channel. The
+    data channel is still protected using the default cipher BF-CBC (Blowfish) and
+    the default HMAC algorithm SHA1.
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过生成基于EC的证书颁发机构并使用基于EC的证书，OpenVPN现在可以在控制通道上支持椭圆曲线加密。数据通道仍然使用默认的BF-CBC（Blowfish）密码算法和默认的HMAC算法SHA1进行保护。
+- en: 'It should be noted that with RSA-based certificates the control channel cipher
+    looks remarkably similar:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应该注意的是，使用基于RSA的证书时，控制通道的密码算法看起来非常相似：
+- en: '[PRE72]'
+  id: totrans-310
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: It is not the "ECDHE" part which proves that ECC is used, but "ECDSA".
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并不是“ECDHE”部分证明了使用了ECC，而是“ECDSA”。
+- en: There's more...
+  id: totrans-312
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'It is also possible to choose different ECDH "curves". This is done by first
+    listing the available ECDH curves on the OpenVPN server:'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还可以选择不同的ECDH“曲线”。这是通过首先列出OpenVPN服务器上可用的ECDH曲线来完成的：
+- en: '[PRE73]'
+  id: totrans-314
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: 'And then by adding the option to the server configuration file:'
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后通过将选项添加到服务器配置文件中：
+- en: '[PRE74]'
+  id: totrans-316
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: Elliptic curve support
+  id: totrans-317
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 椭圆曲线支持
+- en: Not all Linux distributions provide an OpenSSL library that supports elliptic
+    curve cryptography out of the box. Notably RedHat-based and RedHat-derived distributions,
+    such as RedHat Enterprise Linux, CentOS and Fedora explicitly disable ECC support.
+    RedHat cites patent issues as the reason, but the "default" OpenSSL library ships
+    with full ECC support.
+  id: totrans-318
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并非所有Linux发行版都提供开箱即用支持椭圆曲线加密的OpenSSL库。特别是基于RedHat的和源自RedHat的发行版，如RedHat Enterprise
+    Linux、CentOS和Fedora，明确禁用了ECC支持。RedHat引用专利问题作为原因，但“默认”OpenSSL库提供了完整的ECC支持。
+- en: As the Linux distributions used throughout this book are CentOS and Fedora,
+    a custom build of the OpenSSL 1.0.2 library was made especially for this recipe.
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于本书中使用的Linux发行版是CentOS和Fedora，因此特别为本食谱制作了OpenSSL 1.0.2库的自定义版本。

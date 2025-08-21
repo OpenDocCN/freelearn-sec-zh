@@ -1,0 +1,1067 @@
+- en: '*Chapter 6*: Data Security'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第6章*：数据安全'
+- en: Like everything else, data in the cloud must be treated differently to that
+    in on-premises environments. As data is leaving our local environment, and is
+    usually accessible over the internet, we need to be extra careful. We have already
+    mentioned that all data is encrypted at rest, and most communication goes over
+    **HTTPS** (**Hypertext Transfer Protocol over Secure Socket Layer**) and is encrypted
+    in the move as well. However, there are multiple steps that we can take to ensure
+    additional security and satisfy compliance and different security requirements.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像其他一切一样，云中的数据必须与本地环境中的数据不同对待。由于数据离开了我们的本地环境，并通常可以通过互联网访问，我们需要格外小心。我们已经提到过，所有数据在静态时都进行了加密，大多数通信也通过
+    **HTTPS**（**超文本传输协议安全套接字层**）进行，并在传输过程中加密。然而，我们可以采取多种措施来确保额外的安全性，并满足合规性和不同的安全要求。
+- en: In this chapter, we will be using Azure Key Vault extensively. We've seen how
+    Azure Key Vault can be used for secrets and password management, but we will also
+    see how it can be used to increase data security as well.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将广泛使用 Azure Key Vault。我们已经看到 Azure Key Vault 如何用于机密和密码管理，但我们还将看到它如何用于增强数据安全性。
+- en: 'We will cover the following topics in this chapter:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Understanding Azure Storage
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure 存储
+- en: Understanding Azure Virtual Machine disks
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure 虚拟机磁盘
+- en: Working on Azure SQL Database
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Azure SQL 数据库上工作
+- en: Technical requirements
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'For this chapter, the following is required:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章需要以下内容：
+- en: PowerShell 5.1, or higher, on Windows (or PowerShell Core 6.x and later on any
+    other platform, including Windows)
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Windows 上的 PowerShell 5.1 或更高版本（或在任何其他平台上，包括 Windows 的 PowerShell Core 6.x 及更高版本）
+- en: Azure PowerShell modules
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure PowerShell 模块
+- en: Visual Studio Code
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Visual Studio Code
+- en: An Azure subscription
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 Azure 订阅
+- en: Understanding Azure Storage
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 Azure 存储
+- en: Azure Storage is Microsoft's cloud storage service and is highly available,
+    secure, and scalable, plus, it supports a variety of programming languages. It
+    is usually the first data service users encounter when they start using Azure.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 存储是微软的云存储服务，具有高可用性、安全性和可扩展性，此外，它还支持多种编程语言。通常，当用户开始使用 Azure 时，Azure 存储是他们首先接触到的数据服务。
+- en: All communication inside Azure data centers is over HTTPS, but what happens
+    when we access data from outside? As per the shared responsibility model (explained
+    in [*Chapter 1*](B15414_01_Final_JM_ePub.xhtml#_idTextAnchor021), *Azure Security
+    Introduction*), this falls under the user's responsibility. Because of different
+    user requirements, Microsoft does not enforce traffic over HTTPS by default, but
+    there is an option that users can enable to enforce traffic to be encrypted.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有 Azure 数据中心内部的通信都通过 HTTPS 进行，但当我们从外部访问数据时会发生什么呢？根据共享责任模型（在[*第1章*](B15414_01_Final_JM_ePub.xhtml#_idTextAnchor021)，*Azure
+    安全简介*中有解释），这属于用户的责任。由于不同用户的需求，微软默认不强制要求流量通过 HTTPS，但用户可以启用一个选项，强制要求流量加密。
+- en: 'Under **Configuration**, there is an option called **Secure transfer required**.
+    To ensure that all traffic is encrypted and over HTTPS, we need to enable this
+    option, as in the following screenshot:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 **配置** 下，有一个选项叫做 **要求安全传输**。为了确保所有流量都加密并通过 HTTPS 进行，我们需要启用此选项，如下图所示：
+- en: '![Figure 6.1 – Azure Storage secure transfer'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.1 – Azure 存储安全传输'
+- en: '](img/Fig_6.1.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.1.jpg)'
+- en: Figure 6.1 – Azure Storage secure transfer
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.1 – Azure 存储安全传输
+- en: When **Secure transfer required** is enabled, all requests that are not over
+    HTTPS will be rejected, even if they have valid access parameters (such as an
+    access signature or a token). This enhances transfer security by allowing the
+    request to Azure Storage only when coming by a secure connection.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当启用 **要求安全传输** 时，所有不是通过 HTTPS 的请求将被拒绝，即使它们具有有效的访问参数（如访问签名或令牌）。这通过仅允许通过安全连接发起的请求来增强传输安全性。
+- en: Important note
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: It's important to remember that Azure Storage does not support HTTPS for custom
+    domain names, so this option does not apply when a custom domain name is used.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要记住的是，Azure 存储不支持自定义域名的 HTTPS，因此在使用自定义域名时此选项不适用。
+- en: Another thing we need to consider is what happens when files are accidentally
+    deleted. This can occur for a number of reasons, such as a user deleting a file
+    by mistake, or numerous applications using the same Azure Storage and one application
+    deleting a file needed by another application. Of course, such situations can
+    be caused by malicious attacks and with intent to cause damage as well. To avoid
+    such situations, we can enable the **Blob soft delete** option under the **Data
+    Protection** setting.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还需要考虑的是，当文件被意外删除时会发生什么。这可能有多种原因，例如用户错误地删除了文件，或者多个应用程序使用相同的 Azure 存储，导致一个应用程序删除了另一个应用程序需要的文件。当然，这种情况也可能是恶意攻击所致，旨在造成损害。为了避免此类情况，我们可以在**数据保护**设置中启用**Blob软删除**选项。
+- en: 'An example is shown in the following screenshot:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了一个示例：
+- en: '![Figure 6.2 – Blob soft delete'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.2 – Blob软删除'
+- en: '](img/Fig_6.2.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.2.jpg)'
+- en: Figure 6.2 – Blob soft delete
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.2 – Blob软删除
+- en: '`7` and `365` days. Besides recovering deleted files**, Blob soft delete**
+    enables us to recover previous versions of files, too. If a file is accidentally
+    modified, or we need a previous version of a file for some other reason**, Blob
+    soft delete** can help us to restore the file to any point in time, as long as
+    it''s in the timeframe of the effective retention period.'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`7`天和`365`天。除了恢复已删除的文件外，**Blob软删除**还使我们能够恢复文件的以前版本。如果文件被意外修改，或者我们因其他原因需要文件的先前版本，**Blob软删除**可以帮助我们将文件恢复到任何时间点，只要它在有效保留期的时间范围内。'
+- en: Important note
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: '**Blob soft delete** and the retention period are effective from the moment
+    they are set and cannot be used retroactively. For example, if we discover that
+    we lost a file and then enable this option, it will not help us recover the lost
+    file. To be able to recover files, we need to have the option in place before
+    the incident happens.'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Blob软删除**和保留期限从设置的那一刻起生效，并且无法追溯使用。例如，如果我们发现丢失了文件，然后启用此选项，它将无法帮助我们恢复丢失的文件。为了能够恢复文件，我们需要在事件发生之前就启用此选项。'
+- en: 'Data in Azure is encrypted at rest, and that''s no different with Azure Storage.
+    But data is encrypted with Microsoft-managed keys, and this is not always acceptable.
+    In certain situations, caused by compliance and security requirements, we must
+    be in control of keys that are used for encryption. To address such needs, Microsoft
+    has enabled encryption of data with the **Bring Your Own Key** (**BYOK**) option.
+    The option to use your own key can be enabled under the **Encryption** option,
+    as in the following screenshot:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 中的数据是静态加密的，Azure 存储也不例外。但数据是使用 Microsoft 管理的密钥进行加密的，这在某些情况下可能不可接受。由于合规性和安全要求，我们必须控制用于加密的密钥。为了解决这些需求，微软启用了**使用您自己的密钥**（**BYOK**）选项。您可以在**加密**选项下启用使用您自己的密钥，如下图所示：
+- en: '![Figure 6.3 – Azure Storage encryption options'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.3 – Azure 存储加密选项'
+- en: '](img/Fig_6.3.jpg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.3.jpg)'
+- en: Figure 6.3 – Azure Storage encryption options
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.3 – Azure 存储加密选项
+- en: BYOK is enabled by the use of Azure Key Vault, where keys used for storage encryption
+    are stored.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过使用 Azure 密钥库启用 BYOK，其中用于存储加密的密钥存储在密钥库中。
+- en: 'Once we enable **Use your own key**, new settings will appear where we need
+    to provide key vault information. An example is shown in the following screenshot:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们启用**使用您自己的密钥**，新的设置将会出现，我们需要提供密钥库信息。以下截图展示了一个示例：
+- en: '![Figure 6.4 – Storage encryption with a custom key'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.4 – 使用自定义密钥的存储加密'
+- en: '](img/Fig_6.4.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.4.jpg)'
+- en: Figure 6.4 – Storage encryption with a custom key
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.4 – 使用自定义密钥的存储加密
+- en: We can either provide a key **Uniform Resource Identifier** (**URI**), which
+    will contain information about the key vault and key that will be used for encryption,
+    or we can use a second option, which will allow us to select the available key
+    vault and key from a list. Both options will have identical outcomes and the storage
+    will be encrypted. Any new files added to Azure Storage will be encrypted automatically.
+    Any existing files will be retroactively encrypted by a background encryption
+    process, but it will not happen instantly, and the process to encrypt existing
+    data will take time.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以提供一个**统一资源标识符**（**URI**），该 URI 包含有关将用于加密的密钥库和密钥的信息，或者我们可以使用第二个选项，允许我们从列表中选择可用的密钥库和密钥。这两种选项的结果是相同的，存储将会被加密。任何新增的文件将自动加密。任何现有的文件将通过后台加密过程进行追溯加密，但这个过程不会立即完成，现有数据的加密过程需要一些时间。
+- en: Keys in Azure Key Vault can be easily created, but we can also import existing
+    keys from a **Hardware Security Module** (**HSM**). This is for further security
+    and compliance requirements and enables ultimate key management where crypto keys
+    are safeguarded by a dedicated crypt processor.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Azure 密钥库中可以轻松创建密钥，但我们也可以从**硬件安全模块**（**HSM**）导入现有密钥。这是为了进一步的安全性和合规性要求，并启用最终的密钥管理，其中加密密钥由专用的加密处理器保护。
+- en: 'Encryption in Azure Storage is not only available through the Azure portal,
+    but also through using Azure PowerShell. The following script will create a new
+    Azure Storage account, Key Vault, and key, and then use all the resources provided
+    to encrypt the Azure Storage account that was just created:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 存储中的加密不仅可以通过 Azure 门户提供，还可以通过使用 Azure PowerShell 实现。以下脚本将创建一个新的 Azure
+    存储帐户、密钥库和密钥，然后使用所有提供的资源来加密刚刚创建的 Azure 存储帐户：
+- en: '[PRE0]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Another thing we need to consider with Azure Storage is **Advanced Threat Protection**
+    (**ATP**). This option is enabled under **Advanced Security** and it takes our
+    security one step further. It uses security intelligence to detect any threat
+    to our data and provides recommendations in order to increase security.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要考虑的 Azure 存储问题是**高级威胁保护**（**ATP**）。此选项在**高级安全性**下启用，它将我们的安全性提升到一个新的水平。它利用安全智能来检测任何对我们数据的威胁，并提供建议以提高安全性。
+- en: 'An example of the **Advanced Threat Protection** blade under the storage account
+    is shown in the following screenshot:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 存储帐户下的**高级威胁保护**刀片示例如下图所示：
+- en: '![Figure 6.5 – Azure Storage ATP'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.5 – Azure 存储 ATP'
+- en: '](img/Fig_6.5.jpg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.5.jpg)'
+- en: Figure 6.5 – Azure Storage ATP
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.5 – Azure 存储 ATP
+- en: ATP compares our security settings to the recommended baseline and provides
+    us with additional security options that can be implemented. The second part is
+    to detect unusual and potentially harmful attempts to access or exploit Azure
+    Storage. ATP is closely connected to Azure Security Center, which will be covered
+    in [*Chapter 7*](B15414_07_Final_JM_ePub.xhtml#_idTextAnchor119), *Azure Security
+    Center*. But the storage account is not the only Azure service related to storage.
+    Almost every Azure service uses some kind of storage. Among these services, we
+    have Azure **Virtual Machines** (**VMs**) disks, so let's see how can we make
+    these more secure.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ATP 将我们的安全设置与推荐的基准进行比较，并为我们提供可以实施的额外安全选项。第二部分是检测异常和潜在有害的访问或利用 Azure 存储的尝试。ATP
+    与 Azure 安全中心紧密相关，Azure 安全中心将在[*第 7 章*](B15414_07_Final_JM_ePub.xhtml#_idTextAnchor119)中讨论，*Azure
+    安全中心*。但存储帐户并不是唯一与存储相关的 Azure 服务，几乎所有 Azure 服务都使用某种形式的存储。在这些服务中，我们有 Azure **虚拟机**（**VM**）磁盘，接下来我们看看如何使这些更加安全。
+- en: Understanding Azure Virtual Machines disks
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 Azure 虚拟机磁盘
+- en: Azure VM is part of Microsoft's **Infrastructure as a Service** (**IaaS**) offering
+    and is another service that a lot of users encounter early in the cloud journey.
+    Azure VM is usually selected when the user requires more control over the environment
+    than other services can offer. But with more control also comes more responsibility.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 虚拟机是微软**基础设施即服务**（**IaaS**）的一部分，是很多用户在云端旅程初期遇到的服务。当用户需要对环境进行更多控制时，通常会选择
+    Azure 虚拟机，而其他服务无法提供如此控制。但更多的控制也意味着更多的责任。
+- en: Besides network management, which was covered in [*Chapter 4*](B15414_04_Final_JM_ePub.xhtml#_idTextAnchor087),
+    *Azure Network Security*, we need to address how we handle data in Azure VM, and
+    by data, we mainly mean disks. Just like all other data, disks for Azure VM are
+    encrypted at rest, and VM uses Azure Service Fabric to securely access content
+    stored on these disks.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了在[*第 4 章*](B15414_04_Final_JM_ePub.xhtml#_idTextAnchor087)中讨论的网络管理，*Azure
+    网络安全*，我们还需要解决如何处理 Azure VM 中的数据，主要是指磁盘。与所有其他数据一样，Azure 虚拟机的磁盘在静态时会进行加密，并且虚拟机使用
+    Azure 服务结构来安全访问这些磁盘上存储的内容。
+- en: But what happens if we decide to download or export a disk used by these machines?
+    Once a disk leaves Azure, it is in an unencrypted state and can be used in any
+    way. This opens certain vulnerabilities that need to be addressed. What if someone
+    gains access to Azure (but does not have access to a VM) and downloads a disk?
+    What if someone decides to back up all disks, but to an unsecure location? These
+    are only a couple of the scenarios that can create serious problems with unauthorized
+    and malicious access to Azure VM disks.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但如果我们决定下载或导出这些机器使用的磁盘会发生什么呢？一旦磁盘离开 Azure，它将处于未加密状态，并且可以被任何方式使用。这就暴露了某些需要解决的安全漏洞。如果有人获得
+    Azure 访问权限（但没有虚拟机的访问权限）并下载磁盘会怎么样？如果有人决定将所有磁盘备份到不安全的地方呢？这些只是可能导致未经授权和恶意访问 Azure
+    虚拟机磁盘的一些情景。
+- en: Fortunately, we have the option to use Azure Key Vault and enable the further
+    encryption of disks. Disks encrypted in this way will stay encrypted even after
+    they are exported, downloaded, or leave an Azure data center in any way.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，我们可以选择使用 Azure 密钥库并启用进一步的磁盘加密。以这种方式加密的磁盘即使在导出、下载或以任何方式离开 Azure 数据中心后，依然保持加密状态。
+- en: 'If we go to Azure VM and take a look at our disks, we can see that, by default,
+    disk encryption is not enabled. An example is shown in the following screenshot:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们进入 Azure 虚拟机并查看我们的磁盘，我们可以看到，默认情况下，磁盘加密没有启用。下面的截图展示了一个示例：
+- en: '![Figure 6.6 – Azure VM disk options to encrypt disks'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.6 – Azure 虚拟机磁盘加密选项'
+- en: '](img/Fig_6.6.jpg)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.6.jpg)'
+- en: Figure 6.6 – Azure VM disk options to encrypt disks
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.6 – Azure 虚拟机磁盘加密选项
+- en: We need to use Azure Key Vault and we need the key to be stored in the key vault.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要使用 Azure 密钥库，并且需要将密钥存储在密钥库中。
+- en: 'We can use Azure PowerShell to enable disk encryption for Azure VM disks. A
+    sample script is provided here:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用 Azure PowerShell 启用 Azure 虚拟机磁盘的加密。这里提供了一个示例脚本：
+- en: '[PRE1]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'This script creates a new Azure VM, a new key vault, and a new key. The created
+    resources are then used to enable disk encryption for the just-created Azure VM.
+    Finally, we can check the status of the disk and verify whether it was successfully
+    encrypted. We can verify that the disk is encrypted in the Azure portal, as shown
+    in the following screenshot:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该脚本创建了一个新的 Azure 虚拟机（VM）、一个新的密钥库以及一个新的密钥。创建的资源随后用于为刚创建的 Azure 虚拟机启用磁盘加密。最后，我们可以检查磁盘的状态，并验证它是否已成功加密。我们可以在
+    Azure 门户中验证磁盘是否已加密，如下图所示：
+- en: '![](img/Fig_6.7.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Fig_6.7.jpg)'
+- en: Figure 6.7– Azure VM portal
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.7– Azure 虚拟机门户
+- en: 'The Azure VM disk is not encrypted: it can be accessed, used to create a new
+    VM (Azure or a local Hyper-V), or attached to an existing VM. Encrypting the disk
+    will prevent such access, unless the user has access to the key vault that was
+    used during the encryption process.'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 虚拟机的磁盘未加密：可以访问该磁盘，用于创建新的虚拟机（无论是 Azure 还是本地 Hyper-V），或者将其附加到现有的虚拟机。加密磁盘将阻止这种访问，除非用户可以访问在加密过程中使用的密钥库。
+- en: Working on Azure SQL Database
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Azure SQL 数据库上工作
+- en: Azure SQL Database is Microsoft's relational database cloud offering, which
+    falls under the platform as a service model, often referred to as **Database as
+    a Service** (**DBaaS**). It's highly available and provides a high-performance
+    data storage layer. Because of that, it's often the choice when it comes to selecting
+    a database in the cloud.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库是微软的关系数据库云服务，属于平台即服务（PaaS）模型，通常被称为**数据库即服务**（**DBaaS**）。它具有高可用性并提供高性能的数据存储层。正因为如此，它通常是选择云数据库时的首选。
+- en: 'There is a whole section of security-related features in Azure SQL Database''s
+    settings. There are four different options:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库的设置中有一整节与安全性相关的功能。有四个不同的选项：
+- en: '**ADVANCED DATA SECURITY**'
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**高级数据安全性**'
+- en: '**AUDITING**'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**审计**'
+- en: '**DYNAMIC DATA MASKING**'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**动态数据掩码**'
+- en: '**TRANSPARENT DATA ENCRYPTION**'
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**透明数据加密**'
+- en: 'If we enable **ADVANCED DATA SECURITY**, we get a few advantages:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们启用**高级数据安全性**，我们将获得一些优势：
+- en: '**VULNERABILITY ASSESSMENT SETTINGS**'
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**漏洞评估设置**'
+- en: '**ADVANCED THREAT PROTECTION SETTINGS**'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**高级威胁防护设置**'
+- en: '**DATA DISCOVERY & CLASSIFICATION**'
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据发现与分类**'
+- en: 'The options to enable **ADVANCED DATA SECURITY** are shown in the following
+    screenshot:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 启用**高级数据安全性**的选项显示在以下截图中：
+- en: '![Figure 6.8 – Azure SQL Database advanced data security'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.8 – Azure SQL 数据库高级数据安全性'
+- en: '](img/Fig_6.8.jpg)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.8.jpg)'
+- en: Figure 6.8 – Azure SQL Database advanced data security
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.8 – Azure SQL 数据库高级数据安全性
+- en: 'Each of these options has additional configurations, which we need to set before
+    using **ADVANCED DATA SECURITY**:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些选项中的每一个都有额外的配置，我们需要在使用**高级数据安全性**之前进行设置：
+- en: '**VULNERABILITY ASSESSMENT SETTINGS** requires Azure Storage, which is where
+    data will be kept and will provide security recommendations based on the current
+    status. The assessment will be performed manually, and we can select whether the
+    report will be sent to specific users or to all admins and subscription owners.
+    The assessment report has the following format:![Figure 6.9 – Azure SQL Database
+    assessment results'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**漏洞评估设置**需要 Azure 存储，数据将保存在此处，并根据当前状态提供安全建议。评估将手动执行，我们可以选择报告是否发送给特定用户，或者发送给所有管理员和订阅所有者。评估报告的格式如下：![图
+    6.9 – Azure SQL 数据库评估结果'
+- en: '](img/Fig_6.9.jpg)'
+  id: totrans-83
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.9.jpg)'
+- en: Figure 6.9 – Azure SQL Database assessment results
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.9 – Azure SQL 数据库评估结果
+- en: 'The vulnerability assessment compares our current settings to the baseline
+    and provides a list of checks that are not satisfied. It also provides a classification
+    of checks based on risk level: **High risk**, **Medium risk**, and **Low risk**.'
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 漏洞评估将我们当前的设置与基准进行比较，并提供未满足的检查项列表。它还根据风险级别对检查项进行分类：**高风险**、**中风险**和**低风险**。
+- en: '**ADVANCED THREAT PROTECTION SETTINGS** is very similar to this option in Azure
+    Storage: it detects anything unusual and potentially harmful. We have a couple
+    of additional settings compared to Azure Storage: we can select what types of
+    threats we want to detect and define who gets notifications if a threat is detected.'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**高级威胁防护设置**与 Azure 存储中的此选项非常相似：它能够检测任何异常和潜在的有害因素。与 Azure 存储相比，我们有一些额外的设置：我们可以选择要检测的威胁类型，并定义在检测到威胁时通知的对象。'
+- en: 'A list of threats we can monitor is shown in the following diagram:'
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 我们可以监控的威胁列表如下图所示：
+- en: '![Figure 6.10 – Azure SQL Database advanced threat protection settings'
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '![图 6.10 – Azure SQL 数据库高级威胁防护设置'
+- en: '](img/Fig_6.10.jpg)'
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.10.jpg)'
+- en: Figure 6.10 – Azure SQL Database advanced threat protection settings
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.10 – Azure SQL 数据库高级威胁防护设置
+- en: Similar to **VULNERABILITY ASSESSMENT SETTINGS**, notifications about threats
+    can be sent to specific users or all admins and subscription owners.
+  id: totrans-91
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 类似于**漏洞评估设置**，关于威胁的通知可以发送给特定用户或所有管理员和订阅所有者。
+- en: The final option under **ADVANCED DATA SECURITY** is **DATA DISCOVERY & CLASSIFICATION**.
+    This option carries out data assessment and provides a classification for any
+    data that should be confidential. Assessments are carried out based on various
+    compliance and security requirements, and data is classified as confidential based
+    on one or more criteria. For example, we may have some user information that should
+    be classified based on the **General Data Protection Regulation** **(GDPR)**.
+    But among user information, we may have social security or credit card numbers
+    that are classified by many other compliance requirements. **DATA DISCOVERY &
+    CLASSIFICATION** only provides information about classified data types, but it's
+    up to the user to decide what to proceed with and how to do so.
+  id: totrans-92
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**高级数据安全性**下的最终选项是**数据发现与分类**。此选项进行数据评估，并对任何应该保密的数据提供分类。评估是根据各种合规性和安全要求进行的，数据根据一个或多个标准被分类为保密。例如，我们可能有一些用户信息，需要根据**通用数据保护条例**（**GDPR**）进行分类。但在用户信息中，我们可能有社会安全号码或信用卡号码，这些信息根据许多其他合规性要求进行分类。**数据发现与分类**仅提供有关分类数据类型的信息，但由用户决定如何处理以及如何进行。'
+- en: This brings us to the next security setting under Azure SQL Database – **Dynamic
+    Data Masking**. In the past, we could provide the user with access to different
+    layers, such as database, schema, table, or row. However, we could not provide
+    access based on the column. **Dynamic Data Masking** changes this and enables
+    us to provide user access to a table but mask certain columns that the user should
+    not be able to access.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这引出了 Azure SQL 数据库中的下一个安全设置——**动态数据屏蔽**。过去，我们可以根据不同的层级，如数据库、模式、表或行，提供用户访问权限。但我们无法根据列提供访问权限。**动态数据屏蔽**改变了这一点，使我们可以为用户提供对表的访问权限，同时屏蔽用户不应访问的某些列。
+- en: 'For example, let''s say that we want to provide access to a customer table,
+    but the user should not be able to access the customer''s email address. We can
+    create masking on the email column, and the user will be able to see all the information
+    except the masked column, which will be displayed as masked (there are default
+    masks for common data types, but custom masks can be created). For masked columns,
+    we can exclude certain users. All administrators are excluded by default and cannot
+    be excluded. An example of **Dynamic Data Masking** is shown in the following
+    screenshot:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，假设我们希望提供对客户表的访问权限，但用户不应能够访问客户的电子邮件地址。我们可以在电子邮件列上创建数据掩码，用户将能够看到所有信息，除了被掩码的列，该列将显示为掩码（对于常见数据类型有默认的掩码，但也可以创建自定义掩码）。对于被掩码的列，我们可以排除某些用户。所有管理员默认被排除，并且无法排除。下面的截图展示了**动态数据掩码**的一个示例：
+- en: '![Figure 6.11 – Dynamic Data Masking'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.11 – 动态数据掩码'
+- en: '](img/Fig_6.11.jpg)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.11.jpg)'
+- en: Figure 6.11 – Dynamic Data Masking
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.11 – 动态数据掩码
+- en: '**Dynamic Data Masking** is connected to **DATA DISCOVERY & CLASSIFICATION**.
+    The user will receive data masking recommendations based on information provided
+    by **DATA DISCOVERY & CLASSIFICATION**.'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**动态数据掩码**与**数据发现与分类**相连接。用户将根据**数据发现与分类**提供的信息获得数据掩码建议。'
+- en: 'The **Auditing** option enables us to define where various logs will be stored.
+    There are three different options available:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**审计**选项使我们能够定义各种日志的存储位置。有三个不同的选项可用：'
+- en: '**Storage**'
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**存储**'
+- en: '**Log Analytics**'
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**日志分析**'
+- en: '**Event Hubs**'
+  id: totrans-102
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**事件中心**'
+- en: As many regulatory and security compliance standards require access and event
+    logs to be stored, this option enables us to not only keep logs for auditing purposes
+    but also to help us to understand and trace events whenever needed. Auditing can
+    be enabled for a single database or on a server level. In the case that server
+    auditing is enabled, logs will be kept for all databases located on that server.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于许多法规和安全合规标准要求存储访问和事件日志，这个选项使我们不仅能够保留审计日志，还能在需要时帮助我们理解和追踪事件。审计可以针对单个数据库或服务器级别启用。如果启用了服务器级审计，日志将会为该服务器上的所有数据库保留。
+- en: The last security setting under Azure SQL Database is **Transparent Database
+    Encryption** (**TDE**). TDE is a method of encrypting data at rest and performs
+    real-time encryption and decryption of data and log files at the page level. It
+    uses a **Database Encryption Key** (**DEK**) to encrypt data, associated backups,
+    and transactional logs.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库的最后一个安全设置是**透明数据库加密**（**TDE**）。TDE 是一种对静态数据进行加密的方法，它在页面级别对数据和日志文件进行实时加密和解密。它使用**数据库加密密钥**（**DEK**）对数据、相关备份和事务日志进行加密。
+- en: 'For older databases, this setting is not enabled, the TDE status is **OFF**,
+    and **Encryption** **status** is **Unencrypted**. An example of this is shown
+    in the following screesnhot:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于较旧的数据库，此设置未启用，TDE 状态为**关闭**，**加密** **状态**为**未加密**。下面的截图展示了一个示例：
+- en: '![Figure 6.12 – Azure SQL Database TDE settings'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.12 – Azure SQL 数据库 TDE 设置'
+- en: '](img/Fig_6.12.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.12.jpg)'
+- en: Figure 6.12 – Azure SQL Database TDE settings
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.12 – Azure SQL 数据库 TDE 设置
+- en: 'For newer databases, TDE is already on and the encryption status is encrypted,
+    as shown in the following screenshot:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于较新的数据库，TDE 已经启用，且加密状态为加密，如下图所示：
+- en: '![Figure 6.13 – Azure SQL Database encrypted with TDE'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.13 – 使用 TDE 加密的 Azure SQL 数据库'
+- en: '](img/Fig_6.13.jpg)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.13.jpg)'
+- en: Figure 6.13 – Azure SQL Database encrypted with TDE
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.13 – 使用 TDE 加密的 Azure SQL 数据库
+- en: 'We will get the same effect by switching TDE on for older databases. However,
+    this method uses Microsoft-provided keys for encryption. If we need to follow
+    regulatory and security compliance standards and manage keys ourselves, we must
+    turn to Azure **Key Vault** once again. To enable TDE with our own key from Azure
+    **Key Vault**, we must enable this setting at the server level. Under TDE settings,
+    under **Server**, we can turn **Use your own key** on, as in the following screenshot:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以通过为较旧的数据库开启 TDE 达到相同的效果。然而，这种方法使用 Microsoft 提供的密钥进行加密。如果我们需要遵循法规和安全合规标准，并且自行管理密钥，我们必须再次转向
+    Azure **密钥保管库**。要使用来自 Azure **密钥保管库**的自定义密钥启用 TDE，我们必须在服务器级别启用此设置。在 TDE 设置下，**服务器**下，我们可以开启**使用您自己的密钥**，如以下截图所示：
+- en: '![Figure 6.14 – Using a custom key for TDE'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.14 – 使用自定义密钥进行 TDE'
+- en: '](img/Fig_6.14.jpg)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_6.14.jpg)'
+- en: Figure 6.14 – Using a custom key for TDE
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.14 – 使用自定义密钥进行 TDE
+- en: Once we turn this option on, we need to provide the key vault and key that will
+    be used. Optionally, we can set the selected key to be the default TDE protector.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦启用此选项，我们需要提供将使用的密钥保管库和密钥。可选地，我们可以将所选密钥设置为默认的 TDE 保护器。
+- en: Enabling the option to use the key from the key vault for TDE will not enable
+    TDE on every database located on the selected server. TDE must be enabled for
+    each database separately. If this option is not set on the server, enabling TDE
+    on the database will use Microsoft-managed keys. If the option is enabled on the
+    server level, enabling TDE on the database will use the key from the key vault
+    that is defined.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 启用使用来自密钥保管库的密钥来进行 TDE 不会在选定服务器上的每个数据库上启用 TDE。必须为每个数据库单独启用 TDE。如果服务器上未设置此选项，则启用数据库上的
+    TDE 将使用微软管理的密钥。如果在服务器级别启用此选项，则在数据库上启用 TDE 时，将使用已定义的来自密钥保管库的密钥。
+- en: 'Encryption can be set using Azure PowerShell, as in the following sample script:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用 Azure PowerShell 设置加密，如以下示例脚本所示：
+- en: 'We need to define parameters for execution. These will be used across the entire
+    script, basically in each and every command we execute:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们需要定义执行的参数。这些参数将在整个脚本中使用，基本上在每一条执行的命令中都会用到：
+- en: '[PRE2]'
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Next we need to log in to our Azure subscription:'
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来我们需要登录到我们的 Azure 订阅：
+- en: '[PRE3]'
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: We will create Resource group, Azure SQL Server and Azure SQL database.
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将创建资源组、Azure SQL 服务器和 Azure SQL 数据库。
+- en: '[PRE4]'
+  id: totrans-125
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Next, we need to create the Azure Key vault, which will be used in the data
+    encryption process:'
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要创建 Azure 密钥保管库，该密钥保管库将在数据加密过程中使用：
+- en: '[PRE5]'
+  id: totrans-127
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'We now need to set the key vault access policy to enable encryption and add
+    a key that will be used to encrypt the data:'
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们需要设置密钥保管库访问策略，以启用加密并添加将用于加密数据的密钥：
+- en: '[PRE6]'
+  id: totrans-129
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Finally, we assign a key to Azure SQL Server, enable TDE using custom key from
+    Key Vault, and encrypt the database using that key:'
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们将向 Azure SQL 服务器分配一个密钥，使用来自密钥保管库的自定义密钥启用 TDE，并使用该密钥加密数据库：
+- en: '[PRE7]'
+  id: totrans-131
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: If the database has TDE enabled, with Microsoft-managed keys, enabling our own
+    key from the key vault on a server level will not automatically transfer the encryption
+    from the managed key to our own key. We must perform decryption and enable encryption
+    again to use the key from the key vault.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果数据库启用了 TDE，且使用的是 Microsoft 管理的密钥，那么在服务器级别启用我们自己的密钥时，系统不会自动将加密从 Microsoft 管理的密钥转移到我们自己的密钥。我们必须执行解密操作，并重新启用加密，以便使用来自密钥保管库的密钥。
+- en: Summary
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: With all this work on the network and identity levels, we still need to do more
+    and encrypt our data in the cloud. But is that enough? Often it is not, and then
+    we find ourselves needing to do even more. Threats are becoming more and more
+    sophisticated, and we need to find ways of increasing our security. In this chapter,
+    we briefly mentioned Azure Security Center. It may be the one thing that can give
+    us an advantage in creating a secure cloud environment and stopping threats and
+    attacks before they even happen.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在完成网络和身份验证层的所有工作后，我们仍然需要做更多的工作并加密我们的云数据。但这就足够了吗？通常来说，这还不够，随后我们会发现自己需要做更多的事情。威胁变得越来越复杂，我们需要找到提升安全性的方式。在本章中，我们简要提到了
+    Azure 安全中心。它可能是能帮助我们创建安全云环境并在威胁和攻击发生之前将其阻止的唯一工具。
+- en: In the next chapter, we will discuss how Azure Security Center uses security
+    intelligence to be a central security safeguard in Azure.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将讨论 Azure 安全中心如何利用安全智能成为 Azure 中的中央安全防护。
+- en: Questions
+  id: totrans-136
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What will the **Secure transfer required** option do?
+  id: totrans-137
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**Secure transfer required** 选项会做什么？'
+- en: A. Enforce data encryption
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 强制数据加密
+- en: B. Enforce HTTPS
+  id: totrans-139
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 强制 HTTPS
+- en: C. Enforce FTPS
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 强制 FTPS
+- en: To protect data from accidental deletion, what needs to be enabled?
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了保护数据免于意外删除，需要启用什么？
+- en: A. Data protection
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 数据保护
+- en: B. Recycle Bin
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 回收站
+- en: C. Blob soft delete
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. Blob 软删除
+- en: Is data in Azure Storage encrypted by default?
+  id: totrans-145
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure 存储中的数据是否默认加密？
+- en: A. Yes
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 是
+- en: B. No
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 否
+- en: Are Azure **Virtual Machine** (**VM**) disks encrypted by default?
+  id: totrans-148
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure **虚拟机**（**VM**）磁盘是否默认加密？
+- en: A. Yes
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 是
+- en: B. No
+  id: totrans-150
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 否
+- en: Is Azure SQL Database encrypted by default?
+  id: totrans-151
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库是否默认启用加密？
+- en: A. Yes
+  id: totrans-152
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 是
+- en: B. No
+  id: totrans-153
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 否
+- en: Data in Azure can be encrypted with…
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure 中的数据可以通过以下方式加密……
+- en: A. Microsoft-provided keys
+  id: totrans-155
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 微软提供的密钥
+- en: B. User-provided keys
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 用户提供的密钥
+- en: C. Both of the above
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 以上两者
+- en: Data in Azure SQL Database can be restricted using…
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库中的数据可以通过以下方式进行限制……
+- en: A. Data Classification
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 数据分类
+- en: B. Dynamic Data Masking
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 动态数据屏蔽
+- en: C. Transparent Database Encryption (TDE)
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 透明数据库加密（TDE）

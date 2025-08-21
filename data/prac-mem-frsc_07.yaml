@@ -1,0 +1,2933 @@
+- en: 'Chapter 5: Malware Detection and Analysis with Windows Memory Forensics'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第五章：使用 Windows 内存取证进行恶意软件检测与分析
+- en: The forensic analysis of memory dumps is not limited to analyzing the actions
+    of the user, especially when it comes to a victim's computer. In this scenario,
+    often, specialists need to conduct analyses to find traces of malicious activity.
+    These might be rogue processes, network connections, code injections, or anything
+    else related to the actions of malware or attacker tools. Since modern malware
+    tends to leave as few traces as possible on disk and threat actors try to remain
+    stealthy using PowerShell and batch scripts, memory analysis is becoming a critical
+    element of forensic investigation.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存转储的取证分析并不仅限于分析用户的行为，尤其是在处理受害者计算机时。在这种情况下，专家通常需要进行分析，以寻找恶意活动的痕迹。这些痕迹可能是恶意进程、网络连接、代码注入，或者任何与恶意软件或攻击者工具行为相关的内容。由于现代恶意软件倾向于尽可能少地在磁盘上留下痕迹，而威胁行为者会使用
+    PowerShell 和批处理脚本保持隐蔽，内存分析正成为取证调查中的一个关键元素。
+- en: In this chapter, we will explain how to search for traces of malicious activity
+    within network connections and active processes along with the Windows Registry,
+    event logs, and filesystem artifacts in memory.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将解释如何在网络连接和活动进程中搜索恶意活动的痕迹，同时还会分析 Windows 注册表、事件日志和文件系统伪迹。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Searching for malicious processes
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 搜索恶意进程
+- en: Analyzing command-line arguments
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析命令行参数
+- en: Examining network connections
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检查网络连接
+- en: Detecting injections in process memory
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检测进程内存中的注入
+- en: Looking for evidence of persistence
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 寻找持久化证据
+- en: Creating timelines
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建时间线
+- en: Searching for malicious processes
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 搜索恶意进程
+- en: We have already learned how to analyze the processes that are active at the
+    time of dumping to identify user activity. Similar techniques can be used when
+    searching for traces left behind by attackers; however, here, our focus will shift
+    to detect specific markers that help identify malicious activity. User programs,
+    such as browsers or MS Office components, will be less a source of information
+    about the user and their recent activities than a potential source of traces of
+    initial access, and processes related to cloud storage will be considered under
+    the lens of a possible data exfiltration technique. The main goal of our investigation
+    is to look for markers of potentially malicious activity and different kinds of
+    anomalies – processes with strange names or unusual arguments, their atypical
+    behavior, and more. However, first things first, let's start with the simplest
+    one – the names of the processes.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经学会了如何分析在转储时活跃的进程，以识别用户活动。类似的技术也可以用于搜索攻击者留下的痕迹；然而，在这里，我们的重点将转向检测一些特定标志，帮助识别恶意活动。用户程序，如浏览器或
+    MS Office 组件，不会像云存储相关进程那样，成为关于用户及其近期活动的信息来源，而更可能成为初始访问痕迹的潜在来源。与此相关的进程，将被视为可能的数据外泄技术。我们调查的主要目标是寻找潜在恶意活动的标志和各种异常——如奇怪的进程名称或不寻常的参数、它们的非典型行为等。然而，先从最简单的开始——进程名称。
+- en: Process names
+  id: totrans-12
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程名称
+- en: In the previous chapter, we discussed how to get a list of active processes
+    and a plugin called `pslist`. So, we will not repeat this; we will just discuss
+    the main points that you need to pay attention to.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们讨论了如何获取活跃进程列表以及一个名为 `pslist` 的插件。所以我们不会重复这一部分；我们只会讨论你需要注意的要点。
+- en: 'First of all, you need to learn about system processes. Windows has a lot of
+    such processes that are responsible for running individual services and the system
+    itself. Often, such processes become a target for malware, which will try to find
+    a way to masquerade as a system process or, in the worst-case scenario, take advantage
+    of a legitimate process. But we will cover that in more detail later. Let''s take
+    a look at the following example:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，你需要了解系统进程。Windows 有许多这样的进程，负责运行个别服务和系统本身。这些进程常常成为恶意软件的目标，恶意软件会试图伪装成系统进程，或者在最坏的情况下，利用一个合法进程。但我们会在后面详细讨论这一点。让我们看看下面的示例：
+- en: '![Figure 5.1 – The Volatility pslist plugin'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.1 – Volatility pslist 插件'
+- en: '](img/Figure_5.1_B17056.jpg)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.1_B17056.jpg)'
+- en: Figure 5.1 – The Volatility pslist plugin
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – Volatility pslist 插件
+- en: '*Figure 5.1* shows the list of processes collected by the `pslist` plugin.
+    We have intentionally added a regular expression that selects those process names
+    that contain host with `host`. Notice the `svchost` processes. These are the standard
+    processes for services loaded from dynamic libraries. Now, take a look at the
+    name of the process with `ID 1664`. Can you see the difference? This dump was
+    taken from a host infected with `IcedID`, which is a very common piece of commodity
+    malware, distributed via phishing emails and tied to notorious ransomware operators
+    such as REvil, Conti, and Egregor. During execution, this malware drops an executable
+    file, named `svhost.exe`, into a temporary directory and runs it as a child process.'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*图 5.1*显示了通过`pslist`插件收集的进程列表。我们故意添加了一个正则表达式，用于选择那些包含`host`的进程名称。请注意`svchost`进程。这些是从动态库加载的服务的标准进程。现在，看看`ID
+    1664`的进程名称。你能看到不同之处吗？这个转储来自一个被`IcedID`感染的主机，`IcedID`是一种非常常见的恶意软件，通过钓鱼邮件传播，并与恶名昭著的勒索病毒运营者如REvil、Conti和Egregor有关联。在执行过程中，这种恶意软件会将一个名为`svhost.exe`的可执行文件丢入临时目录并将其作为子进程运行。'
+- en: To find such *masqueraded* processes quickly, it is necessary to not only know
+    the names of key system processes and their specifics but also take the context
+    into account, as system processes can differ in various versions of Windows. Such
+    differences are often insignificant, but knowing them will allow you to navigate
+    through the process list and analyze them more efficiently.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了快速找到这种*伪装*的进程，不仅需要了解关键系统进程的名称及其特点，还需要考虑上下文，因为不同版本的Windows系统中的进程可能有所不同。这些差异通常是微不足道的，但了解这些差异将帮助你更有效地浏览进程列表并进行分析。
+- en: 'While some malicious programs hide behind the mask of legitimate processes,
+    others operate quite openly. This is the case with dual-use tools and some programs
+    used by attackers. Let''s take a look at the list of processes, as shown in *Figure
+    5.2*:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然一些恶意程序隐藏在合法进程的伪装后面，但另一些则非常公开地运行。这就是双重用途工具和一些攻击者使用的程序的情况。让我们看一下进程列表，如*图 5.2*所示：
+- en: '![Figure 5.2 – The list of running processes'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.2 – 正在运行的进程列表](img/Figure_5.2_B17056.jpg)'
+- en: '](img/Figure_5.2_B17056.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.2_B17056.jpg)'
+- en: Figure 5.2 – The list of running processes
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2 – 正在运行的进程列表
+- en: 'Here, we can see a large number of seemingly legitimate processes: `whoami.exe`,
+    `ipconfig.exe`, `netstat.exe`, and more. These utilities can be used by system
+    administrators or advanced users to check the settings and configure the network.
+    However, these same tools can also be used by attackers to gather information
+    about the system, as was done in our scenario.'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到大量看似合法的进程：`whoami.exe`、`ipconfig.exe`、`netstat.exe`等。这些工具可以被系统管理员或高级用户用来检查设置和配置网络。然而，这些相同的工具也可以被攻击者用来收集关于系统的信息，正如我们在场景中所做的那样。
+- en: Processes such as `cmd.exe`, `powershell.exe`, `wscript.exe`, `cscript.exe`,
+    and `rundll32.exe` require special attention, as they are frequently used by attackers
+    and modern malware as part of the techniques for execution, persistence, defense
+    evasion, discovery, collection, and other tactics. It is not only the appearance
+    of these processes in the list but also the related parent processes that are
+    important here. An atypical combination of parent and child processes is one of
+    the markers of potentially malicious behavior.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像`cmd.exe`、`powershell.exe`、`wscript.exe`、`cscript.exe`和`rundll32.exe`这样的进程需要特别注意，因为它们经常被攻击者和现代恶意软件用作执行、持久化、防御规避、发现、收集等战术的一部分。在进程列表中出现这些进程不仅仅是重要的，相关的父进程同样也至关重要。父子进程的不典型组合是潜在恶意行为的标志之一。
+- en: Detecting abnormal behavior
+  id: totrans-26
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检测异常行为
+- en: Abnormal behavior can result in many things. For some processes, it will be
+    atypical to make network connections, and for others, it will be atypical to spawn
+    new processes or access certain filesystem objects.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 异常行为可能表现为许多不同的形式。对于某些进程，建立网络连接是非常不典型的，而对于其他进程，生成新进程或访问某些文件系统对象则是不典型的。
+- en: 'Let''s consider the following example:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑以下示例：
+- en: '![Figure 5.3 – The process tree'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.3 – 进程树](img/Figure_5.3_B17056.jpg)'
+- en: '](img/Figure_5.3_B17056.jpg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.3_B17056.jpg)'
+- en: Figure 5.3 – The process tree
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 进程树
+- en: 'Here, the `WINWORD.EXE` process spawns a child process, `rundll32.exe`, which
+    is completely atypical. This behavior could be the result of macros embedded inside
+    a document that has been opened by a user. Often, MS Office documents become attachments
+    in phishing emails, which, for years, has been one of the most used techniques
+    for initial access. Trickbot, Qakbot, Dridex, and IcedID are all spread in this
+    way. For example, during Trickbot, IcedID, and Qakbot phishing campaigns, users
+    receive a phishing email with a document that includes the following content as
+    an attachment:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，`WINWORD.EXE` 进程生成了一个子进程 `rundll32.exe`，这在正常情况下是非常不典型的行为。这种行为可能是由嵌入在用户打开的文档中的宏所引起的。通常，MS
+    Office 文档会成为网络钓鱼电子邮件的附件，长期以来，这一直是用于初始访问的最常用技术之一。Trickbot、Qakbot、Dridex 和 IcedID
+    都是通过这种方式传播的。例如，在 Trickbot、IcedID 和 Qakbot 的网络钓鱼活动中，用户会收到一封网络钓鱼邮件，其中附带了一个包含以下内容的文档：
+- en: '![Figure 5.4 – A decoy document'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.4 – 欺骗性文档'
+- en: '](img/Figure_5.4_B17056.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.4_B17056.jpg)'
+- en: Figure 5.4 – A decoy document
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – 欺骗性文档
+- en: 'You might ask the following: *why do different threat actors use the same decoy?*
+    Well, the thing is that they used the services of another threat actor called
+    Shathak (also known as TA551), which focuses on malware distribution.'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能会问：*为什么不同的威胁行为者使用相同的诱饵？* 其实，他们利用了另一个威胁行为者 Shathak（也称为 TA551）的服务，后者专注于恶意软件分发。
+- en: 'In our case, to test the hypothesis of a malicious document, we need to find
+    out which file was opened in MS Word and try to export it for further analysis.
+    To do this, we can use the `handles`, `filescan`, and `dumpfiles` plugins. Let''s
+    recall the sequence of actions, as follows:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，要验证恶意文档的假设，我们需要找出哪个文件在 MS Word 中被打开，并尝试将其导出以供进一步分析。为此，我们可以使用 `handles`、`filescan`
+    和 `dumpfiles` 插件。我们回顾一下操作的顺序，如下所示：
+- en: Use the `handles` plugin with the `-t` `file` and `--silent` options to get
+    information about the files used by our process and look for a document opened
+    by a user.
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 `handles` 插件并结合 `-t` `file` 和 `--silent` 选项来获取有关我们进程使用的文件的信息，并查找由用户打开的文档。
+- en: Use the `filescan` plugin to search for information about the physical offset
+    where the required document is located.
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 `filescan` 插件来搜索有关包含所需文档的物理偏移量的信息。
+- en: Use the `dumpfiles` plugin with the `-Q` option and the physical offset obtained
+    in the previous step, along with the `-D` option and the path where we want to
+    save the file.
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 `dumpfiles` 插件，并结合 `-Q` 选项以及先前步骤中获得的物理偏移量，再加上 `-D` 选项和我们想要保存文件的路径。
+- en: 'In the previous chapter, we already dumped the `GOT-7_HR (00000007).docm` file
+    from the memory of `WINWORD.EXE`. Let''s discover how to analyze this document
+    for malicious content. To do this, you can use the `https://github.com/decalage2/oletools`).
+    Oletools is a package of Python tools used to analyze Microsoft OLE2 files such
+    as MS Office documents or Outlook messages. The only thing that you need to install
+    these tools is to have Python 3 installed and to run the following command in
+    the PowerShell:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们已经从 `WINWORD.EXE` 的内存中转储了 `GOT-7_HR (00000007).docm` 文件。现在让我们探索如何分析这个文档是否含有恶意内容。为此，你可以使用
+    `https://github.com/decalage2/oletools`）。Oletools 是一个 Python 工具包，用于分析 Microsoft
+    OLE2 文件，如 MS Office 文档或 Outlook 消息。你只需安装 Python 3，并在 PowerShell 中运行以下命令，就可以安装这些工具：
+- en: '[PRE0]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The necessary dependencies will be installed automatically. As a result, you
+    will be able to use any of the `oletools` package tools via PowerShell to analyze
+    suspicious documents. Let''s check the exported document:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 必要的依赖项将自动安装。因此，你将能够通过 PowerShell 使用 `oletools` 包中的任何工具来分析可疑文档。让我们检查导出的文档：
+- en: '![Figure 5.5 – The olevba output'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.5 – olevba 输出'
+- en: '](img/Figure_5.5_B17056.jpg)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.5_B17056.jpg)'
+- en: Figure 5.5 – The olevba output
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – olevba 输出
+- en: 'In the output of this tool, you can also find more detailed information about
+    the macros, arguments, imported libraries, and more:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在该工具的输出中，你还可以找到有关宏、参数、导入的库等更详细的信息：
+- en: '![Figure 5.6 – A detailed macro description'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.6 – 详细的宏描述'
+- en: '](img/Figure_5.6_B17056.jpg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.6_B17056.jpg)'
+- en: Figure 5.6 – A detailed macro description
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – 详细的宏描述
+- en: As you can see in the preceding screenshot, our document has built-in macros
+    with obfuscated strings and the functionality required to inject code into processes.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你在前面的屏幕截图中看到的，我们的文档包含了内嵌的宏，具有混淆字符串和向进程注入代码所需的功能。
+- en: So, what do we have here? Well, the user opened the document in MS Word's unprotected
+    mode, then the embedded script was executed to create the `rundll32.exe` process,
+    which spawned several child processes of the same name.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，我们在这里得到了什么？好吧，用户在 MS Word 的未保护模式下打开了文档，然后嵌入的脚本被执行，创建了`rundll32.exe`进程，该进程产生了多个相同名称的子进程。
+- en: 'Let''s take a look at another example, as shown in *Figure 5.7*:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看另一个例子，如*图5.7*所示：
+- en: '![Figure 5.7 – The process tree'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.7 – 进程树'
+- en: '](img/Figure_5.7_B17056.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.7_B17056.jpg)'
+- en: Figure 5.7 – The process tree
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.7 – 进程树
+- en: Do you recall the `svhost.exe` process masquerading as the legitimate `svchost.exe`?
+    Let's consider its parent process – `nwe.exe` with `PID 1744`. Even if we hadn't
+    noticed the absence of *c* in svhost's name during the initial analysis, the parent
+    process would have revealed its secret to us. Because the `svchost` processes
+    are system processes, they have their own predefined parent process called `services.exe`.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你是否记得`svhost.exe`进程伪装成合法的`svchost.exe`？让我们考虑它的父进程——`nwe.exe`，其`PID 1744`。即使我们在最初的分析中没有注意到
+    svhost 名称中缺少 *c*，父进程仍然会揭示它的秘密。因为`svchost`进程是系统进程，它们有一个预定义的父进程——`services.exe`。
+- en: Note
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: In addition to certain parents, all system processes have a fixed number of
+    instances, predefined user, start time, and location of the executable file on
+    disk. Any deviations from the defined parameters will be suspicious and will require
+    additional checking.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了某些父进程外，所有系统进程都有固定的实例数量、预定义的用户、启动时间和磁盘上可执行文件的位置。任何偏离定义参数的情况都会引起怀疑，并需要额外检查。
+- en: Going back to our `nwe.exe` process, note that aside from the evil `svhost.exe`,
+    it also creates several `cmd.exe` processes. Embedded tools such as `cmd.exe`,
+    `powershell.exe`, and more are commonly used by attackers to conduct fileless
+    attacks. In doing so, threat actors use approved applications to execute malicious
+    commands and scripts. Unlike traditional methods, this approach does not require
+    any code to be installed on the target's system and makes detection more challenging.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回到我们的`nwe.exe`进程，注意到除了恶意的`svhost.exe`，它还创建了几个`cmd.exe`进程。像`cmd.exe`、`powershell.exe`等嵌入式工具常被攻击者用来进行无文件攻击。通过这种方式，攻击者利用经过批准的应用程序执行恶意命令和脚本。与传统方法不同，这种方式不需要在目标系统上安装任何代码，从而使检测变得更加困难。
+- en: Let's consider the fileless ransomware example. In the first stage, a phishing
+    email is sent to the user with a document containing a malicious macro, as previously
+    discussed. Running the macro launches a command line that executes a PowerShell
+    script. The script downloads encryption keys and extra modules – the execution
+    of which results in data encryption and a ransom note demonstration.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑无文件勒索软件的例子。在第一阶段，向用户发送一封钓鱼邮件，其中包含一个恶意宏，如前面所讨论的那样。运行宏会启动一个命令行，执行 PowerShell
+    脚本。该脚本下载加密密钥和额外模块——其执行结果是数据加密和赎金通知展示。
+- en: Such attack scenarios are already becoming a classic. That is why we need to
+    find out what arguments were used to start these processes and what was executed.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样的攻击场景已经变得越来越经典。这就是为什么我们需要找出启动这些进程时使用了哪些参数，以及执行了什么。
+- en: Analyzing command-line arguments
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析命令行参数
+- en: 'Analyzing command-line arguments is very important because it allows you to
+    check the location from which the executable was run and the arguments passed
+    to it. These arguments can include IP addresses or hostnames of other compromised
+    hosts, stolen credentials, malicious filenames, and entire scripts, as shown in
+    the following screenshot:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析命令行参数非常重要，因为它允许你检查可执行文件运行的位置以及传递给它的参数。这些参数可能包括其他受感染主机的 IP 地址或主机名、被盗的凭证、恶意文件名和整个脚本，如下图所示：
+- en: '![Figure 5.8 – The command-line arguments used by the Emotet operators'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.8 – Emotet 操作员使用的命令行参数'
+- en: '](img/Figure_5.8_B17056.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.8_B17056.jpg)'
+- en: Figure 5.8 – The command-line arguments used by the Emotet operators
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.8 – Emotet 操作员使用的命令行参数
+- en: Let's explore a few ways to get the data of interest.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们探索几种获取感兴趣数据的方法。
+- en: Command line arguments of the processes
+  id: totrans-69
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程的命令行参数
+- en: 'First of all, we can use the `pstree` plugin that we are already familiar with
+    and add the `-v` option to it. This will allow us to output the process tree together
+    with detailed information about the command line used to start a particular program.
+    This is how the output, as shown in *Figure 5.7*, will change with the addition
+    of the `-v` option:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们可以使用我们已经熟悉的`pstree`插件并添加`-v`选项。这将允许我们输出进程树，同时显示启动特定程序时使用的命令行详细信息。这就是添加`-v`选项后，输出如*图
+    5.7*所示的变化：
+- en: '![Figure 5.9 – The verbose pstree output'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.9 – 详细的 pstree 输出'
+- en: '](img/Figure_5.9_B17056.jpg)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.9_B17056.jpg)'
+- en: Figure 5.9 – The verbose pstree output
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9 – 详细的 pstree 输出
+- en: 'As you can see, we have new lines: `audit`, `cmd`, and `path`. Here, we can
+    find information about the location of the executable and the arguments used to
+    start it. You can get the same information with a separate plugin – `cmdline`.
+    Its output will look like this:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们有了新的行：`audit`、`cmd`和`path`。在这里，我们可以找到关于可执行文件的位置以及启动它时使用的参数的信息。你也可以使用一个独立的插件——`cmdline`，它的输出将如下所示：
+- en: '![Figure 5.10 – The cmdline output'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.10 – cmdline 输出'
+- en: '](img/Figure_5.10_B17056.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.10_B17056.jpg)'
+- en: Figure 5.10 – The cmdline output
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10 – cmdline 输出
+- en: For clarity, `cmdline` was run with the `-p` option and the process IDs, as
+    shown in the preceding example. From the output of both commands, we can see that
+    our `svhost.exe` file was executable from the `C:\Users\lesly\AppData\Local\Temp`
+    directory, which is also not standard for legitimate `svchost` processes. This
+    is another marker, claiming that the process is malicious.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了清晰起见，`cmdline`是使用`-p`选项和进程 ID 运行的，如前面的示例所示。从两个命令的输出中，我们可以看到我们的`svhost.exe`文件是从`C:\Users\lesly\AppData\Local\Temp`目录可执行的，这对于合法的`svchost`进程来说也不标准。这是另一个标志，表明该进程是恶意的。
+- en: 'Let''s take a look at another example that demonstrates the role of arguments:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看另一个例子，展示参数的作用：
+- en: '![Figure 5.11 – The cmdline output for processes chosen by a regular expression'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.11 – 通过正则表达式选择的进程的 cmdline 输出'
+- en: '](img/Figure_5.11_B17056.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.11_B17056.jpg)'
+- en: Figure 5.11 – The cmdline output for processes chosen by a regular expression
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – 通过正则表达式选择的进程的 cmdline 输出
+- en: In this scenario, we can observe the arguments used to run PsExec, which is
+    a tool that is often used in attacks to remotely execute commands and run scripts
+    on hosts. So, what does this tell the investigator? First, it tells us that the
+    attackers are using `PsExec` for execution and lateral movement. Second, it reveals
+    the name of the host they are interacting with. Third, it identifies the user
+    credentials that have been compromised.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们可以观察到运行 PsExec 时使用的参数，PsExec 是一种在攻击中经常用来远程执行命令和在主机上运行脚本的工具。那么，这告诉调查员什么呢？首先，它告诉我们攻击者正在使用`PsExec`进行执行和横向移动。其次，它揭示了他们正在交互的主机的名称。第三，它识别了已被攻破的用户凭据。
+- en: Aside from the information about the arguments used to start a program, it would
+    be nice to know the commands executed by attackers via the command line. Let's
+    discuss this next.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了关于启动程序时使用的参数的信息之外，了解攻击者通过命令行执行的命令也会很有用。我们接下来讨论这个问题。
+- en: Command history
+  id: totrans-85
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 命令历史记录
+- en: 'Naturally, information about the commands executed through the command line
+    is also stored in memory. To get this data, you can use the Volatility `cmdscan`
+    plugin, which allows you to find command history objects in memory. The output
+    of this plugin is shown in *Figure 5.12*:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自然，通过命令行执行的命令信息也会存储在内存中。为了获取这些数据，你可以使用 Volatility `cmdscan` 插件，它可以帮助你在内存中查找命令历史记录对象。该插件的输出如*图
+    5.12*所示：
+- en: '![Figure 5.12 – The cmdscan output'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.12 – cmdscan 输出'
+- en: '](img/Figure_5.12_B17056.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.12_B17056.jpg)'
+- en: Figure 5.12 – The cmdscan output
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.12 – cmdscan 输出
+- en: Note that the capabilities of this plugin are quite limited. For example, it
+    only searches for instances of the default history size. If you wish to, you can
+    use the `-M` option and set any other value; however, if the history size has
+    been changed, finding that value will be problematic.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这个插件的功能是有限的。例如，它只搜索默认历史记录大小的实例。如果你愿意，可以使用`-M`选项并设置其他任何值；然而，如果历史记录大小已被更改，找到该值会存在问题。
+- en: 'An alternative to this plugin is to use `yarascan`, which we discussed in the
+    `cmd` commands, as you can write rules to look for PowerShell and other tools
+    of interest:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个插件的替代方案是使用`yarascan`，我们在`cmd`命令中已经讨论过它，你可以编写规则来查找 PowerShell 和其他感兴趣的工具：
+- en: '![Figure 5.13 – The use of YARA rules for malicious PowerShell detection'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.13 – 使用YARA规则检测恶意PowerShell'
+- en: '](img/Figure_5.13_B17056.jpg)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.13_B17056.jpg)'
+- en: Figure 5.13 – The use of YARA rules for malicious PowerShell detection
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.13 – 使用YARA规则检测恶意PowerShell
+- en: '*Figure 5.13* shows an example of a simple `YARA rule` for searching PowerShell
+    with the typical `-nop`, `-w hidden`, and `-enc` options for malicious scripts.
+    Using the `yarascan` plugin with this rule, you can find not only the malicious
+    scripts themselves but also information about the processes in the context of
+    which they were found.'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*图 5.13*展示了一个简单的`YARA规则`示例，用于搜索带有典型`-nop`、`-w hidden`和`-enc`选项的恶意PowerShell脚本。使用带有此规则的`yarascan`插件，你不仅可以找到恶意脚本本身，还可以获得在其中找到它们的进程的相关信息。'
+- en: 'Being able to understand what was executed on the command line is good, and
+    knowing the result of the execution is even better. The `consoles` plugin allows
+    you to get data regarding the commands executed by different command-line interpreters:
+    `cmd`, `PowerShell`, the Python shell, and the Perl shell. The main advantage
+    of `consoles` is that this plugin also allows you to output information from the
+    input and output buffers, so you can look at the results of the command execution.
+    Running `consoles` is similar to running `cmdline`. Let''s take a look at an example
+    of the output obtained using this plugin:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 能够理解命令行上执行了什么是好的，而知道执行结果更好。`consoles`插件允许你获取不同命令行解释器执行的命令的数据：`cmd`、`PowerShell`、Python
+    shell和Perl shell。`consoles`的主要优势是，它还允许你输出来自输入和输出缓冲区的信息，这样你就可以查看命令执行的结果。运行`consoles`与运行`cmdline`类似。让我们来看一个使用此插件获取的输出示例：
+- en: '![Figure 5.14 – The Volatility consoles plugin'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.14 – Volatility的consoles插件'
+- en: '](img/Figure_5.14_B17056.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.14_B17056.jpg)'
+- en: Figure 5.14 – The Volatility consoles plugin
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.14 – Volatility的consoles插件
+- en: 'In *Figure 5.14*, first, we view information about the `conhost.exe` process
+    and the attached processes, which is accompanied by details about the settings
+    that are being used. The most interesting part is `dump`. Here, we can observe
+    what was actually executed. Note that, at the top, we can see information about
+    the `cmd.exe` process and the `updater.bat` file, and in the dump, we have PowerShell.
+    So, what happened here? Let''s make it a little clearer and add to this the output
+    of the `cmdline` plugin for the `3008` and `3672` processes:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.14*中，首先，我们查看关于`conhost.exe`进程及其附加进程的信息，并伴随着当前使用的设置详情。最有趣的部分是`dump`。在这里，我们可以观察到实际执行的内容。请注意，在顶部，我们可以看到关于`cmd.exe`进程和`updater.bat`文件的信息，而在`dump`中，我们看到的是PowerShell。那么，发生了什么呢？让我们稍微明确一点，并将`3008`和`3672`进程的`cmdline`插件输出添加到这里：
+- en: '![Figure 5.15 – The cmdline output for the chosen processes'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.15 – 所选进程的cmdline输出'
+- en: '](img/Figure_5.15_B17056.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.15_B17056.jpg)'
+- en: Figure 5.15 – The cmdline output for the chosen processes
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – 所选进程的cmdline输出
+- en: In *Figure 5.15*, we can observe that the process with an ID of `3008` was started
+    with `cmd.exe /c`. In our case, this means that the `Updater.bat` file, whose
+    path is specified after the `/c` option, must be run through `cmd`. In the dump
+    from the `consoles` plugin, we saw that PowerShell was running, so we can conclude
+    that PowerShell, with all of its options, in the content of the same `Updater.bat`
+    file, which is executed through `cmd`.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.15*中，我们可以观察到，ID为`3008`的进程是通过`cmd.exe /c`启动的。在我们的案例中，这意味着`Updater.bat`文件（其路径在`/c`选项后面指定）必须通过`cmd`来运行。在`consoles`插件的dump中，我们看到PowerShell正在运行，因此我们可以得出结论，PowerShell及其所有选项是在同一个`Updater.bat`文件的内容中，这个文件是通过`cmd`执行的。
+- en: 'Pay attention to the `-enc` option that PowerShell runs with. This option tells
+    us that it is followed by a Base64-encoded command. This is not uncommon in forensic
+    investigations. You can use the online CyberChef tool (`https://gchq.github.io/CyberChef/`)
+    to decode such code. All you need to do is copy the encoded part from PowerShell
+    and paste it into the **Input** window. Next, select the recipes that you need
+    to apply, and voila, everything is ready:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意PowerShell运行时的`-enc`选项。这个选项告诉我们，后面跟着的是Base64编码的命令。在法医调查中，这并不罕见。你可以使用在线的CyberChef工具（`https://gchq.github.io/CyberChef/`）解码这样的代码。你只需将PowerShell中的编码部分复制并粘贴到**输入**窗口中。接下来，选择需要应用的配方，搞定，一切准备好：
+- en: '![Figure 5.16 – The Base64 code decoded with CyberChef'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.16 – 使用CyberChef解码的Base64代码'
+- en: '](img/Figure_5.16_B17056.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.16_B17056.jpg)'
+- en: Figure 5.16 – The Base64 code decoded with CyberChef
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – 使用CyberChef解码的Base64代码
+- en: Note that one of the functions of this script is to create a `WebClient` object.
+    Such objects are often used to perform network communications.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这个脚本的一个功能是创建一个`WebClient`对象。这类对象通常用于执行网络通信。
+- en: The network can be used by malware to communicate with **Command and Control**
+    (**C2**) servers and download malicious payloads. In addition to this, if the
+    attackers interactively connect to a remote host, network connections are also
+    established. Therefore, analyzing network connections and looking for anomalies
+    within them is another essential part of searching for traces of malicious activity.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络可以被恶意软件用来与**命令与控制**（**C2**）服务器进行通信并下载恶意负载。除此之外，如果攻击者以交互方式连接到远程主机，也会建立网络连接。因此，分析网络连接并寻找其中的异常是搜索恶意活动痕迹的另一个关键部分。
+- en: Examining network connections
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检查网络连接
+- en: 'The Volatility `netscan` plugin is used to analyze network connections. This
+    allows you to collect information about all active and recent connections, as
+    well as open sockets. Let''s consider an example:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility的`netscan`插件用于分析网络连接。它可以帮助你收集有关所有活动和最近连接的信息，以及打开的套接字。让我们看一个例子：
+- en: '![Figure 5.17 – The Volatility netscan output'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.17 – Volatility netscan 输出'
+- en: '](img/Figure_5.17_B17056.jpg)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.17_B17056.jpg)'
+- en: Figure 5.17 – The Volatility netscan output
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.17 – Volatility netscan 输出
+- en: In *Figure 5.17*, we can view the standard `netscan` output. This gives us information
+    about the OSI transport layer protocol and its version, the IP addresses and ports
+    involved, the PID, and the name of the process that initiated the network activity
+    and when it was created. For the TCP protocols, which, in contrast to UDP, create
+    a connection to transfer data, the status is also specified. For example, if a
+    process is listening on a port and waiting for an incoming connection, the state
+    will be `LISTENING`. Additionally, if the connection to the remote host is established,
+    it will be `ESTABLISHED`, and if the connection is already terminated, it will
+    be `CLOSED`. So, what do we do with this information? What do we look for?
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.17*中，我们可以查看标准的`netscan`输出。这为我们提供了有关OSI传输层协议及其版本、涉及的IP地址和端口、PID，以及启动网络活动的进程名称和创建时间等信息。对于TCP协议，它与UDP不同，建立连接来传输数据，还会指定连接状态。例如，如果一个进程在某个端口上监听并等待传入连接，状态将是`LISTENING`。此外，如果连接到远程主机已建立，状态将是`ESTABLISHED`，而如果连接已终止，状态则是`CLOSED`。那么，我们如何处理这些信息？我们该寻找什么呢？
+- en: Process – initiator
+  id: totrans-117
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程 – 启动者
+- en: Let's start with a simple one. As in the case of processes, where we analyze
+    the parent-child relationship to find atypical combinations, we can start with
+    the data about the process that initiated the connection. Evidently, for some
+    processes, it is normal to create network connections. We can refer to such processes
+    as browsers, mail agents, or messengers. Additionally, some programs might establish
+    network connections to check for updates and downloads, which is also normal behavior.
+    Now, let's imagine a situation where a network connection is established by the
+    explorer process. This process is needed to give the user access to files and
+    directories through a graphical user interface or to display the start menu. It
+    is not 100% typical for it to create network connections. Although, of course,
+    there are situations where `explorer.exe` will create network connections; for
+    example, when transmitting Windows telemetry data, as related to changes in the
+    start menu settings. However, bear in mind that these connections will be established
+    using specific IP addresses, so foreign addresses will be a marker of malicious
+    activity. However, we will discuss this in more detail later.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从一个简单的开始。就像在分析进程时，我们通过分析父子关系来寻找不典型的组合一样，我们也可以从启动连接的进程数据开始。显然，对于一些进程来说，创建网络连接是正常的。我们可以将这些进程称为浏览器、邮件代理或即时通讯工具。此外，一些程序可能会建立网络连接以检查更新和下载，这也是正常行为。现在，假设一个由资源管理器进程建立的网络连接。该进程需要通过图形用户界面向用户提供文件和目录的访问，或显示开始菜单。它创建网络连接并不100%典型。当然，`explorer.exe`确实有可能会创建网络连接；例如，在传输Windows遥测数据时，特别是在开始菜单设置发生变化时。然而，请记住，这些连接将使用特定的IP地址建立，因此外部地址将是恶意活动的标志。不过，我们稍后会更详细地讨论这一点。
+- en: 'Aside from atypical initiators, there are some processes that we have to keep
+    an eye on. These include `cmd.exe` and `powershell.exe`. If you have detected
+    connections established by these processes, be sure to check the IP addresses
+    specified in the `Foreign Address` field:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了非典型的发起者外，还有一些进程我们需要特别注意。包括 `cmd.exe` 和 `powershell.exe`。如果你检测到这些进程建立的连接，一定要检查
+    `Foreign Address` 字段中指定的 IP 地址：
+- en: '![Figure 5.18 – The cmd.exe process connecting to a remote IP address'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.18 – cmd.exe 进程连接到远程 IP 地址](img/Figure_5.18_B17056.jpg)'
+- en: '](img/Figure_5.18_B17056.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.18_B17056.jpg)'
+- en: Figure 5.18 – The cmd.exe process connecting to a remote IP address
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.18 – cmd.exe 进程连接到远程 IP 地址
+- en: 'Take a look at the preceding example. Here, the `cmd.exe` process with PID
+    `2860` creates a network connection with an IP address of `216.58.207.206`. Let''s
+    check this address. To do this, you can use various online resources, for example,
+    VirusTotal ([https://www.virustotal.com/gui/home/search](https://www.virustotal.com/gui/home/search)).
+    This resource allows you to search for information on IP addresses, URLs, file
+    hashes, or the files themselves:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看一下前面的示例。在这里，`cmd.exe` 进程（PID `2860`）与 IP 地址 `216.58.207.206` 建立了网络连接。我们来检查一下这个地址。为此，你可以使用各种在线资源，例如
+    VirusTotal（[https://www.virustotal.com/gui/home/search](https://www.virustotal.com/gui/home/search)）。这个资源允许你搜索
+    IP 地址、URL、文件哈希值或文件本身的信息：
+- en: '![ Figure 5.19 – A suspicious IP address in VirusTotal'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.19 – VirusTotal 中的可疑 IP 地址](img/Figure_5.19_B17056.jpg)'
+- en: '](img/Figure_5.19_B17056.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.19_B17056.jpg)'
+- en: Figure 5.19 – A suspicious IP address in VirusTotal
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.19 – VirusTotal 中的可疑 IP 地址
+- en: 'In *Figure 5.19*, you can view the search results for our IP address. At first
+    glance, everything looks good – there are zero detections. However, pay attention
+    to the `10+ detected files communicating with this IP address` message. In order
+    to view more information regarding the files communicating with this IP address,
+    you can switch to the **RELATIONS** tab and find the **Communicating Files** field,
+    as shown in the following screenshot. If you have an account on VirusTotal, you
+    can also click on the graph icon on the right-hand side and view all of the communications
+    in a graphical view:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.19*中，你可以查看我们 IP 地址的搜索结果。乍一看，一切似乎都很好——没有检测到任何威胁。然而，请注意 `10+ 个检测到的文件与此 IP
+    地址通信` 的消息。为了查看更多关于与这个 IP 地址通信的文件的信息，你可以切换到**RELATIONS**标签，找到**Communicating Files**字段，如下截图所示。如果你在
+    VirusTotal 上有账户，你还可以点击右侧的图标查看所有的通信，以图形化方式展示：
+- en: '![Figure 5.20 – The VirusTotal communicating files'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.20 – VirusTotal 通信文件](img/Figure_5.19_B17056.jpg)'
+- en: '](img/Figure_5.20_B17056.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.20_B17056.jpg)'
+- en: Figure 5.20 – The VirusTotal communicating files
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.20 – VirusTotal 通信文件
+- en: In *Figure 5.20*, we can see that although the IP address was not recognized
+    as malicious, it is associated with a lot of malicious files, which means that
+    it is not so good.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.20*中，我们可以看到，尽管这个 IP 地址没有被识别为恶意的，但它与很多恶意文件相关联，这意味着它并不安全。
+- en: As you can see, IP addresses themselves play a big role in forensic investigations.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，IP 地址在取证调查中起着重要作用。
+- en: IP addresses and ports
+  id: totrans-133
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: IP 地址和端口
+- en: 'Not only can the IP addresses and ports being used tell you whether a particular
+    network connection is malicious, but sometimes, they can also tell you what tools
+    the attackers were using. Let''s take a look at the following screenshot:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不仅仅是 IP 地址和端口的使用情况能告诉你某个网络连接是否恶意，有时候，它们还可以告诉你攻击者使用了哪些工具。我们来看看接下来的截图：
+- en: '![Figure 5.21 – Volatility netscan'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.21 – Volatility netscan](img/Figure_5.21_B17056.jpg)'
+- en: '](img/Figure_5.21_B17056.jpg)'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.21_B17056.jpg)'
+- en: Figure 5.21 – Volatility netscan
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.21 – Volatility netscan
+- en: 'There is not much information displayed; however, even here, you can see that
+    RDP can be used to connect to this host. How about the following connection? Do
+    you see anything suspicious? Take a look:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显示的信息不多；然而，即使在这里，你也可以看到可以通过 RDP 连接到此主机。那么，接下来的连接呢？你看到什么可疑的地方吗？来看看：
+- en: '![Figure 5.22 – Another suspicious connection'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.22 – 另一个可疑的连接](img/Figure_5.21_B17056.jpg)'
+- en: '](img/Figure_5.22_B17056.jpg)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.22_B17056.jpg)'
+- en: Figure 5.22 – Another suspicious connection
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.22 – 另一个可疑的连接
+- en: Bingo! You can see the `UWkpjFjDzM.exe` process, and behind this strange name
+    is a `meterpreter`.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成功了！你可以看到 `UWkpjFjDzM.exe` 进程，而这个奇怪的名字背后是一个 `meterpreter`。
+- en: Important Note
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: '`Meterpreter` is a Metasploit payload that provides an interactive shell with
+    which an attacker can perform various actions on the target machine.'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Meterpreter` 是 Metasploit 负载之一，提供交互式 shell，攻击者可以用它在目标机器上执行各种操作。'
+- en: 'So, how did we know that from just one line of network connection information?
+    In fact, the port played an important role here. We have already mentioned the
+    transport layer protocols used to establish the connection. When two hosts establish
+    connections using these protocols, they are identified according to the port numbers.
+    Often, the ports used for specific purposes are allocated and registered by the
+    **Internet Assigned Numbers Authority** (**IANA**), although, in practice, there
+    are often cases of unofficial use. However, there is a list of standard ports
+    used by default for a specific purpose. Sometimes, the use of these *default*
+    ports can give away a particular service or tool used by attackers. The following
+    is a list of the most commonly used TCP ports and their purpose:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，我们是如何仅通过一行网络连接信息就知道这些的呢？事实上，端口在这里发挥了重要作用。我们已经提到过用于建立连接的传输层协议。当两个主机使用这些协议建立连接时，它们会根据端口号进行识别。通常，特定用途的端口是由**互联网号码分配局**（**IANA**）分配和注册的，尽管在实际操作中，经常会出现非官方使用的情况。然而，确实有一份用于特定用途的默认标准端口列表。有时，使用这些*默认*端口可以泄露攻击者使用的某些服务或工具。以下是最常用的
+    TCP 端口及其用途：
+- en: '![Figure 5.23 – Common ports and their usage'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.23 – 常用端口及其用途'
+- en: '](img/Figure_5.23_B17056.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.23_B17056.jpg)'
+- en: Figure 5.23 – Common ports and their usage
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.23 – 常用端口及其用途
+- en: As you can see, some of the ports listed in the preceding table can be used
+    by attackers. For example, `80`, `443`, `445`, or `3389`.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，前表中列出的部分端口可以被攻击者利用。例如，`80`、`443`、`445` 或 `3389`。
+- en: 'Aside from the common ports used by standard services, there are also default
+    protocols used in tools such as port scanners or post-exploitation frameworks.
+    The following table gives examples of such tools and their default ports:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了标准服务常用的端口外，还有一些工具使用的默认协议，例如端口扫描器或后期利用框架。下表列出了这些工具及其默认端口：
+- en: '![Figure 5.24 – Default ports used by specific tools'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.24 – 特定工具使用的默认端口'
+- en: '](img/Figure_5.24_B17056.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.24_B17056.jpg)'
+- en: Figure 5.24 – Default ports used by specific tools
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.24 – 特定工具使用的默认端口
+- en: So, that solves one of the mysteries of the Meterpreter payload. But it's a
+    tricky one, isn't it? Usually, Meterpreter is deployed by injection into the process'
+    memory. It is completely in memory, so nothing is written to disk. Additionally,
+    no new processes are created. This is because Meterpreter is injected into a compromised
+    process from which it can migrate to other running processes. As a result, the
+    forensic footprint of the attack is very limited. You understand what this means,
+    right? It's time to talk about injections and how to detect them.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样，就解决了 Meterpreter 载荷的其中一个谜团。但这可真是个棘手的问题，不是吗？通常，Meterpreter 是通过注入进程的内存来部署的。它完全存在于内存中，因此不会写入磁盘。此外，也不会创建新的进程。这是因为
+    Meterpreter 被注入到一个受感染的进程中，然后它可以迁移到其他正在运行的进程。因此，攻击的取证痕迹非常有限。你明白这意味着什么吧？是时候谈谈注入和如何检测它们了。
+- en: Detecting injections in process memory
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检测进程内存中的注入
+- en: There are different types of injections within process memory. Some are similar
+    to each other, while others differ considerably. Depending on the technique used,
+    the methods for detecting injections might vary. We will attempt to discuss the
+    most relevant types of injections and the methods for their detection.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程内存中有不同类型的注入。有些相似，而有些则差异很大。根据使用的技术，检测注入的方法可能会有所不同。我们将尝试讨论最相关的几种注入类型及其检测方法。
+- en: Dynamic-link library injections
+  id: totrans-157
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态链接库注入
+- en: 'Adversaries can use this technique for defense evasion or privilege escalation
+    tactics. In general, the injection of **Dynamic link Libraries** (**DLLs**) is
+    one of the methods used to execute arbitrary code in the address space of a legitimate
+    process. There are two main types of DLL injections: *remote* and *reflective*.'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者可以利用此技术进行防御规避或特权提升战术。通常，**动态链接库**（**DLLs**）注入是用于在合法进程的地址空间中执行任意代码的方法之一。DLL
+    注入有两种主要类型：*远程*注入和*反射*注入。
+- en: Remote DLL injections
+  id: totrans-159
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 远程 DLL 注入
+- en: 'The malicious process gets `SeDebugPrivilege`, which allows it to act as a
+    debugger and gain read and write access to the address space of other processes.
+    Using these privileges, the malicious process opens a handle for the target process,
+    accesses its address space, and writes the full path to the malicious library
+    inside it. The library itself should already exist on disk. Then, the malicious
+    process uses Windows API functions to create a new thread in the context of the
+    target process. The new thread is needed to load the malicious library into the
+    target process'' address space. When this happens, the malicious process clears
+    the memory location where the path to the library is written to disk and closes
+    the descriptor for the target process. If we put all of this into a single algorithm,
+    we get the following:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意进程获取 `SeDebugPrivilege` 权限，这使它能够作为调试器操作，并获得对其他进程地址空间的读写权限。利用这些权限，恶意进程打开目标进程的句柄，访问其地址空间，并将恶意库的完整路径写入其中。该库应该已经存在于磁盘上。然后，恶意进程使用
+    Windows API 函数在目标进程的上下文中创建一个新线程。这个新线程是用来将恶意库加载到目标进程地址空间中的。当这一过程发生时，恶意进程会清除写入磁盘的库路径所在的内存位置，并关闭目标进程的描述符。如果我们将这一过程整合成一个算法，它会是以下内容：
+- en: Get privileges and open a handle to the target process.
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取权限并打开目标进程的句柄。
+- en: Write the full path to the malicious DLL to the target process' address space.
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将恶意 DLL 的完整路径写入目标进程的地址空间。
+- en: Create a new thread to load the DLL from the disk using Windows API functions.
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个新线程，使用 Windows API 函数从磁盘加载 DLL。
+- en: Delete the path to the malicious DLL from the target process' memory.
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从目标进程的内存中删除恶意 DLL 的路径。
+- en: Close the handle to the target process.
+  id: totrans-165
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关闭目标进程的句柄。
+- en: Since remote DLL injection has a library written to disk, we can use Volatility
+    plugins such as `dlllist` and `ldrmodules` to detect this.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于远程 DLL 注入会将库写入磁盘，我们可以使用像 `dlllist` 和 `ldrmodules` 这样的 Volatility 插件来检测这一点。
+- en: 'Interestingly, `dlllist` is a plugin that allows you to get a list of the libraries
+    loaded into the process:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有趣的是，`dlllist` 是一个插件，允许你获取已加载到进程中的库列表：
+- en: '![Figure 5.25 – The Volatility dlllist plugin'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.25 – Volatility dlllist 插件'
+- en: '](img/Figure_5.25_B17056.jpg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.25_B17056.jpg)'
+- en: Figure 5.25 – The Volatility dlllist plugin
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.25 – Volatility dlllist 插件
+- en: 'Note that the information about the libraries used by the process is stored
+    in three different lists:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，关于进程使用的库的信息存储在三个不同的列表中：
+- en: '`LoadOrderList` organizes the order in which modules are loaded into a process.'
+  id: totrans-172
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`LoadOrderList`组织了模块加载到进程中的顺序。'
+- en: '`MemoryOrderList` organizes the order in which modules appear in the process''
+    virtual memory.'
+  id: totrans-173
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`MemoryOrderList`组织了模块在进程虚拟内存中出现的顺序。'
+- en: '`InitOrderList` organizes the order in which the `DllMain` function is executed.'
+  id: totrans-174
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`InitOrderList`组织了 `DllMain` 函数执行的顺序。'
+- en: 'The `dlllist` plugin only works with `LoadOrderList`. The problem is that sometimes,
+    malicious libraries can be unlinked from this list to hide their presence. This
+    will also affect the output of the `dlllist` plugin since information about the
+    unlinked libraries will not be displayed. In this scenario, the `ldrmodules` plugin
+    comes to the rescue, as it not only outputs information from all three lists but
+    also provides data regarding the presence of this or that library in each of the
+    lists:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dlllist` 插件只与 `LoadOrderList` 一起工作。问题在于，有时候恶意库可能会从此列表中取消链接以隐藏它们的存在。这也会影响 `dlllist`
+    插件的输出，因为有关取消链接库的信息将不会显示。在这种情况下，`ldrmodules` 插件将提供帮助，因为它不仅输出三个列表中的所有信息，还提供关于该库是否存在于每个列表中的数据：'
+- en: '![Figure 5.26 – The Volatility ldrmodules plugin'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.26 – Volatility ldrmodules 插件'
+- en: '](img/Figure_5.26_B17056.jpg)'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.26_B17056.jpg)'
+- en: Figure 5.26 – The Volatility ldrmodules plugin
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.26 – Volatility ldrmodules 插件
+- en: In this way, you can detect the libraries that have been unlinked. These libraries
+    will show `False` in the `InLoad` column and `True` in the other columns.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这种方式，你可以检测已被取消链接的库。这些库在 `InLoad` 列中会显示为 `False`，而在其他列中则显示为 `True`。
+- en: Important Note
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: The executable itself is also present in the output of both plugins. In the
+    output of `ldrmodules`, in the `InInit` column, it will always show `False`. This
+    is because it initializes differently, not like other modules.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可执行文件本身也出现在这两个插件的输出中。在 `ldrmodules` 的输出中，`InInit` 列始终显示为 `False`。这是因为它的初始化方式不同，不像其他模块那样。
+- en: So, how can we tell whether the libraries extracted by these plugins include
+    malicious ones? You can start by analyzing the library names and locations. Pay
+    attention to atypical names and directories where the libraries are located on
+    disk. Keep a special eye on the user directories and the temporary ones. If you
+    have difficulties with the visual identification of anomalies, you can always
+    use the `dlldump` and `dumpfiles` plugins and try to extract the DLLs to disk
+    for an additional checkup. Running the `dlldump` plugin is similar to the `dumpfiles`
+    plugin. You only need to use the `-p` option to specify the ID of the process
+    you are interested in and the `-D` option for the path to the directory where
+    you want to save the result. Files with the standard `.dll` extension will appear
+    in the directory you have specified. At this point, you can count the hashes of
+    the libraries and check them on `VirusTotal`.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，如何判断这些插件提取的库中是否包含恶意库呢？你可以通过分析库的名称和位置来开始。注意一些不寻常的名称和库所在的磁盘目录。特别关注用户目录和临时目录。如果你在视觉上很难识别异常，可以随时使用`dlldump`和`dumpfiles`插件，并尝试将DLL提取到磁盘上进行额外检查。运行`dlldump`插件类似于`dumpfiles`插件。你只需要使用`-p`选项指定你感兴趣的进程ID，使用`-D`选项指定你希望保存结果的目录路径。带有标准`.dll`扩展名的文件将出现在你指定的目录中。此时，你可以统计库的哈希值，并在`VirusTotal`上检查它们。
+- en: 'Let''s say we have run the following command for a process with ID `1072`,
+    which we think is suspicious:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们已为进程ID为`1072`的进程运行了以下命令，我们认为它可能是可疑的：
+- en: '[PRE1]'
+  id: totrans-184
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'As a result, our libraries are saved inside the output directory. To quickly
+    calculate the hash of the DLLs, you can use the following PowerShell command:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果，我们的库已保存在输出目录中。为了快速计算DLL的哈希值，你可以使用以下PowerShell命令：
+- en: '![Figure 5.27 – Calculating the hash of DLLs with PowerShell'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.27 – 使用PowerShell计算DLL的哈希值'
+- en: '](img/Figure_5.27_B17056.jpg)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.27_B17056.jpg)'
+- en: Figure 5.27 – Calculating the hash of DLLs with PowerShell
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.27 – 使用PowerShell计算DLL的哈希值
+- en: This command calls the `Get-FileHash` function for every file in the directory.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个命令对目录中的每个文件调用`Get-FileHash`函数。
+- en: 'Let''s check our hashes with VirusTotal:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们用VirusTotal检查我们的哈希值：
+- en: '![Figure 5.28 – The malicious DLL detected with VirusTotal'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.28 – 使用VirusTotal检测到的恶意DLL'
+- en: '](img/Figure_5.28_B17056.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.28_B17056.jpg)'
+- en: Figure 5.28 – The malicious DLL detected with VirusTotal
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.28 – 使用VirusTotal检测到的恶意DLL
+- en: Here is our malicious DLL. Now, we can analyze how it made its way onto the
+    system and explore its functionality in more detail.
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们的恶意DLL。现在，我们可以分析它是如何进入系统的，并更详细地探讨它的功能。
+- en: Another important point to bear in mind is that malicious DLLs can be packed
+    using packers. If during the unpacking phase the DLL code is written to a new
+    memory region, we can use `malfind` plugin to detect it, which will be discussed
+    later.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要记住的重要点是，恶意DLL可能会使用打包工具进行打包。如果在解包阶段DLL代码被写入新的内存区域，我们可以使用`malfind`插件来检测它，稍后会讨论该插件。
+- en: Reflective DLL injections
+  id: totrans-196
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 反射式DLL注入
+- en: Another way to inject libraries is via reflective DLL injection. This method
+    is more popular because it does not require the library to be present on disk
+    and, therefore, leaves fewer traces. Such a library can be downloaded over the
+    network and immediately injected into process memory. Another feature of this
+    method is the use of a reflective loader, which is embedded in the library itself,
+    instead of the standard Windows loader. This loader will take care of the execution
+    environment and run the `DllMain` function.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种注入库的方法是通过反射式DLL注入。这种方法更受欢迎，因为它不需要库存在磁盘上，因此留下的痕迹更少。这样的库可以通过网络下载，并立即注入到进程内存中。此方法的另一个特点是使用反射加载器，它嵌入在库本身中，而不是标准的Windows加载器。这个加载器会处理执行环境，并运行`DllMain`函数。
+- en: 'The step-by-step algorithm for reflective DLL injection is as follows:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反射式DLL注入的逐步算法如下：
+- en: Get privileges and open a handle to the target process.
+  id: totrans-199
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取权限并打开目标进程的句柄。
+- en: Allocate memory in the target process and write the malicious DLL there.
+  id: totrans-200
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在目标进程中分配内存并将恶意DLL写入其中。
+- en: Create a new thread to invoke the reflective loader.
+  id: totrans-201
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个新线程以调用反射加载器。
+- en: Close the handle to the target process.
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关闭目标进程的句柄。
+- en: This technique is actively used by commodity malware. For example, `SDBbot`
+    downloads the malicious library from C2 and injects it into the newly created
+    `rundll32.exe` process. The same can be said about `Netwalker` ransomware, which
+    reflectively injects the library into the `explorer.exe` process. Among other
+    things, many post-exploitation frameworks have functionality for reflectively
+    injecting DLLs, shellcodes, or executables into processes. Metasploit, CobaltStrike,
+    and PowerShell Empire, as we all know, have this functionality.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术被商业恶意软件广泛使用。例如，`SDBbot` 从 C2 下载恶意库并将其注入到新创建的 `rundll32.exe` 进程中。`Netwalker`
+    勒索病毒也使用相同的方式，将库反射性地注入到 `explorer.exe` 进程中。除此之外，许多后渗透框架也具备反射注入 DLL、shellcode 或可执行文件到进程的功能。我们熟知的
+    Metasploit、CobaltStrike 和 PowerShell Empire 都具有此功能。
+- en: You can use the `malfind` plugin to detect reflective DLL injection. The point
+    is that when using this technique (just as with packers), a page with the `EXECUTE_READWRITE`
+    protection is created in the target process memory. This is necessary in order
+    to write malicious code there as well as execute it. The `malfind` plugin allows
+    you to find such pages in process memory and check them for executable file headers
+    or correct CPU instructions.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用 `malfind` 插件来检测反射 DLL 注入。关键是，当使用这种技术时（就像使用压缩工具一样），会在目标进程内存中创建一个带有 `EXECUTE_READWRITE`
+    保护的页面。这是为了能够在该页写入恶意代码并执行它。`malfind` 插件可以帮助你找到这样的页面，并检查它们是否包含可执行文件头或者正确的 CPU 指令。
+- en: Important Note
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Some programs can inject libraries or code as a part of their legitimate activity.
+    For example, anti-virus solutions have such functionality.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些程序可能会作为其合法活动的一部分注入库或代码。例如，反病毒解决方案就具有这样的功能。
+- en: 'The `malfind` plugin has several useful options, which you can use individually
+    or in combination depending on the required result:'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`malfind` 插件有几个有用的选项，你可以根据需要单独或组合使用它们：'
+- en: '`-p <PID>` allows you to search for injections in a process with a specific
+    ID.'
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-p <PID>` 允许你在具有特定 ID 的进程中搜索注入内容。'
+- en: '`-n <regular expression>` allows you to search for injections in all processes
+    whose names match a regular expression.'
+  id: totrans-209
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-n <正则表达式>` 允许你搜索所有进程中与正则表达式匹配的注入内容。'
+- en: '`-D` allows you to dump the injected code sections.'
+  id: totrans-210
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-D` 允许你转储注入的代码段。'
+- en: 'Let''s take a look at the following example:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一下以下示例：
+- en: '![Figure 5.29 – The Volatility malfind plugin'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.29 – Volatility malfind 插件'
+- en: '](img/Figure_5.29_B17056.jpg)'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.29_B17056.jpg)'
+- en: Figure 5.29 – The Volatility malfind plugin
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.29 – Volatility malfind 插件
+- en: Here, we ran `malfind` with the process ID of `rundll32.exe` and the `-D` option
+    to save the injected code dumps to the output directory. As you can see, in this
+    scenario, our plugin found the `PAGE_EXECUTE_READWRITE` page with valid CPU instructions.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们用 `rundll32.exe` 的进程 ID 运行了 `malfind`，并使用 `-D` 选项将注入的代码转储保存到输出目录。正如你所看到的，在这种情况下，我们的插件发现了具有有效
+    CPU 指令的 `PAGE_EXECUTE_READWRITE` 页面。
+- en: 'Continuing to examine the plugin''s output, you can also observe pages with
+    executable file magic numbers, as shown in the following screenshot:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续检查插件的输出，你还可以观察到带有可执行文件魔术数字的页面，如下图所示：
+- en: '![Figure 5.30 – The malfind output with the MZ magic number'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.30 – 带有 MZ 魔术数字的 malfind 输出'
+- en: '](img/Figure_5.30_B17056.jpg)'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.30_B17056.jpg)'
+- en: Figure 5.30 – The malfind output with the MZ magic number
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.30 – 带有 MZ 魔术数字的 malfind 输出
+- en: You will not always be able to find such magic numbers. This is because attackers
+    often use various concealment techniques, including header removal. Therefore,
+    you should not focus on their presence; it is better to check everything that
+    seems suspicious to you.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你并不总是能够找到这些魔术数字。这是因为攻击者通常会使用各种掩蔽技术，包括移除头部信息。因此，你不应该只关注这些魔术数字的存在；更好的做法是检查所有看起来可疑的内容。
+- en: Since we have extracted the `malfind` output to disk, we can check what they
+    are. To do that, you can use specialized utilities such as CFF Explorer (`https://ntcore.com/?page_id=388`).
+    Alternatively, you can return to the already familiar VirusTotal, which can give
+    insights not only about the maliciousness of the extracted code but also its nature.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们已经将 `malfind` 的输出提取到磁盘上，我们可以检查它们是什么内容。为此，你可以使用专门的工具，如 CFF Explorer（`https://ntcore.com/?page_id=388`）。另外，你还可以回到我们熟悉的
+    VirusTotal，它不仅可以给出提取代码的恶意性，还能帮助分析其性质。
+- en: 'In our case, one of the interesting results would be the following:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，以下是一个有趣的结果：
+- en: '![Figure 5.31 – A malicious DLL detected by malfind'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.31 – malfind 检测到的恶意 DLL'
+- en: '](img/Figure_5.31_B17056.jpg)'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.31_B17056.jpg)'
+- en: Figure 5.31 – A malicious DLL detected by malfind
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.31 – 被 malfind 检测到的恶意 DLL
+- en: Here, one of the injections that we dumped was recognized as malicious. On the
+    right-hand side, note that the contents of the dump were a DLL.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们转储的一个注入被识别为恶意的。在右侧，注意到转储的内容是一个 DLL 文件。
+- en: As mentioned previously, an executable file can be injected into a process in
+    a similar way. Let's take a look at an example next.
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，可执行文件也可以以类似的方式注入到进程中。接下来我们来看一个例子。
+- en: Portable executable injections
+  id: totrans-228
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 可移植执行文件注入
+- en: The idea behind this type of injection is extremely simple. As in the previous
+    cases, it starts with obtaining debugger privileges and opening a handle for the
+    target process. Next, a memory region is allocated in the target process' address
+    space, which is then used to write the malicious code. When the code is written,
+    a new thread is created whose purpose is to execute the injected piece of malware.
+    In this way, we get the malicious code running in the context of a legitimate
+    process.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种注入方式背后的思想非常简单。如前所述，它首先通过获得调试器权限并为目标进程打开句柄开始。接下来，在目标进程的地址空间中分配一块内存区域，然后用来写入恶意代码。当代码写入完成后，会创建一个新线程，目的是执行注入的恶意代码。通过这种方式，我们能够使恶意代码在合法进程的上下文中运行。
+- en: 'In this scenario, the step-by-step algorithm looks like this:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，逐步算法如下：
+- en: Get privileges and open a handle to the target process.
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取权限并打开目标进程的句柄。
+- en: Allocate memory in the target process and write malicious code there.
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在目标进程中分配内存并在其中写入恶意代码。
+- en: Create a new thread to run the injected code.
+  id: totrans-233
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个新线程来运行注入的代码。
+- en: Close the handle to the target process.
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 关闭目标进程的句柄。
+- en: As you can see, everything is as simple as possible, and most importantly, no
+    traces are left on disk. The allocated pages in the second step usually have `EXECUTE_READWRITE
+    PROTECTION`. This means that the Volatility `malfind` plugin will also help us
+    to detect this type of injection. However, please note that `malfind` only analyzes
+    private memory regions with read, write, and execute access. This means that the
+    detectability of this plugin can be bypassed. Imagine a situation where attackers
+    initially allocate a page with read and write access; then, after writing malicious
+    code, they change it to read and execute. From a malicious activity point of view,
+    everything will work as before, but `malfind` will not detect it. In this case,
+    we can use manual analysis.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你所看到的，一切尽可能简单，最重要的是，磁盘上没有留下任何痕迹。第二步中分配的页面通常具有 `EXECUTE_READWRITE PROTECTION`
+    权限。这意味着 Volatility 的 `malfind` 插件也能帮助我们检测这种类型的注入。然而，请注意，`malfind` 只分析具有读、写和执行权限的私有内存区域。这意味着该插件的可检测性是可以被绕过的。想象一下，攻击者最初分配一个具有读写权限的页面；然后，在写入恶意代码后，他们将其更改为读和执行权限。从恶意活动的角度来看，一切照常工作，但
+    `malfind` 无法检测到。此时，我们可以使用手动分析。
+- en: 'A handy tool for this kind of analysis is Redline by `Fireeye`, which can be
+    downloaded from the official site ([https://www.fireeye.com/services/freeware/redline.html](https://www.fireeye.com/services/freeware/redline.html))
+    by filling in a short form. This tool has a graphical interface and allows you
+    to view the memory sections with their contents and protection flags:'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进行这种分析的一个方便工具是 `Fireeye` 的 Redline，它可以通过填写一个简短的表单从官网 ([https://www.fireeye.com/services/freeware/redline.html](https://www.fireeye.com/services/freeware/redline.html))
+    下载。这个工具有图形界面，可以让你查看内存区域及其内容和保护标志：
+- en: '![Figure 5.32 – Memory analysis with Redline'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.32 – 使用 Redline 进行内存分析'
+- en: '](img/Figure_5.32_B17056.jpg)'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.32_B17056.jpg)'
+- en: Figure 5.32 – Memory analysis with Redline
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.32 – 使用 Redline 进行内存分析
+- en: 'As you can see in the preceding screenshot, we can examine the information
+    of interest in the table view. If we require more details about the contents of
+    a particular section, we can double-click on it to open it:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你在前面的截图中看到的，我们可以在表格视图中检查感兴趣的信息。如果我们需要了解某个特定区域的更多细节，可以双击该区域进行查看：
+- en: '![Figure 5.33 – Redline full detailed information'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.33 – Redline 完整详细信息'
+- en: '](img/Figure_5.33_B17056.jpg)'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.33_B17056.jpg)'
+- en: Figure 5.33 – Redline full detailed information
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.33 – Redline 完整详细信息
+- en: In addition to `malfind`, there are other plugins that allow you to search for
+    specific injections. For example, `cobaltstrikescan` was developed by Japanese
+    CERT specialists. It is specifically used for searching by `YARA rules` for Cobalt
+    Strike beacons injected into processes.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了`malfind`，还有其他插件可以用于查找特定的注入。例如，`cobaltstrikescan`是由日本CERT专家开发的。它专门用于通过`YARA规则`查找注入到进程中的Cobalt
+    Strike信标。
+- en: Important Note
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Besides the built-in Volatility plugins, you can also use plugins developed
+    by the community. To do this, you need to create a plugins folder in the same
+    directory as your version of Volatility and put the code of the plugin that you
+    want to use inside it. To start a new plugin, just add `--plugins=<path to plugins
+    folder>` to the Volatility command line, and don't forget to specify the name
+    of the plugin.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了内置的Volatility插件外，您还可以使用社区开发的插件。为此，您需要在与Volatility版本相同的目录中创建一个`plugins`文件夹，并将您要使用的插件代码放入其中。要启动一个新的插件，只需在Volatility命令行中添加`--plugins=<插件文件夹路径>`，并且不要忘记指定插件名称。
+- en: 'To use this plugin, we create a plugins folder in the same directory as Volatility
+    itself and, inside it, save a file with the `.py` extension downloaded from the
+    GitHub repository ([https://github.com/JPCERTCC/aa-tools/blob/master/cobaltstrikescan.py](https://github.com/JPCERTCC/aa-tools/blob/master/cobaltstrikescan.py)).
+    When starting Volatility, we specify `--plugins=./plugins`. To check whether the
+    plugin has loaded successfully, we can use the `--` `info` command, where a new
+    name should appear in the list of plugins:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用此插件，我们在与Volatility本身相同的目录中创建一个`plugins`文件夹，并在其中保存从GitHub仓库下载的`.py`扩展名的文件（[https://github.com/JPCERTCC/aa-tools/blob/master/cobaltstrikescan.py](https://github.com/JPCERTCC/aa-tools/blob/master/cobaltstrikescan.py)）。启动Volatility时，我们指定`--plugins=./plugins`。为了检查插件是否已成功加载，我们可以使用`--`
+    `info`命令，此时插件列表中应显示一个新名称：
+- en: '![Figure 5.34 – Checking for the added community plugin'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.34 – 检查已添加的社区插件'
+- en: '](img/Figure_5.34_B17056.jpg)'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.34_B17056.jpg)'
+- en: Figure 5.34 – Checking for the added community plugin
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.34 - 检查已添加的社区插件
+- en: 'Now we can test it. Let''s examine how `cobaltstrikescan` handles the search
+    for an injected beacon:'
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以进行测试了。让我们来看看`cobaltstrikescan`如何处理注入信标的搜索：
+- en: '![Figure 5.35 – The results of cobaltstrikescan'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.35 – cobaltstrikescan的结果'
+- en: '](img/Figure_5.35_B17056.jpg)'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.35_B17056.jpg)'
+- en: Figure 5.35 – The results of cobaltstrikescan
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.35 – cobaltstrikescan的结果
+- en: As you can see in the preceding screenshot, the Cobalt Strike beacon was detected
+    in the `Outlook.exe` and `rundll32.exe` processes. This means that in the memory
+    of these processes, you can find its configurations, where useful parameters such
+    as the C2 IP addresses are located.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如上图所示，Cobalt Strike信标在`Outlook.exe`和`rundll32.exe`进程中被检测到。这意味着在这些进程的内存中，您可以找到其配置文件，其中包含诸如C2
+    IP地址等有用参数。
+- en: Techniques such as DLL injection and code/executable injection have been around
+    for quite some time, so there are already, more or less, reliable ways in which
+    to detect them. Things become more complicated when detecting newer techniques,
+    but they are used quite often by attackers. One of the most current techniques
+    is Process Hollowing.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像DLL注入和代码/可执行文件注入这样的技术已经存在相当长的时间，因此已经有了或多或少可靠的检测方法。当检测到较新的技术时，事情变得更加复杂，但这些技术被攻击者频繁使用。当前最流行的技术之一是进程空壳化。
+- en: Process Hollowing
+  id: totrans-257
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程空壳化
+- en: The basic idea behind hollow process injection is to create a new instance of
+    a legitimate process in the `SUSPEND` state and overwrite the address space occupied
+    by its executable code with malicious code. Therefore, unlike previous techniques,
+    after process hollowing, the executable code of the legitimate process stops existing.
+    Meanwhile, the process data in the **Process Environment Block** (**PEB**) remains
+    the same. As a result, we end up with a container containing the data of the legitimate
+    process (the DLLs, heaps, stacks, and handles), inside which the malicious code
+    is executed.
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 空壳进程注入的基本思路是创建一个合法进程的新实例，并将其设置为`SUSPEND`状态，然后用恶意代码覆盖其可执行代码所占据的地址空间。因此，与以前的技术不同，经过进程空壳化后，合法进程的可执行代码将不再存在。与此同时，**进程环境块**（**PEB**）中的进程数据保持不变。因此，我们最终得到一个容器，包含合法进程的数据（DLL、堆、堆栈和句柄），其中执行恶意代码。
+- en: Important Note
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: PEB is a structure that stores information about the location of the DLLs, heaps,
+    and environment variables along with the process' command-line arguments, current
+    working directory, and standard handles.
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PEB 是一个存储有关 DLLs、堆、环境变量以及进程命令行参数、当前工作目录和标准句柄信息的结构。
+- en: 'For ease of understanding, let''s take another look at the algorithm of actions:'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了便于理解，我们再来看看操作的算法：
+- en: Start a new instance of a legitimate process with the first thread suspended.
+  id: totrans-262
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动一个合法进程的新实例，并使其第一个线程挂起。
+- en: Free or unmap the memory section with the code of the legitimate process.
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 释放或取消映射包含合法进程代码的内存区域。
+- en: Allocate a new memory segment with read, write, and execute access.
+  id: totrans-264
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 分配一个新的内存段，具有读、写和执行权限。
+- en: Copy any malicious code obtained from the disk or over the network into the
+    newly allocated memory segment.
+  id: totrans-265
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将从磁盘或网络上获得的恶意代码复制到新分配的内存段中。
+- en: Set the start address of the suspended thread to the entry point of the malicious
+    code.
+  id: totrans-266
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将挂起线程的起始地址设置为恶意代码的入口点。
+- en: Resume the thread.
+  id: totrans-267
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 恢复线程。
+- en: As a result of these actions, the malicious code is executed in a container
+    created by a legitimate process. The use of process hollowing is not uncommon.
+    For example, Trickbot uses this technique to inject its payload inside the `wermgr.exe`
+    process.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这些操作，恶意代码会在由合法进程创建的容器中执行。进程空洞化的使用并不罕见。例如，Trickbot 就使用这种技术将其有效载荷注入到 `wermgr.exe`
+    进程中。
+- en: Two methods can be used to detect process hollowing. The first one involves
+    comparing PEB and **Virtual Address Descriptor** (**VAD**) structures and searching
+    for inconsistencies.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用两种方法来检测进程空洞化。第一种方法涉及比较 PEB 和 **虚拟地址描述符** (**VAD**) 结构，寻找不一致之处。
+- en: Important Note
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: VAD is another important structure that is used to track reserved or committed,
+    virtually contiguous sets of pages. These descriptors contain the names of the
+    memory-mapped files, the initial protection, and some other flags related to the
+    pages and their content.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VAD 是另一个重要的结构，用于跟踪已保留或已提交的、虚拟上连续的页面集合。这些描述符包含内存映射文件的名称、初始保护设置及一些与页面及其内容相关的其他标志。
+- en: 'This can be done with the `psinfo` plugin, written by Monnappa K. A. This plugin
+    collects information from VAD and PEB and outputs it in an easy-to-compare format.
+    In addition, `psinfo` tries to detect suspicious memory regions with the possibility
+    of execution:'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可以通过由 Monnappa K. A. 编写的 `psinfo` 插件来完成。该插件从 VAD 和 PEB 中收集信息，并以易于比较的格式输出。此外，`psinfo`
+    还尝试检测具有执行可能性的可疑内存区域：
+- en: '![Figure 5.36 – The psinfo output'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.36 – psinfo 输出'
+- en: '](img/Figure_5.36_B17056.jpg)'
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.36_B17056.jpg)'
+- en: Figure 5.36 – The psinfo output
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.36 – psinfo 输出
+- en: In *Figure 5.36*, you can see that the `psinfo` output shows the base address,
+    process path, and protection from VAD and PEB along with the command line and
+    other process-related details. So, what will we see with process hollowing? Well,
+    the information taken from the PEB will match the process used as a container,
+    but the VAD structure will no longer have a file mapped to this memory region.
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 *图 5.36* 中，你可以看到 `psinfo` 输出显示了来自 VAD 和 PEB 的基地址、进程路径和保护设置，以及命令行和其他与进程相关的详细信息。那么，我们在进程空洞化的情况下会看到什么呢？从
+    PEB 获取的信息将与作为容器的进程匹配，但 VAD 结构将不再将文件映射到此内存区域。
+- en: Another way to detect a hollowed process is to use the `ldrmodules` plugin,
+    which we already know. Do you remember what an executable file looks like there?
+    That's right; in all lists except `InInit`, it is set to `True`, followed by information
+    about the full path to the file on disk. In the case of process hollowing, the
+    flags (`True False True`) will remain, but the path to the executable file will
+    be missing.
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种检测空洞进程的方法是使用我们已经知道的 `ldrmodules` 插件。你还记得在那里的可执行文件是什么样子的吗？没错；在除 `InInit` 外的所有列表中，它设置为
+    `True`，然后是文件在磁盘上的完整路径信息。在进程空洞化的情况下，标志（`True False True`）仍然会保持，但可执行文件的路径将会缺失。
+- en: 'In addition to process hollowing, there is another type of injection that is
+    often used by attackers: Process Doppelgänging.'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了进程空洞化，攻击者还常用另一种注入方式：进程双胞胎（Process Doppelgänging）。
+- en: Process Doppelgänging
+  id: totrans-279
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程双胞胎
+- en: This technique was first introduced in 2017 at the BlackHat conference, and
+    it has been actively used by attackers ever since. For example, Bazar Loader uses
+    Process Doppelgänging to inject its payload.
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该技术首次在 2017 年的 BlackHat 大会上介绍，此后一直被攻击者广泛使用。例如，Bazar Loader 就使用进程双胞胎技术来注入其有效载荷。
+- en: 'This technique is based on the use of NTFS transactions. Transactional NTFS
+    was introduced in Windows Vista to make changes to the filesystem safer and more
+    efficient. When using transactions, special transaction files are created, and
+    any expected changes are written into them. Once the changes have been made, the
+    transaction can be committed in order to apply all of the changes at once or rolled
+    back by deleting the transaction file along with the changes. This technology
+    is very useful when installing new programs; this is because if there is a crash
+    when the changes are being made, the transaction will be rolled back, and the
+    system will be in its original, stable state. Let''s examine how this technology
+    is used in the Process Doppelgänging algorithm:'
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该技术基于NTFS事务的使用。事务性NTFS是在Windows Vista中引入的，目的是使文件系统的更改更加安全高效。使用事务时，会创建特殊的事务文件，任何预期的更改都写入这些文件中。一旦更改完成，可以提交事务以一次性应用所有更改，或者通过删除事务文件及其更改来回滚事务。此技术在安装新程序时非常有用，因为如果在更改过程中发生崩溃，事务将被回滚，系统将恢复到原始的稳定状态。让我们看看该技术如何在进程双重伪装算法中使用：
+- en: Create a transaction and open a clean transacted file.
+  id: totrans-282
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建事务并打开一个干净的交易文件。
+- en: Overwrite the transacted file with malicious code.
+  id: totrans-283
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用恶意代码覆盖交易文件。
+- en: Create a memory section that points to the transacted file.
+  id: totrans-284
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个内存区域，指向交易文件。
+- en: Roll back the transaction (this will remove all the traces of the transacted
+    file from the filesystem but not the memory section where the malicious code was
+    mapped).
+  id: totrans-285
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 回滚事务（这将从文件系统中删除所有交易文件的痕迹，但不会删除映射了恶意代码的内存区域）。
+- en: Create objects, process and thread objects; set the start address of the thread
+    to the entry point of the malicious code.
+  id: totrans-286
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建对象，进程和线程对象；将线程的起始地址设置为恶意代码的入口点。
+- en: Create process parameters and copy them to the newly created process' address
+    space.
+  id: totrans-287
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建进程参数并将其复制到新创建的进程地址空间。
+- en: Run the doppelgänged process.
+  id: totrans-288
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行双重伪装的进程。
+- en: The use of this technique is quite difficult to detect. For systems older than
+    Windows 10, you can check the `File_Object` associated with the suspicious process.
+    If write access for this file is enabled, that could potentially be Process Doppelgänging.
+    For Windows 10 systems, it's a bit easier because of the new members of the `_EPROCESS`
+    structure. The point here is that for the doppelgänged process `_EPROCESS`. `ImageFilePointer`
+    is set to `NULL`. To check this information for a suspicious process, you can
+    use Volatility's `volshell`.
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用此技术相当难以检测。对于Windows 10之前的系统，你可以检查与可疑进程相关联的`File_Object`。如果该文件启用了写访问权限，可能是进程双重伪装。对于Windows
+    10系统，由于`_EPROCESS`结构的新成员，这会稍微容易些。关键在于，对于双重伪装的进程，`_EPROCESS`的`ImageFilePointer`被设置为`NULL`。要检查可疑进程的相关信息，可以使用Volatility的`volshell`。
+- en: 'First of all, run `ps()` inside `volshell` to identify the offset of the suspicious
+    process:'
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，在`volshell`中运行`ps()`来识别可疑进程的偏移量：
+- en: '![Figure 5.37 – Executing volshell ps()'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.37 – 执行 volshell ps()'
+- en: '](img/Figure_5.37_B17056.jpg)'
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.37_B17056.jpg)'
+- en: Figure 5.37 – Executing volshell ps()
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.37 – 执行 volshell ps()
+- en: 'Then, use `dt(''_EPROCESS'',<offset>)` to get information related to your target
+    process:'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，使用`dt('_EPROCESS',<offset>)`来获取与目标进程相关的信息：
+- en: '![Figure 5.38 – Obtaining process-related data'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.38 – 获取进程相关数据'
+- en: '](img/Figure_5.38_B17056.jpg)'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.38_B17056.jpg)'
+- en: Figure 5.38 – Obtaining process-related data
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.38 – 获取进程相关数据
+- en: 'Search for `0x448` `ImageFilePointer`. If there is `NULL` instead of a normal
+    value (as shown in *Figure 5.39*), congratulations! It appears you just found
+    the doppelgänged process:'
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 搜索`0x448` `ImageFilePointer`。如果出现`NULL`而不是正常值（如*图 5.39*所示），恭喜！看起来你刚刚找到了双重伪装的进程：
+- en: '![Figure 5.39 – The normal ImageFilePointer value'
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.39 – 正常的 ImageFilePointer 值'
+- en: '](img/Figure_5.39_B17056.jpg)'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.39_B17056.jpg)'
+- en: Figure 5.39 – The normal ImageFilePointer value
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.39 – 正常的 ImageFilePointer 值
+- en: It is worth mentioning here that even if attackers use covert injection techniques,
+    such as Process Doppelgänging, it is possible that widely used tools, such as
+    `mimikatz` or payloads from post-exploitation frameworks, are executed in the
+    context of legitimate processes. This opens the possibility of searching the memory
+    of processes using keywords, regular expressions, and `YARA rules`. Let's take
+    a look at the following example. We have a process named `wscript.exe`. As mentioned
+    earlier, this is one of the processes we have to watch out for because threat
+    actors can use `wscript.exe` to execute their malicious scripts.
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得在这里提到的是，即使攻击者使用隐秘的注入技术，如进程双胞胎（Process Doppelgänging），也有可能使用广泛使用的工具，如`mimikatz`或来自后期利用框架的payload，在合法进程的上下文中执行。这为我们提供了使用关键字、正则表达式和`YARA规则`搜索进程内存的可能性。让我们来看一下以下的例子。我们有一个名为`wscript.exe`的进程。如前所述，这是我们必须警惕的进程之一，因为威胁行为者可以利用`wscript.exe`来执行他们的恶意脚本。
+- en: Important Note
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: WScript is an MS Windows component designed to run scripts written in script
+    languages, such as Visual Basic.
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WScript是微软Windows的一个组件，旨在运行用脚本语言（如Visual Basic）编写的脚本。
+- en: 'In our scenario, the investigation of the command-line arguments and the handles
+    of files used by the process have given us nothing but the name of the script
+    in use. So, we dump the process memory and use the `strings` utility to get the
+    ASCII and UNICODE characters:'
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的场景中，调查命令行参数和进程使用的文件句柄仅让我们得到了正在使用的脚本的名称。因此，我们转储进程内存并使用`strings`工具来获取ASCII和UNICODE字符：
+- en: '![Figure 5.40 – Dumping the memory of wscript and parsing it with strings64'
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.40 – 转储wscript的内存并使用strings64解析'
+- en: '](img/Figure_5.40_B17056.jpg)'
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.40_B17056.jpg)'
+- en: Figure 5.40 – Dumping the memory of wscript and parsing it with strings64
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.40 – 转储wscript的内存并使用strings64解析
+- en: 'In the resulting text file, you can search for any information of interest
+    using the `powershell`, `cmd`, `vbs`, and `base64` keywords:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在生成的文本文件中，你可以使用`powershell`、`cmd`、`vbs`和`base64`关键字来搜索任何感兴趣的信息：
+- en: '![Figure 5.41 – The Base64 keyword search results'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.41 – Base64关键字搜索结果'
+- en: '](img/Figure_5.41_B17056.jpg)'
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.41_B17056.jpg)'
+- en: Figure 5.41 – The Base64 keyword search results
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.41 – Base64关键字搜索结果
+- en: 'In *Figure 5.41*, you can view the Base64-encoded code found with the `base64`
+    keyword. To better understand the nature of this code, you can use `CyberChef`
+    to decode it:'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.41*中，你可以查看使用`base64`关键字找到的Base64编码代码。为了更好地理解该代码的性质，你可以使用`CyberChef`解码它：
+- en: '![Figure 5.42 – Decoded Base64'
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.42 – 解码后的Base64'
+- en: '](img/Figure_5.42_B17056.jpg)'
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.42_B17056.jpg)'
+- en: Figure 5.42 – Decoded Base64
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.42 – 解码后的Base64
+- en: CyberChef has automatically detected that our Base64-encoded code is a PE file.
+    At this point, we can save the resulting PE file for further analysis. By continuing
+    to analyze the lines, we discover that this file was downloaded over the network
+    and then injected into a new process.
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CyberChef已经自动检测到我们的Base64编码代码是一个PE文件。此时，我们可以保存生成的PE文件进行进一步分析。通过继续分析这些行，我们发现该文件是通过网络下载的，并且随后被注入到一个新的进程中。
+- en: That is how we can detect malicious processes and find various injections in
+    memory dumps. However, that's not all. Often, attackers require persistence on
+    the system to maintain access to the infected hosts. This can be achieved in a
+    variety of ways. Let's discuss them next.
+  id: totrans-318
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们如何检测恶意进程并在内存转储中找到各种注入。然而，这并不是全部。攻击者通常需要在系统上保持持久性，以保持对受感染主机的访问。可以通过多种方式实现这一点。接下来让我们讨论这些方式。
+- en: Looking for evidence of persistence
+  id: totrans-319
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 寻找持久化证据
+- en: There are quite a few techniques used by malware and attackers to get a foothold
+    into a system. These include classic techniques that have been actively used for
+    many years. Additionally, there are relatively new ones that are only just gaining
+    popularity. We are not here to tell you about every technique that exists, but
+    rather to give you some tools that we believe will most likely help you to spot
+    a piece of malware persistence on the system. And, of course, there's no shortage
+    of examples.
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件和攻击者有许多技术可以用于在系统中占据立足点。这些技术包括已经使用多年的经典技术。此外，还有一些相对较新的技术，正逐渐流行起来。我们并不是在这里讲解每一个存在的技术，而是提供一些我们认为最有可能帮助你发现系统中恶意软件持久性工具的工具。当然，例子也不会缺少。
+- en: Boot or Logon Autostart Execution
+  id: totrans-321
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 启动或登录自动启动执行
+- en: 'In this technique, the attackers change the system settings to automatically
+    execute a program during a system boot or logon. For instance, they can add a
+    path to a malicious executable as data for some value to the following keys:'
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种技术中，攻击者通过更改系统设置，在系统启动或登录时自动执行程序。例如，他们可以将恶意可执行文件的路径添加为以下键的某个值的数据：
+- en: '`HKLM \SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+  id: totrans-323
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+- en: '`HKLM\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-324
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKLM\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+  id: totrans-325
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+- en: '`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-326
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+  id: totrans-327
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+- en: 'In the previous chapter, we looked at several approaches of how to extract
+    the registry from memory. You can use the most appropriate way for you to export
+    the `SOFTWARE` and `NTUSER.DAT` registry files corresponding to the preceding
+    keys. To work with these files, you can use `Registry Explorer` or `RegRipper`
+    just as we did earlier:'
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们讨论了几种从内存中提取注册表的方法。你可以选择最适合你的方式，导出与前述键对应的`SOFTWARE`和`NTUSER.DAT`注册表文件。要处理这些文件，你可以使用`Registry
+    Explorer`或`RegRipper`，就像我们之前所做的那样：
+- en: '![Figure 5.43 – Run keys analysis'
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.43 – 运行键分析'
+- en: '](img/Figure_5.43_B17056.jpg)'
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.43_B17056.jpg)'
+- en: Figure 5.43 – Run keys analysis
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.43 – 运行键分析
+- en: In the preceding screenshot, it is easy to see the `Temp` value with the `temp.bat`.
+    You can also use the Volatility `prinkey` plugin with the `-K` option to examine
+    the contents of this key in the virtual registry.
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，可以清楚地看到`Temp`值和`temp.bat`。你还可以使用Volatility的`prinkey`插件，配合`-K`选项，检查虚拟注册表中该键的内容。
+- en: 'If you want to structure your search for the key used for persistence in a
+    more logical way, you can start by examining the output of the `handles` plugin
+    with the `-t Key` option, which shows all of the registry keys used by this process:'
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想更有逻辑地构建搜索持久化使用的键，你可以先检查`handles`插件的输出，使用`-t Key`选项，它会显示该进程使用的所有注册表键：
+- en: '![Figure 5.44 – Volatility handles'
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.44 – Volatility handles'
+- en: '](img/Figure_5.44_B17056.jpg)'
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.44_B17056.jpg)'
+- en: Figure 5.44 – Volatility handles
+  id: totrans-336
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.44 – Volatility handles
+- en: 'Such an approach not only speeds up the search for the key used for persistence
+    but also provides information about the registry keys that the malware was interested
+    in and how it might have used them. It is important to note that if you do not
+    see the key you are looking for in the output of the `handles` plugin, there is
+    no guarantee that it has not been used. Therefore, if the results are unsatisfactory,
+    it is recommended that you check the registry anyway. If you can still find the
+    key, you can check its content with `prinkey` `-K <key>`, as shown in *Figure
+    5.45*:'
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法不仅加速了搜索用于持久化的注册表键，而且还提供了恶意软件感兴趣的注册表键的信息，以及它可能如何使用这些键。需要注意的是，如果你在`handles`插件的输出中没有看到你寻找的键，不能保证它没有被使用。因此，如果结果不理想，建议你还是检查注册表。如果仍然能找到该键，你可以使用`prinkey`
+    `-K <key>`检查其内容，如*图 5.45*所示：
+- en: '![Figure 5.45 – Checking the Load value with Volatility printkey'
+  id: totrans-338
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.45 – 使用 Volatility printkey 检查 Load 值'
+- en: '](img/Figure_5.45_B17056.jpg)'
+  id: totrans-339
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.45_B17056.jpg)'
+- en: Figure 5.45 – Checking the Load value with Volatility printkey
+  id: totrans-340
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.45 – 使用 Volatility printkey 检查 Load 值
+- en: 'Of course, gaining persistence by abusing the *run* keys isn''t the only technique
+    leveraged by threat actors, which includes Windows registry manipulation. Here
+    are a few other examples:'
+  id: totrans-341
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，通过滥用*运行*键来实现持久化并不是威胁行为者使用的唯一技术，另一个常见的技术是Windows注册表操作。以下是一些其他示例：
+- en: 'Winlogon Helper DLL (T1547.004 according to MITRE ATT&CK): The threat actors
+    modify the `Software\Microsoft\Windows NT\CurrentVersion\Winlogon` registry key
+    to achieve persistence.'
+  id: totrans-342
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Winlogon助手DLL（MITRE ATT&CK中的T1547.004）：威胁行为者修改`Software\Microsoft\Windows NT\CurrentVersion\Winlogon`注册表键来实现持久化。
+- en: 'Image File Execution Options Injection (T1546.012 according to MITRE ATT&CK):
+    The threat actors modify the `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image
+    File Execution Options and HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit`
+    registry keys to achieve persistence.'
+  id: totrans-343
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 图像文件执行选项注入（MITRE ATT&CK中的T1546.012）：威胁行为者修改`HKLM\SOFTWARE\Microsoft\Windows
+    NT\CurrentVersion\Image File Execution Options`和`HKLM\SOFTWARE\Microsoft\Windows
+    NT\CurrentVersion\SilentProcessExit`注册表键来实现持久化。
+- en: 'Logon Script (T1037.001 according to MITRE ATT&CK): The threat actors modify
+    the `HKCU\Environment\UserInitMprLogonScript` registry key to achieve persistence.'
+  id: totrans-344
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 登录脚本 (T1037.001，依据MITRE ATT&CK)：威胁行为者修改`HKCU\Environment\UserInitMprLogonScript`注册表键值来实现持久化。
+- en: Let's move on to look at other popular persistence techniques. For example,
+    creating new accounts.
+  id: totrans-345
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们继续查看其他流行的持久化技术。例如，创建新账户。
+- en: Create Account
+  id: totrans-346
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建账户
+- en: 'This technique is often used by ransomware operators, as it is excellent for
+    maintaining access to compromised systems. The registry can be used again to find
+    traces of new accounts. Remember, in the previous chapter, we talked about the
+    SAM registry file and how it contains information about users, including their
+    creation date. For the easy analysis of user creation data, it is best to use
+    the `Registry Explorer` tool and the bookmarks tab. To do this, simply drag the
+    exported SAM file into Registry Explorer and click on **Bookmarks** and then **Users**.
+    This should bring up a table with all of the users:'
+  id: totrans-347
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术通常被勒索软件操作员使用，因为它非常适合保持对受感染系统的访问。可以再次使用注册表查找新账户的痕迹。记住，在前一章中，我们讨论了SAM注册表文件及其如何包含用户信息，包括创建日期。为了便于分析用户创建数据，最好使用`Registry
+    Explorer`工具和书签选项卡。操作方法是，将导出的SAM文件拖入Registry Explorer，点击**书签**，然后选择**用户**。这将显示一个包含所有用户的表格：
+- en: '![Figure 5.46 – The Users bookmark'
+  id: totrans-348
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.46 – 用户书签'
+- en: '](img/Figure_5.46_B17056.jpg)'
+  id: totrans-349
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.46_B17056.jpg)'
+- en: Figure 5.46 – The Users bookmark
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.46 – 用户书签
+- en: As you can see, in the preceding screenshot, the **Created On** column shows
+    the date and time that each user was created. You can use a comparison of these
+    timestamps to identify the users created during the attack.
+  id: totrans-351
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，在前面的截图中，**创建时间**列显示了每个用户的创建日期和时间。你可以通过比较这些时间戳来识别在攻击期间创建的用户。
+- en: Of course, this method has a significant limitation – the relevant information
+    about domain users might be missing. Therefore, another method we will consider
+    is to export the event logs.
+  id: totrans-352
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，这种方法有一个显著的局限性——关于域用户的相关信息可能缺失。因此，我们将考虑的另一种方法是导出事件日志。
+- en: Important Note
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Windows event logs are `.evtx` files located in the `C:\Windows\System32\winevt\Logs`
+    directory. They contain various events related to system operations, user activities,
+    and more.
+  id: totrans-354
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows事件日志是位于`C:\Windows\System32\winevt\Logs`目录下的`.evtx`文件。它们包含与系统操作、用户活动等相关的各种事件。
+- en: 'This method is no different from the exportation of regular files. The sequence
+    of actions will be as follows:'
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法与常规文件导出没有区别。操作步骤如下：
+- en: Run the `filescan` plugin and redirect its output to a text file.
+  id: totrans-356
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行`filescan`插件，并将其输出重定向到文本文件中。
+- en: Open the text file with the `filescan` results and find the log you are interested
+    in.
+  id: totrans-357
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开包含`filescan`结果的文本文件，并找到你感兴趣的日志。
+- en: Copy the offset of the log that you need from the text file.
+  id: totrans-358
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从文本文件中复制所需日志的偏移量。
+- en: Run `dumpfiles` `-Q <offset>`.
+  id: totrans-359
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行`dumpfiles` `-Q <offset>`。
+- en: Rename the resulting file, including the extension.
+  id: totrans-360
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 重命名生成的文件，包括扩展名。
+- en: Events related to the creation of new users are stored in the `Security.evtx`
+    log. Note that on the computers of regular users, this log will record information
+    about the creation of local users, while for domain users, you need the log located
+    on the domain controller.
+  id: totrans-361
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与创建新用户相关的事件存储在`Security.evtx`日志中。请注意，在普通用户的计算机上，这个日志会记录本地用户创建的信息，而对于域用户，你需要查看位于域控制器上的日志。
+- en: 'To open the exported event log on Windows, you can use the built-in `event
+    viewer`. Additional information regarding creating and enabling a user can be
+    found in the `4720` and `4722` events. You can use these event IDs to create a
+    filter. You should end up with the following:'
+  id: totrans-362
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在Windows中打开导出的事件日志，你可以使用内置的`事件查看器`。有关创建和启用用户的其他信息可以在`4720`和`4722`事件中找到。你可以使用这些事件ID来创建过滤器。最终结果应该是这样的：
+- en: '![Figure 5.47 – Security.evtx opened via Event Viewer'
+  id: totrans-363
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.47 – 通过事件查看器打开的Security.evtx'
+- en: '](img/Figure_5.47_B17056.jpg)'
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.47_B17056.jpg)'
+- en: Figure 5.47 – Security.evtx opened via Event Viewer
+  id: totrans-365
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.47 – 通过事件查看器打开的Security.evtx
+- en: Here, we have information about the creation of the `honka` user in the `seriouscats`
+    domain. There is also a timestamp that refers to the time when this event occurred,
+    and, hence, the time when the user was created.
+  id: totrans-366
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们有关于在`seriouscats`域中创建`honka`用户的信息。还有一个时间戳，表示事件发生的时间，也就是用户被创建的时间。
+- en: Important Note
+  id: totrans-367
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Sometimes, the event logs get corrupted when they are exported from the memory
+    dumps. To try to recover events from a corrupted log, you can use the excellent
+    `CQEvtxRecovery` tool from CQURE.
+  id: totrans-368
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时候，事件日志在从内存转储中导出时会损坏。若要尝试恢复来自损坏日志的事件，您可以使用CQURE的优秀工具`CQEvtxRecovery`。
+- en: As a result, depending on the circumstances, you can look for traces of new
+    user creation either in the registry or the event logs.
+  id: totrans-369
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，根据情况，你可以在注册表或事件日志中寻找新用户创建的痕迹。
+- en: 'The event logs themselves are a great source of data regarding what is going
+    on in the system: remote connections, creating users and changing their attributes,
+    launching PowerShell scripts, Windows Defender crashes, and much more. Let''s
+    explore what else we can use event logs exported from memory for.'
+  id: totrans-370
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件日志本身是关于系统中发生的事情的极好数据来源：远程连接、创建用户及更改其属性、启动PowerShell脚本、Windows Defender崩溃等。让我们来探索导出的内存事件日志还可以用来做什么。
+- en: Create or Modify System Process
+  id: totrans-371
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建或修改系统进程
+- en: When using this persistence technique, attackers install a new service that
+    should run an executable file on disk or execute scripts. Often, trojans such
+    as `Emotet` and `Trickbot` use the installation of new services.
+  id: totrans-372
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当使用这种持久化技术时，攻击者会安装一个新服务，该服务应该运行磁盘上的可执行文件或执行脚本。通常，像`Emotet`和`Trickbot`这样的木马会利用安装新服务的方式。
+- en: 'Additional information about the installation of services is recorded in the
+    `System.evtx` event log, which can also be exported from a memory dump. We will
+    be interested in the event ID of `7045`: **A service was installed in the system**.
+    When analyzing such events, you should pay attention to the name and location
+    of the executable and, in the case of scripts, the arguments used:'
+  id: totrans-373
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关服务安装的附加信息记录在`System.evtx`事件日志中，这也可以从内存转储中导出。我们会关注事件ID为`7045`的记录：**一个服务被安装到系统中**。分析此类事件时，您应该注意可执行文件的名称和位置，以及在脚本的情况下，所使用的参数：
+- en: '![Figure 5.48 – System.evtx'
+  id: totrans-374
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.48 – System.evtx'
+- en: '](img/Figure_5.48_B17056.jpg)'
+  id: totrans-375
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.48_B17056.jpg)'
+- en: Figure 5.48 – System.evtx
+  id: totrans-376
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.48 – System.evtx
+- en: In *Figure 5.48*, you can see an example of a malicious service. Note that the
+    executable file is located in the user's temporary folder.
+  id: totrans-377
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 5.48*中，你可以看到一个恶意服务的示例。请注意，可执行文件位于用户的临时文件夹中。
+- en: 'Another way to analyze services is to use special Volatility plugins. For example,
+    you can use the `svcscan` plugin to get information about the running services,
+    service names, types, states, binary paths, and more, as shown in *Figure 5.49*:'
+  id: totrans-378
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析服务的另一种方式是使用专门的Volatility插件。例如，你可以使用`svcscan`插件获取关于正在运行的服务、服务名称、类型、状态、二进制路径等信息，如*图
+    5.49*所示：
+- en: '![Figure 5.49 – The svcscan output'
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.49 – svcscan输出'
+- en: '](img/Figure_5.49_B17056.jpg)'
+  id: totrans-380
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.49_B17056.jpg)'
+- en: Figure 5.49 – The svcscan output
+  id: totrans-381
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.49 – svcscan输出
+- en: 'There is another plugin developed by the community called `autoruns` ([https://github.com/tomchop/volatility-autoruns/blob/master/autoruns.py](https://github.com/tomchop/volatility-autoruns/blob/master/autoruns.py)):'
+  id: totrans-382
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有一个由社区开发的插件，名为`autoruns`（[https://github.com/tomchop/volatility-autoruns/blob/master/autoruns.py](https://github.com/tomchop/volatility-autoruns/blob/master/autoruns.py)）：
+- en: '![Figure 5.50 – The autoruns output'
+  id: totrans-383
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.50 – autoruns输出'
+- en: '](img/Figure_5.50_B17056.jpg)'
+  id: totrans-384
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.50_B17056.jpg)'
+- en: Figure 5.50 – The autoruns output
+  id: totrans-385
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.50 – autoruns输出
+- en: This plugin collects information not only about the services but also the various
+    registry keys that could potentially be used for persistence. On the one hand,
+    the plugin provides fairly easy access to various information; on the other hand,
+    the set of data collected is limited. Therefore, before using the plugin, we recommend
+    that you read the list of collected data, which can be found in the same repository
+    on GitHub.
+  id: totrans-386
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个插件不仅收集有关服务的信息，还收集可能被用于持久化的各种注册表键值。一方面，插件提供了相当简便的方式来访问各种信息；另一方面，收集的数据集是有限的。因此，在使用该插件之前，我们建议您阅读收集的数据列表，该列表可以在同一GitHub仓库中找到。
+- en: In addition to installing new services, attackers can also create tasks through
+    the scheduler. Let's take a look at this technique and how to detect it.
+  id: totrans-387
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了安装新服务外，攻击者还可以通过调度器创建任务。让我们来看看这一技术及如何检测它。
+- en: Scheduled task
+  id: totrans-388
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 调度任务
+- en: 'The creation of scheduled tasks is one of the most common techniques. It is
+    widely used by commodity malware to get persistence on the infected systems. Information
+    about scheduled tasks is stored in several locations:'
+  id: totrans-389
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建调度任务是最常见的技术之一。它被商用恶意软件广泛用于在被感染系统上获取持久性。有关调度任务的信息存储在多个位置：
+- en: '`C:\Windows\System32\Tasks`: Here, you can find XML files with task descriptions.'
+  id: totrans-390
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`C:\Windows\System32\Tasks`：在这里，你可以找到带有任务描述的 XML 文件。'
+- en: '`Microsoft-Windows-TaskScheduler%4Operational.evtx`: You can analyze event
+    ID 106, which is related to the creation of a new task.'
+  id: totrans-391
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Microsoft-Windows-TaskScheduler%4Operational.evtx`：你可以分析与创建新任务相关的事件 ID 106。'
+- en: '`SOFTWARE`: Information about task cache is also stored in the registry.'
+  id: totrans-392
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SOFTWARE`：任务缓存的信息也存储在注册表中。'
+- en: 'We will proceed with the registry analysis. So, we need to export the `SOFTWARE`
+    file just as we did before. This time, we will use `RegRipper` to parse our registry
+    file:'
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将继续进行注册表分析。所以，我们需要像之前一样导出 `SOFTWARE` 文件。这次，我们将使用 `RegRipper` 来解析我们的注册表文件：
+- en: '![Figure 5.51 – Parsing SOFTWARE with RegRipper'
+  id: totrans-394
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.51 – 使用 RegRipper 解析 SOFTWARE'
+- en: '](img/Figure_5.51_B17056.jpg)'
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.51_B17056.jpg)'
+- en: Figure 5.51 – Parsing SOFTWARE with RegRipper
+  id: totrans-396
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.51 – 使用 RegRipper 解析 SOFTWARE
+- en: 'We can use the `taskcache` keyword to search for the necessary information.
+    There are two plugins that show task-related data: `tasks` and `taskcache`. Both
+    plugins show information about the path and the creation time of the task, but
+    the second one also displays the task ID, as follows:'
+  id: totrans-397
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用 `taskcache` 关键字来搜索所需的信息。有两个插件可以显示与任务相关的数据：`tasks` 和 `taskcache`。这两个插件都显示关于任务的路径和创建时间的信息，但第二个插件还会显示任务
+    ID，如下所示：
+- en: '![Figure 5.52 – The taskcache and tasks plugins'
+  id: totrans-398
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.52 – taskcache 和 tasks 插件'
+- en: '](img/Figure_5.52_B17056.jpg)'
+  id: totrans-399
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.52_B17056.jpg)'
+- en: Figure 5.52 – The taskcache and tasks plugins
+  id: totrans-400
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.52 – taskcache 和 tasks 插件
+- en: As you can see, there are various persistence techniques, and this is only a
+    small part of them. However, using the methods of analysis that we have reviewed,
+    you will be able to analyze a far greater number of techniques.
+  id: totrans-401
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，存在各种持久性技术，这只是其中的一小部分。然而，利用我们已经回顾过的分析方法，你将能够分析更多的技术。
+- en: Another important step in forensic investigation is timeline creation. Its application
+    largely depends on your goals because you can look not only for information related
+    to malicious activity but also collect data about the user's files. Let's take
+    a closer look at this topic.
+  id: totrans-402
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医调查中的另一个重要步骤是时间线的创建。其应用在很大程度上取决于你的目标，因为你不仅可以寻找与恶意活动相关的信息，还可以收集关于用户文件的数据。让我们更详细地看看这个话题。
+- en: Creating timelines
+  id: totrans-403
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建时间线
+- en: 'Timelines are extremely useful. They can play an important role in your investigation
+    because not only can you find out details about what happened to the target system
+    during a certain period of time, but you can also reconstruct the actions of the
+    attackers step by step. Here are a few approaches of how to use timelines:'
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 时间线非常有用。它们在调查中扮演着重要角色，因为你不仅可以了解目标系统在特定时间段内发生了什么，还可以一步步重建攻击者的行动。以下是使用时间线的几种方法：
+- en: '**Analysis of system changes during the incident**: If you already have data
+    regarding the time of the incident, you can use the timeline to analyze the changes
+    that occurred in the target system during this period.'
+  id: totrans-405
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**事件期间系统变化分析**：如果你已经有了事件发生时的数据，可以使用时间线分析目标系统在此期间发生的变化。'
+- en: '**Analysis of the file''s timestamps**: Using the filesystem-based timeline,
+    you can search for entries that correspond to specific files and analyze timestamps
+    of their appearance or the actions performed on them.'
+  id: totrans-406
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件时间戳分析**：通过基于文件系统的时间线，你可以搜索与特定文件相对应的条目，并分析它们的出现时间戳或对其执行的操作。'
+- en: '`.pf` extension is created in the `C:\Windows\Prefetch` directory corresponding
+    to the running program. The name of this file usually includes the name of the
+    running program. Therefore, a record of the creation of the prefetch file in the
+    timeline will not only tell you that something has started but also allow you
+    to determine what exactly was started.'
+  id: totrans-407
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.pf` 扩展名的文件在 `C:\Windows\Prefetch` 目录中创建，文件与正在运行的程序相对应。这个文件的名称通常包含正在运行的程序的名称。因此，时间线中关于预取文件创建的记录不仅可以告诉你某个程序已启动，还可以让你确定到底是哪个程序启动了。'
+- en: As you have already noticed, there are various types of timelines. We will talk
+    about those that can be built using memory dumps.
+  id: totrans-408
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，时间线有多种类型。我们将讨论那些可以通过内存转储构建的时间线。
+- en: Filesystem-based timelines
+  id: totrans-409
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基于文件系统的时间线
+- en: This timeline is based on filesystem metafiles. For NTFS, this file would be,
+    for example, the **Master File Table** (**$MFT**). This file contains information
+    about all files of the filesystem and their timestamps.
+  id: totrans-410
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个时间线基于文件系统元文件。例如，对于 NTFS 文件系统，这个文件可能是**主文件表**（**$MFT**）。这个文件包含关于文件系统中所有文件及其时间戳的信息。
+- en: 'To build a timeline based on $MFT, first, we need to get its data. This can
+    be done with the Volatility `mftparser` plugin, which collects all $MFT entries
+    from memory. Running this plugin will look like this:'
+  id: totrans-411
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要基于 $MFT 构建时间线，首先需要获取其数据。这可以通过 Volatility 的 `mftparser` 插件完成，该插件从内存中收集所有 $MFT
+    条目。运行此插件的过程如下：
+- en: '![Figure 5.53 – Volatility mftparser'
+  id: totrans-412
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.53 – Volatility mftparser'
+- en: '](img/Figure_5.53_B17056.jpg)'
+  id: totrans-413
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.53_B17056.jpg)'
+- en: Figure 5.53 – Volatility mftparser
+  id: totrans-414
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.53 – Volatility mftparser
+- en: Pay attention to the options that are being used; they are needed to save the
+    data in the format we want. The result is a text file that contains unsorted MFT
+    records. To turn them into a timeline, you can use the `mactime` utility that
+    is included in `TheSleuthKit`. To run this utility, you will need to install Perl.
+    To do this, simply download the installer from the official website and follow
+    the instructions ([https://strawberryperl.com/](https://strawberryperl.com/)).
+  id: totrans-415
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意所使用的选项；它们用于以我们想要的格式保存数据。结果是一个包含无序 MFT 记录的文本文件。要将它们转换为时间线，您可以使用 `TheSleuthKit`
+    中包含的 `mactime` 工具。要运行此工具，您需要安装 Perl。为此，您只需从官方网站下载安装程序并按照说明进行操作（[https://strawberryperl.com/](https://strawberryperl.com/)）。
+- en: To get the `mactime` utility itself, navigate to the official website of `TheSleuthKit`
+    ([https://www.sleuthkit.org/sleuthkit/download.php](https://www.sleuthkit.org/sleuthkit/download.php))
+    and download Windows Binaries. Unzip the downloaded archive to a directory that
+    is convenient for you.
+  id: totrans-416
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要获取 `mactime` 工具本身，请访问 `TheSleuthKit` 的官方网站（[https://www.sleuthkit.org/sleuthkit/download.php](https://www.sleuthkit.org/sleuthkit/download.php)）并下载
+    Windows 版本的二进制文件。将下载的压缩包解压到您方便的目录中。
+- en: 'Now we are ready to turn our MFT records into a timeline. Use the following
+    command:'
+  id: totrans-417
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们准备将 MFT 记录转换为时间线。使用以下命令：
+- en: '[PRE2]'
+  id: totrans-418
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: With the `-b` option, we are specifying that we are passing the file in body
+    format. We redirect the output of the utility to the `timeline.txt` text file.
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 `-b` 选项时，我们指定了以正文格式传递文件。我们将工具的输出重定向到 `timeline.txt` 文本文件中。
+- en: 'You can use a text editor or MS Excel to view this file:'
+  id: totrans-420
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可以使用文本编辑器或 MS Excel 来查看此文件：
+- en: '![ Figure 5.54 – A filesystem-based timeline'
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.54 – 基于文件系统的时间线'
+- en: '](img/Figure_5.54_B17056.jpg)'
+  id: totrans-422
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.54_B17056.jpg)'
+- en: Figure 5.54 – A filesystem-based timeline
+  id: totrans-423
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.54 – 基于文件系统的时间线
+- en: In the preceding timeline, we can see the creation of a prefetch file for `Gnh3J8f.EXE`,
+    which indicates that it was executed.
+  id: totrans-424
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在之前的时间线中，我们可以看到 `Gnh3J8f.EXE` 的预取文件被创建，这表明它已被执行。
+- en: Naturally, timestamps are stored in memory, not only for files but also created
+    processes, network connections, and more. All of this information can be added
+    to the timeline, too. Let's discover how.
+  id: totrans-425
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自然地，时间戳不仅存储在文件中，还存储在创建的进程、网络连接等内容中。所有这些信息也可以添加到时间线中。让我们来看看如何做。
+- en: Memory-based timelines
+  id: totrans-426
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基于内存的时间线
+- en: 'You can use the Volatility `timeliner` plugin to build a timeline of all the
+    information stored in memory. Since the output of this plugin is quite extensive,
+    we recommend that you immediately redirect it to a text file on disk:'
+  id: totrans-427
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可以使用 Volatility 的 `timeliner` 插件来构建存储在内存中的所有信息的时间线。由于此插件的输出非常庞大，我们建议您立即将其重定向到磁盘上的文本文件中：
+- en: '[PRE3]'
+  id: totrans-428
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'This time, there will be far more information in our file:'
+  id: totrans-429
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次，我们的文件中将有更多的信息：
+- en: '![ Figure 5.55 – A memory-based timeline'
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.55 – 基于内存的时间线'
+- en: '](img/Figure_5.55_B17056.jpg)'
+  id: totrans-431
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.55_B17056.jpg)'
+- en: Figure 5.55 – A memory-based timeline
+  id: totrans-432
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.55 – 基于内存的时间线
+- en: 'Sometimes, this amount of information is excessive, especially since it is
+    not very convenient to work with such data in the form of a text file. As an alternative,
+    you can use Redline, which also allows you to build a timeline based on data from
+    memory dumps. However, here, you will have a graphical interface and the ability
+    to easily add and remove certain data sources:'
+  id: totrans-433
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时候，这些信息量过大，特别是当以文本文件的形式处理这些数据时并不太方便。作为替代方案，您可以使用 Redline，它也允许基于内存转储中的数据构建时间线。与此不同的是，您将拥有一个图形界面，并且可以轻松地添加和删除某些数据源：
+- en: '![Figure 5.56 – Redline''s timeline'
+  id: totrans-434
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.56 – Redline 的时间线'
+- en: '](img/Figure_5.56_B17056.jpg)'
+  id: totrans-435
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_5.56_B17056.jpg)'
+- en: Figure 5.56 – Redline's timeline
+  id: totrans-436
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.56 – Redline 的时间线
+- en: It looks more convenient, doesn't it?
+  id: totrans-437
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来更方便了，不是吗？
+- en: In this simple way, we can build different timelines and add them to our investigation.
+  id: totrans-438
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这种简单的方式，我们可以构建不同的时间线并将其添加到我们的调查中。
+- en: Summary
+  id: totrans-439
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Searching for traces of malicious activity is a complicated but interesting
+    process.
+  id: totrans-440
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 搜索恶意活动的痕迹是一个复杂但有趣的过程。
+- en: You can use various markers to detect rogue processes. Such markers can include
+    process names, executable file locations, startup arguments, non-standard parent-child
+    combinations, and atypical behavior. Moreover, processes related to malware or
+    attacker tools often perform network activities. The analysis of such activities
+    in memory helps you to not only detect malicious processes and get the IP addresses
+    of C2 servers but also understand the tools used by attackers.
+  id: totrans-441
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用各种标记来检测恶意进程。这些标记可以包括进程名称、可执行文件位置、启动参数、非标准的父子进程组合以及异常行为。此外，与恶意软件或攻击工具相关的进程通常会执行网络活动。对这些活动的内存分析不仅可以帮助你检测恶意进程并获取C2服务器的IP地址，还能帮助你了解攻击者使用的工具。
+- en: If you managed to detect a process communicating with a remote IP address but
+    did not find any other malicious markers, it's time to search for malware injections
+    inside the memory. The most commonly used types of injections include DLL injections,
+    portable executable injections, process hollowing, and Process Doppelgänging.
+    Traces of such injections can be found in memory dumps.
+  id: totrans-442
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你检测到一个进程正在与远程IP地址通信，但没有发现其他恶意标记，那么是时候在内存中寻找恶意软件注入的痕迹了。最常见的注入类型包括DLL注入、可执行文件注入、进程空洞化以及Process
+    Doppelgänging。可以在内存转储中找到这些注入的痕迹。
+- en: Once you have identified the malicious processes, it's worth looking for persistence
+    traces, which are often used in attacks to maintain access to compromised hosts.
+    To search for such traces, you can use both special Volatility plugins or registry
+    and event log analyses.
+  id: totrans-443
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦识别出恶意进程，值得寻找持久化痕迹，这些痕迹通常在攻击中用于维持对受损主机的访问。为了搜索这些痕迹，你可以使用专门的Volatility插件，或进行注册表和事件日志分析。
+- en: A great addition to your investigation is to build a timeline, which will not
+    only help you to look for timestamps related to this or that change that occurred
+    on your system but also help you put everything into place.
+  id: totrans-444
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在调查中，构建时间线是一个很好的补充，它不仅可以帮助你查找与系统中某个变更相关的时间戳，还能帮助你将所有信息整理到一起。
+- en: This is how we carry out forensic investigations of memory dumps to look for
+    traces of malicious activity. However, memory dumps are not the only source of
+    volatile data. Windows also has alternative sources, such as `pagefile`, `swapfile`,
+    `hibernation files`, and `crash dumps`. We will discuss these sources and analyze
+    them in the next chapter.
+  id: totrans-445
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们如何进行内存转储的取证调查，寻找恶意活动的痕迹。然而，内存转储并不是唯一的易失性数据来源。Windows还具有其他来源，如`pagefile`、`swapfile`、`hibernation
+    files`和`crash dumps`。我们将在下一章讨论这些来源并进行分析。

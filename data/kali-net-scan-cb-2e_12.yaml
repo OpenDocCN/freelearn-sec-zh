@@ -1,0 +1,1517 @@
+- en: Automating Kali Tools
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 自动化 Kali 工具
+- en: 'This chapter will include the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将包括以下内容：
+- en: Nmap greppable output analysis
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Nmap 可grep输出分析
+- en: Port scanning with NMAP NSE execution
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 NMAP NSE 执行端口扫描
+- en: Automating vulnerability scanning with NMAP NSE
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 NMAP NSE 自动化漏洞扫描
+- en: Automating web application scanning with Nikto
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Nikto 自动化 Web 应用扫描
+- en: Multithreaded MSF exploitation with reverse shell payload
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有反向 shell 有效载荷的多线程 MSF 利用
+- en: Multithreaded MSF exploitation with backdoor executable
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有后门可执行文件的多线程 MSF 利用
+- en: Multithreaded MSF exploitation with ICMP verification
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有 ICMP 验证的多线程 MSF 利用
+- en: Multithreaded MSF exploitation with admin account creation
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有管理员账户创建的多线程 MSF 利用
+- en: Introduction
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简介
+- en: The Kali Linux penetration-testing platform offers a large number of highly
+    effective tools to complete most of the common tasks required during an enterprise
+    penetration test. However, there are occasions where a single tool is not sufficient
+    to complete a given task. Rather than building entirely new scripts or programs
+    to complete a challenging task, it is often more effective to write scripts that
+    utilize existing tools and/or modify their behavior as needed. Common types of
+    homegrown script that can be useful include scripts to analyze or manage the output
+    of existing tools, stringing multiple tools together, or multithreading tasks
+    that would otherwise have to be performed sequentially. Let's now look at various
+    recipes for automating and manipulating existing Kali Linux tools.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Kali Linux 渗透测试平台提供了大量高效工具，以完成企业渗透测试中常见的任务。然而，也有一些情况下，单一工具不足以完成某项任务。在这种情况下，通常比完全编写新的脚本或程序来完成任务更有效的是，编写利用现有工具的脚本，或根据需要修改它们的行为。常见的自制脚本类型包括用于分析或管理现有工具输出的脚本、将多个工具连接起来的脚本，或将原本必须顺序执行的任务进行多线程处理。接下来，我们将介绍一些自动化和操作现有
+    Kali Linux 工具的配方。
+- en: Nmap greppable output analysis
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Nmap 可grep输出分析
+- en: Nmap is considered by most security professionals to be one of the most highly
+    polished and effective tools within the Kali Linux platform. But as impressive
+    and powerful as this tool is, comprehensive port scanning and service identification
+    can be very time consuming. Rather than performing targeted scans against distinct
+    service ports throughout a penetration test, it is a better approach to perform
+    comprehensive scans of all possible TCP and UDP services and then just reference
+    those results throughout the assessment. Nmap offers both XML and greppable output
+    formats to aid in this process.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nmap 被大多数安全专家认为是 Kali Linux 平台上最精炼和高效的工具之一。尽管这款工具非常强大且令人印象深刻，但全面的端口扫描和服务识别可能非常耗时。与其在渗透测试中针对特定服务端口进行有针对性的扫描，不如采取一种更好的方法：对所有可能的
+    TCP 和 UDP 服务进行全面扫描，然后在整个评估过程中参考这些结果。Nmap 提供了 XML 和可grep输出格式来帮助这一过程。
+- en: Ideally, you should become familiar enough with these formats that you can extract
+    the desired information as needed from the output files. However, for reference,
+    this recipe will provide an example script that can be used to extract all IP
+    addresses identified to have a service running on a provided port.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理想情况下，你应该熟悉这些格式，以便能够根据需要从输出文件中提取所需的信息。然而，作为参考，本示例将提供一个脚本，用于提取所有识别出在指定端口上运行服务的
+    IP 地址。
+- en: Getting ready
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the script demonstrated in this recipe, you will need to have Nmap output
+    results in the greppable format. This can be achieved by performing Nmap port
+    scans and using the `-oA` option to output all formats or `-oG` to specifically
+    output the greppable format. In the examples provided, multiple systems were scanned
+    on a single /24 subnet to include both Windows XP and Metasploitable2\. For more
+    information on setting up Metasploitable2, refer to the *Installing Metasploitable2*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*. For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本食谱中演示的脚本，您需要将 Nmap 输出结果以可抓取的格式进行输出。这可以通过执行 Nmap 端口扫描，并使用`-oA`选项输出所有格式，或使用`-oG`选项专门输出可抓取格式来实现。在提供的示例中，多个系统在同一个
+    /24 子网中进行了扫描，包括 Windows XP 和 Metasploitable2。有关设置 Metasploitable2 的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *安装 Metasploitable2*
+    食谱，*入门指南*。有关设置 Windows 系统的更多信息，请参考[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Windows 服务器* 食谱，*入门指南*。此外，本节需要使用文本编辑器（如 Vim 或 GNU nano）将脚本写入文件系统。有关编写脚本的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和 GNU
+    nano）* 食谱，*入门指南*。
+- en: How to do it…
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'The example that follows demonstrates the ease with which the Bash scripting
+    language and even the Bash CLI can be used to extract information from the greppable
+    format that can be output by Nmap:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例展示了 Bash 脚本语言甚至 Bash CLI 如何轻松地从 Nmap 输出的可抓取格式中提取信息：
+- en: '[PRE0]'
+  id: totrans-19
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'To ensure that the script''s functionality is understood, we will address each
+    line in sequence:'
+  id: totrans-20
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了确保理解脚本的功能，我们将按顺序解释每一行：
+- en: The first line of the script merely points to the Bash interpreter so that the
+    script can be executed independently.
+  id: totrans-21
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本的第一行仅指向 Bash 解释器，以便脚本可以独立执行。
+- en: 'The second line of the script is an `if...then` conditional statement to test
+    whether any arguments were supplied to the script. This is only minimal input
+    validation to ensure that a script user is aware of the tool usage. If the tool
+    is executed without any arguments supplied, the script will `echo` a description
+    of its usage and then exit. The usage description requests two arguments: the
+    port number and a filename.'
+  id: totrans-22
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本的第二行是一个 `if...then` 条件语句，用来测试是否有参数传递给脚本。这只是最基本的输入验证，确保脚本用户了解工具的使用方法。如果工具在没有传递任何参数的情况下执行，脚本将
+    `echo` 出它的使用说明，并退出。使用说明请求两个参数：端口号和文件名。
+- en: The next two lines assign each of the input values to more easily understood
+    variables. The first input value is the port number, and the second input value
+    is the Nmap output file.
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 接下来的两行将每个输入值分配给更容易理解的变量。第一个输入值是端口号，第二个输入值是 Nmap 输出文件。
+- en: 'The script will then check the Nmap greppable output file to determine what
+    systems, if any, are running a service on the given port number:'
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 然后，脚本将检查 Nmap 可抓取的输出文件，确定是否有任何系统在给定的端口号上运行服务：
+- en: '![](../images/00571.jpeg)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00571.jpeg)'
+- en: When the script is executed without any arguments, the usage description is
+    output.
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当脚本没有任何参数时，输出使用说明。
+- en: To use the script, we will need to enter a port number to check for and the
+    filename of the Nmap-greppable output file.
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用此脚本，我们需要输入一个要检查的端口号和 Nmap 可抓取输出文件的文件名。
+- en: In the examples provided, a scan was performed on the /24 network, and a greppable
+    output file was generated with the filename `netscan.txt`.
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对 /24 网络进行了扫描，并生成了一个名为 `netscan.txt` 的可抓取输出文件。
+- en: 'The script was then used to analyze this file and to determine whether any
+    hosts were found within that had active services on various ports:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本随后用于分析该文件，确定其中是否有任何主机在不同的端口上有活动服务：
+- en: '![](../images/00472.jpeg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00472.jpeg)'
+- en: "In the examples shown, the script was run to determine hosts that were running\
+    \ on ports `80`, `22`, and `445`. The output of the script declares the port number\
+    \ that is being evaluated and then lists the IP address of any system in the output\
+    \ file that had an active service running \Lon that port."
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在示例中，脚本被运行以确定在端口 `80`、`22` 和 `445` 上运行的主机。脚本的输出声明了正在评估的端口号，并列出了输出文件中任何在该端口上有活动服务运行的系统的
+    IP 地址。
+- en: How it works…
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The `grep` command is a highly functional command-line utility that can be used
+    in Bash to extract specific content from the output or from a given file. In the
+    script provided in this recipe, the `grep` command is used to extract, from the
+    Nmap greppable output file, any instances of the given port number. Because the
+    output from the `grep` function includes multiple pieces of information, the output
+    is then piped over to the `cut` function to extract the IP addresses and then
+    output them to the terminal.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`grep` 命令是一个功能强大的命令行工具，可以在 Bash 中用来从输出或指定文件中提取特定内容。在本食谱提供的脚本中，`grep` 命令用于从
+    Nmap 可抓取的输出文件中提取给定端口号的任何实例。由于 `grep` 函数的输出包含多个信息片段，因此输出会被传递给 `cut` 函数来提取 IP 地址，然后将其输出到终端。'
+- en: Port scanning with NMAP NSE execution
+  id: totrans-34
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 NMAP NSE 执行端口扫描
+- en: 'Many of the **Nmap Scripting Engine** (**NSE**) scripts are only applicable
+    if there is a service running on a given port. Consider the usage of the following scripts:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多 **Nmap 脚本引擎** (**NSE**) 脚本仅在特定端口上运行服务时适用。考虑使用以下脚本：
+- en: '`smb-vuln-conficker`'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-conficker`'
+- en: '`smb-vuln-cve2009-3103`'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-cve2009-3103`'
+- en: '`smb-vuln-ms06-025`'
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms06-025`'
+- en: '`smb-vuln-ms07-029`'
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms07-029`'
+- en: '`smb-vuln-regsvc-dos`'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-regsvc-dos`'
+- en: '`smb-vuln-ms08-067`'
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms08-067`'
+- en: "These scripts will evaluate SMB services running on TCP port `445` for common\
+    \ service vulnerabilities. If these scripts were executed across an entire network,\
+    \ it would have to redo the task of determining whether port `445` is open and\
+    \ whether the SMB service is accessible on each target system. This is a task\
+    \ that has probably already been accomplished during the scanning phase of the\
+    \ assessment. Bash scripting can be used to leverage existing Nmap greppable output\
+    \ files to run service-specific NSE scripts only against systems that are running\
+    \ those services. In this recipe, we will demonstrate how a script can be used\
+    \ to determine hosts \Lthat are running a service on TCP `445` from previous scan\
+    \ results and then run the previously mentioned scripts against only those systems."
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些脚本将评估在 TCP 端口 `445` 上运行的 SMB 服务是否存在常见的服务漏洞。如果这些脚本在整个网络上执行，则必须重新进行确定端口 `445`
+    是否开放以及 SMB 服务是否可以在每个目标系统上访问的任务。这项任务可能已经在评估的扫描阶段完成。Bash 脚本可以用来利用现有的 Nmap 可抓取输出文件，仅对那些运行相关服务的系统执行服务特定的
+    NSE 脚本。在本例中，我们将演示如何使用脚本从先前的扫描结果中确定运行 TCP `445` 服务的主机，并仅针对这些系统运行前述脚本。
+- en: Getting ready
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the script demonstrated in this recipe, you will need to have Nmap output
+    results in the greppable format. This can be achieved by performing Nmap port
+    scans and using the `-oA` option to output all formats or `-oG` to specifically
+    output the greppable format. In the examples provided, multiple systems were scanned
+    on a single /24 subnet and included multiple Windows systems running the SMB service.
+    For more information on setting up Windows systems, refer to the *Installing Windows
+    Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem by using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本食谱中演示的脚本，您需要让 Nmap 输出结果为可抓取格式。这可以通过执行 Nmap 端口扫描，并使用 `-oA` 选项输出所有格式，或使用 `-oG`
+    选项专门输出可抓取格式来实现。在提供的示例中，多个系统在单个 /24 子网内进行扫描，并包括多个运行 SMB 服务的 Windows 系统。有关设置 Windows
+    系统的更多信息，请参考[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *安装
+    Windows Server* 食谱，*入门*。此外，本部分还需要使用文本编辑器（如 Vim 或 GNU nano）将脚本写入文件系统。有关编写脚本的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和 GNU
+    nano）* 食谱，*入门*。
+- en: How to do it…
+  id: totrans-45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'The example that follows demonstrates how a Bash script can be used to sequence
+    multiple tasks together. In this case, the analysis of an Nmap greppable output
+    file is performed, and then the information identified by that task is used to
+    execute an NSE script against distinct systems. Specifically, the first task will
+    determine what systems are running a service on TCP port `445` and will then run
+    the following scripts against each of those systems:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的示例演示了如何使用 Bash 脚本将多个任务顺序执行。在此案例中，首先对 Nmap 可grep输出文件进行分析，然后利用该任务识别的信息，执行
+    NSE 脚本针对不同的系统。具体来说，第一个任务将确定哪些系统在 TCP 端口 `445` 上运行服务，然后对这些系统执行以下脚本：
+- en: '`smb-vuln-conficker`'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-conficker`'
+- en: '`smb-vuln-cve2009-3103`'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-cve2009-3103`'
+- en: '`smb-vuln-ms06-025`'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms06-025`'
+- en: '`smb-vuln-ms07-029`'
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms07-029`'
+- en: '`smb-vuln-regsvc-dos`'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-regsvc-dos`'
+- en: '`smb-vuln-ms08-067`'
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`smb-vuln-ms08-067`'
+- en: 'Let''s examine the following Bash script:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看一下以下的 Bash 脚本：
+- en: '[PRE1]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'To ensure that the functionality of the script is understood, we will address
+    each line in sequence:'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了确保理解脚本的功能，我们将按顺序讲解每一行：
+- en: The first few lines are similar to the script that was discussed in the previous
+    recipe. The first line points to the Bash interpreter, the second line checks
+    that arguments are provided, and the third line assigns input values to easily
+    understood variable names.
+  id: totrans-56
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 前几行类似于之前讨论的脚本。第一行指向 Bash 解释器，第二行检查是否提供了参数，第三行将输入值分配给易于理解的变量名。
+- en: The body of the script is quite different though. A `for` loop is used to cycle
+    through a list of IP addresses that is acquired by means of a `grep` function.
+    The list of IP addresses output from the `grep` function corresponds to all systems
+    that have a service running on TCP port `445`. For each of these IP addresses,
+    the NSE script is then executed.
+  id: totrans-57
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 然而，脚本的主体部分有些不同。脚本使用 `for` 循环来遍历通过 `grep` 函数获得的 IP 地址列表。`grep` 函数输出的 IP 地址列表对应于所有在
+    TCP 端口 `445` 上运行服务的系统。对于这些 IP 地址，每个地址都会执行 NSE 脚本。
+- en: 'By only running this script on systems that had previously been identified
+    to have a service running on TCP port `445`, the time required to run the NSE
+    scan is drastically reduced:'
+  id: totrans-58
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 只在之前已经确定在 TCP 端口 `445` 上有服务的系统上运行此脚本，可以显著减少运行 NSE 扫描所需的时间：
+- en: '![](../images/00575.jpeg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00575.jpeg)'
+- en: 'By executing the script without any arguments, the script will output the usage
+    description. This description indicates that the filename of an existing Nmap
+    greppable output file should be supplied. When the Nmap output file is supplied,
+    the script quickly analyzes the file to find any systems with a service on TCP
+    port `445`, then runs the NSE scripts on each of those systems, and outputs the
+    results to the terminal:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过不带任何参数执行脚本，脚本将输出使用说明。该说明指示应提供现有的 Nmap 可grep输出文件的文件名。当提供了 Nmap 输出文件时，脚本将快速分析文件，查找任何在
+    TCP 端口 `445` 上有服务的系统，然后对这些系统执行 NSE 脚本，并将结果输出到终端：
+- en: '![](../images/00610.jpeg)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00610.jpeg)'
+- en: 'Scrolling through the terminal output, we can see that the target machine is
+    vulnerable to the MS08-67 exploit:'
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 滚动查看终端输出，我们可以看到目标机器易受 MS08-67 漏洞攻击：
+- en: '![](../images/00622.jpeg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00622.jpeg)'
+- en: In the example provided, the script is passed to the `netscan.txt` output file.
+    After a quick analysis of the file, the script determines that two systems are
+    running services on port `445`. Each of these services was then scanned with the
+    scripts listed before, and the output was generated in the terminal.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，脚本被传递给了 `netscan.txt` 输出文件。经过快速分析该文件后，脚本确定有两个系统在端口 `445` 上运行服务。接着，对这些服务执行之前列出的脚本，并在终端生成输出。
+- en: How it works…
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理…
+- en: By supplying the grep sequence as the value to be used by the `for` loop, the
+    Bash script in this recipe is essentially just looping through the output from
+    that function. By running that function independently, one can see that it just
+    extracts a list of IP addresses that correspond to hosts running the SMB service.
+    The `for` loop then cycles through these IP addresses and executes the NSE script
+    for each.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过将 `grep` 序列作为 `for` 循环的值，实际上 Bash 脚本在此处仅循环遍历该函数的输出。通过独立运行该函数，可以看到它仅提取出运行 SMB
+    服务的主机的 IP 地址列表。然后，`for` 循环遍历这些 IP 地址，并为每个 IP 执行 NSE 脚本。
+- en: Automate vulnerability scanning with NSE
+  id: totrans-67
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 NSE 自动化漏洞扫描
+- en: There may also be occasions where it might be helpful to develop a script that
+    combines vulnerability scanning with exploitation. Let's say we want to scan a
+    group of machines for a specific exploit and then, if found, run that exploit
+    against the vulnerable machine(s). Vulnerability scanning can often turn up false
+    positives, so by performing subsequent exploitation of vulnerability scan findings,
+    one can have immediate validation of the legitimacy of those findings. In this
+    recipe, a Bash script will be used to execute the `smb-vuln-ms08-067.nse` script
+    to determine whether a host is vulnerable to the MS08-067 NetAPI exploit, and
+    if the NSE script indicates that it is, Metasploit will be used to automatically
+    attempt to exploit it for verification.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，开发一个将漏洞扫描与利用结合的脚本可能会有所帮助。假设我们想要扫描一组机器，寻找特定的漏洞，并在发现时，对受影响的机器执行该漏洞利用。漏洞扫描通常会产生误报，因此，通过对漏洞扫描结果进行后续的漏洞利用，可以立即验证这些结果的合法性。在这个示例中，将使用
+    Bash 脚本执行 `smb-vuln-ms08-067.nse` 脚本，以确定主机是否容易受到 MS08-067 NetAPI 漏洞的攻击。如果 NSE
+    脚本表明主机易受攻击，Metasploit 将被用来自动尝试利用该漏洞进行验证。
+- en: Getting ready
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'To use the script demonstrated in this recipe, you will need to have access
+    to a system that is running a vulnerable service that can be identified using
+    an NSE script and exploited with Metasploit. In the example provided, a Windows
+    XP system running an SMB service that is vulnerable to the MS08-067 NetAPI exploit
+    is used. For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *     Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem by using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本示例中演示的脚本，您需要访问运行易受攻击服务的系统，该服务可以通过 NSE 脚本识别并通过 Metasploit 进行利用。在提供的示例中，使用的是一台运行
+    SMB 服务并且容易受到 MS08-067 NetAPI 漏洞攻击的 Windows XP 系统。有关设置 Windows 系统的更多信息，请参考 [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Windows Server* 食谱，*入门* 部分。此外，本节还需要通过 Vim 或 GNU nano 等文本编辑器编写脚本到文件系统。有关编写脚本的更多信息，请参考
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和 GNU
+    nano）* 食谱，*入门* 部分。
+- en: How to do it…
+  id: totrans-71
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: "The example that follows demonstrates how a Bash script can be used to sequence\
+    \ together the tasks of vulnerability scanning and target exploitation. In this\
+    \ case, the `smb-vuln-ms08-067.nse` script is used to determine whether a system\
+    \ is vulnerable to the MS08-067 attack, \Land then the corresponding Metasploit\
+    \ exploit is executed against the system if it is found \Lto be vulnerable:"
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的示例演示了如何使用 Bash 脚本将漏洞扫描和目标利用这两个任务串联起来。在这个例子中，`smb-vuln-ms08-067.nse` 脚本用于确定系统是否容易受到
+    MS08-067 攻击，然后，如果系统被发现存在漏洞，相应的 Metasploit 漏洞利用将对该系统执行：
+- en: '[PRE2]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'To ensure that the script''s functionality is understood, we will address each
+    line in sequence:'
+  id: totrans-74
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了确保脚本的功能得以理解，我们将依次介绍每一行：
+- en: The first few lines in the script are the same as the scripts previously discussed
+    in this chapter. The first line defines the interpreter, the second line tests
+    for input, and the third, fourth, and fifth lines are all used to define the variables
+    based on user input.
+  id: totrans-75
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本的前几行与本章之前讨论的脚本相同。第一行定义了解释器，第二行测试输入，第三、第四和第五行用于根据用户输入定义变量。
+- en: In this script, the supplied user variables correspond to the variables that
+    are used in Metasploit. The `RHOST` variable should define the IP address of the
+    target, the `LHOST` variable should define the IP address of the reverse listener,
+    and the `LPORT` variable should define the local port that is listening.
+  id: totrans-76
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在此脚本中，提供的用户变量对应于 Metasploit 中使用的变量。`RHOST` 变量应该定义目标的 IP 地址，`LHOST` 变量应该定义反向监听的
+    IP 地址，`LPORT` 变量应该定义监听的本地端口。
+- en: The first task that the script then performs in the body is to execute the `smb-vuln-ms08-067.nse`
+    script against the IP address of the target system, as defined by the `RHOST`
+    input.
+  id: totrans-77
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本执行的第一项任务是在目标系统的 IP 地址上执行 `smb-vuln-ms08-067.nse` 脚本，目标系统的 IP 地址由 `RHOST` 输入定义。
+- en: The results of this are then output in normal format to a temporary text file.
+  id: totrans-78
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 结果随后以正常格式输出到一个临时文本文件。
+- en: An `if...then` conditional statement is then used in conjunction with a `grep`
+    function to test the output file for a unique string that would indicate that
+    the system is vulnerable. If the unique string is discovered, the script will
+    indicate that the system appears to be vulnerable and will then execute the Metasploit
+    exploit and meterpreter payload using `msfconsole -x`.
+  id: totrans-79
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 然后，将使用`if...then`条件语句与`grep`函数结合使用，测试输出文件以查找表明系统存在漏洞的唯一字符串。如果发现唯一字符串，脚本将指示系统可能存在漏洞，然后使用`msfconsole
+    -x`执行Metasploit利用和Meterpreter负载。
+- en: 'Finally, after the exploit is launched, the temporary Nmap output file is removed
+    from the filesystem using the `rm` function. The `test_n_xploit.sh` Bash command
+    is executed as follows:'
+  id: totrans-80
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最后，在启动利用后，将使用`rm`函数从文件系统中删除临时Nmap输出文件。`test_n_xploit.sh` Bash命令的执行如下：
+- en: '![](../images/00632.jpeg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00632.jpeg)'
+- en: If the script is executed without supplying any arguments, it will output the
+    appropriate usage. This usage description will indicate that the script should
+    be executed with the arguments `RHOST`, `LHOST`, and `LPORT`, in that order. These
+    input values will be used for both the NSE vulnerability scan and, if warranted,
+    the execution of the exploit on the target system using Metasploit.
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果脚本在不提供任何参数的情况下执行，则将输出适当的用法。此用法描述将指示应按顺序使用`RHOST`、`LHOST`和`LPORT`参数执行脚本。这些输入值将同时用于NSE漏洞扫描，以及如果有必要的话，用Metasploit在目标系统上执行利用。
+- en: 'In the following example, the script is used to determine whether the host
+    at IP address `172.16.69.129` is vulnerable. If the system is determined to be
+    vulnerable, then the exploit will be launched and connected to a reverse TCP meterpreter
+    handler that is listening on the system at IP address `172.16.69.133` on the TCP
+    port `4444`:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下面的示例中，脚本用于确定IP地址为`172.16.69.129`的主机是否存在漏洞。如果系统被确定为易受攻击，则将启动利用，并连接到在IP地址为`172.16.69.133`、TCP端口为`4444`上监听的反向TCP
+    Meterpreter处理程序：
+- en: '![](../images/00643.jpeg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00643.jpeg)'
+- en: "The preceding output shows that immediately upon completion of the NSE script,\
+    \ the Metasploit exploit module is executed, and an interactive meterpreter shell\
+    \ is returned on \Lthe target system."
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的输出显示，在NSE脚本完成后立即执行Metasploit利用模块，并在目标系统上返回一个交互式Meterpreter shell。
+- en: How it works…
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何工作…
+- en: "The `msfconsole -x` command can be used to execute \Lsingle-line commands directly\
+    \ from the terminal rather than working within an interactive console. This makes\
+    \ it an excellent feature for use within Bash shell scripting. As both NSE scripts\
+    \ and `msfconsole -x` can be executed from the Bash terminal, a shell script can\
+    \ easily be written to combine the two functions together."
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`msfconsole -x`命令可用于直接从终端执行单行命令，而不必在交互式控制台中工作。这使其在Bash shell脚本中的使用非常方便。由于可以从Bash终端执行NSE脚本和`msfconsole
+    -x`，因此可以轻松编写一个Shell脚本来将这两个功能结合在一起。'
+- en: Automate web application scanning with Nikto
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Nikto自动化Web应用程序扫描
+- en: "Nikto is a command-line tool in Kali Linux that can be used to evaluate a web\
+    \ application for known security issues. In the scanning phase of the assessment,\
+    \ we already determined hosts running web services with Nmap. Bash scripting can\
+    \ be used to leverage existing Nmap greppable output files to run Nikto only against\
+    \ systems that are running web services. In this recipe, we will demonstrate how\
+    \ a script can be used to determine hosts \Lthat are running a service on TCP\
+    \ port `80` from previous scan results and then run Nikto against only those systems."
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nikto是Kali Linux中的一个命令行工具，可用于评估Web应用程序是否存在已知的安全问题。在评估的扫描阶段，我们已经确定了运行Web服务的主机。可以使用Bash脚本来利用现有的Nmap可搜索输出文件，仅针对运行Web服务的系统运行Nikto。在本示例中，我们将演示如何使用脚本来确定从先前扫描结果中运行TCP端口`80`上服务的主机，然后仅针对这些系统运行Nikto。
+- en: Getting ready
+  id: totrans-90
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: "To use the script demonstrated in this recipe, you will need to have access\
+    \ to systems running web services. In the example provided, there are two boxes\
+    \ running Metasploitable and two running Windows XP. For more information on setting\
+    \ up Metasploitable and Windows XP systems, refer to the *Installing Metasploitable2*\
+    \ and *Installing Windows server* recipes in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),\
+    \ \L*Getting Started*. Additionally, this section will require a script to be\
+    \ written to the filesystem by using a text editor such as Vim or GNU nano. For\
+    \ more information on writing scripts, refer to the *Using text editors (Vim and\
+    \ GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),\
+    \ *Getting Started*."
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '要使用本配方中演示的脚本，你需要能够访问运行Web服务的系统。在提供的示例中，有两台机器运行Metasploitable，另外两台运行Windows
+    XP。有关如何设置Metasploitable和Windows XP系统的更多信息，请参阅[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Metasploitable2*和*安装Windows服务器*配方，     *入门*部分。此外，本节还需要使用文本编辑器（如Vim或GNU nano）将脚本写入文件系统。有关编写脚本的更多信息，请参阅[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*使用文本编辑器（Vim和GNU
+    nano）*配方，*入门*部分。'
+- en: How to do it...
+  id: totrans-92
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何做到……
+- en: 'The example that follows demonstrates how we can use the Bash scripting language
+    to extract information from Nmap''s greppable format. We then use that information
+    to run Nikto against hosts running web services:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的示例演示了我们如何使用Bash脚本语言从Nmap的可解析格式中提取信息。然后，我们利用这些信息对运行Web服务的主机执行Nikto扫描：
+- en: '[PRE3]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'To ensure that the functionality of the script is understood, we will address
+    each line in sequence:'
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了确保脚本功能的理解，我们将按顺序逐行解析：
+- en: The first few lines are similar to scripts that were discussed in previous recipes.
+    The first line points to the Bash interpreter, the second line checks that arguments
+    are provided, and the third line assigns input values to easily understood variable
+    names.
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 前几行与之前讨论过的脚本类似。第一行指向Bash解释器，第二行检查是否提供了参数，第三行将输入值分配给易于理解的变量名。
+- en: A `for` loop is used to cycle through a list of IP addresses that is acquired
+    by means of a `grep` function. The list of IP addresses output from the `grep`
+    function corresponds to all systems that have a service running on TCP port `80`.
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`for`循环用于遍历通过`grep`函数获得的IP地址列表。`grep`函数输出的IP地址列表对应于所有在TCP端口`80`上运行服务的系统。'
+- en: For each of these IP addresses, we run a Nikto scan and output the results to
+    the `/tmp/nikto-scans/ directory`.
+  id: totrans-98
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对于这些IP地址，我们运行Nikto扫描并将结果输出到`/tmp/nikto-scans/`目录。
+- en: 'A different output report will be written for each host; to avoid naming conflicts,
+    we''ll name the output file with the IP address of the target machine. The only
+    thing left to do is to create the `nikto-scans` directory:'
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 每个主机将生成不同的输出报告；为了避免命名冲突，我们将输出文件命名为目标机器的IP地址。剩下的唯一工作就是创建`nikto-scans`目录：
+- en: '![](../images/00249.jpeg)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00249.jpeg)'
+- en: 'By executing the script without any arguments, the script will output the usage
+    description. This description indicates that a filename of an existing Nmap greppable
+    output file should be supplied. When the Nmap output file is supplied, the script
+    quickly analyzes the file to find any systems with a service on TCP port `80`,
+    then runs Nikto scans on each of those systems, and writes the output to the terminal
+    and the `/tmp/nikto-scans/` directory:'
+  id: totrans-101
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过不带任何参数执行脚本，脚本将输出使用说明。该说明表明应提供一个现有的Nmap可解析输出文件的文件名。当提供Nmap输出文件时，脚本会快速分析文件，查找任何在TCP端口`80`上运行服务的系统，然后对这些系统运行Nikto扫描，并将输出写入终端和`/tmp/nikto-scans/`目录：
+- en: '![](../images/00659.jpeg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00659.jpeg)'
+- en: 'We can now navigate to the `/tmp/nikto-scans/` directory and view the files
+    created by Nikto for each host scanned:'
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们可以导航到`/tmp/nikto-scans/`目录，查看Nikto为每个扫描的主机创建的文件：
+- en: '![](../images/00640.jpeg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00640.jpeg)'
+- en: 'Examining the report for `172.16.669.128`, we find Nikto''s findings:'
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查`172.16.669.128`的报告时，我们发现Nikto的扫描结果：
+- en: '![](../images/00241.jpeg)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00241.jpeg)'
+- en: 'In the example provided, the script is passed to the `netscan.txt` output file.
+    After a quick analysis of the file, the script determines that four systems are
+    running services on port `80`. Each of these services is then scanned with Nikto and
+    the results are output to the terminal and to a file for each host:'
+  id: totrans-107
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，脚本被传递给`netscan.txt`输出文件。通过快速分析该文件，脚本确定有四个系统在`80`端口上运行服务。然后，Nikto对这些服务进行扫描，结果输出到终端，并为每个主机生成一个文件：
+- en: '![](../images/00640.jpeg)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00640.jpeg)'
+- en: How it works...
+  id: totrans-109
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理……
+- en: By supplying the grep sequence as the value to be used by the `for` loop, the
+    Bash script in this recipe is essentially just looping through the output from
+    that function. By running that function independently, one can see that it just
+    extracts a list of IP addresses that correspond to hosts running web services.
+    The `for` loop then cycles through these IP addresses and runs a Nikto scan for
+    each.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过将 grep 序列作为 `for` 循环的值，本文中的 Bash 脚本实际上就是在循环执行该函数的输出。通过独立运行该函数，可以看到它只是提取出一份与运行
+    Web 服务的主机相对应的 IP 地址列表。然后，`for` 循环遍历这些 IP 地址，并对每个地址运行 Nikto 扫描。
+- en: Multithreaded MSF exploitation with reverse shell payload
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用反向 shell 有效载荷进行的多线程 MSF 利用
+- en: One of the difficulties of performing a large penetration test using the Metasploit
+    framework is that each exploit must be run individually and in sequence. In cases
+    where you would like to confirm the exploitability of a single vulnerability across
+    a large number of systems, the task of individually exploiting each one can become
+    tedious and overwhelming. Fortunately, by combining the power of MSFCLI and Bash
+    scripting, one can easily execute exploits on multiple systems simultaneously
+    by running a single script. This recipe will demonstrate how to use Bash to exploit
+    a single vulnerability across multiple systems and open a meterpreter shell for
+    each.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 框架进行大规模渗透测试的一大难点是每个利用都必须单独并按顺序执行。在需要确认多个系统中单个漏洞的可利用性时，单独对每个系统进行利用会变得既繁琐又令人不堪重负。幸运的是，通过结合
+    MSFCLI 和 Bash 脚本的强大功能，可以通过运行单个脚本轻松地在多个系统上同时执行利用。这一示例将演示如何使用 Bash 在多个系统上利用同一漏洞，并为每个系统打开一个
+    meterpreter shell。
+- en: Getting ready
+  id: totrans-113
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the script demonstrated in this recipe, you will need to have access
+    to multiple systems that each have the same vulnerability that can be exploited
+    with Metasploit. In the example provided, a VM running a vulnerable version of
+    Windows XP was copied to generate three instances of the MS08-067 vulnerability.
+    For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本示例中的脚本，您需要能够访问多个具有相同漏洞的系统，并且这些漏洞可以通过 Metasploit 进行利用。在提供的示例中，一台运行易受攻击的 Windows
+    XP 版本的虚拟机被复制，生成了三个 MS08-067 漏洞实例。有关如何设置 Windows 系统的更多信息，请参阅 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Windows 服务器* 配方，*入门*。此外，本部分还需要使用如 Vim 或 GNU nano 等文本编辑器将脚本写入文件系统。有关编写脚本的更多信息，请参阅
+    [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和
+    GNU nano）* 配方，*入门*。
+- en: How to do it…
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: "The example that follows demonstrates how a Bash script can be used to exploit\
+    \ multiple instances of a single vulnerability simultaneously. This script in\
+    \ particular can be used to exploit multiple instances of the MS08-067 NetAPI\
+    \ vulnerability by referencing an input \Llist of IP addresses:"
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例演示了如何使用 Bash 脚本同时利用同一漏洞的多个实例。这个脚本特别用于通过引用输入的 IP 地址列表来利用 MS08-067 NetAPI
+    漏洞的多个实例：
+- en: '[PRE4]'
+  id: totrans-117
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: The script uses a `for` loop to execute a specific task for each IP address
+    listed in the input text file. That specific task consists of launching a new
+    GNOME terminal that in turn executes the `msfconsole -x` command that is necessary
+    to exploit that particular system and then launch a reverse TCP meterpreter shell.
+    Because the `for` loop launches a new GNOME terminal for each `msfconsole` exploit,
+    each one is executed as an independent process. In this way, multiple processes
+    can be running in parallel, and each target will be exploited simultaneously.
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 该脚本使用 `for` 循环对输入文本文件中列出的每个 IP 地址执行特定任务。该特定任务包括启动一个新的 GNOME 终端，接着执行 `msfconsole
+    -x` 命令，该命令用于利用该系统的特定漏洞并启动反向 TCP meterpreter shell。由于 `for` 循环为每个 `msfconsole`
+    利用启动一个新的 GNOME 终端，因此每个利用都作为独立进程执行。这样，多个进程可以并行运行，每个目标都会同时被利用。
+- en: The local port value is initialized at the value of `4444` and is incremented
+    by `1` for each additional system that is exploited so that each meterpreter shell
+    connects to a distinct local port. Because each process is executed in an independent
+    shell, this script will need to be executed from the graphical desktop interface
+    rather than over an SSH connection.
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 本地端口值初始化为 `4444`，每多一个被利用的系统，端口值会递增 `1`，以确保每个 meterpreter shell 连接到不同的本地端口。因为每个进程都在独立的
+    shell 中执行，所以该脚本需要通过图形桌面界面执行，而非通过 SSH 连接。
+- en: 'The `./multipwn.sh` Bash shell can be executed as follows:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`./multipwn.sh` Bash 脚本可以如下执行：'
+- en: '![](../images/00315.jpeg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00315.jpeg)'
+- en: If the script is executed without supplying any arguments, the script will output
+    the appropriate usage. This usage description will indicate that the script should
+    be executed with an `LHOST` variable to define the listening IP system and the
+    filename for a text file containing a list of target IP addresses.
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果脚本在没有任何参数的情况下执行，脚本将输出相应的使用说明。该说明将指出脚本应使用 `LHOST` 变量来定义监听 IP 系统，并提供一个包含目标 IP
+    地址列表的文本文件的文件名。
+- en: Once executed with these arguments, a series of new terminals will begin popping
+    up. Each of these terminals will run the exploitation sequence of one of the IP
+    addresses in the input list.
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦使用这些参数执行，新的终端窗口将开始弹出。每个终端将运行输入列表中一个 IP 地址的漏洞利用序列。
+- en: The original execution terminal will output a list of processes as they are
+    executed. In the example provided, three distinct systems are exploited, and a
+    separate terminal is opened for each.
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 原始执行终端将输出正在执行的进程列表。在提供的示例中，三个不同的系统被利用，并为每个系统打开了一个独立的终端。
+- en: 'An example of one of the terminals is as follows:'
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 其中一个终端的示例如下：
+- en: '![](../images/00401.jpeg)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00401.jpeg)'
+- en: Each individual terminal launches a separate instance of msfconsole and launches
+    the exploit. Assuming the exploit is successful, the payload will be executed,
+    and an interactive meterpreter shell will be available in each separate terminal.
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 每个终端都会启动一个独立的 msfconsole 实例并启动漏洞利用。如果漏洞利用成功，载荷将被执行，并且每个终端都会启动一个交互式的 meterpreter
+    shell。
+- en: How it works…
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理…
+- en: By using separate terminals for each process, it is possible to execute multiple
+    parallel exploits with a single Bash script. Additionally, by using an incrementing
+    value for the `LPORT` assignment, it is possible to execute multiple reverse meterpreter
+    shells simultaneously.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过为每个进程使用独立的终端，可以通过单一 Bash 脚本执行多个并行漏洞利用。此外，使用递增的 `LPORT` 值分配，还可以同时执行多个反向 meterpreter
+    shell。
+- en: Multithreaded MSF exploitation with backdoor executable
+  id: totrans-130
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 带有后门可执行文件的多线程 MSF 漏洞利用
+- en: This recipe will demonstrate how to use Bash to exploit a single vulnerability
+    across multiple systems and open a backdoor on each system. The backdoor consists
+    of staging a Netcat executable on the target system and opening a listening service
+    that will execute `cmd.exe` upon receiving a connection.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本教程将演示如何使用 Bash 脚本在多个系统上利用单一漏洞，并在每个系统上打开一个后门。后门的实现方法是在目标系统上准备一个 Netcat 可执行文件，并开启一个监听服务，接收到连接时执行`cmd.exe`。
+- en: Getting ready
+  id: totrans-132
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the script demonstrated in this recipe, you will need to have access
+    to multiple systems that each have the same vulnerability that can be exploited
+    with Metasploit. In the example provided, a VM running a vulnerable version of
+    Windows XP was copied to generate three instances of the MS08-067 vulnerability.
+    For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and Nano)* recipe in
+    [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本教程中演示的脚本，你需要访问多个系统，这些系统都有相同的漏洞，可以通过 Metasploit 进行利用。在提供的示例中，复制了一台运行有 Windows
+    XP 漏洞版本的虚拟机，生成了三个 MS08-067 漏洞实例。有关如何设置 Windows 系统的更多信息，请参考 [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中
+    *安装 Windows Server* 的食谱 *入门* 部分。此外，本部分还需要使用文本编辑器（如 Vim 或 GNU nano）编写脚本并保存到文件系统中。有关编写脚本的更多信息，请参考
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中 *使用文本编辑器（Vim 和 Nano）*
+    的食谱 *入门* 部分。
+- en: How to do it…
+  id: totrans-134
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: "The example that follows demonstrates how a Bash script can be used to exploit\
+    \ multiple instances of a single vulnerability simultaneously. This script in\
+    \ particular can be used to exploit multiple instances of the MS08-067 NetAPI\
+    \ vulnerability by referencing an input \Llist of IP addresses:"
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例展示了如何使用 Bash 脚本同时利用单一漏洞的多个实例。这个脚本特别适用于利用 MS08-067 NetAPI 漏洞的多个实例，方法是引用包含
+    IP 地址列表的输入：
+- en: '[PRE5]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: This script is different from the one discussed in the previous recipe because
+    this script installs a backdoor on each target. On each exploited system, a payload
+    is executed that uses the integrated **Trivial File Transfer Protocol** (**TFTP**)
+    client to grab the Netcat executable and then uses it to open up a listening `cmd.exe`
+    terminal service on the TCP port `4444`.
+  id: totrans-137
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个脚本与前面提到的脚本有所不同，因为这个脚本会在每个目标系统上安装后门。在每个被利用的系统上，会执行一个有效载荷，利用集成的**简易文件传输协议**（**TFTP**）客户端抓取
+    Netcat 可执行文件，并使用它打开一个监听的 `cmd.exe` 终端服务，监听 TCP 端口 `4444`。
+- en: 'For this to work, a TFTP service will need to be running on the Kali system.
+    This can be done by issuing the following commands:'
+  id: totrans-138
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了使其正常工作，需要在 Kali 系统上运行 TFTP 服务。可以通过执行以下命令来实现：
+- en: '![](../images/00483.jpeg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00483.jpeg)'
+- en: The first command starts the TFTP service on UDP port `69` with the service
+    directory in `/tmp`. The second command is used to copy the Netcat executable
+    from the `Windows binaries` folder to the TFTP directory.
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一个命令启动 TFTP 服务，使用 UDP 端口 `69` 并将服务目录设置为 `/tmp`。第二个命令用于将 Netcat 可执行文件从 `Windows
+    binaries` 文件夹复制到 TFTP 目录。
+- en: 'Now, we execute the `./multipwn.sh` Bash shell:'
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们执行 `./multipwn.sh` Bash 脚本：
+- en: '![](../images/00549.jpeg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00549.jpeg)'
+- en: If the script is executed without supplying any arguments, the script will output
+    the appropriate usage. This usage description will indicate that the script should
+    be executed with an argument specifying the filename for a text file containing
+    a list of target IP addresses.
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果脚本在没有提供任何参数的情况下执行，脚本将输出相应的用法说明。该用法说明将指出脚本应当带有一个参数，指定一个包含目标 IP 地址列表的文本文件的文件名。
+- en: Once executed with this argument, a series of new terminals will begin popping
+    up. Each of these terminals will run the exploitation sequence of one of the IP
+    addresses in the input list.
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行时提供此参数后，一系列新的终端将开始弹出。这些终端将分别运行输入列表中每个 IP 地址的利用序列。
+- en: The original execution terminal will output a list of processes as they are
+    executed and indicate that a backdoor will be created on each terminal.
+  id: totrans-145
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 原始执行终端将输出正在执行的进程列表，并指出每个终端上将创建一个后门。
+- en: 'After the exploitation sequence has completed in each terminal, Netcat can
+    be used to connect to the remote service that was opened by the payload:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在每个终端中的利用序列完成后，可以使用 Netcat 连接到由有效载荷打开的远程服务：
+- en: '![](../images/00615.jpeg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00615.jpeg)'
+- en: In the example provided, connecting to TCP port `4444` on the successfully exploited
+    system with IP address `172.16.69.140` yields remote access to a `cmd.exe` terminal
+    service.
+  id: totrans-148
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，连接到成功被利用的系统（IP 地址为 `172.16.69.140`）的 TCP 端口 `4444`，即可远程访问 `cmd.exe`
+    终端服务。
+- en: How it works…
+  id: totrans-149
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: Netcat is a highly functional tool that can be used for a variety of purposes.
+    While this is an effective way to execute services remotely, it is not recommended
+    that this technique be used on production systems. This is because the backdoor
+    opened by Netcat can be accessed by anyone that can establish a TCP connection
+    with the listening port.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Netcat 是一个功能强大的工具，可用于多种目的。虽然这是远程执行服务的有效方法，但不建议在生产系统中使用这种技术。因为 Netcat 打开的后门可以被任何能够与监听端口建立
+    TCP 连接的人访问。
+- en: Multithreaded MSF exploitation with ICMP verification
+  id: totrans-151
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 带有 ICMP 验证的多线程 MSF 利用
+- en: This recipe will demonstrate how to use Bash to exploit a single vulnerability
+    across multiple systems and use ICMP traffic to validate the successful exploitation
+    of each. This technique requires little overhead and can easily be used to gather
+    a list of exploitable systems.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本示例将展示如何使用 Bash 脚本在多个系统上利用单一漏洞，并通过 ICMP 流量验证每个系统的成功利用。此技术开销较小，且可以轻松用于收集可利用的系统列表。
+- en: Getting ready
+  id: totrans-153
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: To use the script demonstrated in this recipe, you will need to have access
+    to multiple systems that each have the same vulnerability that can be exploited
+    with Metasploit. In the example provided, a VM running a vulnerable version of
+    Windows XP was copied to generate three instances of the MS08-067 vulnerability.
+    For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本食谱中演示的脚本，您需要访问多个系统，每个系统都有相同的漏洞，并且可以使用 Metasploit 进行利用。在提供的示例中，一台运行漏洞版本 Windows
+    XP 的虚拟机被复制以生成三个 MS08-067 漏洞实例。有关设置 Windows 系统的更多信息，请参考 [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)《*安装
+    Windows Server*》中的相关内容，*入门*。此外，本节还需要使用文本编辑器（如 Vim 或 GNU nano）编写脚本。有关编写脚本的更多信息，请参考
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)《*使用文本编辑器（Vim 和 GNU
+    nano）*》中的相关内容，*入门*。
+- en: How to do it…
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: "The example that follows demonstrates how a Bash script can be used to exploit\
+    \ multiple instances of a single vulnerability simultaneously. This script in\
+    \ particular can be used to exploit multiple instances of the MS08-067 NetAPI\
+    \ vulnerability by referencing an input \Llist of IP addresses:"
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例演示了如何使用 Bash 脚本同时利用单个漏洞的多个实例。这个脚本特别可以通过引用一个 IP 地址输入列表，来利用 MS08-067 NetAPI
+    漏洞的多个实例：
+- en: '[PRE6]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: This script differs from the one discussed in the previous recipe because the
+    payload merely sends an ICMP echo request from the exploited system back to the
+    attacking system.
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个脚本与之前讨论的脚本不同，因为负载仅仅是将 ICMP 回显请求从被攻击系统发送回攻击系统。
+- en: The `-i` option is used while executing the `ping` command to specify a **Time-To-Live**
+    (**TTL**) value of `15`. This alternate TTL value is used to distinguish exploit-generated
+    traffic from normal ICMP traffic.
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行 `ping` 命令时，使用 `-i` 选项来指定一个 **生存时间（TTL）** 值为 `15`。这个替代的 TTL 值用于区分利用生成的流量和正常的
+    ICMP 流量。
+- en: A custom listener Python script should also be executed to identify exploited
+    systems by receiving the ICMP traffic.
+  id: totrans-160
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 应该执行一个自定义监听器 Python 脚本，通过接收 ICMP 流量来识别被利用的系统。
+- en: 'This script is as follows:'
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 该脚本如下所示：
+- en: '[PRE7]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'The script listens to all incoming traffic. When an ICMP packet is received
+    with a TTL value of `15` or lower, the script flags the system as being exploitable:'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本监听所有传入流量。当收到一个 TTL 值为 `15` 或更低的 ICMP 包时，脚本将该系统标记为可被利用：
+- en: '![](../images/00663.jpeg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00663.jpeg)'
+- en: Listening for incoming ICMP traffic, use *Ctrl* + *C* to stop scanning. The
+    Python traffic listener should be executed first. No output should be generated
+    by the script initially. This script should continue to run throughout the duration
+    of the exploitation process. Once the script is running, the Bash exploitation
+    script should be launched.
+  id: totrans-165
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 监听传入的 ICMP 流量，使用*Ctrl* + *C* 来停止扫描。Python 流量监听器应该首先执行。脚本开始时不应产生任何输出。这个脚本应在整个利用过程期间持续运行。一旦脚本启动，应该启动
+    Bash 利用脚本。
+- en: 'When the script is executed, the original terminal shell will indicate that
+    each system is being exploited and that the ping sequence is being executed. A
+    new GNOME terminal will also be opened for each IP address in the input list.
+    As each exploitation process is completed, the ICMP echo request should be initiated
+    from the target system:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当脚本执行时，原始终端 Shell 会显示每个系统正在被利用，并且 ping 序列正在执行。每个 IP 地址的新 GNOME 终端也将为输入列表中的每个地址打开。每个利用过程完成后，应该从目标系统发起
+    ICMP 回显请求：
+- en: '![](../images/00046.jpeg)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00046.jpeg)'
+- en: Assuming the exploit is successful, the Python listening script will identify
+    the generated traffic and will list each source IP address for the ICMP traffic
+    as `exploitable`.
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 假设利用成功，Python 监听脚本将识别生成的流量，并将每个 ICMP 流量的源 IP 地址列为 `exploitable`。
+- en: How it works…
+  id: totrans-169
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: ICMP traffic might seem to be an unintuitive way of verifying the exploitability
+    of target systems. However, it actually works very well. The single ICMP echo
+    request leaves no trace of exploitation on the target system, and no excessive
+    overhead is required. Also, the custom TTL value of `15` makes it highly unlikely
+    that a false positive will be generated since nearly all systems begin with a
+    TTL value of `128` or higher.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ICMP流量可能看起来不像是验证目标系统可利用性的一种直观方式。然而，它实际上效果非常好。单个ICMP回显请求不会在目标系统上留下任何利用痕迹，并且不需要过多的开销。此外，`15`的自定义TTL值使得生成误报的可能性极小，因为几乎所有系统的TTL值初始值都是`128`或更高。
+- en: Multithreaded MSF exploitation with admin account creation
+  id: totrans-171
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 多线程MSF利用与管理员账户创建
+- en: This recipe will demonstrate how to use Bash to exploit a single vulnerability
+    across multiple systems and add a new administrator account on each system. This
+    technique can be used to access compromised systems at a later time using integrated
+    terminal services or SMB authentication.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本教程将演示如何使用Bash在多个系统上利用单一漏洞，并在每个系统上添加一个新的管理员账户。该技术可用于在稍后通过集成的终端服务或SMB身份验证访问被攻破的系统。
+- en: Getting ready
+  id: totrans-173
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the script demonstrated in this recipe, you will need to have access
+    to multiple systems that each have the same vulnerability that can be exploited
+    with Metasploit. In the example provided, a VM running a vulnerable version of
+    Windows XP is copied to generate three instances of the MS08-067 vulnerability.
+    For more information on setting up a Windows system, refer to the *Installing
+    a Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用本教程中演示的脚本，您需要访问多个具有相同漏洞的系统，这些系统可以通过Metasploit进行利用。在提供的示例中，一台运行易受攻击版本的Windows
+    XP的虚拟机被复制，用以生成三个MS08-067漏洞实例。有关设置Windows系统的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Windows服务器*教程，*入门*部分。此外，本节还要求使用如Vim或GNU
+    nano等文本编辑器将脚本写入文件系统。有关编写脚本的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*使用文本编辑器（Vim和GNU
+    nano）*教程，*入门*部分。
+- en: How to do it…
+  id: totrans-175
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: "The example that follows demonstrates how a Bash script can be used to exploit\
+    \ multiple instances of a single vulnerability simultaneously. This script in\
+    \ particular can be used to exploit multiple instances of the MS08-067 NetAPI\
+    \ vulnerability by referencing an input list \Lof IP addresses:"
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的示例演示了如何使用Bash脚本同时利用多个实例的单一漏洞。特别是，这个脚本可以通过引用IP地址输入列表来利用多个MS08-067 NetAPI漏洞实例：
+- en: '[PRE8]'
+  id: totrans-177
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: This script is different from the previous multithreaded exploitation scripts
+    because of the payload.
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 该脚本与之前的多线程利用脚本不同，因为其有效载荷的设计。
+- en: 'In this case, two sequential commands are executed upon successful exploitation.
+    The first of these two commands creates a new user account named `hutch` and defines
+    the associated password. The second command adds the newly created user account
+    to the local administrators group:'
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这种情况下，成功利用漏洞后会执行两个顺序命令。第一个命令创建一个名为`hutch`的新用户账户，并设置关联的密码。第二个命令将新创建的用户账户添加到本地管理员组中：
+- en: '![](../images/00115.jpeg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00115.jpeg)'
+- en: If the script is executed without supplying any arguments, the script will output
+    the appropriate usage. This usage description will indicate that the script should
+    be executed with an argument specifying the filename for a text file containing
+    a list of target IP addresses.
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果没有提供任何参数执行脚本，脚本将输出适当的使用说明。该使用说明会指出，脚本应该带上一个指定包含目标IP地址列表的文本文件的文件名作为参数来执行。
+- en: Once executed with this argument, a series of new terminals will begin popping
+    up. Each of these terminals will run the exploitation sequence of one of the IP
+    addresses in the input list.
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦执行该命令，多个新的终端将开始弹出。这些终端将依次执行输入列表中每个IP地址的利用序列。
+- en: The original execution terminal will output a list of processes as they are
+    executed and indicate that the new user account will be added on each. After the
+    exploitation sequence has completed in each terminal, the system can then be accessed
+    by integrated terminal services such as RDP or via remote SMB authentication.
+  id: totrans-183
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 原始执行终端会输出正在执行的进程列表，并指示新用户账户将在每个进程上添加。每个终端中的利用序列完成后，系统可以通过集成终端服务（如RDP）或通过远程SMB认证进行访问。
+- en: 'To demonstrate that the account was added, Hydra is used to remotely log in
+    to an exploited system using the newly added credentials:'
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了演示账户已被添加，Hydra用于使用新添加的凭据远程登录到被利用的系统：
+- en: '![](../images/00186.jpeg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00186.jpeg)'
+- en: Hydra indicates that the login with the newly created credentials was successful.
+    This newly created account can then be used for further nefarious purposes, or
+    a script could be used to test for the presence of the account to be used for
+    validating the exploitation of vulnerabilities.
+  id: totrans-186
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Hydra表示使用新创建的凭据登录成功。这个新创建的账户可以用于进一步的恶意操作，或者可以使用脚本来测试该账户的存在，以验证漏洞的利用情况。
+- en: How it works…
+  id: totrans-187
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: By adding a user account on each executed system, an attacker can continue to
+    perform subsequent actions on that system. There are both advantages and disadvantages
+    to this approach. Adding a new account on the compromised system is faster than
+    compromising existing accounts and can allow immediate access to existing remote
+    services such as RDP. Alternatively, adding a new account is not very stealthy
+    and can sometimes trigger alerts on host-based intrusion-detection systems.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过在每个执行系统上添加一个用户账户，攻击者可以继续在该系统上执行后续操作。这种方法有优点也有缺点。在被攻破的系统上添加一个新账户比攻破现有账户要更快速，并且可以立即访问现有的远程服务，如RDP。另一方面，添加一个新账户并不非常隐蔽，有时可能会触发基于主机的入侵检测系统的警报。
+- en: This book was downloaded from AvaxHome!
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书已从AvaxHome下载！
+- en: 'Visit my blog for more new books:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问我的博客查看更多新书：
+- en: '[https://avxhm.se/blogs/AlenMiler](https://tr.im/avaxhome)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://avxhm.se/blogs/AlenMiler](https://tr.im/avaxhome)'

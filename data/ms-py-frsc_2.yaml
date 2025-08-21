@@ -1,0 +1,869 @@
+- en: Chapter 2. Forensic Algorithms
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第2章。法医算法
+- en: Forensic algorithms are the building blocks for a forensic investigator. Independent
+    from any specific implementation, these algorithms describe the details of the
+    forensic procedures. In the first section of this chapter, we will introduce the
+    different algorithms that are used in forensic investigations, including their
+    advantages and disadvantages.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医算法是法医调查员的基本工具。无论具体实现如何，这些算法描述了法医程序的细节。在本章的第一节中，我们将介绍用于法医调查的不同算法，包括它们的优缺点。
+- en: Algorithms
+  id: totrans-2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 算法
+- en: In this section, we describe the main differences between **MD5**, **SHA256**,
+    and **SSDEEP**—the most common algorithms used in the forensic investigations.
+    We will explain the use cases as well as the limitations and threats behind these
+    three algorithms. This should help you understand why using SHA256 is better than
+    using MD5 and in which cases SSDEEP can help you in the investigation.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将描述**MD5**、**SHA256**和**SSDEEP**之间的主要区别——这些是法医调查中最常用的算法。我们将解释这些算法的使用场景，以及它们背后的局限性和威胁。这将帮助你理解为什么使用SHA256比使用MD5更好，以及在什么情况下SSDEEP可以帮助你进行调查。
+- en: Before we dive into the different hash functions, we will give a short summary
+    of what a cryptographic hash function is.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在深入探讨不同的哈希函数之前，我们将简要总结一下什么是加密哈希函数。
+- en: A **hash function** is a function that maps an *arbitrarily large* amount of
+    data to a value of a *fixed length*. The hash function ensures that the same input
+    always results in the same output, called the hash sum. Consequently, a hash sum
+    is a characteristic of a specific piece of data.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**哈希函数**是一个将*任意大量*数据映射到一个*固定长度*值的函数。哈希函数确保相同的输入始终产生相同的输出，这个输出称为哈希值。因此，哈希值是特定数据的特征。'
+- en: A **cryptographic hash function** is a hash function that is considered practically
+    impossible to invert. This means that it is not possible to create the input data
+    while having a pre-defined hash sum value by any other means than trying all the
+    possible input values, that is *brute force*. Therefore, this class of algorithms
+    is known as *one-way* cryptographic algorithm.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**加密哈希函数**是一个被认为在实践中几乎不可能被反转的哈希函数。这意味着，不可能通过除非尝试所有可能的输入值（即*暴力破解*）以外的任何其他方式创建具有预定义哈希值的输入数据。因此，这类算法被称为*单向*加密算法。'
+- en: 'The ideal cryptographic hash function has four main properties, as follows:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理想的加密哈希函数有四个主要特性，具体如下：
+- en: It must be easy to compute the hash value for any given input.
+  id: totrans-8
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 必须能够轻松地计算给定输入的哈希值。
+- en: It must be infeasible to generate the original input from its hash.
+  id: totrans-9
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 必须不可行从哈希值生成原始输入。
+- en: It must be infeasible to modify the input without changing the hash.
+  id: totrans-10
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 必须不可行在不改变哈希值的情况下修改输入。
+- en: It must be infeasible to find two different inputs with the same hash (**collision-resistant**).
+  id: totrans-11
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 必须不可行找到两个不同的输入，它们具有相同的哈希值（**抗碰撞**）。
+- en: 'In the ideal case, if you create a hash of the given input and change only
+    one bit of this input, the newly calculated hash will look totally different,
+    as follows:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在理想情况下，如果你对给定的输入创建哈希并且只更改了一个比特，那么新计算出的哈希将完全不同，如下所示：
+- en: '[PRE0]'
+  id: totrans-13
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: If all of the previously mentioned properties are fulfilled, the algorithm is
+    a cryptographically correct hash function and can be used to compare, for example,
+    files with each other to prove that they haven't been tampered with during analysis
+    or by an attacker.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果满足前面提到的所有特性，则该算法是加密上正确的哈希函数，可以用来比较文件等，以证明它们在分析或被攻击者篡改时没有被修改。
+- en: MD5
+  id: totrans-15
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: MD5
+- en: The MD5 message-digest algorithm was the most commonly used (and is still a
+    widely used) cryptographic hash function that produces a 128-bit (16-byte) hash
+    value, typically expressed in the text format as a 32-digit hexadecimal number
+    (as shown in the previous example). This message digest has been utilized in a
+    wide variety of cryptographic applications and is commonly used to verify data
+    integrity in forensic investigations. This algorithm was designed by Ronald Rivest
+    in 1991 and has been heavily used since then.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MD5消息摘要算法曾是最常用（并且仍然广泛使用）的加密哈希函数，它产生一个128位（16字节）的哈希值，通常以32位十六进制数字的文本格式表示（如前面的示例所示）。这种消息摘要已广泛应用于各种加密应用中，并常用于法医调查中验证数据完整性。该算法由Ronald
+    Rivest于1991年设计，并自那时以来被广泛使用。
+- en: A big advantage of MD5 is that it calculates faster and produces small hashes.
+    The small hashes are a major point of interest when you need to store thousands
+    of these hashes in a forensic investigation. Just imagine how many files a common
+    PC will have on its hard drive. If you need to calculate a hash of each of these
+    files and store them in a database, it would make a huge difference if each of
+    the calculated hash has 16 byte or 32 byte of size.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MD5 的一个重要优点是计算速度快且生成的哈希值较小。当您需要在法医调查中存储数千个这些哈希时，小哈希是一个主要关注点。想象一下普通个人电脑硬盘上可能会有多少文件。如果您需要计算每个文件的哈希并将其存储在数据库中，那么每个计算出的哈希长度为16字节或32字节将产生巨大差异。
+- en: Nowadays, the major disadvantage of MD5 is the fact that it is no longer considered
+    to be collision-resistant. This means that it is possible to calculate the same
+    hash from two different inputs. Keeping this in mind, it is not possible anymore
+    to guarantee that a file hasn't been modified just by comparing its MD5 hash at
+    two different stages of an investigation. At the moment it is possible to create
+    a collision very fast, (refer to [http://www.win.tue.nl/hashclash/On%20Collisions%20for%20MD5%20-%20M.M.J.%20Stevens.pdf](http://www.win.tue.nl/hashclash/On%20Collisions%20for%20MD5%20-%20M.M.J.%20Stevens.pdf))
+    but it is still difficult to modify a file in a way, which is now a malicious
+    version of that benign file, and keep the MD5 hash of the original file.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如今，MD5 的主要缺点是它不再被认为是抗碰撞的。这意味着可以从两个不同的输入计算出相同的哈希。请记住，无法仅通过比较调查中不同阶段的文件的 MD5 哈希来保证文件未被修改。目前可以非常快速地创建碰撞（参见
+    [http://www.win.tue.nl/hashclash/On%20Collisions%20for%20MD5%20-%20M.M.J.%20Stevens.pdf](http://www.win.tue.nl/hashclash/On%20Collisions%20for%20MD5%20-%20M.M.J.%20Stevens.pdf)），但仍然很难修改文件，使其成为原文件的恶意版本，并保持原始文件的
+    MD5 哈希。
+- en: 'The very famous cryptographer, Bruce Schneier, once wrote that ([https://www.schneier.com/blog/archives/2008/12/forging_ssl_cer.html](https://www.schneier.com/blog/archives/2008/12/forging_ssl_cer.html)):'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 非常著名的密码学家布鲁斯·施奈尔曾经写道 ([https://www.schneier.com/blog/archives/2008/12/forging_ssl_cer.html](https://www.schneier.com/blog/archives/2008/12/forging_ssl_cer.html))：
+- en: '*"We already knew that MD5 is a broken hash function" and that "no one should
+    be using MD5 anymore".*'
+  id: totrans-20
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*"我们早就知道 MD5 是一种已经被攻破的哈希函数"，"没有人应该再使用 MD5 了"。*'
+- en: We would not go that far (especially because a lot of tools and services still
+    use MD5), but you should try switching to SHA256 or at least double-check your
+    results with the help of different hash functions in cases where it is critical.
+    Whenever the chain of custody is crucial, we recommend using multiple hash algorithms
+    to prove the integrity of your data.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们不会走得那么远（特别是因为许多工具和服务仍在使用 MD5），但在关键情况下，您应尝试切换到 SHA256 或至少使用不同哈希函数来双重检查您的结果。在关键时刻，建议使用多种哈希算法来证明数据的完整性。
+- en: SHA256
+  id: totrans-22
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SHA256
+- en: SHA-2 is a set of cryptographic hash functions designed by the NSA (U.S. National
+    Security Agency) and stands for Secure Hash Algorithm 2nd Generation. It has been
+    published in 2001 by the NIST as a U.S. federal standard (FIPS). The SHA-2 family
+    consists of several hash functions with digests (hash values) that are between
+    224 bits and 512 bits. The cryptographic functions SHA256 and SHA512 are the most
+    common versions of SHA-2 hash functions computed with 32-bit and 64-bit words.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SHA-2 是由美国国家安全局（NSA）设计的一组密码哈希函数，代表安全哈希算法第二代。它于2001年由美国国家标准与技术研究院（NIST）发布为美国联邦标准（FIPS）。SHA-2
+    家族包括几种哈希函数，其摘要（哈希值）长度介于224位到512位之间。SHA256 和 SHA512 是使用32位和64位字计算的最常见版本的 SHA-2
+    哈希函数。
+- en: Despite the fact that these algorithms calculate slower and that the calculated
+    hashes are larger in size (compared to MD5), they should be the preferred algorithms
+    that are used for integrity checks during the forensic investigations. Nowadays,
+    SHA256 is a widely used cryptographic hash function that is still collision-resistant
+    and entirely trustworthy.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这些算法计算速度较慢且计算出的哈希值较大（与 MD5 相比），但它们应该是在法医调查中用于完整性检查的首选算法。如今，SHA256 是广泛使用的密码哈希函数，仍然具有抗碰撞能力和完全可信任。
+- en: SSDEEP
+  id: totrans-25
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SSDEEP
+- en: 'The biggest difference between **MD5**, **SHA256**, and **SSDEEP** is the fact
+    that **SSDEEP** is not considered to be a **cryptographic hash function** as it
+    only changes slightly when the input is changed by one bit. For example:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**MD5**、**SHA256** 和 **SSDEEP** 最大的区别在于 **SSDEEP** 并不被认为是一种 **密码哈希函数**，因为当输入变化一个比特时它只会略微改变。例如：'
+- en: '[PRE1]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The SSDEEP packages can be downloaded and installed as described in the following
+    URL: [http://ssdeep.sourceforge.net/usage.html#install](http://ssdeep.sourceforge.net/usage.html#install)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SSDEEP软件包可以按照以下网址描述的步骤下载并安装：[http://ssdeep.sourceforge.net/usage.html#install](http://ssdeep.sourceforge.net/usage.html#install)
+- en: This behavior is not a weakness of SSDEEP, it is a major advantage of this function.
+    In reality, SSDEEP is a program to compute and match the **Context Triggered Piecewise
+    Hashing** (**CTPH**) values. CTPH is a technique that is also known as **Fuzzy
+    Hashing** and is able to match inputs that have homologies. Inputs with homologies
+    have sequences of identical bytes in a given order with totally different bytes
+    in between. These bytes in between can differ in content and length. CTPH, originally
+    based on the work of *Dr. Andrew Tridgell*, was adapted by *Jesse Kornblum* and
+    published at the DFRWS conference in 2006 in a paper called *Identifying Almost
+    Identical Files Using Context Triggered Piecewise Hashing*; refer to [http://dfrws.org/2006/proceedings/12-Kornblum.pdf](http://dfrws.org/2006/proceedings/12-Kornblum.pdf).
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种行为不是SSDEEP的弱点，而是该功能的一个主要优点。实际上，SSDEEP是一个计算和匹配**上下文触发的分段哈希**（**CTPH**）值的程序。CTPH是一种也被称为**模糊哈希**的技术，能够匹配具有同源性的输入。具有同源性的输入在给定的顺序中有相同的字节序列，中间则是完全不同的字节。这些字节之间的内容和长度可以不同。CTPH最初基于*Andrew
+    Tridgell博士*的研究，由*Jesse Kornblum*进行了改进，并在2006年在DFRWS会议上以《使用上下文触发的分段哈希识别几乎相同的文件》为题发表；参见[http://dfrws.org/2006/proceedings/12-Kornblum.pdf](http://dfrws.org/2006/proceedings/12-Kornblum.pdf)。
+- en: 'SSDEEP can be used to check how similar the two files are and in which part
+    of the file the difference is located. This feature is often used to check if
+    two different applications on the mobile devices have a common code base, as shown
+    in the following:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SSDEEP可以用来检查两个文件的相似性以及文件中差异所在的部分。这个功能通常用于检查移动设备上的两个不同应用是否具有共同的代码基础，如下所示：
+- en: '[PRE2]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: In the previous example, you can see that the second sample matches the first
+    one with a very high likelihood. These matches indicate the potential source code
+    reuse or at least a large number of files inside the apk file are identical. A
+    manual examination of the files in question is required to tell exactly which
+    parts of the code or files are identical; however, we now know that both the files
+    are similar to each other.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在之前的示例中，你可以看到第二个样本与第一个样本非常相似。这些匹配表明潜在的源代码重用，或者至少表明apk文件中的大量文件是相同的。需要手动检查相关文件，才能确切知道代码或文件的哪些部分是相同的；然而，我们现在知道这两个文件是相似的。
+- en: Supporting the chain of custody
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 支持链条证据的完整性
+- en: The outcomes of forensic investigations can have a severe impact on organizations
+    and individuals. Depending on your field of work, your investigation can become
+    evidence in the court.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医调查的结果可能对组织和个人产生严重影响。根据你的工作领域，你的调查可能成为法庭上的证据。
+- en: Consequently, the integrity of forensic evidence has to be ensured not just
+    when collecting the evidence, but also throughout the entire handling and analysis.
+    Usually, the very first step in a forensic investigation is gathering the evidence.
+    Normally, this is done using a bitwise copy of the original media. All the subsequent
+    analysis is performed on this forensic copy.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，法医证据的完整性不仅在收集证据时需要确保，而且在整个处理和分析过程中也要得到保证。通常，法医调查的第一步是收集证据。通常，这是通过对原始介质进行逐位复制来完成的。所有后续的分析工作都在这个法医副本上进行。
+- en: Creating hash sums of full disk images
+  id: totrans-36
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建完整磁盘映像的哈希值
+- en: To ensure that a forensic copy is actually identical to the original media,
+    hash sums of the media and from the forensic copy are made. These hash sums must
+    match to prove that the copy is exactly like the original data. Nowadays, it has
+    become common to use at least two different cryptographic hash algorithms to minimize
+    the risk of hash collisions and harden the overall process against hash collision
+    attacks.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了确保法医副本与原始介质完全相同，需要对介质和法医副本进行哈希值计算。这些哈希值必须匹配，以证明副本与原始数据完全相同。如今，至少使用两种不同的加密哈希算法已成为常见做法，以最小化哈希碰撞的风险，并增强整个过程对哈希碰撞攻击的防护能力。
+- en: 'With Linux, one can easily create MD5 and SHA256 hashes from a drive or multiple
+    files. In the following example, we will calculate MD5 sums and SHA256 sums for
+    two files to provide a proof of identical content:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用Linux，可以轻松地从驱动器或多个文件创建MD5和SHA256哈希。在下面的示例中，我们将计算两个文件的MD5值和SHA256值，以提供相同内容的证明：
+- en: '[PRE3]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: This proof of identical content is required to support the chain of custody,
+    that is, to show that the analyzed data is identical to the raw data on the disk.
+    The term **sdb** refers to a drive attached to the forensic workstation (in Linux,
+    the **second hard drive** is called **sdb**). To further support the chain of
+    custody, it is highly recommended to use a write-block device between the evidence
+    and forensic workstation to avoid any accidental change of the evidence. The second
+    argument represents the location of a bitwise copy of the evidence. The commands
+    output the hash sums for the original drive and the copy. The copy can be considered
+    forensically sound if both the MD5 sums match and both the SHA256 sums match.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种相同内容的证明是支持保全链的必要条件，即证明分析的数据与磁盘上的原始数据完全相同。术语**sdb**指的是连接到法医工作站的驱动器（在 Linux
+    中，**第二硬盘**被称为**sdb**）。为了进一步支持保全链，强烈建议在证据和法医工作站之间使用写保护设备，以避免任何意外修改证据。第二个参数表示证据的逐位副本的位置。命令输出原始硬盘和副本的哈希值。如果
+    MD5 值和 SHA256 值都匹配，那么副本可以被视为法医上有效的。
+- en: While the method shown in the previous example works, it has a big disadvantage,
+    the evidence and its copy have to be read twice to calculate the hash sums. If
+    the disk is a 1 TB hard drive, it can slow down the overall process by several
+    hours.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管前面示例中的方法有效，但它有一个很大的缺点——证据及其副本需要被读取两次以计算哈希值。如果硬盘是 1 TB 的大硬盘，这会使整体过程延长几个小时。
+- en: 'The following Python code reads the data only once and feeds it into two hash
+    calculations. Therefore, this Python script is almost twice as fast as running
+    `md5sum` followed by `sha256sum` and produces exactly the same hash sums as these
+    tools:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下 Python 代码只读取一次数据，并将其输入到两个哈希计算中。因此，这个 Python 脚本的运行速度几乎是运行`md5sum`再运行`sha256sum`的两倍，并且产生与这些工具完全相同的哈希值：
+- en: '[PRE4]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'In the following call of the script, we calculate the hash sums of some of
+    the common Linux tools:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下脚本调用中，我们计算了一些常见 Linux 工具的哈希值：
+- en: '[PRE5]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: It is crucial to document the hash sums of the original data and the forensic
+    copy in the forensic report. An independent party can then read the same piece
+    of evidence and confirm that the data that you analyzed is exactly the data of
+    the evidence.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在法医报告中记录原始数据和法医副本的哈希值非常重要。独立方可以读取相同的证据并确认你分析的数据与证据中的数据完全一致。
+- en: Creating hash sums of directory trees
+  id: totrans-47
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建目录树的哈希值
+- en: 'Once the full image is copied, its contents should be indexed and the hash
+    sums should be created for every file. With the support of the previously defined
+    `multi_hash` function and Python standard libraries, a report template containing
+    a list of all file names, sizes, and hash values can be created, as shown in the
+    following:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦完整的镜像被复制，其内容应该被索引，并为每个文件创建哈希值。借助先前定义的`multi_hash`函数和 Python 标准库，可以创建一个报告模板，其中包含所有文件的名称、大小和哈希值，如下所示：
+- en: '[PRE6]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'This Python script is all it takes to generate the integrity information of
+    a directory tree that includes file sizes, file names, and hash sums (SHA256,
+    MD5). The following is an example call on our scripting directory:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个 Python 脚本可以生成一个目录树的完整性信息，包括文件大小、文件名和哈希值（SHA256、MD5）。以下是我们脚本目录中的一个示例调用：
+- en: '[PRE7]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'However, the resulting report file itself does not have any integrity protection.
+    It is recommended to sign the resulting report, for example, using **GnuPG**,
+    as shown in the following:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，生成的报告文件本身没有任何完整性保护。建议对生成的报告进行签名，例如，使用**GnuPG**，如下所示：
+- en: '[PRE8]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: If you have never used `gpg` before, you need to generate a private key before
+    you can sign the documents. This can be done with the `gpg --gen-key` command.
+    Consult [https://www.gnupg.org/documentation](https://www.gnupg.org/documentation)
+    for more details about GnuPG and its use. This creates an additional `report.txt.asc`
+    file containing the original report and a digital signature. Any subsequent modification
+    of that file invalidates the digital signature.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你从未使用过`gpg`，你需要先生成一个私钥，然后才能对文档进行签名。可以使用`gpg --gen-key`命令来完成这一步。有关 GnuPG 及其使用的更多详细信息，请参考[https://www.gnupg.org/documentation](https://www.gnupg.org/documentation)。这将生成一个额外的`report.txt.asc`文件，包含原始报告和数字签名。对该文件的任何后续修改都会使数字签名无效。
+- en: Note
+  id: totrans-55
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: The techniques described here are merely the examples of how to support the
+    chain of custody. If the forensic analysis is to be used in the court, it is highly
+    recommended to seek legal advice about the chain-of-custody requirements in your
+    legislation.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里描述的技术仅仅是如何支持证据链的示例。如果法医分析将用于法院，强烈建议寻求法律咨询，以了解您所在法域关于证据链的要求。
+- en: Real-world scenarios
+  id: totrans-57
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 真实世界场景
+- en: This section will demonstrate some use cases where the preceding algorithms
+    and techniques are used to support the investigator. For this chapter, we use
+    two very common and interesting examples, **Mobile Malware** and the **National
+    Software Reference Library** (**NSRL**).
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节将展示一些使用前述算法和技术来支持调查员的用例。对于本章，我们使用了两个非常常见且有趣的示例，**移动恶意软件**和**国家软件参考库**（**NSRL**）。
+- en: Mobile Malware
+  id: totrans-59
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 移动恶意软件
+- en: In this example, we will check the installed applications on an Android smartphone
+    against an online analysis system, **Mobile-Sandbox**. Mobile-Sandbox is a website
+    that provides free Android files checking for viruses or suspicious behavior,
+    [http://www.mobilesandbox.org](http://www.mobilesandbox.org). It is connected
+    to **VirusTotal**, which uses up to 56 different antivirus products and scan engines
+    to check for viruses that the user's antivirus solution may have missed or verify
+    against any false positives. Additionally, Mobile-Sandbox uses custom techniques
+    to detect applications that act potentially malicious. Antivirus software vendors,
+    developers, and researchers behind Mobile-Sandbox can receive copies of the files
+    to help in improving their software and techniques.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本示例中，我们将检查安卓智能手机上已安装的应用程序，并与一个在线分析系统**Mobile-Sandbox**进行对比。Mobile-Sandbox是一个提供免费安卓文件病毒检查或可疑行为检查的网站，[http://www.mobilesandbox.org](http://www.mobilesandbox.org)。它与**VirusTotal**相连接，VirusTotal使用最多56种不同的杀毒产品和扫描引擎来检查用户的杀毒软件可能遗漏的病毒，或验证任何虚假阳性。此外，Mobile-Sandbox使用自定义技术来检测可能具有恶意行为的应用程序。Mobile-Sandbox背后的杀毒软件供应商、开发者和研究人员可以接收文件副本，以帮助改进他们的软件和技术。
+- en: In the example, we will use two steps to successfully compare the installed
+    applications with the already tested apps on the Mobile-Sandbox web service.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本示例中，我们将使用两个步骤成功地将已安装的应用程序与 Mobile-Sandbox 网络服务上已测试的应用程序进行比较。
+- en: The first step is to get the hash sums of the installed applications on the
+    device. This is very important as these values can help to identify the apps and
+    check them against the online services. For this example, we will use an application
+    from Google Play, **AppExtract** ([https://play.google.com/store/apps/details?id=de.mspreitz.appextract](https://play.google.com/store/apps/details?id=de.mspreitz.appextract)).
+    The forensically more correct way of getting these values can be found in [Chapter
+    6](ch06.html "Chapter 6. Using Python for Mobile Forensics"), *Using Python for
+    Mobile Forensics*.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一步是获取设备上已安装应用程序的哈希值。这个步骤非常重要，因为这些值可以帮助识别应用程序，并将其与在线服务进行比对。在本示例中，我们将使用来自Google
+    Play的一个应用程序，**AppExtract**（[https://play.google.com/store/apps/details?id=de.mspreitz.appextract](https://play.google.com/store/apps/details?id=de.mspreitz.appextract)）。获取这些值的法医正确方法可以参考[第6章](ch06.html
+    "第6章. 使用Python进行移动取证")，*使用Python进行移动取证*。
+- en: '![Mobile Malware](img/2087_02_01.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![移动恶意软件](img/2087_02_01.jpg)'
+- en: 'AppExtract for Android generates a list of installed and running apps with
+    a large amount of metadata that can help in identifying unwanted or even malicious
+    applications. This metadata contains the SHA256 hash sum of the application packages,
+    an indicator whether the app has been installed by the user or the system itself,
+    and a lot of additional data that can help in identifying if the app is benign
+    or not. These lists can be transferred via your favorite email app for further
+    analysis. Once you receive the plain-text email with the generated lists, you
+    just need to copy the list that contains all the installed applications to a CSV
+    file. This file can be used for an automated analysis or opened with **LibreOffice
+    Calc** in the lab environment. You can see the metadata of the current version
+    of the Chrome Browser for Android in the following:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: AppExtract for Android生成一份已安装和正在运行的应用程序列表，并附带大量元数据，帮助识别不需要的甚至恶意的应用程序。这些元数据包含应用程序包的SHA256哈希值、指示应用程序是由用户安装还是系统安装的标志，以及许多额外的数据，有助于判断应用程序是否为良性。这些列表可以通过您喜欢的邮件应用程序进行转发，供进一步分析。一旦收到包含生成列表的纯文本邮件，您只需将包含所有已安装应用程序的列表复制到CSV文件中。该文件可以用于自动化分析，或者在实验室环境中用**LibreOffice
+    Calc**打开。您可以在下面看到当前版本的Android Chrome浏览器的元数据：
+- en: '[PRE9]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'The second step is to compare the hash sums from the device (third column in
+    our CSV file) with the Mobile-Sandbox database. This can be done with the help
+    of the following script that we will save as `get_infos_mobilesandbox.py`:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二步是将设备的哈希值（CSV 文件中的第三列）与 Mobile-Sandbox 数据库进行比较。可以使用以下脚本完成，我们将其保存为`get_infos_mobilesandbox.py`：
+- en: '[PRE10]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'The script can be used as shown in the following:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本可以如下所示使用：
+- en: '[PRE11]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: With the help of these three tools, it is possible to quickly check if an application
+    on a mobile device is potentially infected (see the highlighted parts in the response)
+    or at least where to start with the manual investigation if an application hasn't
+    been tested before.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 利用这三个工具，可以快速检查移动设备上的应用程序是否可能被感染（请参阅响应中的突出部分），或者至少在应用程序之前未经测试时可以从何处开始手动调查。
+- en: NSRLquery
+  id: totrans-71
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: NSRL 查询
+- en: To increase efficiency in the forensic analysis, it is crucial to sort out any
+    files that belong to known software and have not been modified. The **National
+    Software Reference Library** (**NSRL**) maintains multiple lists of hash sums
+    for the known content. NSRL is a project of the U.S. Department of Homeland Security,
+    further details are available on [http://www.nsrl.nist.gov/](http://www.nsrl.nist.gov/).
+    It is important to understand that these lists of hash sums merely indicate that
+    a file was not modified as compared to the version that was submitted to the NSRL.
+    Consequently, it is normal that a lot of files, which are to be analysed during
+    a forensic investigation, are not listed in NSRL. On the other hand, even the
+    listed files can be used and deployed by an attacker as a tool. For example, a
+    tool such as `psexec.exe` is a program provided by Microsoft for remote administration
+    and listed in NSRL. Nevertheless, an attacker may have deployed it for his malicious
+    purposes.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了提高取证分析效率，重要的是筛选出属于已知软件且未被修改的任何文件。**国家软件参考库**（**NSRL**）维护多个已知内容的哈希值列表。NSRL
+    是美国国土安全部的一个项目，更多细节请参阅[http://www.nsrl.nist.gov/](http://www.nsrl.nist.gov/)。重要的是要理解，这些哈希值列表仅表明文件与提交给
+    NSRL 的版本相比未被修改。因此，在取证调查期间要分析的许多文件可能不在 NSRL 中列出。另一方面，即使列出的文件也可能被攻击者用作工具。例如，`psexec.exe`
+    这样的工具是微软提供的用于远程管理的程序，在 NSRL 中有列出。然而，攻击者可能将其用于恶意目的。
+- en: Tip
+  id: totrans-73
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Which NSRL list should be used?**'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**应该使用哪个 NSRL 列表？**'
+- en: NSRL consists of several hash sets. It is highly recommended to begin with the
+    *minimal set*. This set only contains one hash sum per file, which means only
+    one file version is known.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NSRL 包括几个哈希集合。建议首先使用*最小集*。这个集合每个文件只包含一个哈希值，这意味着只知道一个文件版本。
+- en: The minimal set is offered free of charge to download on the NIST homepage.
+    The download consists of a single ZIP file with the hash list and a list of supported
+    software products as the most prominent contents.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最小集可以在 NIST 主页免费下载。下载包括一个单独的 ZIP 文件，其中包含哈希列表和支持的软件产品列表作为最突出的内容。
+- en: 'The hashes are stored in the `NSRLFile.txt` file that holds one file hash per
+    line, for example:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些哈希值存储在`NSRLFile.txt`文件中，每行一个文件哈希值，例如：
+- en: '[PRE12]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The fields of this record are as follows:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此记录的字段如下：
+- en: The hash sum of the file that is calculated with SHA-1, a predecessor to the
+    SHA-256 algorithm described earlier.
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 SHA-1 计算的文件哈希值，这是早期的 SHA-256 算法描述之前的前身。
+- en: The hash sum of the file that is calculated with MD5.
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 MD5 计算的文件哈希值。
+- en: The CRC32 checksum of the file.
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件的 CRC32 校验和。
+- en: The file name.
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件名。
+- en: The file size in bytes.
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件的字节大小。
+- en: A product code denoting the software product this file belongs to. The `NSRLProd.txt`
+    file contains a list of all products and can be used to look up the product code.
+    In the previous example, the code `14965` denotes Microsoft Picture It!.
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 产品代码，表示该文件所属的软件产品。`NSRLProd.txt` 文件包含所有产品的列表，可以用来查找产品代码。在前面的示例中，代码`14965`表示微软的
+    Picture It!。
+- en: The operating system where this file is to be expected. The list of operating
+    system codes can be found in `NSRLOS.txt`.
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 此文件所在的操作系统。操作系统代码列表可以在`NSRLOS.txt`中找到。
+- en: An indicator whether this file is to be considered normal (""), a malicious
+    file ("N"), or special ("S"). While this flag is part of the specification, all
+    the files of the current NSRL minimal set are set to be normal.
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个指示符，用于指示该文件是否被视为正常（""）、恶意文件（"N"）或特殊文件（"S"）。尽管此标志是规范的一部分，当前 NSRL 最小集中的所有文件均设置为正常。
+- en: More details about the file specifications can be found at [http://www.nsrl.nist.gov/Documents/Data-Formats-of-the-NSRL-Reference-Data-Set-16.pdf](http://www.nsrl.nist.gov/Documents/Data-Formats-of-the-NSRL-Reference-Data-Set-16.pdf).
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关文件规范的更多细节可以在 [http://www.nsrl.nist.gov/Documents/Data-Formats-of-the-NSRL-Reference-Data-Set-16.pdf](http://www.nsrl.nist.gov/Documents/Data-Formats-of-the-NSRL-Reference-Data-Set-16.pdf)
+    中找到。
+- en: Downloading and installing nsrlsvr
+  id: totrans-89
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 下载并安装 nsrlsvr
+- en: Currently, the NSRL database contains more than 40 million distinct hashes in
+    the minimal set. A text-based search would take minutes, even on an up-to-date
+    workstation. Therefore, it is important to make efficient lookups to that database.
+    Rob Hanson's tool **nsrlsvr** provides a server that supports efficient lookups.
+    It is available at [https://rjhansen.github.io/nsrlsvr/](https://rjhansen.github.io/nsrlsvr/).
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当前，NSRL 数据库包含超过 4000 万个不同的哈希值，属于最小集合。即使在最新的工作站上，基于文本的搜索也需要几分钟。因此，进行高效的数据库查找至关重要。Rob
+    Hanson 的工具 **nsrlsvr** 提供了一个支持高效查找的服务器。可以在 [https://rjhansen.github.io/nsrlsvr/](https://rjhansen.github.io/nsrlsvr/)
+    上找到该工具。
+- en: Note
+  id: totrans-91
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: There are also public NSRL servers on the Internet that you can use. These are
+    usually provided on an *as is* basis. However, to test smaller sets of hashes,
+    you may use Robert Hanson's public server `nsrllookup.com` and continue reading
+    with the next section.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 互联网上也有公共的 NSRL 服务器可供使用。这些服务器通常是 *按现状* 提供的。但是，若要测试较小的哈希集，可以使用 Robert Hanson 的公共服务器
+    `nsrllookup.com`，然后继续阅读下一部分内容。
+- en: To compile the software on a Linux system, the automake, autoconf, and c++ compiler
+    tools must be installed. The detailed installation instructions including all
+    the requirements are provided in the `INSTALL` file.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 Linux 系统上编译软件，必须安装 automake、autoconf 和 c++ 编译工具。包括所有要求的详细安装说明请参见 `INSTALL`
+    文件。
+- en: Tip
+  id: totrans-94
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Installing nsrlsvr in a non-default directory**'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**在非默认目录中安装 nsrlsvr**'
+- en: The installation directory of nsrlsvr can be changed by calling the `configure`
+    script with the `--prefix` parameter. The parameter value denotes the target directory.
+    If a user-writable directory is specified, the installation does not require root
+    privileges and can be completely removed by removing the installation directory.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: nsrlsvr 的安装目录可以通过调用 `configure` 脚本并使用 `--prefix` 参数来更改。该参数的值表示目标目录。如果指定了用户可写目录，则安装不需要
+    root 权限，并且可以通过删除安装目录完全移除。
+- en: The nsrlsrv maintains its own copy of all the MD5 hash sums of the NSRL database.
+    Therefore, it is required to initialize the hash database. The required nsrlupdate
+    tool is provided with nsrlsrv.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: nsrlsrv 会维护一个包含所有 NSRL 数据库 MD5 哈希值的副本。因此，必须初始化哈希数据库。所需的 nsrlupdate 工具随 nsrlsrv
+    提供。
+- en: '[PRE13]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'After the database is fully populated, the server can be started by simply
+    calling:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数据库完全填充后，可以通过简单地调用以下命令启动服务器：
+- en: '[PRE14]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: If everything is installed correctly, this command returns without providing
+    any output and the server starts listening to the TCP port 9120 for requests.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一切安装正确，此命令将无输出并且服务器开始监听 TCP 端口 9120 以接收请求。
+- en: Writing a client for nsrlsvr in Python
+  id: totrans-102
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用 Python 编写 nsrlsvr 客户端
+- en: There is also a client tool for using nsrlsvr called **nsrllookup**. The client
+    is written in C++ and available at [https://rjhansen.github.io/nsrllookup/](https://rjhansen.github.io/nsrllookup/).
+    However, a client for interacting with nsrlsvr can easily be implemented in native
+    Python. This section explains the protocol and shows a sample implementation of
+    such a client.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有一个用于使用 nsrlsvr 的客户端工具，名为 **nsrllookup**。该客户端是用 C++ 编写的，并可在 [https://rjhansen.github.io/nsrllookup/](https://rjhansen.github.io/nsrllookup/)
+    上获取。然而，也可以很容易地在原生 Python 中实现与 nsrlsvr 交互的客户端。本节将解释该协议并展示一个客户端的示例实现。
+- en: 'The nsrlsvr implements a text-oriented protocol on its network port 9120\.
+    Every command consists of one line of text followed by a newline (CR LF). The
+    following commands are supported:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: nsrlsvr 在其网络端口 9120 上实现了一个面向文本的协议。每个命令由一行文本组成，并以换行符（CR LF）结束。支持以下命令：
+- en: '**version: 2.0**: The version command is used for the initial handshake between
+    the nsrl client and nsrlsvr. The client is supposed to provide its version after
+    the colon. The server will always respond with `OK` followed by a line break.'
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**版本: 2.0**：版本命令用于 nsrl 客户端与 nsrlsvr 之间的初步握手。客户端应在冒号后提供其版本号。服务器始终会响应 `OK` 并换行。'
+- en: '**query** **5CB360EF546633691912089DB24A82EE 908A54EB629F410C647A573F91E80775
+    BFDD76C4DD6F8C0C2474215AD5E193CF**: The query command is used for actually querying
+    the NSRL database from the server. The keyword **query** is followed by one or
+    multiple MD5 hash sums. The server will respond with `OK` followed by a sequence
+    of zeroes and ones. A `1` indicates that the MD5 hash sum was found in the database
+    and a `0` indicates that there was no match. For example, the query shown previously
+    would lead to the following answer:'
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**query** **5CB360EF546633691912089DB24A82EE 908A54EB629F410C647A573F91E80775
+    BFDD76C4DD6F8C0C2474215AD5E193CF**：查询命令用于实际从服务器查询 NSRL 数据库。关键字 **query** 后跟一个或多个
+    MD5 哈希值。服务器将返回 `OK`，后跟一串零和一。`1` 表示该 MD5 哈希值在数据库中找到，而 `0` 表示没有匹配。例如，之前显示的查询将导致以下结果：'
+- en: '[PRE15]'
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: This means that the first and the last MD5 hashes were found in NSRL, but the
+    middle hash sum could not be found.
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这意味着第一个和最后一个 MD5 哈希值在 NSRL 中找到了，但中间的哈希值没有找到。
+- en: '**BYE**: The bye command terminates the connection to the nsrlsvr.'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**BYE**：bye 命令终止与 nsrlsvr 的连接。'
+- en: 'Consequently, the following Python routine is sufficient to efficiently query
+    the NSRL database:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，以下 Python 代码足以高效地查询 NSRL 数据库：
+- en: '[PRE16]'
+  id: totrans-111
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Using this module is as easy as shown here:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这个模块和这里展示的一样简单：
+- en: '[PRE17]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: This code queries the NSRL server and returns a list of booleans, each indicating
+    whether the corresponding MD5 hash has been found in the NSRL file list.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码查询 NSRL 服务器并返回一个布尔值列表，每个布尔值表示相应的 MD5 哈希值是否在 NSRL 文件列表中找到。
+- en: Summary
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: This chapter provided an overview of the domains of the forensic and example
+    algorithms for each of these domains. We also showed you how to compare applications
+    installed on an Android device with web services such as **Mobile-Sandbox**. In
+    the second real-world example, we demonstrated how to sort out benign and known
+    files from a Windows system to reduce the amount of data that is to be analyzed
+    manually. With **NSRLquery**, the forensic investigations can focus on new or
+    modified content and do not need to waste time on the widely known content of
+    standard applications.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章概述了法医领域及每个领域的示例算法。我们还展示了如何将安装在 Android 设备上的应用程序与 **Mobile-Sandbox** 等 Web
+    服务进行比较。在第二个实际示例中，我们演示了如何从 Windows 系统中筛选出良性和已知文件，以减少需要手动分析的数据量。借助 **NSRLquery**，法医调查可以专注于新内容或已修改的内容，而不必浪费时间在标准应用程序的广泛已知内容上。
+- en: In the following chapters, these algorithms will be applied to a selection of
+    device types, operating systems, and applications for use during forensic investigation.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，这些算法将应用于各种设备类型、操作系统和应用程序，以供法医调查使用。

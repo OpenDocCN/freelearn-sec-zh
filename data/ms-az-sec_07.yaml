@@ -1,0 +1,1224 @@
+- en: '*Chapter 5*: Azure Key Vault'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第5章*：Azure 密钥保管库'
+- en: 'When talking about cloud computing, discussions are often directed towards
+    data protection, encryption, compliance, data loss (and data loss prevention),
+    trust, and other buzzwords that center around the same group of topics. What they
+    all have in common is the need for a trusted service that helps them to secure
+    cloud data without giving a cloud vendor access to both your data and the corresponding
+    encryption keys. Let''s imagine that you want to create an Azure resource, like
+    a virtual machine, that you will need admin credentials for. In this case, you
+    don''t want to hard code usernames and passwords in your deployment script or
+    template, do you? This is a scenario where Azure Key Vault comes into play. In
+    this chapter, we will cover the following topics:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 谈到云计算时，讨论往往集中在数据保护、加密、合规性、数据丢失（和数据丢失预防）、信任和其他围绕相同主题的流行词。它们的共同点是需要一个可信的服务，帮助它们在不让云供应商访问您的数据和相应加密密钥的情况下保护云数据。假设您想创建一个
+    Azure 资源，如虚拟机，需要管理员凭据。在这种情况下，您不希望在部署脚本或模板中硬编码用户名和密码，对吧？这就是 Azure 密钥保管库发挥作用的场景。在本章中，我们将涵盖以下主题：
+- en: Understanding Azure Key Vault
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure 密钥保管库
+- en: Understanding service-to-service authentication
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解服务对服务的身份验证
+- en: Using Azure Key Vault in deployment scenarios
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在部署场景中使用 Azure 密钥保管库
+- en: Understanding Azure Key Vault
+  id: totrans-5
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 Azure 密钥保管库
+- en: Azure Key Vault is a secure, cloud-based storage solution for keys, secrets,
+    and certificates. Tokens, passwords, certificates, API keys, and other secrets
+    can be securely stored and access to them can be granularly controlled using Azure
+    Key Vault. The service can also be used as a key-management solution. Azure Key
+    Vault makes it easy to create and control the encryption keys that are used to
+    encrypt your data. Another usage scenario is Secure Sockets Layer/Transport Layer
+    Security (SSL/TLS) certificate enrolment and management. You can use Azure Key
+    Vault to address certificate lifecycle management for both Azure and internally
+    connected resources. Secrets and keys that are stored in an Azure Key Vault can
+    be protected either by software or HSMs (hardware security modules) that are FIPS
+    140-2 Level 2 validated.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 密钥保管库是用于密钥、秘密和证书的安全云存储解决方案。令牌、密码、证书、API 密钥和其他秘密可安全存储，并且可以使用 Azure 密钥保管库精细控制对它们的访问。该服务还可用作密钥管理解决方案。Azure
+    密钥保管库可以轻松创建和控制用于加密数据的加密密钥。另一个使用场景是安全套接字层/传输层安全性 (SSL/TLS) 证书的注册和管理。您可以使用 Azure
+    密钥保管库管理 Azure 和内部连接资源的证书生命周期管理。存储在 Azure 密钥保管库中的秘密和密钥可以通过软件或已通过 FIPS 140-2 Level
+    2 验证的 HSM（硬件安全模块）进行保护。
+- en: As you have already learned, you can use Azure Key Vault to manage keys, secrets,
+    and certificates.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如您已经了解的那样，您可以使用 Azure 密钥保管库来管理密钥、秘密和证书。
+- en: A cryptographic key is used for data encryption. Azure Key Vault represents
+    keys as **JSON Web Key** (**JWK**) objects, which are declared as soft or hard
+    keys. A hard key is processed in a **hardware security module** (**HSM**), whereas
+    a soft key is processed in the software by Azure Key Vault. A soft key is still
+    encrypted at rest using a hard key, which is stored in an HSM. Clients can either
+    request Azure Key Vault to generate a key or import an existing RSA or **elliptic**
+    **curve** (**EC**) key. RSA and EC are the algorithms that are supported by Azure
+    Key Vault.
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加密密钥用于数据加密。Azure 密钥保管库将密钥表示为**JSON Web Key**（**JWK**）对象，它们声明为软密钥或硬密钥。硬密钥在**硬件安全模块**（**HSM**）中处理，而软密钥由
+    Azure 密钥保管库在软件中处理。软密钥仍然在静态状态下使用存储在 HSM 中的硬密钥进行加密。客户端可以请求 Azure 密钥保管库生成密钥或导入现有的
+    RSA 或**椭圆曲线**（**EC**）密钥。RSA 和 EC 是 Azure 密钥保管库支持的算法。
+- en: A secret is basically a string that is encrypted and stored in Azure Key Vault.
+    A secret can be used to securely store passwords, storage account keys, and other
+    highly valuable strings.
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 密钥保管库是在 Azure Key Vault 中加密和存储的字符串。秘密可用于安全存储密码、存储帐户密钥和其他高价值字符串。
+- en: A certificate in Azure Key Vault is an x509 certificate that is issued by a
+    **public key infrastructure** (**PKI**). You can either let Azure Key Vault request
+    a certificate from a supported public **certification authority** (**CA**), which
+    today are DigiCert and GlobalSign, or you can create a **certificate signing request**
+    (**CSR**) within Azure Key Vault and manually let this CSR be signed by any public
+    CA of your choice.
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure Key Vault 中的证书是由 **公钥基础设施**（**PKI**）颁发的 x509 证书。你可以让 Azure Key Vault 向支持的公
+    **认证机构**（**CA**）请求证书，目前支持的认证机构有 DigiCert 和 GlobalSign，或者你可以在 Azure Key Vault 中创建
+    **证书签名请求**（**CSR**），然后手动让你选择的任何公认证机构签署该 CSR。
+- en: In this chapter, you will learn how to work with key vault entities. But first,
+    let's look at service-to-service authentication in Azure Key Vault, which is needed
+    to enable other Azure services to leverage Azure Key Vault during deployment or
+    resource-management operations.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将教你如何操作密钥库实体。但在此之前，我们先来看看 Azure Key Vault 中的服务到服务认证，这是在部署或资源管理操作中使其他 Azure
+    服务能够利用 Azure Key Vault 所需的认证方式。
+- en: Access to an Azure key vault is granted by RBAC. That said, you need to have
+    an Azure AD account to get access to the service, which means that you can use
+    all the protective options for interactive authentications that were discussed
+    in [*Chapter 3*](B15414_03_Final_JM_ePub.xhtml#_idTextAnchor060), *Managing Cloud
+    Identities*. Furthermore, access to items protected by Azure key vault can be
+    restricted to only single aspects of Azure Key Vault. For example, an account
+    could be granted access only to secrets, but not to keys or certificates, or you
+    could grant an account only a subset of permissions, but for all entities stored
+    in a key vault. This granular rights management, in addition to RBAC, which will
+    only grant access to an Azure key vault (being an Azure resource), is implemented
+    by access policies. Let's look at these policies in a little more detail in the
+    next section.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问 Azure Key Vault 是通过 RBAC（角色基础访问控制）授予的。也就是说，你需要拥有一个 Azure AD 账户才能访问该服务，这意味着你可以使用所有在[*第
+    3 章*](B15414_03_Final_JM_ePub.xhtml#_idTextAnchor060)中讨论的交互式身份验证保护选项，*管理云身份*。此外，访问
+    Azure Key Vault 保护的项目可以限制为仅访问 Azure Key Vault 的单个方面。例如，可以只授予某个账户访问机密的权限，而不授予访问密钥或证书的权限，或者你可以只授予某个账户部分权限，但允许其访问密钥库中存储的所有实体。这种细粒度的权限管理，除了
+    RBAC 只能授予对 Azure Key Vault（作为 Azure 资源）的访问外，是通过访问策略实现的。接下来的部分将更详细地讨论这些策略。
+- en: Understanding access policies
+  id: totrans-13
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 理解访问策略
+- en: 'With access policies, you can granularly define who will get what level of
+    access rights to a single Azure Key Vault instance:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过访问策略，你可以精细地定义谁可以获得 Azure Key Vault 单个实例的哪些级别的访问权限：
+- en: '![Fig. 5.1 – Azure Key Vault access policies'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.1 – Azure Key Vault 访问策略'
+- en: '](img/Fig_5.1.jpg)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.1.jpg)'
+- en: Fig. 5.1 – Azure Key Vault access policies
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – Azure Key Vault 访问策略
+- en: As you can see in the preceding screenshot, the user account called Tom has
+    been granted several permissions to access keys, secrets, and certificates in
+    the **Access policies** settings section of the Azure Key Vault **MasteringAzSec**
+    section. Besides that, you can enable access to keys and secrets for Azure VMs,
+    ARM, and Azure Disk Encryption. These options are necessary if you want to grant
+    Azure VMs in your tenant read access to secrets so that they can be retrieved
+    during VM deployments or if you want to enable Azure Resource Manager to retrieve
+    secrets so they can be used in a template deployment. The third option specifies
+    whether Azure Disk Encryption—a service that encrypts Azure VMs' disks using BitLocker
+    or dm-crypt, depending on the operating system used in the Azure VM—is allowed
+    to retrieve secrets from the Azure key vault and unwrap values from stored keys.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前面的截图所示，名为 Tom 的用户账户被授予了在 Azure Key Vault **MasteringAzSec** 部分的 **访问策略** 设置中访问密钥、机密和证书的多个权限。除此之外，你还可以为
+    Azure 虚拟机、ARM 和 Azure 磁盘加密启用密钥和机密的访问权限。如果你希望在虚拟机部署期间允许你租户中的 Azure 虚拟机读取机密（以便在部署时检索），或者希望允许
+    Azure 资源管理器检索机密以便在模板部署中使用，那么这些选项是必要的。第三个选项指定是否允许 Azure 磁盘加密服务——该服务使用 BitLocker
+    或 dm-crypt（根据 Azure 虚拟机中使用的操作系统）对虚拟机的磁盘进行加密——从 Azure Key Vault 检索机密并解密存储在密钥中的值。
+- en: Before we move on to learn more about service-to-service authentication with
+    Azure Key Vault, let's first take a deeper look at what the single entities in
+    Azure Key Vault are.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们继续学习如何使用 Azure Key Vault 实现服务到服务的认证之前，首先让我们更深入地了解一下 Azure Key Vault 中的各个单独实体。
+- en: Understanding service-to-service authentication
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解服务到服务认证
+- en: 'As we mentioned before, access to an Azure key vault and its entities is usually
+    granted on a per-user basis. That said, to enable service-to-service authentication,
+    you could create an Azure AD application with associated credentials and use this
+    service principal to get an access token for your application. It''s a pretty
+    straightforward process:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前提到的，访问 Azure 密钥库及其实体通常是按用户授予的。也就是说，为了启用服务到服务的身份验证，您可以创建一个 Azure AD 应用及其凭证，并使用此服务主体为您的应用获取访问令牌。这是一个非常简单的过程：
+- en: Go to **Azure Active Directory** | **App registrations** in the Azure portal
+    and select **New registration** to start the wizard:![Fig. 5.2 – Creating a new
+    app registration
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到 **Azure Active Directory** | **应用注册**，在 Azure 门户中选择 **新建注册** 以启动向导：![图 5.2
+    – 创建新的应用注册](img/Fig_5.2.jpg)
+- en: '](img/Fig_5.2.jpg)'
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.2.jpg)'
+- en: Fig. 5.2 – Creating a new app registration
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 5.2 – 创建新的应用注册
+- en: Enter a name and confirm your choice.
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入名称并确认您的选择。
+- en: Create a client secret by navigating to the **Certificates & secrets** option
+    in the app registration and then select **New client secret**:![Fig. 5.3 – Creating
+    a new client secret
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过导航到应用注册中的**证书与密钥**选项，然后选择**新建客户端密钥**来创建客户端密钥：![图 5.3 – 创建新的客户端密钥](img/Fig_5.3.jpg)
+- en: '](img/Fig_5.3.jpg)'
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.3.jpg)'
+- en: Fig. 5.3 – Creating a new client secret
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 创建新的客户端密钥
+- en: 'Enter a description and decide whether the secret will expire in 1 or 2 years,
+    or whether it will always be valid. After confirming your choices and leaving
+    the wizard, you are presented with the new client secret and its value, which
+    you can copy and then use for authentication:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入描述并决定密钥是将在 1 年或 2 年后过期，还是始终有效。确认选择并退出向导后，系统将显示新的客户端密钥及其值，您可以复制该值并用于身份验证：
+- en: '![Fig. 5.4 – Your client secret'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.4 – 您的客户端密钥](img/Fig_5.4.jpg)'
+- en: '](img/Fig_5.4.jpg)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.4.jpg)'
+- en: Fig. 5.4 – Your client secret
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – 您的客户端密钥
+- en: 'A quicker way is to use the Azure CLI. With the following command, you can
+    simply create a new service principal with the name `MasteringAzSecSP`:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种更快捷的方法是使用 Azure CLI。通过以下命令，您可以轻松创建一个名为 `MasteringAzSecSP` 的新服务主体：
+- en: '[PRE0]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The engine will use default settings for the account creation, and once the
+    process is finished, you will find the username `appId` and the client secret
+    password in the CLI window, as shown in the following screenshot`:`
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 引擎将使用默认设置进行账户创建，完成后，您将在 CLI 窗口中找到用户名 `appId` 和客户端密钥密码，如下截图所示`：`
+- en: '![Fig. 5.5 – Using the Azure CLI to create a new service principal'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.5 – 使用 Azure CLI 创建新的服务主体](img/Fig_5.5.jpg)'
+- en: '](img/Fig_5.5.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.5.jpg)'
+- en: Fig. 5.5 – Using the Azure CLI to create a new service principal
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – 使用 Azure CLI 创建新的服务主体
+- en: The service principal behaves similarly to a user account in terms of access
+    management, which means that you can use the username (the application or client
+    ID) as a principal when granting access to the key vault and its entities.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务主体在访问管理方面类似于用户账户，这意味着您可以将用户名（应用或客户端 ID）作为主体，在授予对密钥库及其实体的访问权限时使用。
+- en: 'While this approach works great, there are two downsides that come with it:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这种方法效果很好，但也有两个缺点：
+- en: When creating the application credentials, you will get the app ID and the client
+    secret, which are usually hardcoded in your source code. It's a dilemma, because
+    you cannot store these credentials in Azure Key Vault as they are needed to authenticate
+    before being granted access to the key vault.
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在创建应用凭据时，您将获得应用 ID 和客户端密钥，这些通常是硬编码在源代码中的。这是一个两难问题，因为您无法将这些凭据存储在 Azure 密钥库中，因为在授予对密钥库的访问权限之前需要进行身份验证。
+- en: Application credentials expire and the renewal process may cause application
+    downtime. You don't want to use a client secret that will never expire and that
+    is hardcoded in your source code.
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 应用凭证会过期，续订过程可能会导致应用停机。您不希望使用一个永不过期并且硬编码在源代码中的客户端密钥。
+- en: So, for automated deployments, we need another approach, which is where the
+    **Managed Identities for Azure Resources** service comes into play. So let's move
+    one step further and learn how this service can address the dilemma.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，对于自动化部署，我们需要另一种方法，这就是**Azure 资源的托管标识**服务的作用所在。那么，让我们进一步了解此服务如何解决这一难题。
+- en: Understanding Managed Identities for Azure Resources
+  id: totrans-44
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 理解 Azure 资源的托管标识
+- en: Needing credentials to get access to services is a common problem that you will
+    often encounter. Azure Key Vault is an important part of your application design
+    because you can use it to securely store and manage credentials for other services.
+    But Azure Key Vault itself is a service that requires authentication before you
+    are granted access. With *Managed Identities for Azure Resources*, a free feature
+    of Azure Active Directory, you can solve this dilemma. The service provides other
+    Azure services with an automatically managed identity in Azure AD.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 经常会遇到需要凭据才能访问服务的常见问题。Azure Key Vault 是应用程序设计的重要组成部分，因为您可以使用它安全地存储和管理其他服务的凭据。但是
+    Azure Key Vault 本身是一个在授予权限之前需要进行身份验证的服务。通过 *Azure 资源的托管身份*，Azure Active Directory
+    的一个免费功能，您可以解决这个困境。该服务为其他 Azure 服务提供在 Azure AD 中自动管理的身份。
+- en: 'There are two different types of managed identities within the service:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务中有两种不同类型的托管身份：
+- en: A system-assigned managed identity is directly enabled on an instance of an
+    Azure service. When the managed identity is enabled, Azure AD automatically creates
+    an identity for the particular service in Azure AD that is automatically trusted
+    by the Azure subscription that the service instance is created in. The credentials
+    are automatically provided to the service instance after the identity is created.
+    The identity's lifecycle is directly tied to the service's lifecycle, which means
+    that a system-assigned managed identity is automatically removed from Azure AD
+    when the service is deleted.
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 系统分配的托管身份直接启用在 Azure 服务实例上。启用托管身份时，Azure AD 自动在 Azure AD 中为特定服务创建一个身份，该身份自动由创建服务实例的
+    Azure 订阅信任。身份创建后，凭据将自动提供给服务实例。身份的生命周期直接与服务的生命周期相关联，这意味着当服务被删除时，系统分配的托管身份将自动从 Azure
+    AD 中删除。
+- en: A user-assigned managed identity is a manually created Azure resource. When
+    creating a user-assigned managed identity, Azure AD will create a service principal
+    in the Azure AD tenant that is trusted by the Azure subscription you are currently
+    using. After creating the identity, you can assign it in one or several Azure
+    service instances. The user-assigned managed identity's lifecycle is organized
+    separately from the services' lifecycles that the identity is assigned to. In
+    other words, when an Azure resource with a user-assigned managed identity is deleted,
+    the managed identity is not automatically removed from Azure AD.
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户分配的托管身份是手动创建的 Azure 资源。创建用户分配的托管身份时，Azure AD 将在 Azure AD 租户中创建一个服务主体，该主体由当前使用的
+    Azure 订阅信任。创建身份后，可以将其分配给一个或多个 Azure 服务实例。用户分配的托管身份的生命周期与分配给身份的服务的生命周期分开管理。换句话说，当具有用户分配的托管身份的
+    Azure 资源被删除时，托管身份不会自动从 Azure AD 中删除。
+- en: The relationship between a system-assigned managed identity and an Azure resource
+    is 1:1, which means that an Azure resource can only have one system-assigned managed
+    identity and this identity is only usable by the particular service it was created
+    for.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 系统分配的托管身份与 Azure 资源之间的关系是 1:1，这意味着一个 Azure 资源只能有一个系统分配的托管身份，并且此身份只能由其创建的特定服务使用。
+- en: The relationship between the user-assigned managed identity and the Azure resource
+    is `n``:n`, which means that you can use several user-assigned managed identities
+    with one Azure resource at the same time, and that a single user-assigned managed
+    identity can be used by several different Azure resources.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用户分配的托管身份与 Azure 资源之间的关系是 `n:n`，这意味着您可以同时使用多个用户分配的托管身份与一个 Azure 资源，并且一个单独的用户分配的托管身份可以被多个不同的
+    Azure 资源使用。
+- en: Important Note
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: Microsoft provides a list of Azure services that currently support system-assigned,
+    user-assigned, or both types of managed identities at [https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/services-support-managed-identities.](https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/services-support-managed-identities)
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Microsoft 提供了一个 Azure 服务列表，当前支持系统分配、用户分配或两种类型的托管身份，详见 [https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/services-support-managed-identities.](https://docs.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/services-support-managed-identities)
+- en: 'The creation process of a system-assigned managed identity in the Azure portal
+    is very easy. All Azure resources that currently support managed identities have
+    an **Identity** option in the resource''s **Settings** section:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Azure 门户中创建系统分配的托管身份的过程非常简单。所有当前支持托管身份的 Azure 资源，在资源的**设置**部分都会有一个**身份**选项：
+- en: '![Fig. 5.6 – Activating a system-assigned managed identity for an Azure virtual
+    machine'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.6 – 为 Azure 虚拟机激活系统分配的托管身份'
+- en: '](img/Fig_5.6.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.6.jpg)'
+- en: Fig. 5.6 – Activating a system-assigned managed identity for an Azure virtual
+    machine
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – 为 Azure 虚拟机激活系统分配的托管身份
+- en: 'The following steps show you how to activate a system-assigned managed identity
+    for an Azure virtual machine:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下步骤展示了如何为 Azure 虚拟机激活系统分配的托管身份：
+- en: On the **Settings** page, you can choose whether you want to activate a system-assigned
+    managed identity or whether you want to assign a user-assigned managed identity.
+    To activate a system-assigned managed identity, you just have to set the **Status**
+    toggle switch to **On** and then save your selection, as shown in the preceding
+    screenshot.
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**设置**页面，你可以选择是要激活系统分配的托管身份，还是要分配用户分配的托管身份。要激活系统分配的托管身份，你只需将**状态**切换按钮设置为**开启**，然后保存你的选择，如前面的截图所示。
+- en: You will then be informed that once you confirm this configuration, a managed
+    identity for your resource will be registered in Azure AD, and that once the process
+    has finished, you can grant permissions to that particular managed ID. In the
+    preceding example, I have enabled a system-assigned managed identity for an Azure
+    VM with the name `DC01`.
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后你将被告知，一旦你确认此配置，你的资源的托管身份将会注册到 Azure AD，且一旦该过程完成，你可以授予该托管身份权限。在前面的示例中，我已为名为
+    `DC01` 的 Azure 虚拟机启用了系统分配的托管身份。
+- en: When creating a new key vault access policy, we can now select the identity
+    with the same name to grant access to the key vault's entities.
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在创建新的密钥库访问策略时，我们现在可以选择具有相同名称的身份，授予其访问密钥库实体的权限。
+- en: 'If you want to create a new user-assigned managed identity, you have to navigate
+    to the managed identity service in the Azure portal:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想创建一个新的用户分配的托管身份，你需要在 Azure 门户中导航到托管身份服务：
+- en: To do so, go to **All resources** and then search for **Managed Identities**.
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为此，请前往**所有资源**，然后搜索**托管身份**。
+- en: Once you find the dialog, you can choose to create a new user-assigned managed
+    identity. As mentioned before, this is a new Azure resource and therefore needs
+    to be created in an Azure subscription and stored in an Azure resource group:![Fig.
+    5.7 – Creating a user-assigned managed identity
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦找到对话框，你可以选择创建一个新的用户分配的托管身份。如前所述，这是一个新的 Azure 资源，因此需要在 Azure 订阅中创建并存储在 Azure
+    资源组中：![图 5.7 – 创建用户分配的托管身份
+- en: '](img/Fig_5.7.jpg)'
+  id: totrans-64
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_5.7.jpg)'
+- en: Fig. 5.7 – Creating a user-assigned managed identity
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 5.7 – 创建用户分配的托管身份
+- en: Once the user-assigned managed identity is created, you can assign it to your
+    Azure resource, like the virtual machine we used in the preceding scenario.
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦用户分配的托管身份创建完成，你可以将其分配给你的 Azure 资源，就像我们在前述场景中使用的虚拟机一样。
+- en: Managed identities can also be used for Azure DevOps or Terraform authentication
+    against your Azure environment.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 托管身份还可以用于 Azure DevOps 或 Terraform 对你的 Azure 环境进行身份验证。
+- en: Important Note
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: You can also use the Azure CLI, PowerShell, ARM templates, and Terraform to
+    create managed identities in Azure. You can find examples of these methods in
+    the GitHub repository that has been created for this book, at [https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security).
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你也可以使用 Azure CLI、PowerShell、ARM 模板和 Terraform 来在 Azure 中创建托管身份。你可以在为本书创建的 GitHub
+    仓库中找到这些方法的示例，地址为 [https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security)。
+- en: Let's assume that you only want to allow Azure resource creation via a DevOps
+    pipeline with all related processes, such as pull requests, authoring, and so
+    on. From a technical point of view, Azure DevOps is nothing but an application
+    that needs to be granted access to an Azure subscription (or management group).
+    Therefore, Azure DevOps needs a service principal that is either manually managed
+    as an application registration with all its downsides, or that can be automatically
+    managed using a managed identity. The same applies to Terraform, which is also
+    just an application that needs rights in an Azure environment.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你只想通过 DevOps 管道来允许创建 Azure 资源，并包括所有相关的过程，比如拉取请求、编写等。从技术角度来看，Azure DevOps 无非是一个需要被授权访问
+    Azure 订阅（或管理组）的应用程序。因此，Azure DevOps 需要一个服务主体，可以手动管理为应用程序注册，并承担所有缺点，或者可以通过托管身份进行自动管理。同样适用于
+    Terraform，它也只是一个需要在 Azure 环境中具有权限的应用程序。
+- en: Important Note
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: You can use a managed identity for Terraform authentication against Azure AD;
+    however, in this case, the managed identity is created for an Azure VM and Terraform
+    needs to be started from within the VM so that it can make use of the ID.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用托管身份进行 Terraform 身份验证以访问 Azure AD；然而，在这种情况下，托管身份是为 Azure 虚拟机创建的，而 Terraform
+    需要从虚拟机内部启动，以便可以使用该身份。
+- en: Now that you know how managed identities work and what options you have for
+    service-to-service authentication, let's move one step forward and see how you
+    can use Azure Key Vaults in your deployment scenarios.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在你已经了解了托管身份的工作原理，以及服务间身份验证的选项，让我们向前迈进一步，看看如何在部署场景中使用 Azure Key Vault。
+- en: Using Azure Key Vault in deployment scenarios
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在部署场景中使用 Azure Key Vault
+- en: Azure Key Vault is a nice service when it comes to securely storing and retrieving
+    credentials that are needed during resource creation. It also helps you to encrypt
+    Azure resources, such as Azure storage accounts or VM disks, with your own encryption
+    key.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure Key Vault 是一个很好的服务，用于安全地存储和检索在资源创建过程中需要的凭据。它还帮助你使用自己的加密密钥对 Azure 资源（如
+    Azure 存储账户或虚拟机磁盘）进行加密。
+- en: In this section, we will cover several options for how to use Azure Key Vault
+    in deployment scenarios. You will find examples for PowerShell, ARM templates,
+    and Terraform, as these are the most common deployment tools when it comes to
+    creating Azure resources.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将介绍几种在部署场景中使用 Azure Key Vault 的选项。你将找到 PowerShell、ARM 模板和 Terraform 的示例，因为这些是创建
+    Azure 资源时最常见的部署工具。
+- en: Important Note
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: The first step you will always have to go through is to authenticate with Azure
+    AD using a principal that has been assigned the appropriate set of access rights
+    in the Azure environment that you want to deploy resources to, depending on the
+    task you want to perform and the resource that is affected by it.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你需要经历的第一步是通过一个在 Azure 环境中已经分配了适当访问权限的主体进行 Azure AD 身份验证，具体取决于你要执行的任务和受其影响的资源。
+- en: Are you ready? Then let's start by creating a new Azure key vault and a secret
+    that can later be used in a VM deployment scenario in the following section.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你准备好了吗？那么我们从创建一个新的 Azure 密钥保管库开始，并创建一个可以在接下来的虚拟机部署场景中使用的机密。
+- en: Creating an Azure key vault and a secret
+  id: totrans-80
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建 Azure 密钥保管库和机密
+- en: As with all Azure resources, you can use the Azure portal to create and manage
+    an Azure key vault. Although it might be convenient to click through the portal,
+    it is a better idea to use a scripting or template language for this. Azure Key
+    Vault is a critical resource when it comes to automated deployments. Today, there
+    is no way to granularly grant access to single items of the same type within the
+    same key vault. You can manage levels of access to keys, secrets, and certificates,
+    but only on a key-vault level, not on an item level. This is why you might want
+    to create several key vaults in the same Azure subscription. Using deployment
+    automation, you can make sure that all key vaults in your environment adhere to
+    the rules and policies you have defined.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和所有 Azure 资源一样，你可以使用 Azure 门户来创建和管理 Azure 密钥保管库。尽管通过门户点击操作可能很方便，但使用脚本或模板语言来做这件事会是更好的选择。Azure
+    Key Vault 是自动化部署中的一个关键资源。现在，还没有办法在同一个密钥保管库中对相同类型的单个项授予细粒度的访问权限。你可以管理密钥、机密和证书的访问级别，但只能在密钥保管库级别管理，而不能在项级别管理。因此，你可能希望在同一个
+    Azure 订阅中创建多个密钥保管库。通过使用部署自动化，你可以确保环境中的所有密钥保管库都遵循你定义的规则和策略。
+- en: Key vault creation in PowerShell
+  id: totrans-82
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在 PowerShell 中创建密钥保管库
+- en: 'With PowerShell being an imperative scripting language, you need to define
+    all the steps that are necessary in the correct order:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 PowerShell 是一种命令式脚本语言，你需要按正确的顺序定义所有必要的步骤：
+- en: 'The first thing you need to do is to log in with an account that has the appropriate
+    set of access rights to create a new resource group and Azure key vault instance
+    in your Azure subscription:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，你需要使用具有适当访问权限的帐户登录，以便在你的 Azure 订阅中创建一个新的资源组和 Azure 密钥保管库实例：
+- en: '[PRE1]'
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: You will then be prompted to enter your Azure login credentials, which are used
+    by PowerShell to go through the next steps. After logging in, you either create
+    a new resource group or refer to an existing one.
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，你将被提示输入 Azure 登录凭据，PowerShell 将使用这些凭据执行后续步骤。登录后，你可以创建一个新的资源组，或引用一个现有的资源组。
+- en: 'We will now assume that a new RG will be created using the following code snippet.
+    Before we do so, it makes sense to define all values for variables that are then
+    used in the following script sections:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们假设将使用以下代码片段创建一个新的资源组。在此之前，先定义所有变量的值，然后再在后续脚本部分中使用：
+- en: '[PRE2]'
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Now you can move on and create a new Azure key vault:'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，你可以继续创建一个新的 Azure 密钥保管库：
+- en: '[PRE3]'
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '`ResourceGroupName` defines the Azure resource group that the key vault will
+    be created in.'
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`ResourceGroupName` 定义了密钥保管库将要创建的 Azure 资源组。'
+- en: '`Location` defines the Azure region that the key vault will be created in.'
+  id: totrans-92
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`Location` 定义了密钥保管库将要创建的 Azure 区域。'
+- en: 'There are also some optional parameters that are defined in the preceding section:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有一些可选参数，在前面的部分中已经定义：
+- en: '`EnabledForDeployment` enables the `Microsoft.Compute` resource provider to
+    retrieve secrets from the Azure key vault during resource creation—for example,
+    when deploying a new VM.'
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`EnabledForDeployment` 使 `Microsoft.Compute` 资源提供者能够在资源创建过程中从 Azure 密钥保管库中检索机密——例如，在部署新虚拟机时。'
+- en: '`EnabledForTemplateDeployment` enables the **Azure Resource Manager**(**ARM**)
+    to get secrets for an Azure key vault when it is referenced in a template deployment,
+    such as when you are using ARM or Terraform.'
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`EnabledForTemplateDeployment` 使 **Azure 资源管理器**（**ARM**）能够在模板部署中引用 Azure 密钥保管库时获取机密，例如，在使用
+    ARM 或 Terraform 时。'
+- en: '`EnabledForDiskEncryption` enables the **Azure Disk Encryption** service to
+    get secrets and unwrap keys from an Azure key vault to use them in the disk encryption
+    process.'
+  id: totrans-96
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`EnabledForDiskEncryption` 使 **Azure 磁盘加密** 服务能够从 Azure 密钥保管库获取机密并解开密钥，以便在磁盘加密过程中使用。'
+- en: '`SKU` defines the Azure key vault''s SKU (standard or premium).'
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SKU` 定义了 Azure 密钥保管库的 SKU（标准或高级）。'
+- en: 'After the Azure key vault has been created, you need to create an access policy.
+    In the following example, we grant access rights to secrets in the new Azure key
+    vault for the currently logged-in user account:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Azure 密钥保管库创建完成后，你需要创建一个访问策略。在以下示例中，我们为当前登录的用户帐户授予对新 Azure 密钥保管库中机密的访问权限：
+- en: '[PRE4]'
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'You can then create a new key vault secret. In the following snippet, you enter
+    the secret as a secure string in the PowerShell session:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，你可以创建一个新的密钥保管库机密。在以下代码片段中，你将在 PowerShell 会话中将机密作为安全字符串输入：
+- en: '[PRE5]'
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Congratulations! You have just created your first Azure key vault and a secret
+    using PowerShell. Now, that you know how to create an Azure key vault and a key
+    vault secret for your deployment scenario, we can move on to the next section,
+    *Azure VM deployment*, in which you will learn how to use the resources that you
+    have just created in a more complex scenario.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恭喜！你刚刚使用 PowerShell 创建了你的第一个 Azure 密钥保管库和一个机密。现在，你已经了解了如何为你的部署场景创建 Azure 密钥保管库和密钥保管库机密，我们可以进入下一部分——*Azure
+    虚拟机部署*，在这里你将学习如何在更复杂的场景中使用你刚创建的资源。
+- en: Azure VM deployment
+  id: totrans-103
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Azure 虚拟机部署
+- en: When deploying an Azure VM, you always need to pass local admin credentials
+    to it during the deployment process. The downside of deploying VMs using the Azure
+    portal is that you need to manually enter the respective local admin credentials
+    instead of using a secret that is stored in an Azure key vault. This is only one
+    of the reasons why infrastructure-as-code deployments definitely make sense in
+    an enterprise environment. In this section, you will learn how to reference credentials
+    that are stored in an Azure key vault instead of hardcoding the information in
+    the deployment script or template.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在部署 Azure 虚拟机时，你总是需要在部署过程中传递本地管理员凭据。通过 Azure 门户部署虚拟机的缺点是，你需要手动输入相应的本地管理员凭据，而不是使用存储在
+    Azure 密钥保管库中的机密。这只是基础设施即代码部署在企业环境中显得特别有意义的原因之一。在本节中，你将学习如何引用存储在 Azure 密钥保管库中的凭据，而不是将信息硬编码在部署脚本或模板中。
+- en: We will start by referencing a key vault secret for VM deployments using PowerShell.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将从使用 PowerShell 引用虚拟机部署的密钥保管库机密开始。
+- en: VM deployments with PowerShell
+  id: totrans-106
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用 PowerShell 部署虚拟机
+- en: 'You can easily access secrets in an Azure key vault with PowerShell, but also
+    with ARM templates and Terraform. Let''s see how we can do this by going through
+    the following steps:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过 PowerShell 轻松访问 Azure 密钥保管库中的机密，也可以通过 ARM 模板和 Terraform 进行访问。接下来，我们将通过以下步骤演示如何做到这一点：
+- en: 'After you have retrieved a secret, you need to create a new `PSCredential`
+    object that can be used in the VM deployment, as follows:'
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在你获取到机密后，需要创建一个新的 `PSCredential` 对象，该对象可以在虚拟机部署中使用，如下所示：
+- en: '[PRE6]'
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Later, you can use this `PSCredential` object in your deployment in the respective
+    position. This would look similar to the following code snippet:'
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 后续，你可以在部署中相应的位置使用这个 `PSCredential` 对象。它看起来类似于以下代码片段：
+- en: '[PRE7]'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: It is always a good idea to work with variables in a PowerShell script. By doing
+    so, you can have a variable section at the beginning of the script where you can
+    define values that change depending on your needs and the environments that the
+    script is used in.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 PowerShell 脚本中使用变量总是一个好主意。通过这样做，你可以在脚本的开头创建一个变量部分，在其中定义根据需求和脚本所用环境而变化的值。
+- en: Tip
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提示
+- en: Since the complete VM deployment script in PowerShell consists of almost 200
+    lines, we have not printed it in the book, but have published it in the book's
+    GitHub repository.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于完整的 PowerShell 虚拟机部署脚本包含近 200 行，我们没有在书中打印出来，而是将其发布在了本书的 GitHub 仓库中。
+- en: PowerShell is a good way to deploy Azure resources, but being an imperative
+    scripting language, it is not the best fit for usage in DevOps/CI/CD scenarios.
+    This is why we will explain how to reference a key vault secret in Terraform in
+    the next section.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PowerShell 是一种很好的部署 Azure 资源的方式，但由于它是一种命令式脚本语言，因此并不适合在 DevOps/CI/CD 场景中使用。这就是为什么我们将在下一节中解释如何在
+    Terraform 中引用密钥保管库机密。
+- en: Referencing a key vault secret in Terraform
+  id: totrans-116
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在 Terraform 中引用密钥保管库机密
+- en: 'In Terraform, you can refer to an existing Azure object with data sources.
+    For a key vault secret, the data source is called `azurerm_key_vault_secret`:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Terraform 中，你可以通过数据源引用现有的 Azure 对象。对于密钥保管库机密，数据源被称为 `azurerm_key_vault_secret`：
+- en: '[PRE8]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'This object can then be referenced in the `os_profile` section of a Terraform
+    deployment template, as shown in the following screenshot:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，可以在 Terraform 部署模板的 `os_profile` 部分引用该对象，如下图所示：
+- en: '[PRE9]'
+  id: totrans-120
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Terraform is quite an easy way of deploying and referencing Azure resources.
+    As you can see from the preceding examples, you simply need to define a data source
+    and then reference it in the respective resource section of your deployment template.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Terraform 是一种相对简单的 Azure 资源部署和引用方式。如前面的例子所示，你只需定义一个数据源，然后在部署模板的相应资源部分引用它。
+- en: Tip
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提示
+- en: 'We have published a complete example for a VM deployment with Terraform in
+    this book''s GitHub repository: [https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在本书的 GitHub 仓库中发布了一个完整的 Terraform 虚拟机部署示例：[https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security)
+- en: ARM templates are Microsoft's way of using automatic Azure resource deployments
+    in DevOps pipelines. This example is described in detail in the following section.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ARM 模板是微软在 DevOps 管道中使用自动 Azure 资源部署的方式。这个例子将在以下章节中详细描述。
+- en: Referencing a key vault secret in ARM templates
+  id: totrans-125
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在 ARM 模板中引用密钥保管库机密
+- en: ARM templates might be the most complex way to refer to key vault secrets during
+    a template deployment. This is because you need to use linked templates in this
+    scenario. That said, you need to have two different template files that are used
+    for different purposes.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ARM 模板可能是引用密钥保管库机密的最复杂方式，因为在这种情况下需要使用链接模板。也就是说，你需要有两个不同的模板文件，分别用于不同的目的。
+- en: The main template is used as a reference to existing Azure resources, such as
+    the Azure key vault and its secrets. In it, there is a `parameters` section that
+    contains values that are either defined directly in the main template or passed
+    to the template by an external call that is an Azure CLI or a PowerShell call
+    and then passed directly to the linked template.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 主要模板作为引用现有 Azure 资源的参考，例如 Azure 密钥保管库及其机密。在其中，有一个 `parameters` 部分，包含的值可以直接在主模板中定义，或者通过外部调用（如
+    Azure CLI 或 PowerShell 调用）传递到模板中，然后直接传递给链接模板。
+- en: 'If the `parameters` section is filled by pipeline input, it will only contain
+    the parameters'' definitions:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果 `parameters` 部分由管道输入填充，它将只包含参数的定义：
+- en: '[PRE10]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'If the parameters'' values are defined within the main template, then this
+    section will look like this:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果参数值在主模板中定义，那么这一部分将如下所示：
+- en: '[PRE11]'
+  id: totrans-131
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'Behind the `parameters` section, there is a `resource` section in which the
+    key vault reference is defined:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `parameters` 部分之后，有一个 `resource` 部分，其中定义了密钥保管库的引用：
+- en: '[PRE12]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The *linked template* is used for the actual resource deployment. In this file,
+    the local admin username is defined, but the password value is passed from the
+    main template, as follows:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*链接模板* 用于实际的资源部署。在这个文件中，定义了本地管理员用户名，但密码值是从主模板传递过来的，具体如下：'
+- en: '[PRE13]'
+  id: totrans-135
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Using ARM templates to refer to a key vault secret is a bit more complex, but
+    also works well in DevOps pipelines.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 ARM 模板引用密钥保管库的秘密稍微复杂一些，但在 DevOps 管道中也能很好地工作。
+- en: Tip
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提示
+- en: 'We have published a complete example of a VM deployment with ARM templates
+    in this book''s GitHub repository: [https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在本书的 GitHub 仓库中发布了一个完整的 VM 部署示例，使用了 ARM 模板：[https://github.com/PacktPublishing/Mastering-Azure-Security](https://github.com/PacktPublishing/Mastering-Azure-Security)
+- en: You have now learned how to use Azure key vaults and key vault secrets during
+    automated Azure resource deployments with PowerShell, Terraform, and ARM templates.
+    Please make sure that you take a look at this book's GitHub repository, as you
+    will find examples of the steps that we have outlined in this chapter for your
+    reference.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你现在已经学会了如何在自动化的 Azure 资源部署中使用 Azure 密钥保管库和密钥保管库的秘密，包括使用 PowerShell、Terraform
+    和 ARM 模板。请务必查看本书的 GitHub 仓库，那里有我们在本章中概述的步骤示例，供你参考。
+- en: Summary
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Azure Key Vault is one of the many services that are underrated but very valuable
+    when it comes to security in Azure. In this chapter, you have learned how to create
+    Azure key vaults and their entities not only with the Azure portal, but also with
+    scripting and deployment languages. You now know how to grant access to an Azure
+    key vault for both individual users and Azure resources and how to reference items
+    that have been securely stored in a key vault.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure Key Vault 是 Azure 中许多被低估但在安全方面非常有价值的服务之一。在这一章中，你学习了如何通过 Azure 门户、脚本和部署语言创建
+    Azure 密钥保管库及其实体。现在你知道如何为个人用户和 Azure 资源授予对 Azure 密钥保管库的访问权限，并且知道如何引用已安全存储在密钥保管库中的项目。
+- en: In the next chapter, we will address data security and encryption, two topics
+    that are heavily dependent on Azure Key Vault, so make sure that you have read
+    and understood this chapter before moving on.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将讨论数据安全和加密这两个高度依赖 Azure Key Vault 的主题，因此在继续阅读之前，请确保你已阅读并理解了本章内容。
+- en: Questions
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Azure Key Vault is used to secure…
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Azure Key Vault 用于保护……
+- en: A. Keys
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 密钥
+- en: B. Secrets
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 秘密
+- en: C. Certificates
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 证书
+- en: D. All of the above
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. 以上所有
+- en: E. None of the above
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: E. 以上都不是
+- en: How do we control who can access Azure Key Vault information?
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们如何控制谁可以访问 Azure Key Vault 信息？
+- en: A. Key Vault permissions
+  id: totrans-151
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 密钥保管库权限
+- en: B. Access policies
+  id: totrans-152
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 访问策略
+- en: C. Conditional access
+  id: totrans-153
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 条件访问
+- en: Service-to-service authentication is done via…
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 服务到服务的认证是通过……
+- en: A. Service principal
+  id: totrans-155
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 服务主体
+- en: B. Certificate
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 证书
+- en: C. Direct link
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 直接链接
+- en: In order to use Azure Key Vault for `EnabledForDeployment`
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了使用 Azure Key Vault 进行 `启用部署`
+- en: B. `EnabledForTemplateDeployment`
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. `启用模板部署`
+- en: C. `EnabledForDiskEncryption`
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. `启用磁盘加密`
+- en: In order to use Azure Key Vault for `EnabledForDeployment`
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了使用 Azure Key Vault 进行 `启用部署`
+- en: B. `EnabledForTemplateDeployment`
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. `启用模板部署`
+- en: C. `EnabledForDiskEncryption`
+  id: totrans-163
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. `启用磁盘加密`
+- en: In order to use Azure Key Vault for VM encryption, which option do we need to
+    enable?
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了使用 Azure Key Vault 进行虚拟机加密，我们需要启用哪个选项？
+- en: A. `EnabledForDeployment`
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. `启用部署`
+- en: B. `EnabledForTemplateDeployment`
+  id: totrans-166
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. `启用模板部署`
+- en: C. `EnabledForDiskEncryption`
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. `启用磁盘加密`
+- en: In order to secure secrets during deployment, we need to…
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了在部署过程中保护秘密，我们需要……
+- en: A. Provide a password
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 提供密码
+- en: B. Encrypt a password
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 加密密码
+- en: C. Reference an Azure key vault
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 引用 Azure 密钥保管库

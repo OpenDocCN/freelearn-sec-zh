@@ -1,0 +1,1023 @@
+- en: Operating System Interface
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 操作系统接口
+- en: While preparing to write this chapter, I remembered a real-time systems course
+    in college. Not the whole course, of course, but one of the tasks we were given
+    --one of the most interesting ones, if not the most interesting. We had to write
+    a small program that would display a text string that should move from left to
+    right and back again on the screen until a certain key was pressed on the keyboard.
+    Two additional keys would make it possible to control the speed of the string's
+    movement. It was 2001 or 2002, we were still using DOS for Assembly-related exercises
+    and the task appeared to be quite simple.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在准备写这章内容时，我想起了大学时上的一门实时系统课程。当然不是整个课程，而是我们被分配的一个任务——如果说最有趣的任务之一，那可能就是这个了，甚至可以说是最有趣的任务。我们必须写一个小程序，使得文本字符串在屏幕上从左到右再返回，直到按下某个键盘上的按键为止。另外两个按键可以控制字符串移动的速度。那是2001年或2002年，我们仍然使用DOS来进行与汇编相关的练习，而这个任务看起来相当简单。
+- en: I personally found it extremely boring to use DOS interrupts for this purpose
+    (I had no idea of Occam's Razor principle at the time, besides, I wanted to look
+    smart), so I decided not to use any OS at all. My laptop had a floppy drive, so
+    the only thing I was missing was a program to write raw sectors to a floppy diskette,
+    which I wrote myself (guess what programming language).
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我个人觉得使用DOS中断来做这个事情非常无聊（当时我还不知道奥卡姆剃刀原则，此外，我还想显得聪明），于是我决定完全不使用任何操作系统。我的笔记本有一个软盘驱动器，所以我唯一缺少的是一个能够将原始扇区写入软盘的程序，而我自己写了这个程序（猜猜我用的是什么编程语言）。
+- en: 'The program consisted of two parts:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个程序由两部分组成：
+- en: '**Bootloader**: This was a tiny piece of code (it had to fit into a 512-bytes
+    sector after compilation) responsible for one thing only --loading my program
+    from a floppy and setting it up for running'
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**引导加载程序**：这是一个小程序（编译后必须适应一个512字节的扇区），只负责一件事——从软盘加载我的程序并设置它以便运行'
+- en: '**The program**: This is actually the program for displaying a moving string'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**程序**：这实际上是一个用于显示移动字符串的程序'
+- en: Having proper documentation was not a big deal to implement the whole package.
+    However, I had to take care of things we usually do not deal with. One of them
+    was a primitive video driver, which would have handled switching to graphic mode,
+    displaying the string at the proper location, and switching back to the text mode
+    before the program terminated. The other one was writing a primitive keyboard
+    driver, basically an interrupt handler to listen to the keyboard and make proper
+    adjustments to the speed of the string's movement, or tell the program to terminate.
+    To put it simply, I had to interface hardware myself (oh, the good old times of
+    the real mode... everything was so simple and so complicated).
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 拥有适当的文档并不是实现整个程序包的难点。然而，我不得不处理一些通常我们不太接触的事情。其中之一就是一个原始的显卡驱动程序，它负责切换到图形模式，正确位置显示字符串，并在程序终止之前切换回文本模式。另一个则是编写一个原始的键盘驱动程序，基本上是一个中断处理程序，用来监听键盘输入，调整字符串的移动速度，或者指示程序终止。简单来说，我必须自己处理硬件接口（哦，那是“实模式”的好时光……一切既简单又复杂）。
+- en: In modern days, unless you are a driver developer, you are completely free from
+    accessing hardware directly --the operating system does all the dirty work for
+    us and we may concentrate purely on the implementation of our ideas.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在现代，除非你是驱动程序开发者，否则你完全不需要直接访问硬件——操作系统会为我们处理所有的脏活，我们可以专注于实现自己的想法。
+- en: We are able to implement any algorithm in Assembly language thus far, we may
+    even, provided that we have proper documentation, write our own drivers, however,
+    doing so only introduces redundant work when trying to write a user-space application.
+    Not to mention the fact that there are already drivers for all your hardware provided
+    by hardware vendors, and Occam's Razor principle tells us not to multiply things
+    without need. Modern operating systems are good at managing these drivers and
+    providing easier and seamless access to hardware, thus allowing us to concentrate
+    on the process of creation.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们能够用汇编语言实现任何算法，甚至在拥有适当文档的情况下，我们可以编写自己的驱动程序，但这么做会在编写用户空间应用程序时引入冗余工作。更不用说，硬件供应商已经提供了所有硬件的驱动程序，而奥卡姆剃刀原则告诉我们不要无谓地增加复杂性。现代操作系统擅长管理这些驱动程序并提供更简单、无缝的硬件访问，使我们能够专注于创造的过程。
+- en: In this chapter, we will see how to easily and painlessly use the power given
+    to us by the operating system and numerous libraries already created by others.
+    We will begin by linking third-party object files to our code, proceed through
+    importing API from DLL/SO and finish with dynamically loading DLL/SO, and importing
+    the API at runtime.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中，我们将看到如何轻松无痛地使用操作系统和其他人已创建的众多库所赋予我们的功能。我们将首先将第三方目标文件链接到我们的代码，接着通过导入 DLL/SO
+    的 API，最后通过动态加载 DLL/SO，在运行时导入 API。
+- en: The rings
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 环的概念
+- en: Almost all modern platforms, except a few embedded ones, utilize the same security
+    principle --the division of execution environments by security levels and privileges;
+    in this case, this means the ability to access certain resources. On Intel-based
+    platforms, there are four security levels known as **protection rings**. These
+    rings are numbered 0 through 3, where the greater the number, the less privileged
+    the ring. Obviously, the code running at a less privileged level cannot access
+    memory with a higher privilege level directly. We will shortly see how data is
+    transferred between different privilege levels.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 几乎所有现代平台（除了少数嵌入式平台）都采用相同的安全原则——通过安全级别和权限划分执行环境；在这种情况下，这意味着能够访问某些资源。在基于英特尔的平台上，有四个安全级别，称为**保护环**。这些环的编号从
+    0 到 3，数字越大，权限越低。显然，在权限较低的级别运行的代码不能直接访问具有更高权限级别的内存。我们将很快看到数据是如何在不同权限级别之间传输的。
+- en: 'The following figure illustrates the concept of protection rings:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图示说明保护环的概念：
+- en: '![](img/3c5463ec-283d-475d-96bc-8c48ba85616b.png)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3c5463ec-283d-475d-96bc-8c48ba85616b.png)'
+- en: 'Here''s a description of the different privileges of protection rings:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是保护环的不同权限描述：
+- en: '**Ring 0** is the most privileged level where all instructions are available
+    and all hardware is accessible. This is the grey area where the kernel resides,
+    accompanied by kernel space drivers.'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Ring 0** 是权限最高的级别，所有指令都可以使用，所有硬件都可以访问。这里是内核所在的灰色区域，伴随内核空间的驱动程序。'
+- en: '**Ring 1** and **Ring 2** are intended to serve as the driver execution environment,
+    but are hardly used at all.'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Ring 1** 和 **Ring 2** 主要用于作为驱动程序执行环境，但几乎没有被使用。'
+- en: '**Ring 3** is the user space. It is the privilege level regular software is
+    granted, and it is the only privilege level we are interested in. Although getting
+    deeper may be very interesting, it would not be practical for the purpose of this
+    book, as all our code requires privilege level 3 only.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Ring 3** 是用户空间。这是普通软件被授予的权限级别，也是我们唯一关注的权限级别。虽然深入了解可能会非常有趣，但对于本书的目的来说，这并不实用，因为我们所有的代码只需要权限级别
+    3。'
+- en: System call
+  id: totrans-18
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 系统调用
+- en: 'The user-space application is of no value if it cannot make service requests
+    to the kernel, as it is not able to even terminate properly without asking the
+    kernel to terminate the process it is running in. All system calls may be categorized
+    as follows:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果用户空间的应用程序无法向内核发起服务请求，那么它毫无价值，因为它甚至无法在不请求内核终止它正在运行的进程的情况下正常终止。所有系统调用可以按如下方式分类：
+- en: '**Process control**: System calls that fall into this category are responsible
+    for the creation of processes/threads and their management, as well as memory
+    allocation/deallocation'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程控制**：属于此类别的系统调用负责进程/线程的创建和管理，以及内存分配/释放。'
+- en: '**File management**: These system calls are responsible for file creation,
+    deletion, and IO'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件管理**：这些系统调用负责文件的创建、删除和 IO。'
+- en: '**Device management**: This category contains system calls used for device
+    administration/access'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**设备管理**：此类别包含用于设备管理/访问的系统调用。'
+- en: '**Maintenance**: This category contains system calls for management of date,
+    time, and files or device attributes'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**维护**：此类别包含用于管理日期、时间、文件或设备属性的系统调用。'
+- en: '**Communication**: Management of communication channels and remote devices'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**通信**：管理通信通道和远程设备'
+- en: System call hardware interface
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 系统调用硬件接口
+- en: 'On the hardware level, the processor provides us with several ways to invoke
+    a kernel procedure to handle a system call:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在硬件级别，处理器为我们提供了几种方式来调用内核过程以处理系统调用：
+- en: '**Through an interrupt** (**INT instruction on 32-bit systems**): The operating
+    system allocates a descriptor for an interrupt with a specific number, which points
+    to a procedure in the kernel space that handles the interrupt in accordance with
+    its parameters (parameters are passed via registers). One of the parameters is
+    the index into system call table (roughly speaking, the table of pointers to specific
+    system call handlers).'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**通过中断** (**32 位系统上的 INT 指令**)：操作系统为具有特定编号的中断分配描述符，指向内核空间中的一个过程，该过程根据中断的参数处理该中断（参数通过寄存器传递）。其中一个参数是指向系统调用表的索引（粗略地说，是指向特定系统调用处理程序的指针表）。'
+- en: '**Using the SYSENTER instruction** (**32-bit systems excluding WOW64 processes**):
+    Beginning with Pentium II, we are able to use the `SYSENTER` instruction to perform
+    fast calls to a ring 0 procedure. This instruction is accompanied by the `SYSEXIT`
+    instruction, which returns from a system call.'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使用 SYSENTER 指令** (**32 位系统，不包括 WOW64 进程**)：从 Pentium II 开始，我们可以使用 `SYSENTER`
+    指令快速调用 ring 0 程序。该指令伴随有 `SYSEXIT` 指令，用于从系统调用返回。'
+- en: '**Using the SYSCALL instruction** (**64-bit systems**): This instruction was
+    introduced by the x86_64 architecture and is only available in the long mode.
+    This instruction allows faster transfer to a system call handler and does not
+    access the interrupt descriptor table.'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使用 SYSCALL 指令** (**64 位系统**)：此指令由 x86_64 架构引入，仅在长模式下可用。该指令允许更快速地转移到系统调用处理程序，并且不会访问中断描述符表。'
+- en: Direct system calls
+  id: totrans-30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 直接系统调用
+- en: 'Using one of the preceding instructions would mean making a direct system call
+    and bypassing all system libraries as shown in the following figure. However,
+    this is not the best practice and we will see why in a moment:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用前述指令之一将意味着进行直接的系统调用，并绕过所有的系统库，如下图所示。然而，这不是最佳实践，我们稍后会看到为什么：
+- en: '![](img/b0f706b6-aee1-4da5-a275-0dfc7bd9b6e0.png)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b0f706b6-aee1-4da5-a275-0dfc7bd9b6e0.png)'
+- en: 'Using the direct system call approach on Linux would, most likely, work, as
+    Linux system calls are well documented and their numbers are well known (they
+    may be found in `/usr/include/asm/unistd_32.h` for a 32-bit system and in `/usr/include/asm/unistd_64.h`
+    for a 64-bit one), and those numbers do not tend to change. For example, the following
+    code prints a `msg` string to the standard output on a 32-bit Linux system:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 上使用直接系统调用方法很可能会成功，因为 Linux 系统调用有良好的文档支持，并且其调用号是众所周知的（可以在 32 位系统的 `/usr/include/asm/unistd_32.h`
+    和 64 位系统的 `/usr/include/asm/unistd_64.h` 中找到），而且这些调用号一般不会发生变化。例如，以下代码在 32 位 Linux
+    系统上将一个 `msg` 字符串打印到标准输出：
+- en: '[PRE0]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Here is its 64-bit counterpart:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是其 64 位版本：
+- en: '[PRE1]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'On Windows, however, despite the fact that the idea is the same, the implementation
+    is different. To begin with, there is no publicly available official documentation
+    of Windows system calls, which not only requires a certain portion of reverse
+    engineering, but also gives no guarantee that the information found through reversing
+    `ntdll.dll` would remain intact after the next update, not to mention the fact
+    that system call numbers tend to change from version to version. However, for
+    the sake of common education, here is the system call invocation procedure from
+    the 32-bit `ntdll.dll`:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在 Windows 上，尽管思想相同，但实现方式却不同。首先，Windows 系统调用没有公开的官方文档，这不仅需要一定的反向工程技术，还无法保证通过反向工程
+    `ntdll.dll` 获得的信息在下次更新后仍然保持不变，更不用说系统调用号会在不同版本之间发生变化。然而，为了普及教育，下面是 32 位 `ntdll.dll`
+    的系统调用调用过程：
+- en: '[PRE2]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Also, if the `SYSENTER` instruction is available, then we have the following:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，如果 `SYSENTER` 指令可用，那么我们将得到以下情况：
+- en: '[PRE3]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Although the second variant is more promising, there is still no guarantee that
+    the format of the parameter block would not change (though, this is not likely).
+    In conclusion of this subsection, it is important to say that it is much advised
+    not to make use of direct system calls unless absolutely necessary.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管第二种变体更具潜力，但仍无法保证参数块的格式不会发生变化（尽管这种情况不太可能）。总结本小节，值得一提的是，除非绝对必要，否则强烈不建议使用直接系统调用。
+- en: Indirect system calls
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 间接系统调用
+- en: 'A more common way of making use of system services is through supporting libraries,
+    whether system DLLs on Windows or libc on Linux, which provide a more convenient
+    API than the raw system call interface. The process is depicted in the following
+    diagram:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更常见的利用系统服务的方式是通过支持库，无论是 Windows 上的系统 DLL 还是 Linux 上的 libc，它们提供了比原始系统调用接口更便捷的
+    API。过程如下面的图所示：
+- en: '![](img/60f5f7fc-944f-4945-82e6-3f5248525238.png)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/60f5f7fc-944f-4945-82e6-3f5248525238.png)'
+- en: Although it may seem like another layer may introduce redundant complications,
+    in reality, it is exactly the opposite, not to mention that in such cases our
+    code would become much more portable.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管看起来引入另一层可能会带来冗余的复杂性，但实际上情况正好相反，更不用说在这种情况下我们的代码将变得更具可移植性。
+- en: Using libraries
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用库
+- en: As it has been stated earlier, the best way to interact with the operating system
+    from a program written in Assembly is through the system API --system DLLs on
+    Windows and libc on Linux, and the rest of the chapter is dedicated to this topic,
+    as it will significantly make your life easier as an Assembly developer.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如之前所述，从汇编语言编写的程序与操作系统交互的最佳方式是通过系统 API —— Windows 上的系统 DLL 和 Linux 上的 libc，本章的其余部分将专注于此主题，因为它将大大简化你作为汇编开发者的工作。
+- en: The rest of the chapter is dedicated to the use of external libraries and DLLs
+    if on Windows, or external libraries and shared objects if on Linux. We will try
+    to kill two rabbits in one shot, meaning that we will not only learn how to link
+    DLLs or system lib files to our code, but we will also cover the linking of other
+    object files with our code.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的其余部分将专注于如何使用外部库和 DLL 文件（如果在 Windows 上），或者在 Linux 上使用外部库和共享对象。我们将一举两得，不仅学习如何将
+    DLL 或系统库文件链接到代码中，还将涵盖如何将其他对象文件与代码链接。
+- en: For the sake of an example, we will create a small program that prints a message
+    to the standard output and uses the module we developed in [Chapter 8](22b2b820-0431-48f6-9ed2-8b9e0cded10a.xhtml),
+    *Mixing Modules Written in Assembly and Those Written in High-Level Languages*,
+    for the encryption and decryption of the message.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了举例说明，我们将创建一个小程序，该程序将消息打印到标准输出，并使用我们在[第8章](22b2b820-0431-48f6-9ed2-8b9e0cded10a.xhtml)中开发的模块，*混合汇编语言编写的模块和高级语言编写的模块*，用于消息的加密和解密。
+- en: Windows
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows
+- en: There are two options for how to gain access to external functionality on Windows;
+    one would be compiling our code to an object file and linking it against other
+    object files or libraries, and the other would be creating executable and importing
+    functions exported by different DLLs. We will examine them both so that you will
+    be able to select the most suitable approach when the need arises.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 上，有两种方法可以访问外部功能：一种是将代码编译为对象文件，并将其与其他对象文件或库链接，另一种是创建可执行文件并导入由不同 DLL
+    导出的函数。我们将分别研究这两种方法，以便你能在需要时选择最合适的方法。
+- en: Linking against object and/or library files
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 与对象文件和/或库文件的链接
+- en: An object file is a file that contains billets of executable code and/or data.
+    It cannot be executed by itself (even if it contains all the code for an executable),
+    as the information stored in such files is only used by a linker when building
+    the final executable; otherwise, all the code and data within the file is not
+    bound to any address, and only hints are provided. Detailed information on the
+    Microsoft object file format, as well as the PE executable format specifications,
+    may be obtained at [http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx).
+    Visit this URL, click on the Download button, and select `pecoff.docx`.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对象文件是一个包含可执行代码和/或数据的文件。它不能单独执行（即使它包含了可执行文件的所有代码），因为存储在此类文件中的信息仅供链接器在构建最终可执行文件时使用；否则，文件中的所有代码和数据都没有绑定到任何地址，仅提供提示。关于
+    Microsoft 对象文件格式的详细信息以及 PE 可执行格式的规格，可以在[http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx)获取。访问此
+    URL，点击下载按钮，选择`pecoff.docx`。
+- en: Object file
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 对象文件
+- en: 'Let''s get to business and write the code for our object file, `obj_win.asm`:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始写代码，创建我们的对象文件 `obj_win.asm`：
+- en: '[PRE4]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Before we implement our code, let''s create the data section so that the code
+    is easier to understand:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们实现代码之前，让我们先创建数据段，以便代码更容易理解：
+- en: '[PRE5]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'The data section is quite self-explanatory and we are now ready to write the
+    code at last:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据段非常自明，我们现在终于可以写代码了：
+- en: '[PRE6]'
+  id: totrans-60
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Remember the `virtual` directive?
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记得`virtual`指令吗？
+- en: 'We, programmers, are sometimes lazy people and like things to be convenient,
+    especially when it comes to reading our own code a week after it was written,
+    therefore, we would prefer to address our cryptographic procedures by name, rather
+    than by an offset from the address of the `crypto_functions` structure, and this
+    is when the `virtual` directive comes in handy allowing us to label the location
+    pointed by the EBX register as shown in the following code snippet:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们程序员有时是懒惰的，喜欢事物变得更加方便，尤其是在编写代码一周后查看自己写的代码时。因此，我们更愿意按名称处理我们的加密程序，而不是根据`crypto_functions`结构的地址偏移来处理。这时，`virtual`指令派上用场，它允许我们像下面的代码片段所示那样将由EBX寄存器指向的位置标记为虚拟标签：
+- en: '[PRE7]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'The `funcs` is a virtual label that refers to the location pointed to by the
+    `ebx` register, and it will be replaced with `ebx` in compile time. Any member
+    of the `crypto_functions` structure referred by `funcs` will be replaced by its
+    offset within the structure. Let''s now set up the crypto engine and encrypt and
+    then decrypt the message stored at `buffer`:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`funcs`是一个虚拟标签，指向由`ebx`寄存器指向的位置，它将在编译时被替换为`ebx`。任何通过`funcs`引用的`crypto_functions`结构的成员都将被其在结构中的偏移量所替换。现在，让我们设置加密引擎，对存储在`buffer`中的消息进行加密和解密：'
+- en: '[PRE8]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Producing the executable
+  id: totrans-66
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 生成可执行文件
+- en: 'Compiling this source file will produce the `obj_win.obj` file, which we will
+    link to `kernel32.lib` and `crypto_w32.obj`. But where do we find the `kernel32.lib`
+    file? This task may not be such a simple one sometimes, although not a difficult
+    one. All system libraries may be found at `c:\Program Files\Microsoft SDKs\Windows\vX.X\Lib`,
+    where `vX.X` stands for the version (there will, most likely, be more than one).
+    For 64-bit Windows, the directory would be `c:\Program Files (x86)\Microsoft SDKs\Windows\vX.X\Lib`.
+    So, let''s copy the `crypto_w32.obj` file to our working directory and try to
+    link it. Open the Developer Command Prompt for VS 2017 command window, as shown
+    in the following screenshot, and navigate to your working directory:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译这个源文件会生成`obj_win.obj`文件，我们将把它链接到`kernel32.lib`和`crypto_w32.obj`。但是我们该去哪里找到`kernel32.lib`文件呢？这个任务有时可能并不简单，尽管它并不困难。所有的系统库都可以在`c:\Program
+    Files\Microsoft SDKs\Windows\vX.X\Lib`目录中找到，其中`vX.X`代表版本号（很可能会有多个版本）。对于64位Windows，目录应为`c:\Program
+    Files (x86)\Microsoft SDKs\Windows\vX.X\Lib`。所以，让我们把`crypto_w32.obj`文件复制到工作目录中，然后尝试链接它。打开VS
+    2017的开发者命令提示符窗口，如下图所示，并导航到你的工作目录：
+- en: '![](img/2cd9e977-d93f-4e17-9c0c-f3b07218d2b1.png)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2cd9e977-d93f-4e17-9c0c-f3b07218d2b1.png)'
+- en: 'Type the following command:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入以下命令：
+- en: '[PRE9]'
+  id: totrans-70
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Once you press enter, if all went well, the Microsoft (R) Incremental Linker
+    logo message will appear in the console followed by a new prompt, and the `obj_win.exe`
+    file will be generated. Try to run it and you should get this output:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦按下回车键，如果一切顺利，控制台中将显示Microsoft (R)增量链接器的徽标消息，随后会出现新的提示符，并且会生成`obj_win.exe`文件。尝试运行它，应该会得到以下输出：
+- en: '[PRE10]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Voila! We have just used external functionality in our Assembly code.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Voilà！我们刚刚在汇编代码中使用了外部功能。
+- en: Importing procedures from DLL
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从DLL导入过程
+- en: The Flat Assembler provides us with yet another option for using external functionality.
+    While with other assemblers we need a linker in order to link against DLLs, Flat
+    Assembler makes it possible to produce an executable with all the imports defined
+    in source code, which allows us to simply compile the source code and run the
+    executable.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat Assembler为我们提供了另一种使用外部功能的方法。虽然在其他汇编器中我们需要一个链接器来链接DLL文件，Flat Assembler使得我们可以生成一个包含所有在源代码中定义的导入项的可执行文件，这样我们只需编译源代码并运行可执行文件。
+- en: 'The process of runtime linking dynamic link libraries to our code is fairly
+    simple and may be illustrated with the following diagram:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行时将动态链接库链接到我们代码的过程相当简单，可以通过以下图示来说明：
+- en: '![](img/2eae957f-1fab-4f41-8397-6ca6d6249f66.png)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2eae957f-1fab-4f41-8397-6ca6d6249f66.png)'
+- en: Once the loader has loaded an executable, it parses its import table (if present)
+    and identifies the requested libraries (refer to `PECOFF.docx` for the import
+    table format specifications). For each library reference found in the import section,
+    the loader attempts to load the library, then parses the executable's import section
+    for the names of procedures exported by the library in question, and scans the
+    library's export section for a match. Once a matching entry is found, the loader
+    calculates the virtual address of the entry and writes it back to the import section
+    of the executable. This sequence is repeated for every imported entry of every
+    requested library.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦加载器加载了一个可执行文件，它将解析其导入表（如果存在），并识别请求的库（有关导入表格式规格，请参阅`PECOFF.docx`）。对于在导入部分找到的每个库引用，加载器尝试加载该库，然后解析可执行文件的导入部分，查找该库所导出的过程名称，并扫描库的导出部分以寻找匹配项。一旦找到匹配项，加载器计算该条目的虚拟地址，并将其写回可执行文件的导入部分。此过程对于每个请求的库的每个导入条目都会重复。
+- en: For our example, we will use the same code as with linking objects (just rename
+    it to `dll_win.asm`) with just a few tiny modifications, and `crypto_w32.dll`
+    instead of `crypto_w32.obj`. First of all, remove all the `extrn` and `public`
+    declarations and then tell the assembler that this time we are expecting a console
+    executable, rather than an object file, by changing `format MS COFF` to `format
+    PE CONSOLE`.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们的例子，我们将使用与链接对象相同的代码（只需将其重命名为`dll_win.asm`），并做一些微小的修改，将`crypto_w32.obj`替换为`crypto_w32.dll`。首先，删除所有的`extrn`和`public`声明，然后通过将`format
+    MS COFF`更改为`format PE CONSOLE`，告诉汇编器这次我们期待的是一个控制台可执行文件，而不是一个对象文件。
+- en: 'As we will create our own import table, we need to include the `win32a.inc`
+    file that contains all the macros we may need for our purpose. Add this line after
+    the format declaration:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们将创建自己的导入表，因此需要包含`win32a.inc`文件，该文件包含我们可能需要的所有宏。将这一行添加到格式声明之后：
+- en: '[PRE11]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'We are almost there; append the following code to the source file:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们快完成了；将以下代码附加到源文件中：
+- en: '[PRE12]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: The last modification that we have to make is change `call GetPointers` to `call
+    [GetPointers]`, as this time, the `GetPointers`; procedure will not be statically
+    linked to our executable, but it will be imported from a dynamic link library,
+    meaning that the `GetPointers` label will refer to an address in memory where
+    the address of the `GerPointers` procedure will be stored.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要做的最后一项修改是将`call GetPointers`改为`call [GetPointers]`，因为这次`GetPointers`过程不会静态链接到我们的可执行文件中，而是将从动态链接库中导入，这意味着`GetPointers`标签将引用内存中的一个地址，该地址存储着`GetPointers`过程的地址。
+- en: Try to compile the file and run it in the console. You should get the same output
+    as the one with the executable we linked from multiple objects.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尝试编译该文件并在控制台中运行。你应该得到与我们从多个对象链接的可执行文件相同的输出。
+- en: If you get an error message saying that the executable failed to launch instead
+    of the expected output, try adding the `section '.reloc' fixups data readable
+    discardable` line to the `TARGET_W32_DLL` section of the `finalize` macro in the
+    `platform.inc` file, and recompile `crypto_w32.dll`. This is correct for building
+    a DLL in general, although it may work without this in certain circumstances.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你遇到一个错误消息，显示可执行文件未启动，而不是预期的输出，尝试在`platform.inc`文件的`TARGET_W32_DLL`部分中添加`section
+    '.reloc' fixups data readable discardable`这一行，然后重新编译`crypto_w32.dll`。这对于构建DLL是正确的，尽管在某些情况下没有这个也可能能正常工作。
+- en: It is, of course, possible to load DLLs manually with the `LoadLibrary()` Windows
+    API, and resolve addresses of needed procedures with `GetProcAddress()`, but that
+    does not differ from linking against a DLL or importing APIs, as we still do need
+    to import these two APIs. There is, however, a method that allows us to import
+    API addresses in the so-called stealthy way.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，可以使用`LoadLibrary()` Windows API手动加载DLL，并通过`GetProcAddress()`解析所需过程的地址，但这与链接DLL或导入API没有区别，因为我们仍然需要导入这两个API。然而，有一种方法可以让我们以所谓的隐形方式导入API地址。
+- en: The exact same rules apply when it comes to building 64-bit executables. The
+    only difference is the location of `kernel32.lib`, which will be `c:\Program Files\Microsoft
+    SDKs\Windows\vX.X\Lib\x64`, and the size of pointers. Also, it is very important
+    to remember that the calling convention used on x86_64 Windows is neither `cdecl`
+    nor `stdcall`!
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在构建64位可执行文件时，完全适用相同的规则。唯一的区别是`kernel32.lib`的位置，它将位于`c:\Program Files\Microsoft
+    SDKs\Windows\vX.X\Lib\x64`，以及指针的大小。另外，非常重要的一点是，记住在x86_64 Windows上使用的调用约定既不是`cdecl`也不是`stdcall`！
+- en: Linux
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Linux
+- en: In Linux, just like in Windows, we have the same support for both static and
+    dynamic linking (and support for manual import too). The main difference is that
+    in Linux (and this is my sole opinion), building software is much easier as all
+    the development tools are integrated into the system. Well, except Flat Assembler,
+    but its integration is not a problem --we simply copy the `fasm` executable to
+    one of the `bin` directories that are included in the user's PATH environment
+    variable.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 中，就像在 Windows 中一样，我们支持静态和动态链接（也支持手动导入）。主要区别在于，在 Linux 中（这是我个人的看法），构建软件要容易得多，因为所有开发工具都集成在系统中。嗯，除了
+    Flat Assembler，但它的集成并不成问题——我们只需将 `fasm` 可执行文件复制到用户 PATH 环境变量中包含的某个 `bin` 目录即可。
+- en: Fortunately for us, Flat Assembler has built-in support for generation of both
+    object files and executables, which imports procedures from libraries on Linux
+    just as well as it supports such methods on Windows. We will shortly see that
+    these approaches on Linux are almost identical to those on Windows, as long as
+    we do not start diving into the depth of the ELF specifications and format.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，Flat Assembler 内置支持生成目标文件和可执行文件，它能够像在 Windows 上一样在 Linux 上导入库中的程序。稍后我们将看到，在
+    Linux 上这些方法与 Windows 上几乎相同，只要我们不深入研究 ELF 规范和格式的细节。
+- en: If you want to explore the ELF format in-depth, specifications are available
+    at
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想深入探索 ELF 格式，相关规范可以在以下链接查看：
+- en: '[http://refspecs.linuxbase.org/elf/elf.pdf](http://refspecs.linuxbase.org/elf/elf.pdf)
+    for specifications of 32-bit ELF'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[http://refspecs.linuxbase.org/elf/elf.pdf](http://refspecs.linuxbase.org/elf/elf.pdf)
+    了解 32 位 ELF 规范。'
+- en: and
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和
+- en: '[http://ftp.openwatcom.org/devel/docs/elf-64-gen.pdf](http://ftp.openwatcom.org/devel/docs/elf-64-gen.pdf)
+    for specifications of 64-bit ELF.'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[http://ftp.openwatcom.org/devel/docs/elf-64-gen.pdf](http://ftp.openwatcom.org/devel/docs/elf-64-gen.pdf)
+    了解 64 位 ELF 规范。'
+- en: You may also find these specifications with Google or any other search engine,
+    if these links appear broken.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果这些链接出现失效，你也可以通过 Google 或其他搜索引擎找到这些规范。
+- en: Just like we did in the case of Windows, we will begin by linking several object
+    files to a single executable and then proceed to create an executable ELF file
+    with dynamic dependency linking.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像我们在 Windows 中做的那样，我们将首先将几个目标文件链接到一个可执行文件中，然后创建一个带有动态依赖链接的可执行 ELF 文件。
+- en: Linking against object and/or library files
+  id: totrans-98
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 链接目标文件和/或库文件
+- en: The structure of the **Microsoft Common Object File Format** (**MS COFF**) and
+    that of **ELF** (**Executable and Linkable Format**, previously known as **Extensible
+    Linking Format**) are very different, but for us, this difference does not matter
+    at all. The ELF was developed by UNIX System Laboratories and was published in
+    1997\. It was later selected as a portable object file format for the 32-bit Intel
+    architecture. As of today, there is ELF for 32-bit systems and ELF64 for 64-bit
+    systems.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Microsoft 公共对象文件格式**（**MS COFF**）和 **ELF**（**可执行与可链接格式**，以前称为 **可扩展链接格式**）的结构差异很大，但对我们来说，这种差异完全不重要。ELF
+    由 UNIX 系统实验室开发，并于 1997 年发布。它后来被选为 32 位 Intel 架构的便携式目标文件格式。直到今天，32 位系统使用 ELF，64
+    位系统使用 ELF64。'
+- en: From our perspective, however, the code for Linux is very similar to the code
+    for Windows. To be more precise, FASM is what makes it quite similar.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，从我们的角度来看，Linux 的代码与 Windows 的代码非常相似。更准确地说，正是 FASM 让它们非常相似。
+- en: Object file
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 目标文件
+- en: 'Just as with the object file source code for Windows, as always we will begin
+    by telling the assembler what kind of output we are expecting, which procedures
+    are public, and which are external:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像 Windows 的目标文件源代码一样，我们一如既往地首先告诉汇编器我们期望什么样的输出，哪些程序是公开的，哪些是外部的：
+- en: '[PRE13]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Then we proceed with convenience macro definition, and the suggestion is to
+    put convenience macros into a separate include file so that they may be painlessly
+    used with different code without the need to rewrite them:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来我们进行便捷宏定义，建议将便捷宏放入一个单独的包含文件中，这样可以方便地在不同代码中使用，而无需重新编写它们：
+- en: '[PRE14]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'The data section is almost the same as in the case of the object file for Windows,
+    except that we do not need a variable to hold the `stdout` handle:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据段几乎与 Windows 目标文件中的相同，不同之处在于我们不需要一个变量来保存 `stdout` 句柄：
+- en: '[PRE15]'
+  id: totrans-107
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'And, at last, the code section. It is logically the same code with the only
+    difference being the use of `printf()` instead of `WriteConsoleA()`, in which
+    case the `printf()` implementation in `libc` will make all the arrangements and
+    invoke a `SYS_write` Linux system call for us. As we are, from GCC''s point of
+    view, only implementing the `main()` function, we do not have to terminate the
+    process ourselves, hence there is no `exit()` procedure imported --the runtime
+    code is automatically added and linked, and GCC will do all the rest, while we
+    simply return from `main()`:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后是代码部分。从逻辑上来说，这段代码和之前一样，唯一的不同是使用了`printf()`代替`WriteConsoleA()`，在这种情况下，`libc`中的`printf()`实现将为我们处理所有的安排，并调用一个`SYS_write`的Linux系统调用。由于从GCC的角度看，我们仅仅是实现了`main()`函数，因此我们不需要自己终止进程，也就没有引入`exit()`过程——运行时代码会自动添加并链接，GCC会处理其余的部分，而我们只需要从`main()`函数返回：
+- en: '[PRE16]'
+  id: totrans-109
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: Producing the executable
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 生成可执行文件
+- en: 'Save the file as `o_lin.asm` and compile it into an object file with the `fasm
+    o_lin.asm` command in the terminal. The next step will be linking `o_lin.o` with
+    `crypto_32.o` with the following command:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将文件保存为`o_lin.asm`，并使用终端中的`fasm o_lin.asm`命令将其编译为目标文件。下一步将使用以下命令将`o_lin.o`与`crypto_32.o`链接：
+- en: '[PRE17]'
+  id: totrans-112
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'This will result in a `5KB o_lin` executable --quite a heavy one in relation
+    to the size of code we used to produce. Such a huge size is due to the GCC linking
+    C runtime into it. Try to run it and you should see this in the terminal:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成一个`5KB o_lin`可执行文件——相比我们曾经生成的代码大小，这个文件相当庞大。如此巨大的体积是由于GCC将C运行时库链接其中。尝试运行它，你应该在终端看到以下内容：
+- en: '![](img/5c3fb30f-da46-4445-887c-ef4b73369ebd.png)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5c3fb30f-da46-4445-887c-ef4b73369ebd.png)'
+- en: Dynamic linking of ELF
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ELF的动态链接
+- en: It is not always suitable to statically link object files into a single executable,
+    and Linux provides us with a mechanism to produce an ELF executable that would
+    be linked with the required libraries (shared objects) dynamically at runtime.
+    The Flat Assembler used to have relatively basic support for ELF, meaning one
+    could only create an executable that would use system calls directly, or create
+    an object file to be linked with others (exactly in the manner we did).
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并不是总是适合将目标文件静态链接成单一可执行文件，Linux提供了一个机制，可以生成一个ELF可执行文件，该文件在运行时与所需的库（共享对象）动态链接。Flat
+    Assembler曾经对ELF的支持相对基础，这意味着只能创建直接使用系统调用的可执行文件，或者创建一个目标文件以与其他文件链接（正如我们所做的那样）。
+- en: 'Flat Assembler''s support for ELF was extended with the release of version
+    1.69.05 --a few segment attributes were added along with several convenience macros,
+    which let us manually create the import table in an ELF executable. These macros
+    are in the Linux package under the `examples/elfexe/dynamic` directory (underlined
+    in the following screenshot):'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat Assembler对ELF的支持在版本1.69.05发布时得到了扩展——添加了一些段属性，并引入了几个便捷宏，使我们能够手动在ELF可执行文件中创建导入表。这些宏位于Linux包中的`examples/elfexe/dynamic`目录下（在以下截图中有下划线标出）：
+- en: '![](img/f7556984-e5eb-47a7-8eb2-a385a7f3fe85.png)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f7556984-e5eb-47a7-8eb2-a385a7f3fe85.png)'
+- en: These macros may be found under the `linux_include` folder in the accompanying
+    code for this chapter.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些宏可以在本章随附代码中的`linux_include`文件夹下找到。
+- en: The code
+  id: totrans-120
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 代码
+- en: 'The code for dynamically linked ELF is almost the same as for an ELF object
+    file, with a few tiny differences. First of all, the `formatter` directive must
+    tell the assembler to produce an executable, rather than an object file:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 动态链接ELF的代码几乎与ELF目标文件的代码相同，只有一些微小的差别。首先，`formatter`指令必须告诉汇编器生成可执行文件，而不是目标文件：
+- en: '[PRE18]'
+  id: totrans-122
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'The convenience structures we used in this chapter (`crypto_functions` and
+    `string`) are still intact and should be placed in the file too. There is no strict
+    definition as to where they should be placed exactly, but they should appear before
+    they are used:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中使用的便捷结构（`crypto_functions` 和 `string`）依然有效，并应被放置在文件中。虽然没有严格规定它们应放置的位置，但它们应当在使用之前出现：
+- en: '[PRE19]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'A new segment is introduced in order to improve the Flat Assembler''s ELF support;
+    one is the **interpreter** that contains the name of the loader to be used with
+    the executable:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了增强Flat Assembler对ELF的支持，引入了一个新的段，其中一个是包含可与可执行文件一起使用的加载器名称的**解释器**：
+- en: '[PRE20]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'Another one is **dynamic** and serves as an import index. However, we are not
+    going to declare this segment ourselves; instead, we will use two macros --one
+    of them will create a list of the needed libraries and the other specifies procedures
+    to be imported. In our case, it will look like this:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个是**动态的**，作为一个导入索引。然而，我们不会自己声明这个段；相反，我们将使用两个宏——其中一个会创建所需库的列表，另一个则指定要导入的程序。在我们的例子中，它将如下所示：
+- en: '[PRE21]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'The rest of the code has only a few changes. First of all, the code section
+    is declared as follows:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其余的代码只需要做一些小的修改。首先，代码段声明如下：
+- en: '[PRE22]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'This time all procedures are called indirectly:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次所有的程序都被间接调用：
+- en: '[PRE23]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'The last two instructions we replace the two lines:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们替换掉的最后两条指令是：
+- en: '[PRE24]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'with:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和：
+- en: '[PRE25]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Save the file as `so_lin.asm`.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将文件保存为`so_lin.asm`。
+- en: 'Now, you may build and run the newly created executable:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，你可以构建并运行新创建的可执行文件了：
+- en: '[PRE26]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'If everything is done right, then you should see this:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一切都做得正确，你应该看到这个：
+- en: '![](img/65a7ca6e-06f1-4dfe-b7c9-828005ecb106.png)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/65a7ca6e-06f1-4dfe-b7c9-828005ecb106.png)'
+- en: Summary
+  id: totrans-142
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you got acquainted with system calls --an operating system's
+    service gateway. You learned that it is much more practical and convenient to
+    use existing libraries in order to invoke system calls indirectly, and in a much
+    more convenient and secure way.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一章中，你了解了系统调用——操作系统的服务网关。你学到了，使用现有的库来间接调用系统调用，既更实用也更方便，而且更加安全。
+- en: This chapter was intentionally left without 64-bit examples, as I would like
+    you to try and write 64-bit versions of these simple executables yourself as a
+    small exercise to test yourself.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章故意没有提供64位的示例，因为我希望你能自己尝试编写这些简单的可执行文件的64位版本，作为一个小练习来测试自己。
+- en: Now we are masters. We have a firm base and are able to implement any algorithm
+    in pure Intel Assembly, and we are even able to invoke system calls directly (on
+    Linux at least, as it is strongly discouraged on Windows). However, as real masters,
+    we know that there is much more to learn and explore, as a base alone is not enough.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们是大师了。我们有了坚实的基础，能够用纯粹的Intel汇编实现任何算法，甚至能够直接调用系统调用（至少在Linux上可以，因为在Windows上这样做是强烈不推荐的）。然而，作为真正的大师，我们知道还有更多需要学习和探索的东西，因为单单一个基础是远远不够的。

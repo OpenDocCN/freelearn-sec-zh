@@ -1,0 +1,2152 @@
+- en: Chapter 7. Troubleshooting OpenVPN - Routing
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第 7 章. 故障排除 OpenVPN - 路由
+- en: 'In this chapter, we will cover the following troubleshooting topics:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涉及以下故障排除主题：
+- en: The missing return route
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 缺失的返回路由
+- en: Missing return routes when `iroute` is used
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 `iroute` 时缺失的返回路由
+- en: All clients function except the OpenVPN endpoints
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有客户端都能正常工作，除了 OpenVPN 端点
+- en: Source routing
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 源路由
+- en: Routing and permissions on Windows
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Windows 上的路由和权限
+- en: Unable to change Windows network location
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无法更改 Windows 网络位置
+- en: Troubleshooting client-to-client traffic routing
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除客户端到客户端流量路由
+- en: 'Understanding the `MULTI: bad source` warnings'
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '理解 `MULTI: bad source` 警告'
+- en: Failure when redirecting the default gateway
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 重定向默认网关时的故障
+- en: Introduction
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: The topic of this chapter and the previous one is troubleshooting the OpenVPN.
+    This chapter focuses on the all-too-common routing issues that occur when setting
+    up a VPN. As more than half of the questions asked on the `openvpn-users` mailing
+    list can be traced back to routing issues, this chapter intends to provide answers
+    to some of the more frequent routing misconfigurations.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章和前一章的主题是排除 OpenVPN 故障。本章重点讨论在设置 VPN 时常见的路由问题。由于在 `openvpn-users` 邮件列表上超过一半的问题都可以归结为路由问题，本章旨在为一些常见的路由配置错误提供解答。
+- en: The recipes in these chapters will therefore deal with first, breaking the things,
+    and then, providing the tools for how to find and solve the configuration errors.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，本章中的配方将首先处理故障排除，然后提供如何查找和解决配置错误的工具。
+- en: The missing return route
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 缺失的返回路由
+- en: After setting up OpenVPN successfully for the very first time, it is very common
+    to misconfigure the network routes for the VPN. In this recipe, we will first
+    set up a basic TUN-style VPN as is done in [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    At first, routing will not work until the right routes are added. The purpose
+    of this recipe is to describe how to troubleshoot such a routing error.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在首次成功设置 OpenVPN 后，网络路由配置错误是非常常见的。在本配方中，我们将首先设置一个基本的 TUN 风格 VPN，如[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章. 客户端-服务器 IP-only 网络")，*客户端-服务器 IP-only 网络* 中所做的那样。起初，路由将无法工作，直到正确的路由被添加。本配方的目的是描述如何排除此类路由错误。
+- en: Getting ready
+  id: totrans-16
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'We use the following network layout:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00380.jpeg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00380.jpeg)'
+- en: Set up the client and server certificates using the *Setting up the public and
+    private keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.11\. The client was running
+    Fedora 22 Linux and OpenVPN 2.3.11\. Keep the configuration file `basic-udp-server.conf`
+    from the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    as well as the client configuration file `basic-udp-client.conf`.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 [第 2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP-only 网络")，*客户端-服务器 IP-only
+    网络* 中的 *设置公钥和私钥* 配方设置客户端和服务器证书。对于这个配方，服务器计算机运行 CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行
+    Fedora 22 Linux 和 OpenVPN 2.3.11。保持使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章.
+    客户端-服务器 IP-only 网络")，*客户端-服务器 IP-only 网络* 中的 *服务器端路由* 配方的配置文件 `basic-udp-server.conf`，以及客户端配置文件
+    `basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file `basic-udp-server.conf`:'
+  id: totrans-21
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE0]'
+  id: totrans-22
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Next, start the client:'
+  id: totrans-23
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：
+- en: '[PRE1]'
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'At this point, it is possible to ping the remote VPN IP and all the interfaces
+    that are on the VPN server themselves:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此时，可以 ping 远程 VPN IP 和所有位于 VPN 服务器上的接口：
+- en: '[PRE2]'
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: If either of these pings fails, then the VPN connection has not been established
+    successfully and there is no need to continue.
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果这两个 ping 命令中的任何一个失败，那么 VPN 连接尚未成功建立，且无需继续。
+- en: 'If no routes have been added to the server-side gateway, then all other hosts
+    on the remote `10.198.0.0/16` network will be unavailable:'
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果没有在服务器端网关上添加路由，那么远程 `10.198.0.0/16` 网络上的所有其他主机将无法访问：
+- en: '[PRE3]'
+  id: totrans-29
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'If we add a route on the LAN gateway of the remote network to explicitly forward
+    all the VPN traffic to the VPN server, then we can reach all machines on the remote
+    LAN (like it was done in the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*):'
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果我们在远程网络的局域网网关上添加路由，明确转发所有VPN流量到VPN服务器，那么我们就可以访问远程局域网上的所有机器（就像在[第二章](part0025.xhtml#aid-NQU21
+    "第2章 客户端-服务器IP-only网络")的*服务器端路由*食谱中做的那样，*客户端-服务器IP-only网络*）：
+- en: '[PRE4]'
+  id: totrans-31
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Here, `10.198.1.1` is the LAN IP address of the VPN server. In this case, the
+    remote LAN gateway is running Linux. The exact syntax for adding a static route
+    to the gateway will vary with the model and operating system of the gateway.
+  id: totrans-32
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这里，`10.198.1.1`是VPN服务器的局域网IP地址。在这种情况下，远程局域网网关运行的是Linux系统。添加静态路由到网关的确切语法将根据网关的型号和操作系统有所不同。
+- en: 'Now, all the machines are reachable:'
+  id: totrans-33
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，所有的机器都可以访问：
+- en: '[PRE5]'
+  id: totrans-34
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: How it works...
+  id: totrans-35
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: 'When the VPN client attempts to make a connection to a host on the server-side
+    LAN, packets are sent with a source and destination IP address:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当VPN客户端尝试连接到服务器端局域网上的主机时，数据包会带有源IP地址和目标IP地址：
+- en: '**Source IP** = `10.200.0.2`: This address is the VPN tunnel''s IP address'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**源IP** = `10.200.0.2`：这个地址是VPN隧道的IP地址'
+- en: '**Destination IP** = **IP**: This is the IP of the host we''re trying to contact'
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**目标IP** = **IP**：这是我们试图联系的主机的IP地址'
+- en: The remote host will want to reply with a packet, with the source and destination
+    IP addresses swapped. When the remote host wants to send the packet, it does not
+    know where to send it to, as the address `10.200.0.2` is our private VPN address.
+    It then forwards the packet to the LAN gateway. However, the LAN gateway also
+    does not know where to return the packets to, and will forward them out to its
+    default gateway. When the packets reach a router that is connected directly to
+    the Internet, that router usually will decide to drop (throw away) the packets,
+    causing the host to become unreachable.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 远程主机希望回复一个数据包，并交换源IP地址和目标IP地址。当远程主机想要发送数据包时，它不知道该发送到哪里，因为地址`10.200.0.2`是我们的私有VPN地址。于是，它将数据包转发到局域网网关。然而，局域网网关也不知道应该将数据包返回到哪里，它会将数据包转发到其默认网关。当数据包到达直接连接到互联网的路由器时，该路由器通常会选择丢弃（丢掉）数据包，导致主机无法访问。
+- en: By adding a route on the remote LAN gateway - telling it that all the traffic
+    for the network `10.200.0.0/24` should be forwarded to the VPN server - the packets
+    are sent back to the right machine. The VPN server will forward the packets back
+    to the VPN client and the connection is established.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过在远程局域网网关上添加路由——告诉它所有针对网络`10.200.0.0/24`的流量都应转发到VPN服务器——数据包就会被发送回正确的机器。VPN服务器会将数据包转发回VPN客户端，连接得以建立。
+- en: The step to ping the remote VPN endpoint first and then the server-LAN IP (`10.198.0.10`)
+    may seem superfluous at first but these are crucial steps when troubleshooting
+    routing issues. If these steps already fail, then there is no need to look at
+    the missing routes.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先ping远程VPN端点，然后ping服务器局域网IP（`10.198.0.10`）的步骤，乍一看似乎是多余的，但这些步骤在排查路由问题时至关重要。如果这些步骤已经失败，那么就不需要再查看缺失的路由了。
+- en: There's more...
+  id: totrans-42
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多……
+- en: In this section, we will focus on different solutions to the problem described
+    in this recipe.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节将重点介绍针对本食谱中描述的问题的不同解决方案。
+- en: Masquerading
+  id: totrans-44
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 伪装
+- en: A quick and dirty solution to the above issue is outlined in the *Server-side
+    routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. In the *There's More...*
+    section of that recipe, masquerading (a form of NAT'ing) is used to make it appear
+    as if all the traffic is coming from the OpenVPN server itself. This is perfect
+    if you have no control over the remote LAN gateway, but it is not a very clean
+    routing solution. Certain applications do not behave very well when NAT'ted. Also,
+    from a security logging point of view, it is sometimes better to avoid NAT'ting,
+    as you are mapping multiple IP addresses onto a single one, thereby losing information.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解决上述问题的一个快速且粗糙的方案概述见于[第二章](part0025.xhtml#aid-NQU21 "第2章 客户端-服务器IP-only网络")的*服务器端路由*食谱。在该食谱的*更多内容…*部分，使用伪装（即NAT的一种形式）来让所有流量看起来像是来自OpenVPN服务器本身。如果你无法控制远程局域网网关，这是一个完美的解决方案，但它并不是一个很干净的路由解决方案。当数据经过NAT时，某些应用程序可能表现得不太好。此外，从安全日志记录的角度来看，有时最好避免NAT，因为你将多个IP地址映射到一个地址上，从而丧失了一些信息。
+- en: Adding routes on the LAN hosts
+  id: totrans-46
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在局域网主机上添加路由
+- en: Instead of adding a route to the remote LAN gateway, it is also possible to
+    add a route on each of the remote LAN hosts that the VPN client needs to reach.
+    This solution is perfect if the VPN client only needs to be able to reach a limited
+    set of server-side hosts, but it does not scale very well.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了向远程局域网网关添加路由外，还可以在每个 VPN 客户端需要访问的远程局域网主机上添加路由。如果 VPN 客户端只需要访问有限的服务器端主机集，则此解决方案非常适合，但它的扩展性较差。
+- en: See also
+  id: totrans-48
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参见
+- en: The *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2. 
+    Client-server IP-only Networks"), *Client-server IP-only Networks*, which contains
+    the basic setup for routing the traffic from the server-side LAN
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章。客户端-服务器 IP 仅网络")的*服务器端路由*食谱，其中包含从服务器端局域网路由流量的基本设置
+- en: Missing return routes when iroute is used
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 iroute 时缺少返回路由
+- en: This recipe is a continuation of the previous one. After ensuring that a single
+    VPN client can reach the server-side LAN, the next step is to make sure that other
+    hosts behind the VPN client can reach the hosts on the server-side LAN.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本食谱是前一个食谱的延续。在确保单个 VPN 客户端可以访问服务器端局域网后，下一步是确保 VPN 客户端背后的其他主机能够访问服务器端局域网中的主机。
+- en: 'In this recipe, we will first set up a VPN as is done in the *Routing: subnets
+    on both sides* recipe from Chapter 2, *Client-Server IP-Only Networks*. If no
+    return routes are set up, then the hosts on the client-side LAN will not be able
+    to reach the hosts on the server-side LAN and vice versa. By adding the appropriate
+    routes, the issue is resolved.'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本食谱中，我们将首先设置一个 VPN，就像在第 2 章 *路由：两侧的子网* 食谱中一样。如果没有设置返回路由，那么客户端局域网中的主机将无法访问服务器端局域网中的主机，反之亦然。通过添加适当的路由，问题得以解决。
+- en: Getting ready
+  id: totrans-53
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'We use the following network layout:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00381.jpeg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00381.jpeg)'
+- en: 'Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the configuration file `example2-5-server.conf`, from the *Routing: subnets
+    on both sides* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*, as well as the client configuration, `basic-udp-client.conf`,
+    from the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章。客户端-服务器 IP 仅网络")的第一个食谱设置客户端和服务器证书，*客户端-服务器
+    IP 仅网络*。对于本食谱，服务器计算机运行 CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行 Fedora 22 Linux 和
+    OpenVPN 2.3.11。保留配置文件`example2-5-server.conf`，来自[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章。客户端-服务器 IP 仅网络")的*路由：两侧的子网*食谱，以及客户端配置`basic-udp-client.conf`，来自[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章。客户端-服务器 IP 仅网络")的*服务器端路由*食谱。
+- en: How to do it...
+  id: totrans-57
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何实现...
+- en: 'Start the server:'
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE6]'
+  id: totrans-59
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Next, start the client:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：
+- en: '[PRE7]'
+  id: totrans-61
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'At this point, it is possible to ping the remote VPN IP and all the interfaces
+    that are on the VPN server itself, and vice versa:'
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此时，可以 ping 远程 VPN IP 以及 VPN 服务器本身的所有接口，反之亦然：
+- en: '[PRE8]'
+  id: totrans-63
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'The routing table on the server shows that the remote network is routed correctly:'
+  id: totrans-64
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 服务器上的路由表显示远程网络已正确路由：
+- en: '[PRE9]'
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'When we try to ping a remote host on the server-side LAN it fails, as was the
+    case in the previous recipe. Vice versa, when we try to ping a client-side LAN
+    host from a host on the server-side LAN, we see:'
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当我们尝试 ping 服务器端局域网的远程主机时，失败了，就像在前一个食谱中一样。反之，当我们尝试从服务器端局域网的主机 ping 客户端局域网的主机时，我们看到：
+- en: '[PRE10]'
+  id: totrans-67
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'By adding the appropriate routes on the gateways at both the sides, the routing
+    is restored. First, the gateway on the server-side LAN:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过在两侧的网关上添加适当的路由，路由恢复。首先是服务器端局域网的网关：
+- en: '[PRE11]'
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: Here, `10.198.0.10` is the LAN IP address of the VPN server.
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这里，`10.198.0.10` 是 VPN 服务器的局域网 IP 地址。
+- en: 'Next, the gateway/router on the client-side LAN:'
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 接下来是客户端局域网的网关/路由器：
+- en: '[PRE12]'
+  id: totrans-72
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Here, `192.168.4.64` is the LAN IP address of the VPN client.
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这里，`192.168.4.64` 是 VPN 客户端的局域网 IP 地址。
+- en: After this, the hosts on the LANs can reach each other.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，局域网中的主机可以互相访问。
+- en: How it works...
+  id: totrans-75
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'Similar to the previous recipe, when a host on the Site A''s LAN attempts to
+    make a connection to a host on the Site B''s LAN packets that are sent with a
+    source and destination IP address:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与前一操作类似，当站点 A 局域网中的主机尝试连接站点 B 局域网中的主机时，数据包将以源和目的 IP 地址的方式发送：
+- en: '**Source IP** = `192.168.4.64`: Site A''s LAN address'
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**源 IP** = `192.168.4.64`：站点 A 的局域网地址'
+- en: '**Destination IP** = `10.198.1.12`: Site B''s LAN address'
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**目的 IP** = `10.198.1.12`：站点 B 的局域网地址'
+- en: The remote host will want to reply with a packet with the source and destination
+    IP addresses swapped. When the remote host wants to send the packet, it forwards
+    the packet to the LAN gateway. However, the LAN gateway also does not know where
+    to return the packets to, and will forward them out to its default gateway. When
+    the packets reach a router that is connected directly to the Internet, then the
+    router usually will decide to drop (throw away) the packets, causing the host
+    to become unreachable.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 远程主机会希望用一个源和目的 IP 地址交换的包进行回复。当远程主机要发送数据包时，它将数据包转发到局域网网关。然而，局域网网关也不知道将数据包返回到哪里，它会将数据包转发到其默认网关。当数据包到达与互联网直接连接的路由器时，路由器通常会决定丢弃（丢掉）这些数据包，导致主机变得不可访问。
+- en: A similar problem occurred in the previous recipe, but now the IP addresses
+    of the packets are the actual Site A's and Site B's LAN IP addresses.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的操作中出现了类似的问题，但现在数据包的 IP 地址是实际的站点 A 和站点 B 的局域网 IP 地址。
+- en: By adding the appropriate routes on both the sides, the problem is alleviated.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过在两边添加适当的路由，问题得以缓解。
+- en: 'When troubleshooting this sort of routing issue, it is very important to start
+    at the innermost network (the actual VPN, in this case) and then work your way
+    outwards:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在排查这类路由问题时，首先从最内层的网络（此案例中为实际的 VPN）开始排查，然后向外层扩展：
+- en: First, make sure the VPN endpoints can see each other.
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，确保 VPN 端点可以互相访问。
+- en: Make sure the VPN client can reach the server LAN IP and vice versa.
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保 VPN 客户端可以访问服务器的局域网 IP，反之亦然。
+- en: Make sure the VPN client can reach a host on the server-side LAN.
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保 VPN 客户端能够访问服务器端局域网中的主机。
+- en: Make sure a host on the server-side LAN can see the VPN client.
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保服务器端局域网中的主机能够看到 VPN 客户端。
+- en: Make sure a host on the client-side LAN can see the VPN server.
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保客户端局域网中的主机能够看到 VPN 服务器。
+- en: Finally, make sure a host on the client-side LAN can see a host on the server-side
+    LAN and vice versa.
+  id: totrans-88
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，确保客户端局域网中的主机能够看到服务器端局域网中的主机，反之亦然。
+- en: There's more...
+  id: totrans-89
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: Again, a quick and a dirty solution to the above issue is outlined in the *Server-side
+    routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. In that recipe, masquerading
+    is used to make it appear as if all the traffic is coming from the OpenVPN server
+    itself. In particular when connecting subnets over a VPN, this is not advisable,
+    as masquerading makes it impossible to tell which client is connecting to which
+    server and vice versa. Therefore, a fully-routed setup is preferred in this case.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，前面提到的 *服务器端路由* 操作中概述了对上述问题的一个简单快速的解决方案，该操作来自 [第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章 客户端-服务器仅 IP 网络")，*客户端-服务器仅 IP 网络*。在该操作中，使用了伪装技术，使得所有流量看起来都来自 OpenVPN 服务器本身。特别是在通过
+    VPN 连接子网时，这种做法并不可取，因为伪装使得无法确定是哪个客户端连接到哪个服务器，反之亦然。因此，在这种情况下，推荐使用完全路由的设置。
+- en: See also
+  id: totrans-91
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参见
+- en: 'The *Routing: subnets on both sides* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    which explains in detail how to set up routing on both the client and the server
+    side'
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自 [第 2 章](part0025.xhtml#aid-NQU21 "第 2 章 客户端-服务器仅 IP 网络")，*客户端-服务器仅 IP 网络*
+    的 *路由：两边的子网* 操作详细解释了如何在客户端和服务器端设置路由。
+- en: All clients function except the OpenVPN endpoints
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 除了 OpenVPN 端点，所有客户端都能正常工作
+- en: This recipe is again a continuation of the previous one. The previous recipe
+    explained how to troubleshoot routing issues when connecting a client-side LAN
+    (or subnet) to a server-side LAN. However, in the previous recipe, an omission
+    in the routing configuration was made on purpose. In this recipe, we will focus
+    on troubleshooting this quite common omission.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本操作是前一操作的延续。前一操作解释了如何在连接客户端局域网（或子网）到服务器端局域网时排查路由问题。然而，在前一操作中，故意做了一些路由配置上的遗漏。在本操作中，我们将重点关注排查这个相当常见的遗漏。
+- en: Getting ready
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'We use the following network layout:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00382.jpeg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备工作](img/image00382.jpeg)'
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器
+    IP 仅网络*。对于此配方，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN 2.3.11。
+- en: 'The client was running Fedora 22 Linux and OpenVPN 2.3.11\. Keep the configuration
+    file `example2-5-server.conf` from the *Routing: subnets on both sides* from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*, at hand, as well as the client configuration, `basic-udp-client.conf`,
+    from the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端运行的是 Fedora 22 Linux 和 OpenVPN 2.3.11。保留[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章. 客户端-服务器 IP 仅网络")中的 *路由：两端子网* 配方中的配置文件`example2-5-server.conf`，以及来自[第 2
+    章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中 *服务器端路由* 配方的客户端配置文件`basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-100
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server:'
+  id: totrans-101
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE13]'
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Next, start the client:'
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：
+- en: '[PRE14]'
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Add the appropriate routes on the gateways at both the sides:'
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在两端的网关上添加适当的路由：
+- en: '[PRE15]'
+  id: totrans-106
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: After this, all the hosts on the LANs can reach each other.
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 之后，所有局域网内的主机都可以相互访问。
+- en: 'We verify this by pinging various machines on the LANs on either of the sides:'
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们通过 ping 两端局域网上的各种机器来验证这一点：
+- en: '[PRE16]'
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'All of them work. However, when the VPN server tries to ping a host on the
+    client-side LAN, it fails:'
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 它们都能正常工作。然而，当 VPN 服务器尝试 ping 客户端局域网中的一台主机时，它失败了：
+- en: '[PRE17]'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: Similarly, the client can only reach the LAN IP of the server and none of the
+    other hosts.
+  id: totrans-112
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 同样，客户端只能访问服务器的局域网 IP 地址，无法访问其他主机。
+- en: 'On Linux and UNIX hosts, it is possible to explicitly specify the source IP
+    address:'
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Linux 和 UNIX 主机上，可以明确指定源 IP 地址：
+- en: '[PRE18]'
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: That works! So, there is a problem with the source address of the packets.
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 成功了！所以，问题出在数据包的源地址上。
+- en: 'By adding an extra route for the VPN subnet itself, to the gateways on both
+    the ends, this issue is resolved:'
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过在两端的网关上为 VPN 子网本身添加额外的路由，可以解决此问题：
+- en: '[PRE19]'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Now, the VPN server can reach all the hosts on the client''s subnet and vice
+    versa:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，VPN 服务器可以访问客户端子网中的所有主机，反之亦然：
+- en: '[PRE20]'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: How it works...
+  id: totrans-120
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'To troubleshoot issues like these, it is very handy to write out all the source
+    addresses and the destination addresses of the LANs involved. In this case, the
+    problem occurs when the VPN server wants to connect to a host on the client-side
+    LAN. On the VPN server, the packet that is sent to the client-side host is sent
+    out of the VPN interface directly. Therefore, the source address of this packet
+    is set to the IP address of the VPN interface itself. Thus, the packet has the
+    following IP addresses:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要排查此类问题，将所有涉及局域网的源地址和目标地址列出来非常有用。在此案例中，问题出现在 VPN 服务器想要连接客户端局域网中的主机时。在 VPN 服务器上，发送到客户端主机的数据包是直接通过
+    VPN 接口发送的。因此，该数据包的源地址被设置为 VPN 接口本身的 IP 地址。于是，数据包具有以下 IP 地址：
+- en: '**Source IP** = `10.200.0.1`: VPN server''s IP address'
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**源 IP** = `10.200.0.1`：VPN 服务器的 IP 地址'
+- en: '**Destination IP** = `192.168.4.66`: Site A''s LAN address'
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**目标 IP** = `192.168.4.66`：站点 A 的局域网地址'
+- en: The remote host will want to reply with a packet with the source and destination
+    IP addresses swapped. When the remote host wants to send the packet, it forwards
+    the packet to the LAN gateway. However, the LAN gateway also does not know where
+    to return the packets to, and will forward them out to its default gateway. When
+    the packets reach a router that is connected directly to the Internet, that router
+    usually will decide to drop (throw away) the packets, causing the host to become
+    unreachable.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 远程主机将希望通过交换源和目标 IP 地址的方式响应数据包。当远程主机想要发送数据包时，它会将数据包转发到局域网网关。然而，局域网网关同样不知道将数据包返回到哪里，它会将数据包转发到默认网关。当数据包到达一个直接连接到互联网的路由器时，该路由器通常会决定丢弃（抛弃）数据包，导致主机无法访问。
+- en: This problem occurs only on the VPN server and VPN client. On all other hosts
+    on the client-side and server-side LAN, the LAN IP address is used and routing
+    works as configured in the previous recipe.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个问题仅出现在 VPN 服务器和 VPN 客户端上。在客户端和服务器端的其他主机上，使用的是局域网 IP 地址，且路由按照之前的配方正常工作。
+- en: By adding the appropriate routes on both the sides the problem is resolved.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过在两端添加适当的路由，问题得以解决。
+- en: There's more...
+  id: totrans-127
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: A good use of NAT'ing in this recipe would be to remove any references to the
+    VPN IP range from the routing tables. This can be done by just masquerading the
+    VPN endpoint addresses. If this is done, the extra routes are no longer needed
+    on the gateways on both the LANs. For example, by adding a NAT'ing rule on the
+    server and a similar one on the client, the extra routes on the gateways are no
+    longer needed.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方中使用NAT（网络地址转换）的一个好方法是从路由表中移除与VPN IP范围相关的任何条目。这可以通过仅伪装VPN端点地址来完成。如果这样做，网关上的额外路由将不再需要。例如，在服务器上添加一个NAT规则，在客户端上添加一个类似的规则，网关上的额外路由就不再需要。
+- en: '[PRE21]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: Note that this is easily done on Linux and UNIX-based operating systems but
+    it requires more effort on Windows.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在基于Linux和UNIX的操作系统上，源路由设置非常简单，但在Windows上则需要更多的操作。
+- en: See also
+  id: totrans-131
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参见
+- en: 'The *Routing: subnets on both sides* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    which explains in detail how to set up routing on both the client and the server
+    side'
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第二章](part0025.xhtml#aid-NQU21 "第二章。客户端-服务器仅IP网络")中的*路由：两侧子网*配方，*客户端-服务器仅IP网络*，详细说明了如何在客户端和服务器端设置路由。'
+- en: Source routing
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 源路由
+- en: As the network configurations grow more complex, the requirement for more advanced
+    features, such as the source routing features, increases. Source routing is typically
+    used whenever a server is connected to a network (or the Internet) using two network
+    interfaces (see the following image). In this case, it is important to ensure
+    that the connections that are started on one of the interfaces are kept to that
+    interface. If the incoming traffic for a (VPN) connection is made on the first
+    interface but the return traffic is sent back over the second interface, then
+    VPN connections, amongst others, will fail, as we shall see in this recipe. Source
+    routing is an advanced feature of most of the modern operating systems. In this
+    recipe, we will show how to set up source routing using the Linux `iproute2` tools,
+    but the same can be achieved on other operating systems using similar tools.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着网络配置变得更加复杂，对更多高级功能的需求也在增加，源路由功能就是其中之一。当服务器通过两个网络接口连接到网络（或互联网）时，通常会使用源路由（请参见下图）。在这种情况下，确保通过某一接口启动的连接保持在该接口上非常重要。如果VPN连接的传入流量是通过第一个接口进入，但返回流量是通过第二个接口发送回去，那么VPN连接等将会失败，正如我们在这个配方中将要看到的那样。源路由是大多数现代操作系统的高级功能。在本配方中，我们将展示如何使用Linux的`iproute2`工具设置源路由，但在其他操作系统上使用类似工具也可以实现相同的功能。
+- en: Getting ready
+  id: totrans-135
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'We use the following network layout:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00383.jpeg)'
+  id: totrans-137
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备工作](img/image00383.jpeg)'
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11 and was connected to a router with two IP addresses: `192.168.4.65`
+    and `192.168.2.13`; the default gateway for the system was `192.168.2.1`, which
+    means that the traffic will leave the interface with the IP address `192.168.2.13`
+    by default. The secondary gateway had the IP address `192.168.4.1`. The client
+    was running Windows 7 64bit and OpenVPN 2.3.11\. The client IP address was `192.168.2.10`
+    with default route `192.168.2.1`. Keep the configuration file `basic-udp-server.conf`
+    from the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    as well as the client configuration file `basic-udp-client.ovpn` from the *Using
+    an ifconfig-pool block* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2. 
+    Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第二章](part0025.xhtml#aid-NQU21 "第二章。客户端-服务器仅IP网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器仅IP网络*。对于这个配方，服务器计算机运行的是CentOS
+    6 Linux和OpenVPN 2.3.11，并连接到一个具有两个IP地址的路由器：`192.168.4.65`和`192.168.2.13`；该系统的默认网关是`192.168.2.1`，意味着流量默认会通过IP地址为`192.168.2.13`的接口离开。第二网关的IP地址是`192.168.4.1`。客户端运行的是Windows
+    7 64位和OpenVPN 2.3.11。客户端的IP地址是`192.168.2.10`，默认路由为`192.168.2.1`。保留[第二章](part0025.xhtml#aid-NQU21
+    "第二章。客户端-服务器仅IP网络")中*服务器端路由*配方中的配置文件`basic-udp-server.conf`，以及[第二章](part0025.xhtml#aid-NQU21
+    "第二章。客户端-服务器仅IP网络")中*使用ifconfig-pool块*配方中的客户端配置文件`basic-udp-client.ovpn`。
+- en: How to do it...
+  id: totrans-139
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Start the server using the configuration file `basic-udp-server.conf`:'
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE22]'
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: Next, start the client:![How to do it...](img/image00384.jpeg)
+  id: totrans-142
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：![如何操作...](img/image00384.jpeg)
+- en: In this configuration, the remote server address `openvpnserver.example.com`
+    resolves to `192.168.4.65`.
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在此配置中，远程服务器地址 `openvpnserver.example.com` 解析为 `192.168.4.65`。
+- en: 'The connection will fail to start and the client OpenVPN log file will show
+    the following message repeated a few times:'
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 连接将无法启动，客户端的 OpenVPN 日志文件将显示以下消息，并重复几次：
+- en: '[PRE23]'
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'By adding a source routing rule to return all the traffic, which comes in on
+    one interface (`192.168.4.65`) from a host on the other interface (the subnet `192.168.2.0/24`),
+    wants to leave the interface (`192.168.2.0/24`) to the router associated with
+    the incoming subnet (`192.168.4.1`), the connection is restored:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过添加一个源路由规则，将所有通过某接口（`192.168.4.65`）从另一个接口（子网 `192.168.2.0/24`）的主机传入的流量，重定向到出接口（`192.168.2.0/24`）的路由器（`192.168.4.1`），连接得以恢复：
+- en: '[PRE24]'
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Now, the client can successfully connect to the VPN server.
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 现在，客户端可以成功连接到 VPN 服务器。
+- en: How it works...
+  id: totrans-149
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When a connection is made from the client `192.168.2.10` to the VPN server `192.168.4.65`,
+    the return route is chosen to be the shortest one possible, which in the setup
+    described here is `192.168.2.1`. The server operating system will set the return
+    IP address of the packets to `192.168.2.13`, as that is the IP address of the
+    interface associated with that network. This confuses the OpenVPN client, as it
+    connects to host `192.168.4.65` but gets return traffic from `192.168.2.13`. By
+    explicitly forcing traffic to go out the other interface ( `192.168.4.65`), this
+    asymmetric routing issue is resolved.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端 `192.168.2.10` 连接到 VPN 服务器 `192.168.4.65` 时，返回路由选择了最短路径，在这里的设置中是 `192.168.2.1`。服务器操作系统将数据包的返回
+    IP 地址设置为 `192.168.2.13`，因为这是与该网络关联的接口的 IP 地址。这使得 OpenVPN 客户端感到困惑，因为它连接到主机 `192.168.4.65`，但却接收到来自
+    `192.168.2.13` 的返回流量。通过明确强制流量从另一个接口（`192.168.4.65`）出去，这个不对称路由问题得以解决。
+- en: 'The exact syntax of the source routing rules is highly dependent on the exact
+    network configuration, but the general idea of the three commands outlined in
+    the section *How to do it* is to:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 源路由规则的确切语法高度依赖于具体的网络配置，但在*如何操作*一节中概述的三条命令的基本思想是：
+- en: Create a routing table with ID `100` and set the default gateway device for
+    this table to `eth0`, which has the IP address `192.168.4.65`
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建一个 ID 为`100`的路由表，并将此表的默认网关设备设置为`eth0`，其 IP 地址为`192.168.4.65`
+- en: Create a routing rule that any traffic which comes from client `192.168.2.10`
+    is redirected to the routing table
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建一条路由规则，将任何来自客户端 `192.168.2.10` 的流量重定向到路由表
+- en: Create a routing rule that any traffic which wants to leave client `192.168.2.10`
+    is redirected to the routing table
+  id: totrans-154
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建一条路由规则，将任何希望离开客户端`192.168.2.10`的流量重定向到路由表
+- en: The routing rules would need to be tweaked for a live situation, as these rules
+    block out certain other types of network traffic, but the principle is correct.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 路由规则需要根据实际情况进行调整，因为这些规则会阻止某些其他类型的网络流量，但原理是正确的。
+- en: There's more...
+  id: totrans-156
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: More advanced routing control can be done using **LARTC** (**Linux Advanced
+    Routing and Traffic Control**). A better approach would be to mark packets coming
+    on the interface and only redirect the marked packets to the correct outgoing
+    interface.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更高级的路由控制可以使用**LARTC**（**Linux 高级路由与流量控制**）来完成。更好的方法是标记从接口传入的数据包，并仅将标记的数据包重定向到正确的外发接口。
+- en: Routing and permissions on Windows
+  id: totrans-158
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows 上的路由和权限
+- en: In this recipe, we will focus on the common error experienced by the users when
+    the VPN client machine is running Windows without full or elevated privileges.
+    Under certain circumstances, the OpenVPN client can connect successfully but the
+    routes that are pushed out by the remote server are not correctly set up. This
+    recipe will focus on how to troubleshoot and correct this error.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将重点讨论用户在 VPN 客户端机器运行 Windows 且没有完全或提升权限时常遇到的常见错误。在某些情况下，OpenVPN 客户端能够成功连接，但远程服务器推送的路由未正确设置。本教程将重点讨论如何排查和修正这个错误。
+- en: Getting ready
+  id: totrans-160
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备中
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Windows 7 64bit and OpenVPN 2.3.11\.
+    Keep the configuration file `basic-udp-server.conf` from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file `basic-udp-client.ovpn` from the *Using an ifconfig-pool block* recipe from
+    [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器 IP 专用网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器
+    IP 专用网络*。对于这个配方，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN 2.3.11，而客户端运行的是 Windows 7
+    64 位和 OpenVPN 2.3.11。请保留来自[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器 IP 专用网络")中
+    *服务器端路由* 配方的配置文件 `basic-udp-server.conf`，以及来自[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器
+    IP 专用网络")中 *使用 ifconfig-pool 块* 配方的客户端配置文件 `basic-udp-client.ovpn`。
+- en: How to do it...
+  id: totrans-162
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: Log in on Windows as a non-privileged user, being a user without `Power User`
+    or `Administrator` privileges. Also, make sure to temporarily remove the **Run
+    as Administrator** flag from OpenVPN to launch OpenVPN without elevated privileges.
+    This can be done by unchecking the **Run this program as an administrator** flag
+    in the OpenVPN GUI properties:![How to do it...](img/image00385.jpeg)
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以非特权用户身份登录 Windows，即没有 `Power User` 或 `Administrator` 权限的用户。此外，确保暂时从 OpenVPN
+    中移除**以管理员身份运行**标志，以便不以提升的权限启动 OpenVPN。可以通过在 OpenVPN GUI 属性中取消勾选**以管理员身份运行此程序**标志来实现：![如何操作...](img/image00385.jpeg)
+- en: 'Start the server using the configuration file `basic-udp-server.conf`:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE25]'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Finally, start the client.![How to do it...](img/image00386.jpeg)
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，启动客户端。![如何操作...](img/image00386.jpeg)
+- en: 'The connection will start and the OpenVPN GUI light will turn green. However,
+    the client OpenVPN log file will show the following messages:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接将开始，OpenVPN GUI 灯会变为绿色。然而，客户端 OpenVPN 日志文件将显示以下消息：
+- en: '[PRE26]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'If you attempt to reach a host on the server-side LAN, it will fail:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果尝试访问服务器端 LAN 上的主机，将会失败：
+- en: '[PRE27]'
+  id: totrans-170
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: The solution to this issue is to give the proper networking rights to the user,
+    or to restore elevated privileges for OpenVPN again.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解决此问题的方法是为用户提供适当的网络权限，或者恢复 OpenVPN 的提升权限。
+- en: How it works...
+  id: totrans-172
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'The OpenVPN client tries to open the TAP-Win32 adapter, which is allowed in
+    a default installation. However, when the server pushes out a route to the client
+    using:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 客户端尝试打开 TAP-Win32 适配器，在默认安装中这是被允许的。然而，当服务器通过以下方式推送路由到客户端时：
+- en: '[PRE28]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Then, the OpenVPN client will not be able to actually add this route to the
+    system routing tables, due to missing administrator privileges. However, the VPN
+    connection is successfully established and the GUI client shows a successful connection.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，由于缺少管理员权限，OpenVPN 客户端将无法实际将该路由添加到系统路由表中。然而，VPN 连接已经成功建立，并且 GUI 客户端显示连接成功。
+- en: Note that even without the `push "route"` statement, the Windows OpenVPN GUI
+    showed a green icon, suggesting the connection had started. Technically speaking,
+    it is true that the connection has been established, but this should still be
+    considered as a bug.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，即使没有 `push "route"` 语句，Windows OpenVPN 图形界面仍然显示绿色图标，表明连接已启动。从技术角度讲，连接确实已经建立，但这仍然应视为一个
+    bug。
+- en: There's more...
+  id: totrans-177
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: Windows XP and higher versions include a **Run As Administrator** service that
+    allows a user to temporarily run a program with a higher privilege level. This
+    mechanism was expanded in Windows Vista/7 and was made the default when launching
+    applications. This has actually been the cause of numerous questions on the `openvpn-users`
+    mailing list when running OpenVPN on these platforms.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows XP 及更高版本包含一个**以管理员身份运行**服务，允许用户暂时以更高的权限级别运行程序。这个机制在 Windows Vista/7
+    中得到了扩展，并在启动应用程序时成为默认设置。实际上，这就是在这些平台上运行 OpenVPN 时，`openvpn-users` 邮件列表上出现的许多问题的根本原因。
+- en: Unable to change Windows network location
+  id: totrans-179
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 无法更改 Windows 网络位置
+- en: 'The title of this recipe may not seem related to routing issues, but the Windows
+    network location depends on routing to work. Starting with Windows Vista, Microsoft
+    introduced the concept of network locations. By default, there are multiple network
+    locations: **Home**, **Work** and **Public** for Windows 7 and **Private** and **Public**
+    for Windows 8 and above. These network locations apply to all network adapters,
+    including OpenVPN''s virtual TAP-Win network adapter.'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这篇食谱的标题看起来似乎与路由问题无关，但Windows的网络位置依赖于路由才能正常工作。从Windows Vista开始，微软引入了网络位置的概念。默认情况下，有多个网络位置：**家庭**、**工作**和**公共**（适用于Windows
+    7），以及**私人**和**公共**（适用于Windows 8及以上）。这些网络位置适用于所有网络适配器，包括OpenVPN的虚拟TAP-Win网络适配器。
+- en: The **Home** network location is intended for a home network. Similarly, the **Work**
+    network location also provides a high level of trust at work, allowing the computer
+    to share files, connect to printers and so on. In Windows 8 and above, the **Home**
+    and **Work** network locations are merged together to become the trusted **Private**
+    network location. The **Public** network location is not trusted and access to
+    network resources is restricted by Windows, even when the Windows firewall is
+    disabled.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**家庭**网络位置是为家庭网络设计的。同样，**工作**网络位置也为工作提供较高的信任级别，允许计算机共享文件、连接打印机等。在Windows 8及以上版本中，**家庭**和**工作**网络位置合并成了可信的**私人**网络位置。**公共**网络位置不被信任，Windows会限制对网络资源的访问，即使Windows防火墙被禁用。'
+- en: The routing properties of an OpenVPN setup determine whether the TAP-Win adapter
+    is trusted or not, and thus whether file sharing is allowed. In this recipe, we
+    will show how to change an OpenVPN setup so that the network location can be altered.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN设置的路由属性决定了TAP-Win适配器是否被信任，从而决定是否允许文件共享。在这个食谱中，我们将展示如何更改OpenVPN设置，以便可以更改网络位置。
+- en: Getting ready
+  id: totrans-183
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Windows 7 64bit and OpenVPN 2.3.11\.
+    Keep the configuration file `example2-7-server.conf` from the *Redirecting the
+    default gateway* recipe from Chapter 2, *Client-server IP-only Networks* at hand,
+    as well as the client configuration file `basic-udp-client.ovpn` from the *Using
+    an ifconfig-pool block* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2. 
+    Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第二章](part0025.xhtml#aid-NQU21 "第二章. 客户端-服务器IP仅网络")中的第一个食谱设置客户端和服务器证书，*客户端-服务器IP仅网络*。在这个食谱中，服务器计算机运行的是CentOS
+    6 Linux和OpenVPN 2.3.11，客户端运行的是Windows 7 64位和OpenVPN 2.3.11。请随时准备好第二章中*重定向默认网关*食谱中的配置文件`example2-7-server.conf`，以及[第二章](part0025.xhtml#aid-NQU21
+    "第二章. 客户端-服务器IP仅网络")中的*使用ifconfig-pool块*食谱中的客户端配置文件`basic-udp-client.ovpn`，*客户端-服务器IP仅网络*。
+- en: How to do it...
+  id: totrans-185
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file `example-2-7-server.conf`:'
+  id: totrans-186
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件`example-2-7-server.conf`启动服务器：
+- en: '[PRE29]'
+  id: totrans-187
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: Next, start the client.![How to do it...](img/image00387.jpeg)
+  id: totrans-188
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端。![如何操作...](img/image00387.jpeg)
+- en: Go to the **Network and Sharing Center** and observe that the TAP adapter is
+    in the section **Public Network** and that it is not possible to change this.
+    Also, try to access a file share via the VPN tunnel. This should not be possible.
+  id: totrans-189
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入**网络和共享中心**，并观察到TAP适配器位于**公共网络**部分，并且无法更改此设置。此外，尝试通过VPN隧道访问文件共享，这应该是无法实现的。
+- en: 'Change the server configuration by removing `def1` from the `push redirect-gateway
+    def1` line:'
+  id: totrans-190
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过删除`push redirect-gateway def1`行中的`def1`来更改服务器配置：
+- en: '[PRE30]'
+  id: totrans-191
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: Restart the VPN connection on both sides.
+  id: totrans-192
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在两端重新启动VPN连接。
+- en: As the VPN connection comes up, Windows will ask you for the location of the
+    new network **Network**:![How to do it...](img/image00388.jpeg)
+  id: totrans-193
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当VPN连接建立时，Windows会询问你新网络的位置：**网络**：![如何操作...](img/image00388.jpeg)
+- en: Choose the **Work network** location, then give the new network the name `VPN`.
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择**工作网络**位置，然后将新网络命名为`VPN`。
+- en: Now, go to the **Network and Sharing Center** once more and observe that the
+    TAP adapter (named **vpn0**) is in the work network location **VPN**:![How to
+    do it...](img/image00389.jpeg)
+  id: totrans-195
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，再次进入**网络和共享中心**，并观察到TAP适配器（命名为**vpn0**）位于工作网络位置**VPN**：![如何操作...](img/image00389.jpeg)
+- en: How it works...
+  id: totrans-196
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'Even though all network traffic is routed over the VPN (using `redirect-gateway
+    def1`) Windows does not trust the VPN adapter and hence will refuse full access
+    over the VPN tunnel. Windows will only trust a network adapter if it advertises
+    a default gateway (0.0.0.0/0), or the network adapter must be part of a Windows
+    domain. This can be fixed by changing the server configuration to use:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管所有网络流量都通过 VPN 路由（使用 `redirect-gateway def1`），Windows 仍然不信任 VPN 适配器，因此会拒绝通过
+    VPN 隧道的完全访问。Windows 只有在网络适配器广告默认网关（0.0.0.0/0）时，才会信任该网络适配器，或者该网络适配器必须属于 Windows
+    域。可以通过将服务器配置更改为使用来解决此问题：
+- en: '[PRE31]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: There's more...
+  id: totrans-199
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: It is also possible to use the Windows Registry editor to change the network
+    location, but this is not recommended, as it will mark all network adapters as
+    trusted.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以使用 Windows 注册表编辑器更改网络位置，但不推荐这样做，因为这将把所有网络适配器标记为受信任。
+- en: Troubleshooting client-to-client traffic routing
+  id: totrans-201
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 排查客户端之间流量路由问题
+- en: In this recipe, we will troubleshoot a VPN setup where it is the intention that
+    client-to-client traffic is enabled, but the server configuration directive "client-to-client"
+    is missing. In a TUN-style network, it is possible to allow client-to-client traffic
+    without this directive and it even allows the server administrator to apply firewalling
+    rules to the traffic between clients. In a TAP-style network, this is generally
+    not possible, as will be explained in the *There's more...* section.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本例中，我们将排查一个 VPN 设置问题，该设置的目标是启用客户端之间的流量，但服务器配置文件中缺少 "client-to-client" 指令。在
+    TUN 类型的网络中，即使没有此指令，也可以允许客户端之间的流量，并且它还允许服务器管理员对客户端间的流量应用防火墙规则。在 TAP 类型的网络中，通常不可能做到这一点，正如在
+    *还有更多内容...* 部分将会解释的那样。
+- en: Getting ready
+  id: totrans-203
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'We use the following network layout:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00390.jpeg)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00390.jpeg)'
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The first client was running Fedora 22 Linux and OpenVPN
+    2.3.11\. The second client was running Windows 7 64bit and OpenVPN 2.3.11\. Keep
+    the configuration file `basic-udp-server.conf` from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file `basic-udp-client.ovpn` from the *Using an ifconfig-pool block* recipe from
+    [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 [第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP 网络") 的第一个例子，设置客户端和服务器证书，*客户端-服务器
+    IP 网络*。在这个例子中，服务器计算机运行 CentOS 6 Linux 和 OpenVPN 2.3.11。第一个客户端运行 Fedora 22 Linux
+    和 OpenVPN 2.3.11。第二个客户端运行 Windows 7 64 位和 OpenVPN 2.3.11。保留配置文件 `basic-udp-server.conf`，该文件来自
+    [第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP 网络") 中的 *服务器端路由* 例子，以及客户端配置文件
+    `basic-udp-client.ovpn`，该文件来自 [第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP
+    网络") 中的 *使用 ifconfig-pool 块* 例子，*客户端-服务器 IP 网络*。
+- en: How to do it...
+  id: totrans-207
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE32]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: Next, start the Linux client.
+  id: totrans-210
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动 Linux 客户端。
+- en: '[PRE33]'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: And finally, start the Windows client:![How to do it...](img/image00391.jpeg)
+  id: totrans-212
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，启动 Windows 客户端：![如何操作...](img/image00391.jpeg)
+- en: 'Next, try to ping the Windows client from the Linux client (make sure no firewalls
+    are blocking the traffic):'
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，尝试从 Linux 客户端 ping Windows 客户端（确保没有防火墙阻止流量）：
+- en: '[PRE34]'
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: It is possible that the host is already reachable, but in that case the firewall
+    on the server is very permissive.
+  id: totrans-215
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 可能主机已经可达，但在这种情况下，服务器上的防火墙非常宽松。
+- en: 'At this point, it is instructive to set up `iptables` logging on the VPN server:'
+  id: totrans-216
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此时，可以在 VPN 服务器上设置 `iptables` 日志记录来进行排查：
+- en: '[PRE35]'
+  id: totrans-217
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Then try the ping again. This will result in the following messages in `/var/log/messages`:'
+  id: totrans-218
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后再次尝试 ping。这将在 `/var/log/messages` 中产生以下消息：
+- en: '[PRE36]'
+  id: totrans-219
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: 'The first client `10.200.0.2` is trying to reach the second client `10.200.0.3`.
+    This issue can be resolved by adding the `client-to-client` configuration directive
+    to the server configuration file and restarting the OpenVPN server, or it can
+    be resolved by allowing tunnel traffic to be forwarded:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个客户端 `10.200.0.2` 正试图连接第二个客户端 `10.200.0.3`。此问题可以通过向服务器配置文件中添加 `client-to-client`
+    配置指令并重启 OpenVPN 服务器来解决，或者通过允许隧道流量转发来解决：
+- en: '[PRE37]'
+  id: totrans-221
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: How it works...
+  id: totrans-222
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When the first OpenVPN client tries to reach the second client, packets are
+    sent to the server itself. The OpenVPN server does not know how to handle these
+    packets and hands them off to the kernel. The kernel forwards the packets based
+    on whether routing is enabled and whether the firewall rules (`iptables`) allow
+    it. If not, then the packet is simply dropped and the second client is never reached.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当第一个 OpenVPN 客户端尝试连接到第二个客户端时，数据包会被发送到服务器本身。OpenVPN 服务器不知道如何处理这些数据包，因此将它们交给内核。内核根据是否启用了路由以及防火墙规则（`iptables`）是否允许来转发数据包。如果不允许，数据包将被丢弃，第二个客户端将无法到达。
+- en: 'By adding the following directive, the OpenVPN server process deals with the
+    client-to-client traffic internally, bypassing the kernel forwarding, and the
+    firewalling rules:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过添加以下指令，OpenVPN 服务器进程可以内部处理客户端到客户端的流量，绕过内核转发和防火墙规则：
+- en: '[PRE38]'
+  id: totrans-225
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: The alternative solution, which is slightly more secure but also less scalable,
+    is to properly set up routing in the Linux kernel.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种解决方案是正确设置 Linux 内核中的路由，这种方式稍微更安全，但可扩展性较差。
+- en: There's more...
+  id: totrans-227
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: In a TAP-style network, the above `iptables` rule does not work. In a TAP-style
+    network, all the clients are a part of the same broadcast domain. When the `client-to-client`
+    directive is omitted and a client tries to reach another client, it first sends
+    out `arp` who has messages to find out the MAC address of the other client. The
+    OpenVPN server will ignore these requests and will also not forward them to other
+    clients, regardless of whether an `iptables` rule is set or not. Hence, the clients
+    cannot easily reach each other without the `client-to-client` directive, unless
+    tricks like proxy-ARP are used.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 TAP 风格的网络中，上述 `iptables` 规则不起作用。在 TAP 风格的网络中，所有客户端都属于同一个广播域。当省略 `client-to-client`
+    指令时，如果客户端尝试连接到另一台客户端，它首先会发送 `arp` 谁有 消息，以查找另一台客户端的 MAC 地址。OpenVPN 服务器将忽略这些请求，也不会将它们转发给其他客户端，无论是否设置了
+    `iptables` 规则。因此，客户端在没有 `client-to-client` 指令的情况下，不能轻松地相互访问，除非使用像代理 ARP 这样的技巧。
+- en: See also
+  id: totrans-229
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: The *Enabling client-to-client traffic* recipe, from [Chapter 3](part0038.xhtml#aid-147LC1
+    "Chapter 3. Client-server Ethernet-style Networks"), *Client-server Ethernet-style
+    Networks*, which explains how client-to-client traffic is set up in a TAP-style
+    environment
+  id: totrans-230
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*启用客户端到客户端流量* 食谱，来自 [第 3 章](part0038.xhtml#aid-147LC1 "第 3 章 客户端-服务器以太网风格网络")，*客户端-服务器以太网风格网络*，该部分解释了如何在
+    TAP 风格的环境中设置客户端到客户端的流量。'
+- en: 'Understanding the MULTI: bad source warnings'
+  id: totrans-231
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '理解 MULTI: bad source 警告'
+- en: 'In this recipe, we focus again on a VPN configuration where we try to connect
+    a client-side LAN to a server-side LAN. Normally, this is done by adding a `client-config-dir`
+    directive to the OpenVPN server configuration, and then by adding the appropriate
+    CCD file. However, if the CCD file is not found or is not readable, then the VPN
+    connection will function properly, but the hosts on the client-side LAN will not
+    be able to reach the hosts on the server-side LAN and vice versa. In this case,
+    the OpenVPN server log file will show messages of the form `MULTI: bad source`,
+    if the verbosity is set high enough. In this recipe, we will first set up a VPN
+    as is done in the *Routing: * *subnets on both sides* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    but with a missing CCD file for the client. Then, we will show how to trigger
+    the `MULTI: bad source` warnings and what can be done to resolve the issue.'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '在这个食谱中，我们再次关注 VPN 配置，其中我们尝试将客户端局域网（LAN）连接到服务器端局域网。通常，这通过向 OpenVPN 服务器配置添加 `client-config-dir`
+    指令，然后添加相应的 CCD 文件来完成。然而，如果找不到 CCD 文件或该文件不可读，VPN 连接将正常工作，但客户端局域网上的主机将无法访问服务器端局域网上的主机，反之亦然。在这种情况下，如果日志的详细级别足够高，OpenVPN
+    服务器日志文件将显示类似 `MULTI: bad source` 的消息。在本食谱中，我们将首先像在 *路由：* *两端子网* 食谱中那样设置 VPN，参见
+    [第 2 章](part0025.xhtml#aid-NQU21 "第 2 章 客户端-服务器 IP-only 网络")，*客户端-服务器 IP-only
+    网络*，但客户端缺少 CCD 文件。接下来，我们将展示如何触发 `MULTI: bad source` 警告以及如何解决这个问题。'
+- en: Getting ready
+  id: totrans-233
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'We use the following network layout:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00392.jpeg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备工作](img/image00392.jpeg)'
+- en: Set up the client and server certificates using the first recipe from the [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the configuration file `example2-5-server.conf` from the *Using client-config-dir
+    files* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For the client, keep the
+    configuration file `basic-udp-client.conf` from the *Server-side routing* recipe
+    from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP 专用网络")的第一个配方来设置客户端和服务器证书，*客户端-服务器
+    IP 专用网络*。在这个配方中，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行的是 Fedora 22 Linux
+    和 OpenVPN 2.3.11。保留*使用 client-config-dir 文件*配方中的配置文件`example2-5-server.conf`，来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器 IP 专用网络")，*客户端-服务器 IP 专用网络*。对于客户端，保留*服务器端路由*配方中的配置文件`basic-udp-client.conf`，该配方同样来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器 IP 专用网络")，*客户端-服务器 IP 专用网络*。
+- en: How to do it...
+  id: totrans-237
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做到...
+- en: 'First, make sure the client CCD file is not accessible:'
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，确保客户端 CCD 文件不可访问：
+- en: '[PRE39]'
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: 'Start the server using the configuration file `example2-5-server.conf` and
+    with increased verbosity:'
+  id: totrans-240
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件`example2-5-server.conf`启动服务器，并增加输出详细程度：
+- en: '[PRE40]'
+  id: totrans-241
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'Next, start the client to connect successfully:'
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端以成功连接：
+- en: '[PRE41]'
+  id: totrans-243
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'However, when a host on the client-side LAN tries to reach a machine on the
+    server-side LAN, the following message appears in the OpenVPN server log file:'
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然而，当客户端侧的某个主机尝试访问服务器侧的计算机时，OpenVPN 服务器日志文件中会出现以下信息：
+- en: '[PRE42]'
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: In this recipe, the root cause of the problem can be resolved as done in the
+    *Troubleshooting client-config-dir issues* recipe from [Chapter 6](part0071.xhtml#aid-23MNU1
+    "Chapter 6. Troubleshooting OpenVPN - Configurations"), *Troubleshooting OpenVPN
+    - Configurations*, fix the permissions of the directory `/etc/openvpn/cookbook/clients`
+    and reconnect the OpenVPN client.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个配方中，问题的根本原因可以像在[第6章](part0071.xhtml#aid-23MNU1 "第6章. 排查 OpenVPN 配置问题")，*排查
+    OpenVPN 配置问题*的*排查 client-config-dir 问题*配方中那样解决，修复目录`/etc/openvpn/cookbook/clients`的权限，然后重新连接
+    OpenVPN 客户端。
+- en: How it works...
+  id: totrans-247
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'In order to connect a remote LAN to an OpenVPN server, two server-configuration
+    directives are needed:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了将远程局域网连接到 OpenVPN 服务器，需要两个服务器配置指令：
+- en: '[PRE43]'
+  id: totrans-249
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: 'And also a CCD file containing the name of the client certificate. The CCD
+    file contains:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还需要一个 CCD 文件，包含客户端证书的名称。CCD 文件包含：
+- en: '[PRE44]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'Without this, the OpenVPN server does not know which VPN client the remote
+    network is connected to. If a packet comes in from a client that the OpenVPN server
+    does not know about, then the packet is dropped and, with "verb 5" or higher,
+    the warning `MULTI: bad source` is printed.'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '如果没有这个，OpenVPN 服务器无法知道远程网络连接到哪个 VPN 客户端。如果从一个 OpenVPN 服务器未识别的客户端接收到数据包，那么该数据包将被丢弃，并且在"verb
+    5"或更高等级时，会打印警告`MULTI: bad source`。'
+- en: There's more...
+  id: totrans-253
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'Apart from the warnings explained above, there is one other major reason for
+    the `MULTI: bad source` messages to occur.'
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '除了上述解释的警告之外，还有另一个主要原因会导致`MULTI: bad source`信息出现。'
+- en: 'Other occurrences of the MULTI: bad source message'
+  id: totrans-255
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: '其他出现的 MULTI: bad source 信息'
+- en: 'Sometimes the `MULTI: bad source` message is printed in the OpenVPN server
+    log file even when no client-side LAN is connected to the VPN client. This happens
+    most often with VPN clients running Windows. When a file share is accessed over
+    the VPN connection, Windows sometimes sends packets with a different source IP
+    address to that of the VPN interface. These packets are not recognized by the
+    OpenVPN server and the warning is printed. The solution to this issue is not known.'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '有时，即使没有客户端局域网连接到 VPN 客户端，OpenVPN 服务器日志中也会打印`MULTI: bad source`信息。这种情况通常发生在运行
+    Windows 的 VPN 客户端中。当通过 VPN 连接访问文件共享时，Windows 有时会发送与 VPN 接口源 IP 地址不同的源 IP 地址的数据包。这些数据包无法被
+    OpenVPN 服务器识别，从而打印出警告。解决此问题的方法尚不清楚。'
+- en: See also
+  id: totrans-257
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The *Routing: subnets on both sides* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    which explains the basics of setting up a `client-config-dir` setup'
+  id: totrans-258
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP 专用网络")的*路由：两侧的子网*配方，*客户端-服务器
+    IP 专用网络*，解释了如何设置`client-config-dir`配置的基础知识。
+- en: The *Troubleshooting client-config-dir issues* recipe from [Chapter 6](part0071.xhtml#aid-23MNU1
+    "Chapter 6. Troubleshooting OpenVPN - Configurations"), *Troubleshooting OpenVPN
+    - Configurations*, which goes deeper into some of the frequently made mistakes
+    when using the `client-config-dir` directive
+  id: totrans-259
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自[第6章](part0071.xhtml#aid-23MNU1 "第6章 故障排除OpenVPN配置")，*故障排除OpenVPN配置*中的*故障排除client-config-dir问题*食谱更深入地探讨了使用`client-config-dir`指令时常见的一些错误。
+- en: Failure when redirecting the default gateway
+  id: totrans-260
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 重定向默认网关失败
+- en: In this recipe, we will troubleshoot an infrequent yet very persistent issue
+    that can occur when setting up a VPN connection. When the `redirect-gateway` directive
+    is used to redirect the default gateway on an OpenVPN client, it sometimes causes
+    the client to lose all the Internet connections. This particularly occurs when
+    the client machine on which OpenVPN is running is connected to the rest of the
+    network or with the Internet using a PPP-based connection, such as PPPoE or PPPoA,
+    especially, when using a GPRS/UMTS connections via a mobile phone.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本食谱中，我们将排查一个不常见但非常持久的问题，通常出现在设置VPN连接时。当使用`redirect-gateway`指令来重定向OpenVPN客户端的默认网关时，有时会导致客户端失去所有的Internet连接。这种情况尤其在OpenVPN运行的客户端计算机通过PPP连接（如PPPoE或PPPoA）连接到网络或互联网时发生，尤其是使用手机进行GPRS/UMTS连接时。
+- en: When this occurs, OpenVPN sometimes is not capable of determining the default
+    gateway before it is redirected. After the default gateway is redirected to the
+    OpenVPN tunnel, the whole tunnel collapses on itself, as all the traffic, including
+    the encrypted tunnel traffic itself, is redirected into the tunnel, causing the
+    VPN to lock up.
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当这种情况发生时，OpenVPN有时无法在重定向之前确定默认网关。默认网关被重定向到OpenVPN隧道后，整个隧道会崩溃，因为所有流量（包括加密的隧道流量）都被重定向到隧道中，导致VPN锁死。
+- en: This recipe will show how to detect this situation and what can be done about
+    it. In this recipe, we will not use a GPRS/UMTS connection but we will use a PPP-over-SSH
+    connection, which behaves in a similar fashion and is more readily available.
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本食谱将展示如何检测这种情况以及可以采取的措施。在此食谱中，我们不会使用GPRS/UMTS连接，而是使用PPP-over-SSH连接，其行为类似，并且更容易获取。
+- en: Getting ready
+  id: totrans-264
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'We use the following network layout:'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用以下网络布局：
+- en: '![Getting ready](img/image00393.jpeg)'
+  id: totrans-266
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备工作](img/image00393.jpeg)'
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the configuration file `basic-udp-server.conf` from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*.
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章 客户端-服务器仅IP网络")中的第一个食谱，*客户端-服务器仅IP网络*，来设置客户端和服务器证书。对于这个食谱，服务器计算机运行的是CentOS
+    6 Linux和OpenVPN 2.3.11，客户端计算机运行的是Fedora 22 Linux和OpenVPN 2.3.11。保持使用*服务器端路由*食谱中的配置文件`basic-udp-server.conf`，该食谱来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章 客户端-服务器仅IP网络")，*客户端-服务器仅IP网络*。
+- en: Make sure the client is connected to the network using a PPP connection, as
+    otherwise the issue described in the title of this recipe will not occur. For
+    this recipe, a PPP-over-SSH connection and the default route was altered to point
+    to the `ppp0` device.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保客户端通过PPP连接到网络，否则本食谱标题中描述的问题将不会发生。对于此食谱，使用PPP-over-SSH连接，并且默认路由被更改为指向`ppp0`设备。
+- en: How to do it...
+  id: totrans-269
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server and add an extra parameter to direct the default gateway:'
+  id: totrans-270
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器并添加一个额外的参数来指引默认网关：
+- en: '[PRE45]'
+  id: totrans-271
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: 'Create the client configuration file:'
+  id: totrans-272
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建客户端配置文件：
+- en: '[PRE46]'
+  id: totrans-273
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: Save it as `example7-9-client.conf`.
+  id: totrans-274
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example7-9-client.conf`。
+- en: 'Check the system routes before starting the client:'
+  id: totrans-275
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端之前检查系统路由：
+- en: '[PRE47]'
+  id: totrans-276
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'Now, start the client:'
+  id: totrans-277
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，启动客户端：
+- en: '[PRE48]'
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'The connection will start but after a few seconds will stop and the log file
+    will contain a warning message:'
+  id: totrans-279
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 连接会启动，但几秒钟后会停止，日志文件中会出现一条警告信息：
+- en: '[PRE49]'
+  id: totrans-280
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: 'Check the system routes again:'
+  id: totrans-281
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次检查系统路由：
+- en: '[PRE50]'
+  id: totrans-282
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: The default gateway is now the VPN tunnel but the original route to the gateway
+    is now gone.
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认网关现在是VPN隧道，但通往网关的原始路由已不复存在。
+- en: 'All the connections on the client have stopped. What''s worse, when the OpenVPN
+    client is aborted (by pressing **Ctrl** +**C** in the terminal window) the default
+    route is not restored, as the OpenVPN process does not have the proper rights
+    to do so:'
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端的所有连接已停止。更糟的是，当OpenVPN客户端被中止（通过在终端窗口按**Ctrl** + **C**）时，默认路由没有恢复，因为OpenVPN进程没有足够的权限来恢复它：
+- en: '[PRE51]'
+  id: totrans-285
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: The result is that the default gateway on the client machine is gone. The only
+    solution is to reload the network adapter so that all the system defaults are
+    restored.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果是客户端机器上的默认网关消失了。唯一的解决方法是重新加载网络适配器，以便恢复所有系统默认设置。
+- en: 'The solution to the above problem is to use the following as is done in the
+    *Redirecting the default gateway* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*:'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述问题的解决方案是使用以下方法，就像在[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器仅IP网络")的*重定向默认网关*一节中所做的那样：
+- en: '[PRE52]'
+  id: totrans-288
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: How it works...
+  id: totrans-289
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: When the OpenVPN client initializes, it always tries to create a direct route
+    to the OpenVPN server via the existing system gateway. Under certain circumstances
+    this fails, mostly due to an odd network configuration. It is seen most often
+    when the default gateway is a dial-up or PPPoE connection, which is used in certain
+    ADSL/VDSL setups and especially when using GPRS/UMTS connections.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当OpenVPN客户端初始化时，它总是尝试通过现有的系统网关与OpenVPN服务器建立直接连接。在某些情况下，这种尝试会失败，主要是由于异常的网络配置。通常在默认网关是拨号连接或PPPoE连接时会看到这种问题，尤其是在某些ADSL/VDSL配置以及使用GPRS/UMTS连接时。
+- en: When the OpenVPN client is instructed to redirect all the traffic over the VPN
+    tunnel, it normally sends the encrypted VPN traffic itself over a direct link
+    to the OpenVPN server. You can think of the encrypted VPN traffic as outside of
+    the tunnel. However, when this direct route is missing, then this outside traffic
+    is also sent into the tunnel, creating a tunneling loop from which the VPN can
+    never recover.
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当OpenVPN客户端被指示将所有流量通过VPN隧道重定向时，它通常会直接通过链接将加密的VPN流量发送到OpenVPN服务器。你可以将加密的VPN流量视为隧道外部流量。然而，当这个直接路由缺失时，隧道外的流量也会被发送到隧道内，造成一个VPN永远无法恢复的隧道循环。
+- en: 'In the example used in this recipe, the situation is made worse by using the
+    client configuration directive:'
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本食谱中使用的示例中，使用客户端配置指令使情况变得更糟：
+- en: '[PRE53]'
+  id: totrans-293
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'This tells the OpenVPN process to drop all the privileges after starting. When
+    the client is aborted because the tunnel is not functioning properly, the client
+    is not capable of restoring the original gateway and the system is left in a non-functioning
+    state:'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这告诉OpenVPN进程在启动后丢弃所有权限。当客户端因为隧道未正常工作而被中止时，客户端无法恢复原始网关，系统将处于无法使用的状态：
+- en: '[PRE54]'
+  id: totrans-295
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: Only by adding a new default gateway can the network be restored.
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只有添加一个新的默认网关，网络才能恢复。
+- en: 'The proper fix is to use:'
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 适当的解决方法是使用：
+- en: '[PRE55]'
+  id: totrans-298
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'This will not overwrite the existing default gateway but will add two extra
+    routes:'
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这不会覆盖现有的默认网关，但会添加两个额外的路由：
+- en: '[PRE56]'
+  id: totrans-300
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: Both of which cover half the available network space. These two routes effectively
+    replace the existing default route whilst not overwriting it.
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这两个路由各自覆盖了可用网络空间的一半。它们有效地替代了现有的默认路由，而不会覆盖它。
+- en: There's more...
+  id: totrans-302
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多……
+- en: This "biting your own tail" problem was much more common with older versions
+    of OpenVPN. In current versions of OpenVPN, the detection of the default gateway
+    was much improved and this problem now rarely occurs anymore. However, it is useful
+    to see what happens when the problem does occur.
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个“自咬尾巴”问题在旧版本的OpenVPN中更为常见。在当前版本的OpenVPN中，默认网关的检测已得到大幅改进，现在这个问题很少发生。然而，了解当问题发生时发生了什么，仍然是有用的。
+- en: See also
+  id: totrans-304
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The *Redirecting the default gateway* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    which explains how to properly redirect all traffic via the VPN tunnel
+  id: totrans-305
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器仅IP网络")的*重定向默认网关*一节，解释了如何通过VPN隧道正确重定向所有流量。'

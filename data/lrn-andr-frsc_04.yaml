@@ -1,0 +1,2495 @@
+- en: Extracting Data Logically from Android Devices
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从安卓设备中逻辑提取数据
+- en: This chapter will cover logical data extraction, using free and open source
+    tools wherever possible. The majority of the material covered in this chapter
+    will use the **Android Debug Bridge** (**ADB**) methods previously discussed in
+    [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml),* Setting Up the Android
+    Forensic Environment*.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖逻辑数据提取，尽可能使用免费和开源工具。本章中大多数内容将使用之前在[第2章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)中讨论过的**Android
+    调试桥**（**ADB**）方法，*设置安卓取证环境*。
+- en: 'By the end of this chapter, the reader should be familiar with the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到本章结束时，读者应熟悉以下内容：
+- en: Logical extraction overview
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 逻辑提取概述
+- en: Manual ADB data extraction
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 手动ADB数据提取
+- en: ADB backup extractions
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: ADB备份提取
+- en: ADB dumpsys
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: ADB dumpsys
+- en: Bypassing Android lock screens
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 绕过安卓锁屏
+- en: Android SIM card extractions
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安卓SIM卡提取
+- en: Logical extraction overview
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 逻辑提取概述
+- en: In digital forensics, the term logical extraction is typically used to refer
+    to extractions that don't recover deleted data or do not include a full bit-by-bit
+    copy of the evidence. However, a more correct definition of logical extraction,
+    also defined in [Chapter 1](1e7a3a23-96c6-4085-9981-44b579bb2a7f.xhtml), *Introducing
+    Android Forensics*, is any method that requires communication with the base operating
+    system. Because of this interaction with the operating system, a forensic examiner
+    cannot be sure that they have recovered all of the data possible; the operating
+    system is choosing which data it allows the examiner to access. In traditional
+    computer forensics, logical extraction is analogous to copying and pasting a folder
+    in order to extract data from a system; this process will only copy files that
+    the user can access and see. If any hidden or deleted files are present in the
+    folder being copied, they won't be in the pasted version of the folder.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数字取证中，逻辑提取一词通常用于指不恢复删除数据或不包括证据的完整逐位复制的提取方法。然而，逻辑提取的更准确定义，也在[第1章](1e7a3a23-96c6-4085-9981-44b579bb2a7f.xhtml)中定义，*介绍安卓取证*，是任何需要与基本操作系统进行通信的方法。由于与操作系统的交互，取证员不能确定是否已恢复所有可能的数据；操作系统在决定允许取证员访问哪些数据。因此，在传统的计算机取证中，逻辑提取类似于复制和粘贴一个文件夹来提取系统中的数据；此过程仅会复制用户可以访问和看到的文件。如果在被复制的文件夹中有任何隐藏或已删除的文件，它们将不会出现在粘贴的文件夹中。
+- en: As you'll see, however, the line between logical and physical extractions in
+    mobile forensics is somewhat blurrier than in traditional computer forensics.
+    For example, deleted data can routinely be recovered from logical extractions
+    on mobile devices due to the prevalence of SQLite databases being used to store
+    data. Furthermore, almost every mobile extraction will require some form of interaction
+    with the operating Android OS; there's no simple equivalent to pulling a hard
+    drive and imaging it without booting the drive. For our purposes, we will define
+    a logical extraction as the process that obtains data visible to the user, and
+    may include data that has been marked for deletion.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，正如你将看到的，在移动设备取证中，逻辑提取和物理提取之间的界限，比传统计算机取证中更为模糊。例如，由于SQLite数据库广泛用于存储数据，删除的数据通常可以从移动设备的逻辑提取中恢复。此外，几乎所有的移动提取都需要与安卓操作系统进行某种形式的交互；没有类似于拔出硬盘并对其进行镜像而不启动硬盘的简单等效物。就我们而言，我们将逻辑提取定义为获取用户可见数据的过程，并可能包括已标记为删除的数据。
+- en: Root access
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Root访问权限
+- en: When forensically analyzing an Android device, the limiting factor is often
+    not the type of data being sought, but rather whether or not the examiner has
+    the ability to access the data. Root access has been covered extensively in [Chapter
+    2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml), *Setting Up the Android Forensic
+    Environment*, but it is important enough to warrant repetition. All of the data
+    listed previously, when stored on the internal flash memory, is protected and
+    requires root access to read. The exception to this is application data that is
+    stored on the SD card, which will be discussed later in this book.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在进行安卓设备的取证分析时，限制因素通常不是所寻求的数据类型，而是检查员是否能够访问数据。Root访问权限在[第2章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)中已做过详细讨论，*设置安卓取证环境*，但这一点足够重要，值得重复。之前列出的所有数据，当存储在内部闪存中时，都受到保护，并且需要Root权限才能读取。唯一的例外是存储在SD卡上的应用数据，本书后续将进行讨论。
+- en: Without root access, a forensic examiner cannot simply copy information from
+    the `/data` partition. The examiner will have to find some method of escalating
+    privileges in order to gain access to the contacts, call logs, SMS/MMS, and application
+    data. These methods often carry many risks, such as the potential to *destroy*
+    or *brick* the device (making it unable to boot), and may alter data on the device
+    in order to gain permanence.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 没有 root 访问权限，取证检查员无法简单地从 `/data` 分区复制信息。检查员将不得不找到某种方法来提升权限以访问联系人、通话记录、短信/MMS
+    和应用程序数据。这些方法通常伴随着许多风险，如可能*销毁*或*砖化*设备（使其无法启动），并可能修改设备上的数据以获得永久性。
+- en: The methods commonly vary from device to device, and there is no universal,
+    one-click method to gain root access to every device. Commercial mobile forensic
+    tools such as Oxygen Forensic Detective and Cellebrite UFED have built-in capabilities
+    to temporarily and safely root many devices, but do not cover the wide range of
+    all Android devices.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 方法通常因设备而异，没有通用的一键方法可以获取每台设备的 root 访问权限。商业移动取证工具如 Oxygen Forensic Detective 和
+    Cellebrite UFED 具有内置功能，可以临时和安全地 root 许多设备，但不涵盖所有 Android 设备的广泛范围。
+- en: Throughout this chapter, we will make note of where root is required for each
+    technique demonstrated.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将注意到每个技术演示所需的 root 权限位置。
+- en: The decision to root a device should be in accordance with your local operating
+    procedures and court opinions in your jurisdiction. The legal acceptance of evidence
+    obtained by rooting varies by jurisdiction.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 决定对设备进行 root 是根据您当地的操作程序和法院意见。通过 root 获取的证据的法律接受度因司法管辖区而异。
+- en: Manual ADB data extraction
+  id: totrans-18
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 手动 ADB 数据提取
+- en: The `adb pull` command can be used to pull single files or entire directories
+    directly from the device to the forensic examiner's computer. This method is especially
+    useful for small, targeted examinations. For example, in an investigation strictly
+    involving SMS messages, the examiner can choose to pull just the relevant files,
+    if possible.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`adb pull` 命令可用于直接从设备将单个文件或整个目录拉到取证检查员的计算机。这种方法在涉及短信消息的严格调查中尤其有用，检查员可以选择仅拉取相关文件，如果可能的话。'
+- en: USB Debugging
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: USB 调试
+- en: Setting up the ADB environment has been previously discussed in this book. However,
+    the device under examination must also be configured properly. USB Debugging is
+    the actual method through which the examiner's computer will communicate with
+    the device. USB Debugging is found under the Developer Options in the Settings
+    menu. However, as of **Android 8.1**, the Developer Options menu is hidden; to
+    reveal it, a user has to go to Settings | System | About Phone, and then tap the
+    Build Number field seven times. Return to the previous screen—you will find that Developer
+    Options are available now; simply open this menu and select Enable USB Debugging.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书中先前已讨论了设置 ADB 环境。但是，检查的设备也必须正确配置。USB 调试是取证员计算机与设备通信的实际方法。USB 调试位于设置菜单中的开发者选项下。然而，截至**Android
+    8.1**，开发者选项菜单是隐藏的；要显示它，用户必须转到设置 | 系统 | 关于手机，然后点击构建号字段七次。返回到上一个屏幕—现在可以找到开发者选项了；简单地打开这个菜单并选择启用
+    USB 调试。
+- en: In addition to USB Debugging, the correct drivers must be installed on the examiner's
+    computer. Generally, they can be found online, either from the manufacturer's
+    website or [www.xda-developers.com](https://www.xda-developers.com/). If commercial
+    forensic tools are installed on the machine, the appropriate drivers may already
+    be installed.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了 USB 调试外，检查员计算机上必须安装正确的驱动程序。通常可以在线找到它们，要么是从制造商的网站，要么是从[www.xda-developers.com](https://www.xda-developers.com/)。如果在机器上安装了商业取证工具，则可能已经安装了适当的驱动程序。
+- en: 'Prior to Android 4.2.2, enabling USB Debugging was the only requirement to
+    communicate with the device over ADB. In Android 4.2.2, Google added **Secure
+    USB Debugging**. Secure USB Debugging adds an additional requirement of selecting
+    to connect to a computer on the device''s screen; this prevents ADB access to
+    locked devices from untrusted computers:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Android 4.2.2 之前，启用 USB 调试是与设备通过 ADB 通信的唯一要求。在 Android 4.2.2 中，Google 添加了**安全
+    USB 调试**。安全 USB 调试增加了在设备屏幕上选择连接到计算机的额外要求；这可以防止来自不受信任计算机的 ADB 访问已锁定设备：
+- en: '![](img/9d5c70d9-8fea-4583-9a3f-133f1e7f0707.png)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9d5c70d9-8fea-4583-9a3f-133f1e7f0707.png)'
+- en: RSA fingerprint dialog (Android 8.1)
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RSA 指纹对话框（Android 8.1）
+- en: 'Once USB Debugging has been enabled and the **Secure USB Debugging** check
+    passed (depending on Android version), the device is ready for examination. To
+    verify that the device is connected and ready to use ADB, execute the following
+    command:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦启用了 USB 调试并且通过了 **安全 USB 调试** 检查（根据 Android 版本的不同），设备就可以开始检查了。为了验证设备是否已连接并准备好使用
+    ADB，可以执行以下命令：
+- en: '[PRE0]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: If Always allow from this computer is selected, the device will store the computer's
+    RSA key and the prompt will not appear on future connections to that computer,
+    even if the device is locked.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果选择了“始终允许此计算机连接”，设备将存储计算机的 RSA 密钥，并且未来连接该计算机时，即使设备处于锁定状态，也不会再次出现提示。
+- en: 'If the device status is **offline** or **unauthorized**, the Secure Debugging
+    prompt needs to be selected on the screen:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备状态显示为 **离线** 或 **未授权**，需要在屏幕上选择安全调试提示：
+- en: '![](img/dd866447-8b15-4375-8a82-cd36ad42782b.png)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dd866447-8b15-4375-8a82-cd36ad42782b.png)'
+- en: 'If everything is running correctly, the **device** status should show device
+    like the following screen:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一切正常，**设备** 状态应该显示如下界面：
+- en: '![](img/87e986c1-fca8-4af6-9d36-263ebf78e32e.png)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/87e986c1-fca8-4af6-9d36-263ebf78e32e.png)'
+- en: Recovery Mode
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恢复模式
+- en: In order to truly be forensically sound, ADB data extractions shouldn't be used
+    against a phone while it is turned on. While the device is running, timestamps
+    can be modified and applications may be running and updating files in the background.
+    To avoid this, an examiner should place the device into a custom Recovery Mode
+    as shown in [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml), *Setting
+    Up the Android Forensic Environment*, if possible. ADB access isn't available
+    through the stock Android Recovery Mode. Typically, the first step in the rooting
+    process is to flash a custom Recovery Mode to allow a method for repairing the
+    device if something goes wrong. Rooted devices are far more likely to contain
+    a custom recovery, but it is possible to flash a custom recovery to a non-rooted
+    device. This method also allows the examiner to avoid the Secure USB Debugging
+    prompt on newer versions of Android, although our testing shows that this does
+    not work on Android Lollipop and versions newer than that. Recovery Mode also
+    may not require USB Debugging to be enabled, which makes it an excellent option
+    for bypassing a locked device.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了确保法医取证的有效性，ADB 数据提取不应在手机开启时进行。设备在运行时，时间戳可能会被修改，应用程序也可能在后台运行并更新文件。为了避免这种情况，审查员应尽可能将设备置于自定义恢复模式，如[第
+    2 章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)《设置 Android 法医环境》中所示。标准 Android
+    恢复模式下无法进行 ADB 访问。通常，刷入自定义恢复模式是获取设备 ROOT 权限过程中的第一步，以便在出现问题时能够修复设备。ROOT 设备更可能包含自定义恢复模式，但也可以将自定义恢复模式刷入非
+    ROOT 设备。这种方法还可以让审查员避开新版 Android 中的安全 USB 调试提示，尽管我们的测试表明，这在 Android Lollipop 及更高版本中不起作用。恢复模式通常不需要启用
+    USB 调试，这使得它成为绕过锁定设备的理想选择。
+- en: This method won't work on devices with full disk encryption enabled. Booting
+    into Recovery Mode will not decrypt the `/data` partition.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该方法无法在启用了完整磁盘加密的设备上使用。启动恢复模式时不会解密 `/data` 分区。
+- en: The process to boot into Recovery Mode will vary for each device. Typically,
+    it involves some combination of powering the device off and holding the volume
+    and power keys. Guides for specific models can be easily found online.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 启动恢复模式的过程因设备而异。通常，需要关机并同时按住音量键和电源键。针对特定型号的指南可以轻松在线查找。
+- en: 'The stock Recovery Mode will typically show a picture of an Android being operated
+    on:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 标准恢复模式通常会显示一个正在操作的 Android 图标：
+- en: '![](img/a50ec078-0d64-4665-b9c0-63078baf29d1.png)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a50ec078-0d64-4665-b9c0-63078baf29d1.png)'
+- en: Stock Recovery Mode
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 标准恢复模式
+- en: It's important to note that stock recoveries will not allow ADB communication;
+    running `adb devices` will simply show no devices.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要注意的是，恢复模式下将无法进行 ADB 通信；运行 `adb devices` 会显示没有设备。
+- en: 'Custom recovery images for many devices can be found at the following:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多设备的自定义恢复镜像可以在以下位置找到：
+- en: '[https://twrp.me/Devices/](https://twrp.me/Devices/)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://twrp.me/Devices/](https://twrp.me/Devices/)'
+- en: 'If a device is in a custom Recovery Mode and the correct drivers have been
+    installed on the examiner''s computer, the device can be accessed via ADB as if
+    it were live. Note that its status using the `adb devices` command now shows that
+    it is in Recovery Mode:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备处于自定义恢复模式，并且在审查员的计算机上已安装正确的驱动程序，设备可以像实时设备一样通过 ADB 访问。请注意，使用 `adb devices`
+    命令时，它的状态现在显示为处于恢复模式：
+- en: '![](img/7e320edb-7122-4543-a8b9-afd4be72b0d2.png)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7e320edb-7122-4543-a8b9-afd4be72b0d2.png)'
+- en: 'There is one final step before the examiner can begin extracting data over
+    ADB: the `/data` partition must be mounted in order to access user data. Some
+    custom recoveries may mount this automatically, and others might not. If using
+    **Team Win Recovery Project** images from the URLs shown previously, the `/data`
+    partition can be mounted by selecting Mount and then selecting the `/data` partition
+    as seen in the following steps. The recovery menu is generally either navigated
+    by using the volume keys to move up and down and the power button to select, or
+    may be touch-based depending on the custom recovery image used.'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在检查员可以开始通过 ADB 提取数据之前，还有一个最后步骤：必须挂载`/data`分区才能访问用户数据。一些自定义恢复可能会自动挂载此分区，而其他的可能不会。如果使用前面提到的网址中的**Team
+    Win Recovery Project**镜像，可以通过选择 Mount 然后选择`/data`分区来挂载。恢复菜单通常可以通过使用音量键上下移动，电源键选择，或者根据使用的自定义恢复镜像可能是触摸操作的方式进行导航。
+- en: 'For a TWRP recovery, follow these steps:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 TWRP 恢复，请按照以下步骤操作：
+- en: 'From the main recovery screen, select Mount:'
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从主恢复屏幕，选择 Mount：
+- en: '![](img/36af8c77-3d34-4516-bd74-8f122f7b6903.jpg)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/36af8c77-3d34-4516-bd74-8f122f7b6903.jpg)'
+- en: 'After choosing Mount, select the partition(s) to be mounted:'
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择 Mount 后，选择要挂载的分区：
+- en: '![](img/cbbdc3db-e25f-4fa4-9199-9c7ac080668e.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cbbdc3db-e25f-4fa4-9199-9c7ac080668e.jpg)'
+- en: Once the `/data` partition (and any other partition the examiner wants to investigate)
+    is mounted, the examiner can perform ADB data extractions, as demonstrated earlier
+    in this chapter.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦`/data`分区（以及检查员想要调查的其他分区）被挂载，检查员就可以进行 ADB 数据提取，如本章前面所示。
+- en: On many devices running Android 6.0 (Marshmallow) or higher, the userdata partition
+    is encrypted by default, so it's impossible to mount and image it using custom
+    recovery.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在许多运行 Android 6.0（Marshmallow）或更高版本的设备上，userdata 分区默认加密，因此无法使用自定义恢复镜像挂载和提取。
+- en: If the device does not have a custom recovery, the following section will show
+    how to boot into one or flash it.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备没有自定义恢复，以下部分将展示如何启动到自定义恢复或如何刷入自定义恢复镜像。
+- en: Booting to a custom recovery image
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 启动到自定义恢复镜像
+- en: Once the bootloader is determined to be unlocked, an examiner will need a custom
+    recovery image from which to boot. An excellent source of recovery images is [https://twrp.me/Devices/](https://twrp.me/Devices/).
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦确认引导加载程序已解锁，检查员将需要从一个自定义恢复镜像启动。一个很好的恢复镜像来源是 [https://twrp.me/Devices/](https://twrp.me/Devices/)。
+- en: It is absolutely critical to select the correct recovery image for the device
+    being examined; they aren't interchangeable and booting from the wrong image may
+    brick the device.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择正确的恢复镜像对于被检查的设备至关重要；它们不可互换，启动错误的镜像可能会使设备变砖。
+- en: 'Once a recovery image is selected and downloaded, the device needs to be placed
+    into fastboot mode. This can be accomplished using one of two ways:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦选择并下载了恢复镜像，设备需要进入 fastboot 模式。这可以通过以下两种方式之一实现：
+- en: ADB
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: ADB
+- en: Physical device buttons
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 物理设备按钮
+- en: 'To enter fastboot on a device over ADB, the device must already have USB Debugging
+    enabled. The following is the command to enter fastboot mode over ADB:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要通过 ADB 进入 fastboot 模式，设备必须已经启用 USB 调试。以下是通过 ADB 进入 fastboot 模式的命令：
+- en: '[PRE1]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: If USB Debugging cannot be enabled or ADB cannot be used, there is also typically
+    a combination of buttons to press while the device is booting, similar to entering
+    Recovery Mode. The exact combination can be found online for each device specifically.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果无法启用 USB 调试或无法使用 ADB，通常也有一组按键可以在设备启动时按下，类似于进入恢复模式。每个设备的确切组合可以在网上查找。
+- en: 'Once the device is in fastboot mode, running the following command will verify
+    the device is connected and ready to communicate:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦设备进入 fastboot 模式，运行以下命令将验证设备是否已连接并准备好进行通信：
+- en: '[PRE2]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The following command will load the custom recovery image into RAM and boot
+    the device into Recovery Mode:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下命令将把自定义恢复镜像加载到 RAM 中并启动设备进入恢复模式：
+- en: '[PRE3]'
+  id: totrans-66
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The device should now reboot and enter Recovery Mode. As shown in the Recovery
+    Mode section, the `/data` partition may need to be mounted in order to access
+    user data.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设备现在应该重新启动并进入恢复模式。如恢复模式部分所示，可能需要挂载`/data`分区才能访问用户数据。
+- en: If the fastboot boot command fails, it is a likely indicator that the device's
+    bootloader is locked.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果 fastboot boot 命令失败，可能表示设备的引导加载程序已锁定。
+- en: Using adb shell to determine if a device is rooted
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 adb shell 来确定设备是否已 root
+- en: 'The simplest method to determine if a device is rooted is to use `adb shell`.
+    This will open a shell on the device that will be accessed on the examiner''s
+    computer; this means that any commands run in the shell will be executed on the
+    device. Once USB Debugging is enabled and Secure USB Debugging is bypassed (or
+    from Recovery Mode, as discussed later), open a Terminal on the local computer
+    and run the following:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定设备是否已 root 的最简单方法是使用 `adb shell`。这将在设备上打开一个 shell，并将其访问权限传递到检查员的计算机；这意味着在
+    shell 中运行的任何命令都将在设备上执行。一旦启用了 USB 调试并绕过了安全 USB 调试（或从恢复模式，如后续讨论的那样），在本地计算机上打开终端并运行以下命令：
+- en: '[PRE4]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'The shell will appear in one of two ways, either with `$` or `#`:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: shell 可能以两种方式之一出现，要么是 `$`，要么是 `#`：
+- en: '![](img/43070d85-ac6b-483a-80f3-9975b13170f7.png)'
+  id: totrans-73
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/43070d85-ac6b-483a-80f3-9975b13170f7.png)'
+- en: 'On Linux systems, `#` is used to indicate a root user; `$` indicates a non-root
+    user. If the shell returns showing `#`, the shell has root access:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 系统上，`#` 用于表示 root 用户；`$` 表示非 root 用户。如果 shell 返回显示 `#`，则说明 shell 已具有
+    root 权限：
+- en: '![](img/5ecfd6ee-9ba2-4e8c-a0a1-7dec4eb37705.png)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5ecfd6ee-9ba2-4e8c-a0a1-7dec4eb37705.png)'
+- en: 'One further step may be required on some rooted devices. If the shell returns
+    `$`, try running the `su` command (as you can see in the previous screenshot):'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在一些已 root 的设备上，可能需要进一步的步骤。如果 shell 返回 `$`，尝试运行 `su` 命令（如前面的截图所示）：
+- en: '[PRE5]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: If the `su` binary is installed on the device, which is usually a part of the
+    rooting process, this will escalate the shell's permissions to root if it did
+    not open with them.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备上安装了 `su` 二进制文件（通常是 root 过程的一部分），则如果 shell 没有以 root 权限打开，这将提升 shell 的权限为
+    root。
+- en: Note that some older devices automatically ran the shell as root; simply opening
+    the `adb shell` may be enough to give an examiner root access.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，一些旧设备会自动以 root 权限运行 shell；只需打开 `adb shell` 可能就足以给检查员 root 权限。
+- en: adb pull
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: adb pull
+- en: 'As discussed in [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml),* Setting
+    Up the Android Forensic Environment*, `adb pull` is used to transfer files from
+    the device to the local workstation. The following show the format for the `adb
+    pull` command:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如[第2章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)中所述，*设置 Android 法医环境*，`adb
+    pull` 用于将文件从设备传输到本地工作站。以下显示了 `adb pull` 命令的格式：
+- en: '[PRE6]'
+  id: totrans-82
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The optional `–p` flag shows the transfer''s progress, while the optional `–a`
+    flag will copy the file''s timestamp and mode. The `<remote>` parameter is the
+    exact path to the file on the device. The optional `<local>` parameter is the
+    path where the file will be written on the examiner''s workstation. If no local
+    path is specified, the file will be written to the current working directory.
+    An example `adb pull` command may look like the following:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可选的 `–p` 标志显示传输的进度，而可选的 `–a` 标志将复制文件的时间戳和模式。`<remote>` 参数是设备上文件的确切路径。可选的 `<local>`
+    参数是文件将在检查员的工作站上写入的路径。如果没有指定本地路径，文件将写入当前工作目录。一个示例 `adb pull` 命令可能如下所示：
+- en: '[PRE7]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Let''s look at the following screenshot:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看以下截图：
+- en: '![](img/567160da-b1df-439c-a0df-62edb511d61a.png)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/567160da-b1df-439c-a0df-62edb511d61a.png)'
+- en: This command would pull an image file from the device and write it to a directory
+    of our choice. Again, note that the device must be rooted if you want to pull,
+    for example, the `mmssms.db` database (which contains sent and received SMS and
+    MMS); otherwise, the output would simply show that `0` files were pulled.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令将从设备中提取图像文件并将其写入我们选择的目录。同样，请注意，如果您希望提取例如 `mmssms.db` 数据库（该数据库包含已发送和接收的 SMS
+    和 MMS），设备必须是 root 的；否则，输出只会显示提取了 `0` 个文件。
+- en: The output shows that the file is `599401` bytes in size. As a result of our
+    command, `1.png` now resides in the `Test` folder.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出显示文件大小为 `599401` 字节。根据我们的命令，`1.png` 现在位于 `Test` 文件夹中。
+- en: 'Similarly, if an investigator wishes to pull the files for an entire application,
+    that can be done with `adb pull` also:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，如果调查员希望提取整个应用程序的文件，也可以使用 `adb pull`：
+- en: '![](img/259c3f29-51b5-4682-bb62-70317a639e01.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/259c3f29-51b5-4682-bb62-70317a639e01.png)'
+- en: This time, the `adb pull` command fetched every file in the `Pictures` directory.
+    As you can see in the preceding screenshot, three files were pulled. The total
+    size of the transfer is shown as `1310468` bytes.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次，`adb pull` 命令提取了 `Pictures` 目录中的每个文件。如前面的截图所示，提取了三个文件。传输的总大小显示为 `1310468`
+    字节。
+- en: 'It''s even possible to do the following:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 甚至可以执行以下操作：
+- en: '[PRE8]'
+  id: totrans-93
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: This would pull every logical file available from the `/data/data` directory
+    and put them in the examiner's `Test` folder. This is not equivalent to a physical
+    image, as certain files are skipped and deleted files will not be copied, but
+    it is a simple method for pulling the vast majority of a user's application data.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将从 `/data/data` 目录中提取所有可用的逻辑文件，并将它们放入检查员的 `Test` 文件夹中。这与物理镜像不同，因为某些文件会被跳过，已删除的文件不会被复制，但它是提取用户大部分应用数据的简单方法。
+- en: 'Another advantage of the `adb pull` command is that it is highly useful for
+    scripting purposes. A knowledgeable examiner can maintain a list of paths for
+    common files of interest, and write a script that automatically pulls these files
+    from a device, or even have the script automatically pull the entire `/data/data`
+    directory. The following is a simple example of Python code that will perform
+    this function:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`adb pull` 命令的另一个优势是它对脚本化非常有用。经验丰富的检查员可以维护一个常见文件路径的列表，并编写一个脚本，自动从设备中提取这些文件，甚至让脚本自动提取整个
+    `/data/data` 目录。以下是执行此功能的简单 Python 代码示例：'
+- en: '[PRE9]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Note that the code is not very refined; it's only purpose is to illustrate the
+    ease with which `adb` commands can be scripted. At the very least, properly implementing
+    the code should include the option to specify an output directory and handle any
+    errors. However, the six lines shown previously would be sufficient to pull the
+    entire `/data/data` directory logically, assuming USB Debugging is enabled and
+    the device is rooted.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，代码并不精细；它的唯一目的是说明 `adb` 命令脚本化的简便性。至少，正确实现代码应该包括指定输出目录的选项并处理任何错误。然而，之前展示的六行代码足以在启用
+    USB 调试并且设备已获取 root 权限的情况下，逻辑上提取整个 `/data/data` 目录。
+- en: Fastboot mode
+  id: totrans-98
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Fastboot 模式
+- en: Fastboot is another protocol utility built into the Android Software Development
+    Kit, and is used for interacting directly with a device's bootloader. Essentially,
+    it is a much lower-level version of ADB and is frequently used to flash new images
+    to a device. How can this be helpful to an examiner?
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Fastboot 是 Android 软件开发工具包中内置的另一种协议工具，用于直接与设备的引导加载程序进行交互。从本质上讲，它是 ADB 的更低级版本，常用于将新镜像刷入设备。那么，这对检查员有什么帮助呢？
+- en: Fastboot can allow an examiner to boot from a custom recovery image and temporarily
+    gain root access on a device, hence gaining access to data that would have been
+    unavailable otherwise. Fastboot does not require USB Debugging to be enabled or
+    root access. The process of loading a custom bootloader onto a device is commonly
+    used by commercial forensic tools to temporarily root a device, but a skilled
+    examiner can also perform the process manually. Using this method, the recovery
+    image is loaded into RAM; no permanent data on the device is altered in any way.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Fastboot 允许检查员从自定义恢复镜像启动设备，并临时获得 root 权限，从而访问通常无法获得的数据。Fastboot 不要求启用 USB 调试或
+    root 权限。将自定义引导加载程序加载到设备上的过程通常被商业取证工具用来临时获取设备的 root 权限，但熟练的检查员也可以手动执行该过程。使用这种方法，恢复镜像被加载到
+    RAM 中；设备上的任何永久性数据都不会以任何方式被更改。
+- en: The most important requirement for using fastboot is an unlocked bootloader;
+    locked bootloaders will not allow a device to boot from code that isn't specifically
+    signed by the manufacturer. Unfortunately for forensic purposes, most devices
+    no longer ship with an unlocked bootloader as it is a serious security risk, and
+    manually unlocking a bootloader typically erases the user data. As such, the amount
+    of devices for which this is a feasible method is somewhat limited. But, when
+    it works, it's an absolutely invaluable tool for an examiner to have in their
+    arsenal.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 fastboot 的最重要要求是解锁引导加载程序；锁定的引导加载程序不允许设备从没有被制造商专门签名的代码启动。不幸的是，对于取证目的，大多数设备现在都不再出厂时解锁引导加载程序，因为这会带来严重的安全风险，而手动解锁引导加载程序通常会清除用户数据。因此，这种方法可行的设备数量有限。但当它有效时，它对检查员来说是一个非常宝贵的工具。
+- en: This method will not work on devices with full disk encryption enabled. Booting
+    into Recovery Mode will NOT decrypt the `/data` partition.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备启用了全盘加密，这种方法将无法使用。启动到恢复模式将**不会**解密 `/data` 分区。
+- en: Determining bootloader status
+  id: totrans-103
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 确定引导加载程序状态
+- en: 'Much like everything involving Android forensics, there is no one guaranteed
+    method to determine whether a bootloader is locked, as it varies by manufacturer.
+    To boot into the bootloader, use the `adb` command:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与所有涉及 Android 取证的内容一样，没有一种方法可以百分百确定引导加载程序是否被锁定，因为这取决于制造商。要启动到引导加载程序，请使用 `adb`
+    命令：
+- en: '[PRE10]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: The device should boot to a screen that shows information regarding the bootloader.
+    Frequently, this screen will display the bootloader status, as seen in the following
+    screenshot.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设备应启动到显示引导加载程序信息的屏幕。通常，这个屏幕会显示引导加载程序的状态，如下图所示。
+- en: 'The following is a generic, stock fastboot menu from a Nexus 5\. Note that
+    the Lock State indicates that the bootloader is unlocked:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是来自Nexus 5的通用标准fastboot菜单。请注意，锁定状态指示引导加载程序已解锁：
+- en: '![](img/a082e8a5-f6ec-408f-bd1b-27b20591b880.png)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a082e8a5-f6ec-408f-bd1b-27b20591b880.png)'
+- en: 'The following is a standard Samsung Odin mode screen; Odin is the Samsung proprietary
+    equivalent to fastboot:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是标准的三星Odin模式屏幕；Odin是三星专有的fastboot等效模式：
+- en: '![](img/12a786e6-268d-4f00-b862-593292ad668d.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/12a786e6-268d-4f00-b862-593292ad668d.png)'
+- en: Samsung Odin mode screen
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 三星Odin模式屏幕
+- en: ADB backup extractions
+  id: totrans-112
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ADB备份提取
+- en: Google implemented ADB backup functionality beginning in Android 4.0, Ice Cream
+    Sandwich. This allows users (and forensic examiners) to back up application data
+    to a local computer over ADB. This process does not require root and is therefore
+    highly useful for forensic purposes. However, it does not acquire every application
+    installed on the device. When a developer makes a new app, it is set to allow
+    backups by default, but this can be changed by the developer. In practice, it
+    seems the vast majority of developers leave the default setting, which means that
+    backups do capture most third-party applications. Unfortunately, most Google applications
+    disable backups; full application data from apps such as Gmail and Google Maps
+    won't be included. The same can be said about most messengers—its data isn't available
+    in ADB backups.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Google 从 Android 4.0（冰淇淋三明治）开始实现了ADB备份功能。它允许用户（以及取证检查员）通过ADB将应用程序数据备份到本地计算机。这一过程不需要root权限，因此对取证非常有用。然而，它并不会获取设备上所有安装的应用程序。当开发者创建一个新应用时，默认情况下允许备份，但开发者可以修改这一设置。实际上，大多数开发者会保持默认设置，这意味着备份会捕获大多数第三方应用程序。不幸的是，大多数Google应用禁用了备份功能；像Gmail和Google
+    Maps这样的应用的完整数据将不会被包含在内。大多数消息应用也存在同样的问题——它们的数据无法通过ADB备份获取。
+- en: This method will not be useful against a locked device; user interaction with
+    the screen is required.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此方法在设备被锁定时无效；需要用户与屏幕进行交互。
+- en: Extracting a backup over ADB
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过ADB提取备份
+- en: 'The format of the `adb backup` command is shown in the following command:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`adb backup`命令的格式如下所示：'
+- en: '[PRE11]'
+  id: totrans-117
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'The flags are as follows:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可用的标志如下：
+- en: '`-f`: Name the path for the output file. If not specified, defaults to `backup.ab`
+    in the present working directory.'
+  id: totrans-119
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-f`：指定输出文件的路径。如果未指定，默认为当前工作目录中的`backup.ab`。'
+- en: '`[-apk|noapk]`: Choose whether or not to back up the `.apk` file. Defaults
+    to `–noapk`.'
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[-apk|noapk]`：选择是否备份`.apk`文件。默认值为`–noapk`。'
+- en: '`[-obb|-noobb]`: Choose whether or not to back up `.obb` (APK expansion) files.
+    Defaults to `–noobb`.'
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[-obb|-noobb]`：选择是否备份`.obb`（APK扩展）文件。默认值为`–noobb`。'
+- en: '`[-shared|-noshared]`: Choose whether or not to back up data from shared storage
+    and the SD card. Defaults to `–noshared`.'
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[-shared|-noshared]`：选择是否备份共享存储和SD卡中的数据。默认值为`–noshared`。'
+- en: '`[-all]`: Include all applications for which backups are enabled.'
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[-all]`：包含所有已启用备份的应用程序。'
+- en: '`[-system|-nosystem]`: Choose whether or not to include system applications.
+    Defaults to `–system`.'
+  id: totrans-124
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[-system|-nosystem]`：选择是否包括系统应用程序。默认值为`–system`。'
+- en: '`[<packages>]`: Explicitly name application packages to be backed up. Not needed
+    if using `–all` or `–shared`.'
+  id: totrans-125
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[<packages>]`：明确指定要备份的应用程序包。如果使用`–all`或`–shared`，则无需指定。'
+- en: 'An example `adb backup` command to capture all possible application data would
+    be the following:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个示例`adb backup`命令，用于捕获所有可能的应用程序数据如下：
+- en: '[PRE12]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'Alternatively, an example `adb backup` command to capture a specific application''s
+    data would be the following:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，一个示例`adb backup`命令，用于捕获特定应用程序的数据如下：
+- en: '[PRE13]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'You should see something like the following:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你应该看到类似以下内容的屏幕：
+- en: '![](img/b0ac308c-f817-4cb5-a547-c43130d3cc78.png)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b0ac308c-f817-4cb5-a547-c43130d3cc78.png)'
+- en: 'When performing a backup, the user must approve the backup on the device; this
+    means that backups can''t be performed without bypassing screen locks:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在执行备份时，用户必须在设备上批准备份；这意味着在绕过屏幕锁定之前无法执行备份：
+- en: '![](img/02ac4074-080f-4efd-93f2-c742b1abb328.png)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/02ac4074-080f-4efd-93f2-c742b1abb328.png)'
+- en: Depending on the number of applications installed, the backup process may take
+    a significant amount of time.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据安装的应用程序数量，备份过程可能会花费相当长的时间。
+- en: Parsing ADB backups
+  id: totrans-135
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析ADB备份
+- en: The resulting backup data is stored as a `.ab` file, but is actually a TAR file
+    that has been compressed with the Deflate algorithm. If a password was entered
+    on the device when the backup was created, the file would also be AES encrypted.
+    It should also be mentioned that these files may exist on a suspect's computer
+    and can be analyzed using the same methods.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成的备份数据以`.ab`文件的形式存储，但实际上是一个经过Deflate算法压缩的TAR文件。如果在备份创建时在设备上输入了密码，文件还会进行AES加密。还应该提到，这些文件可能存在于嫌疑人的计算机上，并可以使用相同的方法进行分析。
+- en: There are many free utilities to turn the `.ab` backup file into a `.tar` file
+    that can be viewed. One such utility is the Android Backup Extractor found at: [http://sourceforge.net/projects/adbextractor/](http://sourceforge.net/projects/adbextractor/).
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多免费的工具可以将`.ab`备份文件转换为可以查看的`.tar`文件。一个这样的工具是Android Backup Extractor，网址为：[http://sourceforge.net/projects/adbextractor/](http://sourceforge.net/projects/adbextractor/)。
+- en: 'To use the Android Backup Extractor, simply extract its files into the directory
+    with the backup. The command to run the utility is shown in the following:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Android Backup Extractor，只需将其文件提取到备份所在的目录中。运行该工具的命令如下所示：
+- en: '[PRE14]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'The `.tar` file will be at the path specified on the command line, or the current
+    working directory if no path is specified. Decompressing the `.tar` file may be
+    done manually on a Linux command line or with one of the many Windows archive
+    utilities such as WinRAR or 7Zip:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`.tar`文件将位于命令行指定的路径中，如果没有指定路径，则位于当前工作目录中。可以在Linux命令行手动解压`.tar`文件，也可以使用诸如WinRAR或7Zip等Windows压缩工具：'
+- en: '![](img/2d749204-152f-4ac0-81b3-cd415a70c053.png)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2d749204-152f-4ac0-81b3-cd415a70c053.png)'
+- en: Directories within the backup, seen in 7-Zip
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 备份中的目录，在7-Zip中查看
+- en: Data locations within ADB backups
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ADB备份中的数据位置
+- en: 'Now that the backup has been converted into a `.tar` file and then extracted,
+    the examiner can view the data contained in the backup. In our example, there
+    are two directories found in the root of the backup:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，备份已被转换为`.tar`文件并提取出来，检查员可以查看备份中包含的数据。在我们的示例中，备份根目录下发现了两个目录：
+- en: '`apps`: Contains data from `/data/data` for applications that were included
+    in the backup'
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`apps`：包含备份中包含的应用程序的`/data/data`中的数据'
+- en: '`shared`: Contains all data from the SD card; only present if the shared argument
+    was passed at the command line'
+  id: totrans-146
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`shared`：包含来自SD卡的所有数据；仅在命令行传递了shared参数时才会出现'
+- en: 'Note that the files within the apps directory are stored in directories by
+    their package name (just as seen in `/data/data` from within `adb shell`), and
+    the shared directory is exactly what the user would see if they accessed the SD
+    card by plugging it into a computer. For a benign example of user data that was
+    pulled from the backup, the user''s Pandora activity is shown in the following
+    screenshot. Pandora is a streaming music service with millions of downloads in
+    Google Play Store. Pandora''s application data will be contained in the `apps`
+    folder of the backup, in the folder named `com.pandora.android`:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，apps目录中的文件按其包名存储在目录中（就像在`adb shell`中看到的`/data/data`），shared目录则是用户将SD卡插入计算机后看到的内容。以下是从备份中提取的用户数据的良性示例，显示了用户的Pandora活动。Pandora是一款在Google
+    Play商店下载量达到百万的流媒体音乐服务。Pandora的应用数据将包含在备份的`apps`文件夹中，文件夹名为`com.pandora.android`：
+- en: '![](img/809d7b2b-f3b8-46a1-aa2a-6a9ed6ef8fe4.png)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/809d7b2b-f3b8-46a1-aa2a-6a9ed6ef8fe4.png)'
+- en: The Pandora directory from the backup
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 来自备份的Pandora目录
+- en: 'This is a fairly standard layout for an Android application, as discussed in
+    [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml), *Setting Up the Android
+    Forensic Environment*. The application''s databases will be in the `db` folder:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是Android应用程序的一个标准布局，如[第2章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)《设置Android取证环境》中所讨论的那样。应用程序的数据库将位于`db`文件夹中：
+- en: '![](img/bfe83963-5518-4f97-a84d-09c2c7c6007e.png)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bfe83963-5518-4f97-a84d-09c2c7c6007e.png)'
+- en: Files within the db folder of the Pandora backup
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Pandora备份的db文件夹中的文件
+- en: 'XML configuration settings will be in the `sp` folder:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XML配置设置将位于`sp`文件夹中：
+- en: '![](img/35199ac0-04c4-4cbc-83b4-43665869e176.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/35199ac0-04c4-4cbc-83b4-43665869e176.png)'
+- en: Files within the sp folder of the Pandora backup
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Pandora备份的sp文件夹中的文件
+- en: 'Using a database viewer to view `pandora.db` reveals stations that the user
+    has created, as well as the timestamp for when it was created:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用数据库查看器查看`pandora.db`可以查看用户创建的电台以及创建时间戳：
+- en: '![](img/1ac041dc-5ad7-45ce-961a-72672fcae7b2.png)'
+  id: totrans-157
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1ac041dc-5ad7-45ce-961a-72672fcae7b2.png)'
+- en: Contents of pandora.db from the backup
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从备份中的 pandora.db 内容
+- en: 'Looking in the XML preferences file, the timestamp of the app installation
+    can be found under `firstInstallId`. Note that the exact method for converting
+    the timestamps is shown in [Chapter 7](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml),
+    *Forensic Analysis of Android Applications*:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看 XML 配置文件，可以在 `firstInstallId` 下找到应用安装的时间戳。注意，转换时间戳的确切方法在[第 7 章](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml)，*Android
+    应用程序的法医分析*中有展示：
+- en: '![](img/12ce7e66-1696-4fa4-9380-4e66ac218577.png)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/12ce7e66-1696-4fa4-9380-4e66ac218577.png)'
+- en: Contents of the XML preferences file
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XML 配置文件内容
+- en: If, for some odd reason, the user's Pandora usage was a major question in the
+    investigation, what could an examiner determine from these two seemingly innocuous
+    files?
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果由于某些奇怪的原因，用户的 Pandora 使用情况在调查中是一个重要问题，那么检查员可以从这两个看似无害的文件中得出什么结论？
+- en: Firstly, the `lastTransmission` and `firstInstallID` timestamps are within milliseconds
+    of each other, indicating that the application was never used after it was installed.
+    Furthermore, the creation dates of each station precede the installation of the
+    application, in some cases by years. This would be an indicator that the user
+    has used Pandora on other devices; that may be highly relevant to the investigation.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，`lastTransmission` 和 `firstInstallID` 时间戳的毫秒级差异表明，应用程序安装后从未被使用。此外，每个站点的创建日期早于应用程序的安装日期，有些情况下提前几年。这可能表明用户在其他设备上使用过
+    Pandora；这可能对调查高度相关。
+- en: While Pandora is generally not germane to digital forensic investigations, it
+    is an example of data that can be gleaned from a simple backup over ADB. More
+    detailed application analysis will be presented in [Chapter 7](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml),* Forensic
+    Analysis of Android Applications*.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 Pandora 通常与数字法医调查无关，但它是可以通过简单的 ADB 备份获取的数据的一个示例。更详细的应用程序分析将在[第 7 章](c0ffe5a3-4668-436d-9f02-e70a67f3e43e.xhtml)，*Android
+    应用程序的法医分析*中介绍。
+- en: ADB dumpsys
+  id: totrans-165
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ADB dumpsys
+- en: Dumpsys is a tool built into the Android OS, generally used for development
+    purposes to show the status of services running on the device. However, it can
+    also contain forensically interesting information. Dumpsys does not require root
+    access, but, like all ADB commands, does require USB Debugging to be enabled on
+    the device and Secure USB Debugging to be bypassed.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Dumpsys 是 Android 操作系统中内置的工具，通常用于开发目的，显示设备上正在运行的服务的状态。然而，它也可能包含法医分析中有趣的信息。Dumpsys
+    不需要 root 权限，但像所有 ADB 命令一样，需要在设备上启用 USB 调试并绕过安全 USB 调试。
+- en: 'The exact services that can be viewed differ across devices and Android versions.
+    To view a list of all possible services that can be dumped, run the following
+    command:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可查看的精确服务因设备和 Android 版本而异。要查看所有可能的可转储服务列表，请运行以下命令：
+- en: '[PRE15]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'The output of the command will appear as a list, as shown here:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 命令的输出将显示为一个列表，如下所示：
+- en: '![](img/e784d64f-0f27-4782-873f-d56c506f405b.png)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e784d64f-0f27-4782-873f-d56c506f405b.png)'
+- en: 'The service name located before the colon is the argument we will pass to `dumpsys`.
+    A valid `dumpsys` command, using the previously seen service number seven (`iphonesubinfo`),
+    looks like this:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 位于冒号前的服务名称是我们将传递给 `dumpsys` 的参数。一个有效的 `dumpsys` 命令，使用前面提到的服务编号七（`iphonesubinfo`），如下所示：
+- en: '[PRE16]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'In the following, we see that the output of the `iphonesubinfo` service includes
+    the device IMEI:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下文中，我们看到 `iphonesubinfo` 服务的输出包括设备 IMEI：
+- en: '![](img/90db25f5-377b-45ec-a842-eb1b496721f0.png)'
+  id: totrans-174
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/90db25f5-377b-45ec-a842-eb1b496721f0.png)'
+- en: 'There are many forensically interesting `dumpsys` services; several examples
+    follow. As the `dumpsys` services may vary by OS version and device, this list
+    is not all-inclusive and is merely intended to show the usefulness of `dumpsys`
+    to a forensic examiner:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多在法医分析中有趣的 `dumpsys` 服务；以下是几个示例。由于 `dumpsys` 服务可能因操作系统版本和设备而有所不同，此列表并非全面，旨在展示
+    `dumpsys` 对法医检查员的实用性：
+- en: '`iphonesubinfo`'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`iphonesubinfo`'
+- en: '`batterystats`'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`batterystats`'
+- en: '`procstats`'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`procstats`'
+- en: '`user`'
+  id: totrans-179
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`user`'
+- en: '`appops`'
+  id: totrans-180
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`appops`'
+- en: '`wifi`'
+  id: totrans-181
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wifi`'
+- en: '`notification`'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`notification`'
+- en: Dumpsys batterystats
+  id: totrans-183
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys batterystats
+- en: 'Batterystats is used to show the usage of running applications. Its output
+    can be very verbose, depending on the number of applications in use; in the following
+    screenshot, the output was redirected to a file because it did not fit in the
+    Windows command line:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Batterystats 用于显示正在运行的应用程序的使用情况。其输出可能非常冗长，具体取决于使用的应用程序数量；在以下截图中，由于输出内容太多，无法在
+    Windows 命令行中显示，因此将输出重定向到文件：
+- en: '![](img/6042281c-036f-4dd6-9c66-faa5769aec16.png)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6042281c-036f-4dd6-9c66-faa5769aec16.png)'
+- en: This shows us the network usage of Google Chrome. This information can be used
+    to show that the application had been used recently, and this information will
+    exist even if Chrome was used in Incognito Mode and leaves no forensic evidence
+    elsewhere.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这显示了我们 Google Chrome 的网络使用情况。此信息可用于证明该应用程序最近被使用，即使 Chrome 在隐身模式下使用，也不会在其他地方留下取证证据，这些信息仍然存在。
+- en: Note that the *Wakelock* section can be very useful for detecting malware. A
+    wakelock is a method of keeping the device awake (that is, not entering sleep
+    mode) and is indicative of an application attempting to stay running in the background.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，*Wakelock* 部分对于检测恶意软件非常有用。Wakelock 是一种保持设备处于唤醒状态（即不进入睡眠模式）的方法，通常表示某个应用程序试图保持在后台运行。
+- en: Dumpsys procstats
+  id: totrans-188
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys procstats
+- en: 'Procstats is a service to display the processor usage by running applications.
+    Similar to batterystats, it is another method that can be used to show that an
+    application was recently used on a device:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Procstats 是一个显示运行中的应用程序处理器使用情况的服务。与 batterystats 类似，它是另一种可以用来显示某个应用程序最近在设备上被使用的方法：
+- en: '![](img/588440f4-861d-4312-8e1c-ce21343993ac.png)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/588440f4-861d-4312-8e1c-ce21343993ac.png)'
+- en: Dumpsys user
+  id: totrans-191
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys 用户
+- en: Beginning with Android Jelly Bean, Google added support for multiple users on
+    tablet devices. With the release of Lollipop, Google extended this support to
+    phones. One of the most challenging problems in digital forensics has long been
+    proving who was using a device when incriminating actions were performed, that
+    is: *Who was behind the keyboard?*
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 Android Jelly Bean 开始，谷歌为平板设备添加了多用户支持。随着 Lollipop 的发布，谷歌将这一支持扩展到手机设备。在数字取证中，长期以来最具挑战性的问题之一就是证明在进行有罪行动时，设备由谁使用，也就是：*谁在键盘后面？*
+- en: 'Running `dumpsys` on the user service will show the last login info for all
+    users:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对用户服务运行 `dumpsys` 将显示所有用户的最后登录信息：
+- en: '![](img/37c4ea9a-a670-4e92-8cec-78c106e0faf8.png)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/37c4ea9a-a670-4e92-8cec-78c106e0faf8.png)'
+- en: As only one user can be logged in at a time, looking at the user with the most
+    recent login will identify the account currently in use on the device.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于一次只能登录一个用户，因此查看最近登录的用户可以识别当前在设备上使用的账户。
+- en: Dumpsys App Ops
+  id: totrans-196
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys App Ops
+- en: 'App Ops may be the most interesting `dumpsys` service. The term App Ops is
+    generally used to refer to permissions accessible by an application. In older
+    versions of Android, it was rumored that Google would include the ability for
+    users to revoke specific permissions from an application. This has never come
+    to fruition, but this service at least remains, and shows the last time an application
+    used each permission that it can access. The following is another example from
+    Google Chrome:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: App Ops 可能是最有趣的 `dumpsys` 服务。App Ops 这个术语通常用来指代应用程序可以访问的权限。在 Android 的早期版本中，有传言称谷歌将为用户提供撤销特定权限的功能，虽然这一功能从未实现，但这个服务至少保留了下来，并显示应用程序最后一次使用每个可访问权限的时间。以下是来自
+    Google Chrome 的另一个示例：
+- en: '![](img/cb3a903a-3bf8-4ee5-88a1-d45392b0a7f1.png)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cb3a903a-3bf8-4ee5-88a1-d45392b0a7f1.png)'
+- en: In the preceding output, we can see that approximately 1 hour and 7 minutes
+    before `appops` was dumped with `dumpsys`, Chrome used the `TAKE_AUDIO_FOCUS`
+    permission, and later used `AUDIO_MEDIA_VOLUME`. This indicates that Chrome was
+    used to listen to something, and when it happened.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的输出中，我们可以看到大约 `appops` 被 `dumpsys` 导出前的 1 小时 7 分钟，Chrome 使用了 `TAKE_AUDIO_FOCUS`
+    权限，之后又使用了 `AUDIO_MEDIA_VOLUME`。这表明 Chrome 被用来听某些东西，并且说明了它发生的时间。
+- en: 'A somewhat more interesting example is the phone application:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个更有趣的例子是电话应用：
+- en: '![](img/9b8ad528-1e68-43a3-9104-7100fc03fd02.png)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9b8ad528-1e68-43a3-9104-7100fc03fd02.png)'
+- en: 44 minutes ago, the user used the phone application and required the `READ_CONTACTS`
+    permission, then immediately also used the `WRITE_CALL_LOG` permission. We can
+    surmise that the user made a phone call 44 minutes ago; even if they had deleted
+    the call from the records afterwards.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 44 分钟前，用户使用了电话应用并要求 `READ_CONTACTS` 权限，随后立即使用了 `WRITE_CALL_LOG` 权限。我们可以推测，用户在
+    44 分钟前打了一个电话；即使他们之后删除了通话记录。
+- en: Dumpsys Wi-Fi
+  id: totrans-203
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys Wi-Fi
+- en: 'The Wi-Fi service will show a list of all SSIDs for which a connection has
+    been saved. This could be useful for showing that a user was in a certain location,
+    for example. More detailed Wi-Fi information is also available on the filesystem,
+    but requires root access to view. Using `dumpsys`, we can access this data without
+    requiring root:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Wi-Fi 服务将显示已保存连接的所有 SSID 列表。例如，这对于证明用户曾经在某个位置是有用的。更详细的 Wi-Fi 信息也可以在文件系统中找到，但需要
+    root 权限才能查看。使用 `dumpsys`，我们可以无需 root 权限就能访问这些数据：
+- en: '![](img/0993e64f-466c-4b7b-b2b1-c013c49ae333.png)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0993e64f-466c-4b7b-b2b1-c013c49ae333.png)'
+- en: Dumpsys notification
+  id: totrans-206
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys通知
+- en: 'The notification service will provide information about currently active notifications.
+    This can be useful for recording the state of a device when it is seized or identifying
+    which application is displaying a specific notification. Each notification can
+    be rather large and contain a lot of information, only some of which may be of
+    use. The following is an example of an incoming email from the Gmail application,
+    which includes the subject (`This is a test email`) and body (`To see a test notification`):'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通知服务将提供当前活动通知的信息。这对于记录设备在被扣押时的状态或识别哪个应用正在显示特定通知可能会很有用。每个通知可能非常大，包含大量信息，其中只有一部分可能有用。以下是一个来自Gmail应用的来邮件通知示例，其中包含主题（`这是测试邮件`）和正文（`查看测试通知`）：
+- en: '![](img/3967c31b-71f5-4860-a334-7b7f13dd0c35.png)'
+  id: totrans-208
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3967c31b-71f5-4860-a334-7b7f13dd0c35.png)'
+- en: Dumpsys conclusions
+  id: totrans-209
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Dumpsys结论
+- en: 'Running the `dumpsys` command with no service name will run `dumpsys` on all
+    available services. However, the output will be very large and should be redirected
+    into a text file. On most platforms, the command to do this would be the following:'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行不带服务名称的`dumpsys`命令将对所有可用服务运行`dumpsys`。然而，输出将非常大，应该将其重定向到文本文件中。在大多数平台上，执行此操作的命令通常如下：
+- en: '[PRE17]'
+  id: totrans-211
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: This would write the output to `dumpsys.txt` in the current working directory.
+    The output can then be searched or a parsing script can be run to pull out known
+    relevant fields.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将把输出写入当前工作目录下的`dumpsys.txt`文件。然后可以搜索该输出或运行解析脚本以提取已知的相关字段。
+- en: Dumpsys is an extremely powerful tool that can be used to show information that
+    cannot be obtained elsewhere on the device. We recommend running `dumpsys` on
+    every Android device when it is seized, prior to being shut down. This will save
+    a wide variety of information that may be useful later, and does not require root.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Dumpsys是一个非常强大的工具，可以显示设备上无法通过其他方式获得的信息。我们建议在每个Android设备被扣押后，关闭前运行`dumpsys`。这样可以保存各种有可能后续使用的信息，并且不需要root权限。
+- en: Helium backup extractions
+  id: totrans-214
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Helium备份提取
+- en: According to its developers, Helium is the *missing app sync and backup solution
+    for Android*. It doesn't require root access and can be used to extract some data
+    that ADB backup can't; for example, SMS messages and call logs.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据开发者的说法，Helium是*Android设备缺失的应用同步和备份解决方案*。它不需要root权限，可以提取一些ADB备份无法获取的数据；例如，短信和通话记录。
+- en: 'Actually, there are two apps that an examiner will need: an Android app and
+    a PC app. The Android app can be downloaded from Google Play:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，检查员需要两个应用：一个Android应用和一个PC应用。Android应用可以从Google Play下载：
+- en: '[https://play.google.com/store/apps/details?id=com.koushikdutta.backup](https://play.google.com/store/apps/details?id=com.koushikdutta.backup).'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://play.google.com/store/apps/details?id=com.koushikdutta.backup](https://play.google.com/store/apps/details?id=com.koushikdutta.backup)。'
+- en: 'The desktop version is available here:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 桌面版本可以在这里获取：
+- en: '[http://www.clockworkmod.com/carbon](http://www.clockworkmod.com/carbon).'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[http://www.clockworkmod.com/carbon](http://www.clockworkmod.com/carbon)。'
+- en: 'Let''s follow these steps for extracting the data:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们按照以下步骤提取数据：
+- en: 'Once you open the Android app, you''ll see the following screen:'
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦你打开Android应用，你将看到以下界面：
+- en: '![](img/7ba24af0-9176-4301-b022-88981ffe09a4.png)'
+  id: totrans-222
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7ba24af0-9176-4301-b022-88981ffe09a4.png)'
+- en: Open the desktop app and enable Helium. You will see a message that says Helium
+    has been enabled on your Android.
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开桌面应用并启用Helium。你将看到一条消息，提示Helium已在你的Android设备上启用。
+- en: 'You can choose the data you want to backup; in our case, it''s messages and
+    call logs:'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你可以选择你想备份的数据；在我们的例子中，是消息和通话记录：
+- en: '![](img/d0b11512-6274-49a4-bf88-2b936e8a14c9.png)'
+  id: totrans-225
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d0b11512-6274-49a4-bf88-2b936e8a14c9.png)'
+- en: 'As we want to save the backup to our forensic workstation, let''s go to the
+    menu in the upper-right corner and choose the appropriate option, PC Download:'
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 由于我们希望将备份保存到法医工作站，让我们进入右上角的菜单，选择适当的选项，PC下载：
+- en: '![](img/7154414c-544f-4758-a926-1443ee16cc51.png)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7154414c-544f-4758-a926-1443ee16cc51.png)'
+- en: 'Check the IP address and port the Helium Server is running on; in our case,
+    it''s `192.168.1.71` and `5000`:'
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查Helium服务器的IP地址和端口；在我们的例子中，它是`192.168.1.71`和`5000`：
+- en: '![](img/7d5cfe41-0e6e-4fc5-9411-e9632ef0472f.png)'
+  id: totrans-229
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7d5cfe41-0e6e-4fc5-9411-e9632ef0472f.png)'
+- en: 'Access the address from your web browser of choice, choose the applications
+    you want to back up, and click Start Backup:'
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从你选择的网页浏览器访问该地址，选择你要备份的应用程序，然后点击“开始备份”：
+- en: '![](img/31e7b13b-bcbc-41d7-8e79-baa894fd43ad.png)'
+  id: totrans-231
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/31e7b13b-bcbc-41d7-8e79-baa894fd43ad.png)'
+- en: 'In your default downloads folder you''ll find a ZIP archive with the following
+    name: `backup.zip`.'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在你的默认下载文件夹中，你会找到一个名为 `backup.zip` 的 ZIP 压缩包。
+- en: 'There are three files in the archive:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 压缩包中有三个文件：
+- en: '`backup.json`: It contains information about the backup, such as package name,
+    backup date, and smartphone''s OS version.'
+  id: totrans-234
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`backup.json`：它包含有关备份的信息，如包名、备份日期和智能手机的操作系统版本。'
+- en: '`com.android.providers.telephony.ab`: It is a backup itself and contains extracted
+    data, in our case, SMS and call logs.'
+  id: totrans-235
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`com.android.providers.telephony.ab`：它本身是一个备份，包含提取的数据，在我们的案例中，是短信和通话记录。'
+- en: '`com.android.providers.telephony.png`: It backed up the application''s icon.'
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`com.android.providers.telephony.png`：它备份了应用程序的图标。'
+- en: 'Again, to extract the contents of `com.android.providers.telephony.ab`, we
+    need to use one of the utilities from Android Backup Toolkit ([https://sourceforge.net/projects/adbextractor/](https://sourceforge.net/projects/adbextractor/)),
+    this time Helium Backup Extractor:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，要提取 `com.android.providers.telephony.ab` 的内容，我们需要使用 Android Backup Toolkit（[https://sourceforge.net/projects/adbextractor/](https://sourceforge.net/projects/adbextractor/)）中的某个工具，这次使用
+    Helium Backup Extractor：
+- en: '[PRE18]'
+  id: totrans-238
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'Now, in the current working directory, there is an `app` folder, where under `apps\com.android.providers.telephony\cb`
+    we can find the `custom.cb` file. This file contains backed up application data
+    in JSON format; here is an example:'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，在当前的工作目录中，有一个 `app` 文件夹，在 `apps\com.android.providers.telephony\cb` 目录下，我们可以找到
+    `custom.cb` 文件。这个文件包含了以 JSON 格式备份的应用程序数据；这是一个例子：
+- en: '[PRE19]'
+  id: totrans-240
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: The `number` field shows the phone number, the `new` field (if the call is recent
+    or not), `duration` (call duration), `date` (call date in Unix Epoch format—milliseconds),
+    and `type` (type of the call); in our case, it's `1`, incoming.
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`number` 字段显示电话号码，`new` 字段（如果是最近的通话），`duration`（通话时长），`date`（通话日期，采用 Unix 时间戳格式——毫秒），以及
+    `type`（通话类型）；在我们的案例中，它是 `1`，即来电。'
+- en: Of course, this method may not seem to be very forensically sound as we have
+    to install an app on the target mobile device, but sometimes it's the only way
+    to extract valuable digital evidence. What is more, many commercial mobile forensic
+    tools use small applications, so-called **agents**, to extract more data during
+    logical acquisition. You'll learn more about Android forensic tools in [Chapter
+    8](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml), *Android Forensic Tools Overview*.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，这种方法可能在法医上不太可靠，因为我们需要在目标移动设备上安装一个应用程序，但有时这是提取宝贵数字证据的唯一方法。更重要的是，许多商业移动法医工具使用小型应用程序，即所谓的**代理**，在逻辑获取过程中提取更多数据。你将在[第
+    8 章](1b4c4086-f708-4bea-9bb4-f2f477b10c85.xhtml)中了解更多关于 Android 法医工具的内容，*Android
+    法医工具概述*。
+- en: Bypassing Android lock screens
+  id: totrans-243
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 绕过 Android 锁屏
+- en: Lock screens are the most challenging aspect of Android forensic examinations.
+    Frequently, the entire investigation depends on the examiner's ability to gain
+    access to a locked device. While there are methods to bypass them, this can be
+    highly dependent on the OS version, device settings, and technical capabilities
+    of the examiner. There is no magical solution that will work every time on every
+    device. Commercial forensic tools such as Cellebrite and Oxygen have fairly robust
+    bypass capabilities, but are far from infallible. This chapter will show how an
+    examiner can increase their odds of bypassing locked devices with free tools and
+    methods.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 锁屏是 Android 法医检查中最具挑战性的部分。调查的整个过程通常取决于检查员是否能够访问被锁定的设备。虽然有一些绕过的方法，但这往往取决于操作系统版本、设备设置以及检查员的技术能力。没有任何一种方法能够在所有设备上每次都奏效。像
+    Cellebrite 和 Oxygen 这样的商业法医工具具有相当强大的绕过能力，但远非万无一失。本章将展示检查员如何利用免费工具和方法提高绕过锁定设备的几率。
+- en: An examiner should never attempt to guess a pattern/PIN/password on the device.
+    Many manufacturers implement a setting that will wipe the device after a number
+    of failed attempts. Many also allow the user to lower that number.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查员绝不应尝试猜测设备上的图案/PIN/密码。许多制造商实现了一种设置，在多次失败尝试后会擦除设备。许多厂商还允许用户减少这个失败次数。
+- en: Lock screen types
+  id: totrans-246
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 锁屏类型
+- en: 'There are many methods used to secure a device, and the methods for bypassing
+    each vary:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于保护设备的方法有很多，绕过每种方法的方式各不相同：
+- en: None/slide
+  id: totrans-248
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无/滑动
+- en: Pattern
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 图案
+- en: PIN
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PIN
+- en: Password
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 密码
+- en: 'Smart Lock: Trusted Face, Trusted Voice, Trusted Location, Trusted Device,
+    On-body Detection'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 智能锁：可信面部、可信声音、可信位置、可信设备、身体检测
+- en: Other security options may exist; as Android is open source, the possibilities
+    are only limited by the developer's imagination. These are the options that are
+    available in the stock version of Android Oreo released by Google. Most security
+    options used by vendors generally use one of these stock options as a failsafe
+    in case a user is unable to log in with their unique options. Versions in which
+    the setting was first used also refer to stock Android; various manufacturers
+    may have implemented them sooner.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可能还存在其他安全选项；由于 Android 是开源的，可能性仅受开发者想象力的限制。这些是 Google 发布的 Android Oreo 系统原生版本中提供的选项。大多数厂商使用的安全选项通常都使用其中一种原生选项作为备用，以防用户无法使用其独特选项登录。首次使用该设置的版本也被称为原生
+    Android；不同厂商可能会更早实现这些选项。
+- en: None/Slide lock screens
+  id: totrans-254
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 无/滑动锁屏
+- en: The *Slide to unlock* screen is the default setting of most Android devices.
+    It provides no level of security, and is bypassed by sliding a finger on the screen
+    in the indicated direction.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*滑动解锁* 屏幕是大多数 Android 设备的默认设置。它不提供任何安全性，通过在屏幕上按指示方向滑动手指即可绕过。'
+- en: Pattern lock screens
+  id: totrans-256
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 图案锁屏
+- en: Pattern lock screens are the iconic Android security method. Frequently referred
+    to as *swipe codes* or similar names, these require the user to trace a pattern
+    on the device with a finger. A common bypass for this lock is the *smudge attack*,
+    looking for patterns left on the screen by the user's finger.
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图案锁屏是 Android 的标志性安全方法。通常被称为 *滑动密码* 或类似名称，这要求用户用手指在设备上划出一个图案。绕过此锁定的常见方法是 *污迹攻击*，通过观察用户手指留下的图案来破解。
+- en: Password/PIN lock screens
+  id: totrans-258
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 密码/PIN 锁屏
+- en: 'Users familiar with Apple''s iOS will recognize this option. It requires a
+    user to type a password or PIN in order to unlock the device. These are lumped
+    together because, forensically, they are identical: they store their passwords
+    the same way.'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 熟悉苹果 iOS 的用户会识别此选项。它要求用户输入密码或 PIN 码才能解锁设备。它们被归为一类，因为从取证角度来看，它们是相同的：它们以相同的方式存储密码。
+- en: Smart Locks
+  id: totrans-260
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 智能锁
+- en: 'Smart Lock is a term introduced in Android Lollipop, although the Face unlock
+    option was previously available. They require a specific condition to unlock the
+    device: a user''s face must be recognized, the user must be in a known location,
+    or a specific other device must be nearby.'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 智能锁是 Android Lollipop 中引入的术语，尽管面部解锁选项之前已经存在。它们需要特定条件来解锁设备：用户的面部必须被识别，用户必须处于已知位置，或者必须有特定的其他设备在附近。
+- en: Trusted Face
+  id: totrans-262
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 信任面部
+- en: 'Face unlock works exactly as it sounds: it uses facial recognition to determine
+    if the user has been previously been set up as a trusted user. Older versions
+    of Face locks were easily fooled by pictures of a trusted user, though newer versions
+    may require the user to blink in order to unlock the device.'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 面部解锁按字面意思工作：它通过面部识别来判断用户是否已经设置为信任用户。较早版本的面部锁定容易被信任用户的照片欺骗，尽管较新的版本可能需要用户眨眼才能解锁设备。
+- en: Trusted Voice
+  id: totrans-264
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 信任语音
+- en: The **OK Google** phrase can be used by the user to unlock the phone. This type
+    of lock isn't available on many devices, as the phone has to actively listen for
+    the user's voice while the screen is off, and it drains the battery.
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**OK Google** 语句可被用户用来解锁手机。这种类型的锁定并不适用于许多设备，因为手机需要在屏幕关闭时持续监听用户的声音，这会消耗电池。'
+- en: Trusted Location
+  id: totrans-266
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 信任位置
+- en: Trusted Location is also commonly referred to as **geo-fencing**. If a user
+    is in a location that has been marked as trusted (such as home or work), the device
+    will not lock. There's no input required from the user, but the GPS must be enabled.
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 信任位置也常被称为 **地理围栏**。如果用户处于已标记为可信的位置（如家或工作地点），设备将不会锁定。用户无需任何输入，但必须启用 GPS。
+- en: Trusted Device
+  id: totrans-268
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 信任设备
+- en: Trusted Device works via Bluetooth; if a device that has been set up as a trusted
+    device is nearby, the lock screen will be disabled. This may be used with smart
+    watches, vehicles that pair over Bluetooth, Bluetooth headsets, or any other Bluetooth–capable
+    device.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 信任设备通过蓝牙工作；如果设置为信任设备的设备在附近，锁屏将被禁用。这可以与智能手表、通过蓝牙配对的车辆、蓝牙耳机或任何其他支持蓝牙的设备一起使用。
+- en: On-body Detection
+  id: totrans-270
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 体感检测
+- en: On-body Detection uses phone's motion sensors, for example, the accelerometer
+    and gyroscope, to keep it unlocked while it's in the user's hand, pocket, or bag.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 体感检测利用手机的运动传感器，例如加速度计和陀螺仪，当设备处于用户手中、口袋或包内时，保持解锁状态。
+- en: All Smart Lock options require a pattern/PIN/password as a backup security method.
+    This means we only have to learn how to bypass patterns/PINs/passwords in order
+    to crack all of the security options.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有智能锁选项都需要图案/PIN/密码作为备用安全方法。这意味着我们只需要学习如何绕过图案/PIN/密码，就能破解所有的安全选项。
+- en: General bypass information
+  id: totrans-273
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 一般绕过信息
+- en: In all cases, bypassing the lock screen will require retrieving a file from
+    the device. Pattern locks are stored as hash values at `/data/system/gesture.key`
+    and PIN/password locks are stored as hash values at `/data/system/password.key`
+    (up to Android 5.0, Lollipop). Additionally, the `password.key` hash is salted;
+    the salt value is stored at `/data/data/com.android.providers.settings/databases/settings.db`
+    prior to Android 4.4, and `/data/system/locksettings.db` on devices running Android
+    4.4 and later.
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在所有情况下，绕过锁屏将需要从设备中获取文件。图案锁以哈希值存储在`/data/system/gesture.key`，而PIN/密码锁以哈希值存储在`/data/system/password.key`（直到Android
+    5.0，Lollipop）。此外，`password.key`的哈希值是加盐的；盐值存储在Android 4.4之前的设备中`/data/data/com.android.providers.settings/databases/settings.db`，在Android
+    4.4及更高版本的设备中则存储在`/data/system/locksettings.db`。
+- en: Android 6.0 (Marshmallow) introduced Gatekeeper password storage—a new level
+    of obfuscation to PIN and pattern locks. Now, the locks are stored in `gatekeeper.pattern.key`
+    and `gatekeeper.password.key` and no longer use hashes. Gatekeeper uses **Hash-based
+    Message Authentication Code** (**HMAC**) with a hardware-backed secret key to
+    manage and verify passwords.
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 6.0（Marshmallow）引入了Gatekeeper密码存储——一种新的PIN和图案锁的混淆层。现在，锁存储在`gatekeeper.pattern.key`和`gatekeeper.password.key`中，不再使用哈希值。Gatekeeper使用**基于哈希的消息认证码**（**HMAC**）和硬件支持的密钥来管理和验证密码。
+- en: 'If the device is locked, how is an examiner supposed to access these files?
+    Again, there is no magic solution that works every time, but some options are
+    as follows:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果设备被锁定，检查员该如何访问这些文件？再次强调，没有一个能够每次都有效的魔法解决方案，但以下是一些可选方案：
+- en: 'ADB:'
+  id: totrans-277
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: ADB：
+- en: Requires root
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 需要root
+- en: Requires USB Debugging
+  id: totrans-279
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 需要USB调试
+- en: Requires Secure USB Debugging pairing (depending on OS version)
+  id: totrans-280
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 需要安全的USB调试配对（取决于操作系统版本）
+- en: 'Booting into a custom Recovery Mode:'
+  id: totrans-281
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启动进入自定义恢复模式：
+- en: Does not require root (root will be given through the recovery image)
+  id: totrans-282
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不需要root（root将通过恢复镜像提供）
+- en: Does not require USB Debugging (accomplished via fastboot)
+  id: totrans-283
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不需要USB调试（通过fastboot实现）
+- en: Does not require Secure USB Debugging (this is bypassed entirely)
+  id: totrans-284
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不需要安全的USB调试（这一点完全被绕过）
+- en: Requires an unlocked bootloader
+  id: totrans-285
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 需要解锁的引导加载程序
+- en: Won't work on devices with encrypted userdata partition
+  id: totrans-286
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不适用于加密userdata分区的设备
+- en: 'JTAG/Chip-off:'
+  id: totrans-287
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: JTAG/芯片脱机：
+- en: Highly advanced
+  id: totrans-288
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 高度复杂
+- en: Does not require any specific device settings or options
+  id: totrans-289
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不需要任何特定的设备设置或选项
+- en: Won't work on devices with encrypted userdata partition
+  id: totrans-290
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不适用于加密userdata分区的设备
+- en: Removing Android lock screens
+  id: totrans-291
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 移除Android锁屏
+- en: PIN or password can be bypassed by simply overwriting or deleting the files.
+    However, this is changing the original evidence and may not be forensically valid
+    in your jurisdiction.
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PIN或密码可以通过简单地覆盖或删除文件来绕过。然而，这会改变原始证据，在你的管辖范围内可能不具有法医效力。
+- en: Removing PIN/password with ADB
+  id: totrans-293
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用ADB移除PIN/密码
+- en: Depending on the device you are examining and its operating system version,
+    you may need to delete different files. If the device contains `*.key` files under `/data/system/`,
+    you need to remove these files; if there are no such files, you may need to remove
+    `locksettings.db`, if possible, or update some of its records (see the next section).
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据你正在检查的设备及其操作系统版本，可能需要删除不同的文件。如果设备中包含`*.key`文件在`/data/system/`目录下，你需要删除这些文件；如果没有此类文件，可能需要删除`locksettings.db`，如果可能的话，或者更新其中的一些记录（请参见下一节）。
+- en: 'Here is how to remove the files of interest via ADB:'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是如何通过ADB删除感兴趣的文件：
+- en: '[PRE20]'
+  id: totrans-296
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Now the device should be rebooted. After the reboot, there will be no PIN or
+    password.
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在设备应该重新启动。重启后，将不再需要PIN或密码。
+- en: Removing PIN/Password with ADB and SQL
+  id: totrans-298
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用ADB和SQL移除PIN/密码
+- en: There are no `*.key` files on recent Android devices, such as those running
+    Oreo or Pie, but there is still the `lockscreen.db` database under `/data/system`.
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最近的Android设备上没有`*.key`文件，如运行Oreo或Pie的设备，但仍然存在`/data/system`目录下的`lockscreen.db`数据库。
+- en: 'Here is how to remove the PIN or passwords for making changes in this database:'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是如何删除此数据库中用于更改的PIN或密码的方法：
+- en: '[PRE21]'
+  id: totrans-301
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: Reboot the device and the screen lock will be removed.
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重启设备，屏幕锁将被移除。
+- en: Android SIM card extractions
+  id: totrans-303
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Android SIM卡提取
+- en: 'Traditionally, SIM cards were used for transferring data between devices. SIM
+    cards in the past were used to store many different types of data, such as the
+    following:'
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 传统上，SIM卡用于在设备之间传输数据。过去，SIM卡用于存储多种类型的数据，如下所示：
+- en: User data
+  id: totrans-305
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户数据
+- en: Contacts
+  id: totrans-306
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 联系人
+- en: SMS messages
+  id: totrans-307
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 短信
+- en: Dialed calls
+  id: totrans-308
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 拨打的电话
+- en: Network data
+  id: totrans-309
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络数据
+- en: '**Integrated Circuit Card Identifier (ICCID)**: Serial number of the SIM'
+  id: totrans-310
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**集成电路卡标识符（ICCID）**：SIM卡的序列号'
+- en: '**International Mobile Subscriber Identity (IMSI)**: Identifier that ties the
+    SIM to a specific user account'
+  id: totrans-311
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**国际移动用户身份（IMSI）**：将SIM卡与特定用户账户绑定的标识符'
+- en: '**MSISDN**: Phone number assigned to the SIM'
+  id: totrans-312
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**MSISDN**：分配给SIM卡的电话号码'
+- en: '**Location Area Identity (LAI)**: Identifies the cell that a user is in'
+  id: totrans-313
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**位置区域标识符（LAI）**：标识用户所在的基站'
+- en: '**Authentication Key (Ki)**: Used to authenticate the mobile network'
+  id: totrans-314
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**认证密钥（Ki）**：用于认证移动网络'
+- en: Various other network-specific information
+  id: totrans-315
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 其他各种网络特定信息
+- en: With the rise in capacity of device storage, SD cards, and cloud backups, the
+    necessity for storing data on a SIM card has decreased. As such, most modern smartphones
+    typically do not store much, if any, user data on the SIM card. All network data
+    listed previously does still reside on the SIM, as a SIM is necessary to connect
+    to all modern (4G) cellular networks.
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着设备存储容量、SD卡和云备份的增加，将数据存储在SIM卡上的必要性已经减少。因此，大多数现代智能手机通常不会在SIM卡上存储大量甚至任何用户数据。前面提到的所有网络数据仍然保留在SIM卡上，因为SIM卡是连接所有现代（4G）蜂窝网络所必需的。
+- en: As with all Android devices, though, there is no concrete stipulation that user
+    data can't be stored on a SIM; it simply doesn't happen by default. Individual
+    device manufacturers can easily decide to write user data to the SIM, and individual
+    users can download applications to provide that functionality. This means that
+    a device's SIM card should always be examined during a forensic examination. It
+    is a very quick process, and should never be overlooked.
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，像所有Android设备一样，虽然没有明确规定不能将用户数据存储在SIM卡上，但默认情况下它不会发生。各个设备制造商可以轻松决定将用户数据写入SIM卡，个人用户也可以下载应用程序来提供该功能。这意味着在取证检查过程中，设备的SIM卡应始终进行检查。这是一个非常快速的过程，绝不能忽视。
+- en: Acquiring SIM card data
+  id: totrans-318
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 获取SIM卡数据
+- en: The SIM card should always be removed from the device and examined separately.
+    While some tools claim to read the SIM card through the device interface, this
+    may not recover deleted data or all data on the SIM; the only way for an examiner
+    to be certain all data was acquired is to read the SIM through a standalone SIM
+    card reader with a tool that has been tested and verified.
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM卡应始终从设备中取出并单独检查。虽然一些工具声称可以通过设备接口读取SIM卡，但这可能无法恢复已删除的数据或SIM卡上的所有数据；取证人员要确保所有数据已被获取，唯一的方法是通过经过测试和验证的独立SIM卡读取器读取SIM卡。
+- en: The location of the SIM will vary by device, but is typically either stored
+    beneath the battery or in a tray located on the side of the device. Once the SIM
+    is removed, it should be placed in a SIM card reader. There are hundreds of SIM
+    card readers available in the marketplace, and all major mobile forensics tools
+    come with an included reader that will work with their software. Oftentimes, the
+    forensic tools will also support third-party SIM readers as well.
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM卡的位置因设备而异，但通常存储在电池下方或位于设备侧面的托盘中。移除SIM卡后，应将其放入SIM卡读取器中。市场上有数百种SIM卡读取器可供选择，所有主要的移动取证工具都配有与其软件兼容的读取器。通常，取证工具还会支持第三方SIM读取器。
+- en: There is a surprising lack of thorough, free SIM card reading software available.
+    Any software used should always be tested and validated on a SIM card that has
+    been populated with known data prior to being used in an actual forensic investigation.
+    Also, keep in mind that much of the free software available works for older 2G/3G
+    SIMs, but may not work properly on a modern 4G SIM. We used the Mobiledit! Lite,
+    a free version of Mobiledit!, for the following screenshots. It is available at: [http://www.mobiledit.com/downloads](http://www.mobiledit.com/downloads).
+  id: totrans-321
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 出人意料的是，市场上缺乏完善且免费的SIM卡读取软件。任何使用的软件在实际取证调查之前，应该始终在一个已填充已知数据的SIM卡上进行测试和验证。此外，请注意，许多免费的软件适用于较旧的2G/3G
+    SIM卡，但可能无法在现代4G SIM卡上正常工作。我们在以下截图中使用了Mobiledit! Lite，这是Mobiledit!的免费版本。可以在以下网址下载：[http://www.mobiledit.com/downloads](http://www.mobiledit.com/downloads)。
+- en: 'The following is a sample 4G SIM card extraction from an Android phone running
+    version 4.4.4; note that nothing that could be considered user data was acquired
+    despite the SIM being used actively for over a year, though fields such as the
+    ICCID, IMSI, and MSISDN (own phone number) could be useful for subpoenas/warrants
+    or other aspects of an investigation:'
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是从运行 Android 4.4.4 版本的 Android 手机中提取的 4G SIM 卡示例；请注意，尽管该 SIM 卡已活跃使用超过一年，但未获取任何可视为用户数据的内容，尽管诸如
+    ICCID、IMSI 和 MSISDN（本机号码）等字段可能对传票/令状或调查的其他方面有所帮助：
+- en: '![](img/75f5fad3-33c1-4c76-ab6a-7435b4aefb0a.png)'
+  id: totrans-323
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/75f5fad3-33c1-4c76-ab6a-7435b4aefb0a.png)'
+- en: SIM card extraction overview
+  id: totrans-324
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM 卡提取概述
+- en: 'The following screenshot highlights SMS messages on the SIM card:'
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图突出了 SIM 卡上的短信：
+- en: '![](img/612ae554-6024-4fb9-8d06-c6f80491248a.png)'
+  id: totrans-326
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/612ae554-6024-4fb9-8d06-c6f80491248a.png)'
+- en: 'The following screenshot highlights the phonebook of the SIM card:'
+  id: totrans-327
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图突出了 SIM 卡的通讯录：
+- en: '![](img/d83c3405-4054-4d0a-8c8a-91964edea4c9.png)'
+  id: totrans-328
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d83c3405-4054-4d0a-8c8a-91964edea4c9.png)'
+- en: 'The following screenshot highlights the phone number of the SIM card (also
+    called the MSISDN):'
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图突出了 SIM 卡的电话号码（也称为 MSISDN）：
+- en: '![](img/97fb182c-d225-49d7-9aae-eee2f5db6695.png)'
+  id: totrans-330
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/97fb182c-d225-49d7-9aae-eee2f5db6695.png)'
+- en: SIM Security
+  id: totrans-331
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SIM 卡安全
+- en: 'Due to the fact that SIM cards conform to established, international standards,
+    all SIM cards provide the same security functionality: a 4- to 8-digit PIN. Generally,
+    this PIN must be set through a menu on the device. On Android devices, this setting
+    is found at Settings | Security | Set up SIM card lock. The SIM PIN is completely
+    independent of any lock screen security settings and only has to be entered when
+    the device boots. The SIM PIN only protects user data on the SIM; all network
+    information is still recoverable even if the SIM is PIN locked.'
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 SIM 卡符合既定的国际标准，所有 SIM 卡提供相同的安全功能：一个 4 到 8 位的 PIN。通常，必须通过设备上的菜单来设置此 PIN。在
+    Android 设备上，这个设置可以在“设置”|“安全”|“设置 SIM 卡锁定”中找到。SIM PIN 完全独立于任何锁屏安全设置，只有在设备启动时才需要输入。SIM
+    PIN 仅保护 SIM 上的用户数据；即使 SIM 卡被 PIN 锁定，所有网络信息仍然是可以恢复的。
+- en: The SIM card will allow three attempts to enter the PIN; if one of these attempts
+    are correct, the counter will reset. On the other hand, if all of these attempts
+    are incorrect, the SIM will enter **Personal Unblocking Key** (**PUK**) mode.
+    The PUK is an 8-digit number assigned by the carrier, and is frequently found
+    on documentation when the SIM is purchased. Bypassing a PUK is not possible with
+    any commercial forensic software; because of this, an examiner should never attempt
+    to enter the PIN on the device as the device will not indicate how many attempts
+    remain before the PUK is activated. An examiner could unwittingly PUK lock the
+    SIM and be unable to access the device. Forensic tools, however, will show how
+    many attempts remain before the PUK is activated, as seen in the previous screenshots.
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM 卡允许三次输入 PIN 尝试；如果其中一次正确，计数器将重置。另一方面，如果所有尝试都失败，SIM 卡将进入**个人解锁密钥**（**PUK**）模式。PUK
+    是由运营商分配的 8 位数字，通常可以在购买 SIM 卡时的文档中找到。通过任何商业法医软件都无法绕过 PUK；因此，检查员绝不应尝试在设备上输入 PIN，因为设备不会显示剩余尝试次数，直到
+    PUK 激活为止。检查员可能会不小心将 SIM 卡锁定在 PUK 模式，无法访问设备。然而，法医工具会显示在 PUK 激活前剩余的尝试次数，如前面的截图所示。
+- en: Common carrier defaults for SIM PINs are 0000 and 1234\. If three tries remain
+    before activating the PUK, an examiner may successfully unlock the SIM with one
+    of these defaults.
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM 卡的常见运营商默认 PIN 是 0000 和 1234。如果在激活 PUK 前剩余三次尝试，检查员可能会使用这些默认 PIN 成功解锁 SIM
+    卡。
+- en: Carriers frequently retain PUK keys when a SIM is issued. These may be available
+    through a subpoena or warrant issued to the carrier.
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运营商在发放 SIM 卡时通常会保留 PUK 密钥。这些密钥可能通过对运营商发出的传票或令状获得。
+- en: SIM cloning
+  id: totrans-336
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SIM 卡克隆
+- en: The SIM PIN itself provides almost no additional security, and can easily be
+    bypassed through SIM cloning. SIM cloning is a feature provided in almost all
+    commercial mobile forensic software, although the term cloning is somewhat misleading.
+    SIM cloning, in the case of mobile forensics, is the process of copying the network
+    data from a locked SIM onto a forensically sterile SIM that does not have the
+    PIN activated. The phone will identify the cloned SIM based on this network data
+    (typically the ICCID and IMSI) and think that it is the same SIM that was inserted
+    previously, but this time there will be no SIM PIN. This cloned SIM will also
+    be unable to access the cellular network, which makes it an effective solution
+    similar to Airplane Mode. Therefore, SIM cloning will allow an examiner to access
+    the device, but the user data on the original SIM is still inaccessible as it
+    remains protected by the PIN.
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SIM PIN 本身几乎不会提供额外的安全性，并且可以通过 SIM 克隆轻松绕过。SIM 克隆是几乎所有商业移动取证软件都提供的功能，尽管“克隆”这个术语有点误导。在移动取证的情况下，SIM
+    克隆是指将网络数据从一个锁定的 SIM 卡复制到一个法医干净的 SIM 卡上，这个 SIM 卡没有激活 PIN。手机会基于这些网络数据（通常是 ICCID
+    和 IMSI）识别克隆的 SIM 卡，并认为它与之前插入的 SIM 卡相同，但这次没有 SIM PIN。此克隆 SIM 卡也无法访问蜂窝网络，这使得它成为类似于飞行模式的有效解决方案。因此，SIM
+    克隆将允许检查员访问设备，但原始 SIM 卡上的用户数据仍然无法访问，因为它被 PIN 保护。
+- en: We are unaware of any free software that performs forensic SIM cloning. It is
+    supported by almost all commercial mobile forensic kits, however. These kits will
+    typically include a SIM card reader, software to perform the clone, as well as
+    multiple blank SIM cards for the cloning process.
+  id: totrans-338
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们不知道任何可以执行法医 SIM 克隆的免费软件。然而，几乎所有商业移动取证工具包都支持此功能。这些工具包通常包括一个 SIM 卡读取器、用于执行克隆的软件以及多个空白
+    SIM 卡用于克隆过程。
+- en: Summary
+  id: totrans-339
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: 'This chapter has covered many topics related to logical extractions of Android
+    devices. As a recap, the various methods and their requirements are as follows:'
+  id: totrans-340
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章讨论了与 Android 设备的逻辑提取相关的多个主题。作为总结，以下是各种方法及其要求：
+- en: '| **Method** | **Requirements** |'
+  id: totrans-341
+  prefs: []
+  type: TYPE_TB
+  zh: '| **方法** | **要求** |'
+- en: '| ADB pull |'
+  id: totrans-342
+  prefs: []
+  type: TYPE_TB
+  zh: '| ADB 拉取 |'
+- en: USB Debugging enabled
+  id: totrans-343
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启用 USB 调试
+- en: Secure USB Debugging bypassed on 4.2.2+
+  id: totrans-344
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 4.2.2+ 版本中绕过安全 USB 调试
+- en: Root access to obtain user data
+  id: totrans-345
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取 root 权限以获取用户数据
+- en: '|'
+  id: totrans-346
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '| ADB pull from Recovery Mode |'
+  id: totrans-347
+  prefs: []
+  type: TYPE_TB
+  zh: '| 从恢复模式下拉取 ADB |'
+- en: Must be a custom recovery to enable ADB access
+  id: totrans-348
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 必须使用自定义恢复模式才能启用 ADB 访问
+- en: Root access to obtain user data
+  id: totrans-349
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取 root 权限以获取用户数据
+- en: '|'
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '| Fastboot to boot from custom recovery image |'
+  id: totrans-351
+  prefs: []
+  type: TYPE_TB
+  zh: '| 从自定义恢复镜像启动 Fastboot |'
+- en: Unlocked bootloader
+  id: totrans-352
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解锁的引导加载程序
+- en: Boot image for device
+  id: totrans-353
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 设备的启动镜像
+- en: '|'
+  id: totrans-354
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '| ADB backup |'
+  id: totrans-355
+  prefs: []
+  type: TYPE_TB
+  zh: '| ADB 备份 |'
+- en: USB Debugging enabled
+  id: totrans-356
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启用 USB 调试
+- en: Secure USB Debugging bypassed on 4.2.2+
+  id: totrans-357
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 4.2.2+ 版本中绕过安全 USB 调试
+- en: Must be done from a running device (not Recovery Mode)
+  id: totrans-358
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 必须从正在运行的设备执行（不能在恢复模式下）
+- en: '|'
+  id: totrans-359
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '| ADB Dumpsys |'
+  id: totrans-360
+  prefs: []
+  type: TYPE_TB
+  zh: '| ADB Dumpsys |'
+- en: USB Debugging enabled
+  id: totrans-361
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启用 USB 调试
+- en: Secure USB Debugging bypassed on 4.2.2+
+  id: totrans-362
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 4.2.2+ 版本中绕过安全 USB 调试
+- en: Must be done from a running device (not Recovery Mode)
+  id: totrans-363
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 必须从正在运行的设备执行（不能在恢复模式下）
+- en: '|'
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '| SIM card extraction |'
+  id: totrans-365
+  prefs: []
+  type: TYPE_TB
+  zh: '| SIM 卡提取 |'
+- en: None, should be done independent of device
+  id: totrans-366
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无要求，应该独立于设备执行
+- en: '|'
+  id: totrans-367
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: Additionally, valuable user data can be recovered from the SD card, which will
+    be covered in [Chapter 5](a910938e-1c0b-4f19-baae-509ccaa36c09.xhtml), *Extracting
+    Data Physically from Android* *Devices*.
+  id: totrans-368
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，用户的有价值数据还可以从 SD 卡恢复，这将在[第 5 章](a910938e-1c0b-4f19-baae-509ccaa36c09.xhtml)中讨论，*从
+    Android 设备中物理提取数据*。
+- en: If a screen is locked, an examiner can remove the key files or remove some records
+    from the `locksettings.db` database using the methods listed previously.
+  id: totrans-369
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果屏幕被锁定，检查员可以通过前面列出的方法，从 `locksettings.db` 数据库中删除关键文件或删除某些记录。
+- en: 'There is a lot of data in this chapter and to help simplify it somewhat, a
+    suggested *best practices* flowchart is shown as follows:'
+  id: totrans-370
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章包含了大量数据，为了简化理解，下面展示了一个建议的 *最佳实践* 流程图：
+- en: '![](img/4f07a5a6-2220-4b35-8629-a1e6c525399a.png)'
+  id: totrans-371
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4f07a5a6-2220-4b35-8629-a1e6c525399a.png)'
+- en: Android Forensics flowchart
+  id: totrans-372
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 取证流程图

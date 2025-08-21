@@ -1,0 +1,1762 @@
+- en: '12'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '12'
+- en: Are My Devices’ Communications and Interactions Secure?
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我的设备的通信和交互安全吗？
+- en: It can be said that the only really secure computer is one that is powered off
+    and locked away in a vault. There’s no fun nor usability in that so we must determine
+    appropriate measures to limit exposure to vulnerabilities while still having the
+    system be usable for the mission it was intended for.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以说，唯一真正安全的计算机就是关机并锁在保险库里的那台。虽然这样没有乐趣，也没有可用性，但我们必须采取适当的措施，以限制漏洞暴露，同时确保系统能够继续执行它原本的任务。
+- en: In this chapter, you will learn how to determine the use cases and limitations
+    of commonly used external buses for hardware communication. We’ll review network
+    security with firewalls. We’ll work through some hands-on exercises in locking
+    down your web-based services with SSL certificates. We will dive into the gotchas
+    of legacy hardware and software and close out this chapter with the security validation
+    of your appliance.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你将学习如何确定常用外部总线在硬件通信中的使用场景和局限性。我们将回顾防火墙网络安全。我们会通过一些实际操作来加固你基于 Web 的服务，使用
+    SSL 证书。我们还会深入探讨传统硬件和软件的问题，并以设备安全验证来结束本章内容。
+- en: “Why is this important to my project?” you may ask... Simply put, you might
+    lock down the system itself incredibly well, however, that system’s connections
+    to peripherals or other applications may not exactly be as secure as you might
+    have thought. To be aware is to be forewarned.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能会问：“这对我的项目为什么重要？”简而言之，你可能把系统本身的安全性做好得无懈可击，但这个系统与外设或其他应用程序的连接，可能并不像你想象的那样安全。知晓即为预警。
+- en: 'The main sections of this chapter are:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的主要内容包括：
+- en: Bus types and issues
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 总线类型及其问题
+- en: Enhancing security with certificates
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过证书增强安全性
+- en: Confirming that your networking is secure
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确认你的网络是安全的
+- en: Limitations of legacy hardware and software
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 传统硬件和软件的限制
+- en: Validating your solution before shipping
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在交付前验证你的解决方案
+- en: Let’s move on to our first section, where we’ll take a look at different system
+    buses.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们进入第一部分，看看不同的系统总线。
+- en: Technical requirements
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: To complete the exercises in this chapter, you will need root-level access to
+    the web server you built as a custom DNF repository back in [*Chapter 5*](B22104_05.xhtml#_idTextAnchor179).
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要完成本章的练习，你需要对你之前在[*第五章*](B22104_05.xhtml#_idTextAnchor179)中构建的自定义 DNF 仓库所在的
+    Web 服务器拥有 root 权限。
+- en: If you have deleted that server/work, you will need to build a new custom repository
+    server as detailed in those previous exercises before beginning this exercise.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你已经删除了该服务器/工作，你需要按照之前练习中的详细说明重新建立一个新的自定义仓库服务器，然后再开始本次练习。
+- en: Bus types and issues
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总线类型及其问题
+- en: So, what is a **bus**? Most simply put, a bus is a type of communication channel
+    to and from devices and your system’s CPU. With this channel, data signals from
+    (or to) the device can be processed by the CPU. Without this line of communication,
+    the attached device will not function.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，什么是**总线**呢？最简单来说，总线是一种设备与系统 CPU 之间的通信通道。通过这个通道，设备的数据信号（来自或发送到设备）可以被 CPU 处理。如果没有这条通信线路，连接的设备将无法工作。
+- en: A more layman’s way of describing a bus would be to break it down in the least
+    technical of terms. Let’s look at the forest for the trees. In total, a bus is
+    the culmination of hardware, software, and the cabling required to allow for data
+    transmission. I’ll use a non-technical childhood example. Ever take two tin cans
+    and some string to make a communications system? Those two cans were connected
+    by a string that, when tightly stretched, carried your voice (i.e., the data)
+    from one can (peripheral) to the other can (main processor) and was interpreted
+    by the end-user on the receiving end.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更通俗地讲，总线可以从最少的技术术语来描述。让我们看一下整体，忽略细节。总线是硬件、软件和所需电缆的总和，它们共同允许数据传输。我举一个非技术性的童年例子。你有没有用两个锡罐和一根绳子做过通信系统？那两个罐子通过绳子连接，当绳子拉紧时，它承载了你的声音（即数据），从一个罐子（外设）传递到另一个罐子（主处理器），接收端的最终用户会解读这些声音。
+- en: '**Systems buses** do this in a vastly more technical manner, but the result
+    is the same. Data travels from a peripheral to the CPU and gets processed. For
+    my super technical readers, please let me go a little deeper. Various buses are
+    in play when sensors, cameras, controls, or other directly attached peripherals
+    are attached to a system and their interactions are transmitted through their
+    connection medium and then, finally, received and processed by the system CPU.
+    There are several standard buses, but in this chapter, we’ll cover the most important
+    ones that you may come across while working with embedded Linux systems, and by
+    that, I mean the **CAN bus** and **USB**. In the next few sections, we will focus
+    on system buses (along with standard connection types and protocols) that leverage
+    external connections to your hardware. As we continue, I want you to envision
+    all things that may be able to connect to your solution, with or without your
+    permission. Sometimes, as we previously inferred in the section about childproofing
+    your solution within [*Chapter 10*](B22104_10.xhtml#_idTextAnchor305), you must
+    almost assume the end-user is a toddler who might just shove their sandwich into
+    the VCR. I know I’m dating myself by mentioning a VCR but it’s to make a point
+    and I hope that point is well received. Plan for the worst, and hope for the best.'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**系统总线**以更为技术化的方式实现这一功能，但结果是一样的。数据从外设传输到CPU并被处理。对于我的超级技术读者们，请允许我更深入一点。传感器、摄像头、控制器或其他直接连接外设时，会涉及多种总线，它们的交互通过连接介质传输，最终由系统CPU接收和处理。有几种标准总线，但在本章中，我们将重点介绍你在嵌入式Linux系统工作时可能遇到的最重要的几种，具体来说就是**CAN总线**和**USB**。在接下来的几节中，我们将重点讨论系统总线（以及标准连接类型和协议），这些总线利用外部连接到你的硬件。继续往下走时，我希望你能设想所有可能连接到你的解决方案的事物，无论是否经过你的许可。有时，正如我们在[*第10章*](B22104_10.xhtml#_idTextAnchor305)中推测的那样，你必须几乎假设最终用户是个可能把三明治塞进录像机的婴儿。我知道提到录像机可能让人感觉自己变老了，但这样做是为了强调一个点，我希望这个点能被理解。计划最坏的情况，期待最好的结果。'
+- en: What could possibly go wrong? Well, if your system uses an insecure bus or peripheral
+    connection and a bad actor has physical access to said connection, it may be hijacked
+    without your knowing (or worse). When insecure connections are leveraged, physical
+    security must also be part of the design consideration and deployment plan.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 会出什么问题呢？嗯，如果你的系统使用不安全的总线或外设连接，并且某个不法分子能够物理接触到该连接，它可能在你不知情的情况下被劫持（或者更糟）。当不安全连接被利用时，物理安全必须作为设计考虑和部署计划的一部分。
+- en: Let’s also hope that your awesome solution has a custom shell or case that covers
+    up any ports you do not want the end-user to know are there. It’s rare when this
+    is an option, but I felt the necessity to mention it. Plus, a custom case also
+    makes a solution look better. Some even have built-in weather resistance. Let
+    your use case guide your design.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们也希望你的完美解决方案有一个定制外壳或外壳，遮住任何你不希望最终用户知道的端口。这种选项并不常见，但我觉得有必要提一下。此外，定制外壳还可以让解决方案看起来更美观。有些外壳甚至具有内置的防天气性。让你的使用场景引导你的设计。
+- en: Important note
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: For an embedded Linux system, we’ll assume the case has a level of tamper-proofing
+    even if it’s just a warning sticker that states all warranties are void if the
+    case is opened. For this reason, we will not be covering system hardware internals
+    like the well-known **PCI bus**... There are countless texts dedicated to that
+    hardware and kernel development, so let’s stay focused on the external connections
+    in play.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于嵌入式Linux系统，我们假设外壳具有一定的防篡改功能，即使它只是一个警告贴纸，声明如果打开外壳则所有保修失效。因此，我们不会涉及系统硬件内部，如著名的**PCI总线**……关于硬件和内核开发有无数相关文献，所以我们将专注于外部连接的部分。
+- en: That all said, let’s move on to a household name. A bus and connection type
+    we all know – **Universal Serial** **Bus** (**USB**).
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 说完这些，我们来谈谈一个家喻户晓的名字——我们都知道的总线和连接类型——**通用串行总线**（**USB**）。
+- en: USB
+  id: totrans-24
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: USB
+- en: Since its initial introduction in 1996, the USB interface has been the worldwide
+    standard connectivity method of choice for virtually all consumer devices. Modern
+    USB ports have such versatility (depending on the device), which is why they are
+    everywhere in daily life.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自1996年首次推出以来，USB接口已经成为几乎所有消费类设备的全球标准连接方式。现代USB端口具有如此多的多功能性（取决于设备），这也是它们在日常生活中无处不在的原因。
+- en: USB empowers computers to connect to mice, keyboards, storage devices, printers,
+    gaming controllers, authentication keys, and many other types of commercial hardware.
+    The same port can also charge some devices like cell phones, tablets, or portable
+    power units. USB can even be used to add multiple displays to a system.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: USB使计算机能够连接鼠标、键盘、存储设备、打印机、游戏控制器、认证密钥以及许多其他类型的商业硬件。同一个端口还可以为一些设备如手机、平板电脑或便携电源单元充电。USB甚至可以用来为系统添加多个显示器。
+- en: USB does not protect your data while in transit. Most people choose to encrypt
+    USB-attached storage devices but by default when accessing the data or processing
+    it. That data in transit is not encrypted. This limitation is not limited to Linux
+    systems but all systems leveraging the USB framework.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: USB在数据传输过程中并不保护你的数据。大多数人选择加密USB附加存储设备，但默认情况下，在访问或处理数据时，传输中的数据并没有加密。这一限制不仅限于Linux系统，而是所有使用USB框架的系统。
+- en: There are some commercially available solutions to secure this data in transit;
+    however, they are not open source and definitely not free. They are sold as enterprise-grade
+    data loss prevention systems and support multiple platforms (not just Linux).
+    You will need one of these third-party solutions if the securing of your data
+    in transit to USB storage is an issue.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 市面上有一些商用解决方案可以保护数据在传输过程中安全；然而，它们不是开源的，而且肯定不是免费的。它们作为企业级的数据丢失防护系统出售，支持多个平台（不仅仅是Linux）。如果在将数据传输到USB存储设备时需要加密，你将需要使用这些第三方解决方案。
+- en: Let’s now move on to our next section where we will review USB connections.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们进入下一部分，回顾USB连接。
+- en: USB connectors
+  id: totrans-30
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: USB连接器
+- en: The USB family of **connectors** has evolved over the years, but since the beginning
+    and still to this day, USB-A might be the world’s most common connection interface
+    ever created. It can be found in household wall outlets, PCs, laptops, external
+    storage devices, on the back of passenger aircraft seats, in the dashboards of
+    cars and recreational vehicles (RVs), solar generators, power banks, and so, so,
+    so much more… (Yeah, I know that’s not grammatically correct but I really want
+    to emphasize that USB-A is *E-V-E-R-Y-W-H-E-R-E !!*)
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: USB系列**连接器**多年来一直在演变，但从一开始到现在，USB-A可能是世界上最常见的连接接口。它可以在家庭墙插座、个人电脑、笔记本电脑、外部存储设备、客机座椅背后、汽车和休闲车的仪表板、太阳能发电机、充电宝中找到，简直无处不在……（是的，我知道这语法不太对，但我真想强调的是USB-A是*无处不在的!!*）
+- en: What’s ironic about USB is that virtually all the shown connectors are still
+    being actively used today. Granted, there’s a difference in the quality of the
+    materials used now vs. the older versions, but that’s there to simply allow for
+    better data transfer rates. The cables themselves are not a security issue per
+    se, as the issues reside in the chips and the USB bus itself. Let’s take a quick
+    look at those connector types.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: USB的讽刺之处在于，几乎所有展示的连接器至今仍然在积极使用。诚然，当前版本与旧版在所用材料的质量上有所不同，但这是为了更好地支持数据传输速度。数据线本身并不是安全问题，问题出在芯片和USB总线上。让我们快速看一下这些连接器类型。
+- en: 'From left to right in the following figure, we have USB-B, USB-A, USB-mini,
+    USB-micro, and USB-C:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，从左到右分别是USB-B、USB-A、USB-mini、USB-micro和USB-C：
+- en: '![Figure 12.1 – USB connectors over the years](img/B22104_12_01.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图12.1 – 多年来的USB连接器](img/B22104_12_01.jpg)'
+- en: Figure 12.1 – USB connectors over the years
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图12.1 – 多年来的USB连接器
+- en: In pondering how to compare the various versions of the USB standard that you
+    will come across, I felt it imperative to throw some critical data in a table
+    format for ease of viewing. Although the connectors may all be compatible, the
+    speeds and throughput of the different versions are vastly and mind-blowingly
+    different.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在思考如何比较你将遇到的各种USB标准版本时，我认为有必要以表格的形式展示一些关键数据，以便更易查看。尽管这些连接器可能都兼容，但不同版本的速度和吞吐量差异巨大且令人震惊。
+- en: 'Here’s a table of USB versions, performance, and connectors in use today:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是一个关于USB版本、性能和当前使用连接器的表格：
+- en: '| **USB Version** | **Bandwidth** | **Data** **Transfer Speed** | **Connectors**
+    |'
+  id: totrans-38
+  prefs: []
+  type: TYPE_TB
+  zh: '| **USB版本** | **带宽** | **数据** **传输速度** | **连接器** |'
+- en: '| USB4 | 20 or 40 Gbps | 2560–5120 MB/s | C |'
+  id: totrans-39
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB4 | 20或40 Gbps | 2560–5120 MB/s | C |'
+- en: '| USB 3.2 | 20 Gbps | 2560 MB/s | C |'
+  id: totrans-40
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 3.2 | 20 Gbps | 2560 MB/s | C |'
+- en: '| USB 3.1 | 10 Gbps | 1280 MB/s | A, C |'
+  id: totrans-41
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 3.1 | 10 Gbps | 1280 MB/s | A, C |'
+- en: '| USB 3.0 | 5 Gbps | 640 MB/s | A, B. C |'
+  id: totrans-42
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 3.0 | 5 Gbps | 640 MB/s | A, B, C |'
+- en: '| USB 2.0 | 480 Mbps | 60 MB/s | A, B, Mini, Micro |'
+  id: totrans-43
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 2.0 | 480 Mbps | 60 MB/s | A, B, Mini, Micro |'
+- en: '| USB 1.1 | 12 Mbps | 1.5 MB/s | A, B, Mini, Micro |'
+  id: totrans-44
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 1.1 | 12 Mbps | 1.5 MB/s | A, B, Mini, Micro |'
+- en: '| USB 1.0 | 1.5 Mbps | 1.5 MB/s | A, B, Mini, Micro |'
+  id: totrans-45
+  prefs: []
+  type: TYPE_TB
+  zh: '| USB 1.0 | 1.5 Mbps | 1.5 MB/s | A, B, Mini, Micro |'
+- en: Table 12.1 – Speed and capabilities of different USB versions
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表12.1 – 不同USB版本的速度和能力
+- en: As you can see from the above table, the wide range of connections of the USB
+    standard has greatly evolved in the past 30 years. USB has been a game changer
+    and a trendsetter and will continue onward for many more years to come. Let’s
+    move on by looking at its predecessor, the serial bus, next.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从上表可以看出，USB标准在过去30年间的广泛连接范围经历了巨大的发展。USB已经成为游戏规则的改变者和潮流的引领者，并将在未来许多年继续发展。接下来，我们来看一下它的前身——串行总线。
+- en: Serial port
+  id: totrans-48
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 串行端口
+- en: Known for being notoriously insecure, **serial ports** have been providing text
+    terminal access since the old Unix days. There are still many serial devices that
+    are used every day. Keyboards and mice are still quite commonplace (nowadays using
+    USB) and may also be part of your solution. Serial connections are still incredibly
+    common for engineers to use from their laptops to networking equipment such as
+    switches, firewalls, and routers. Today, that often requires an adapter device
+    that connects to an engineer’s laptop via USB and then to a serial cable that
+    connects to a serial port on the device to be managed. These devices will automatically
+    establish connections once attached to your Linux system with no effort required
+    from you.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因为**串行端口**以其极易受攻击而闻名，自旧版Unix时代以来，它们一直提供文本终端访问。如今，仍有许多串行设备被每天使用。键盘和鼠标（如今通过USB使用）仍然是非常普遍的，并且可能也是你解决方案的一部分。串行连接依然是工程师从笔记本电脑到网络设备（如交换机、防火墙和路由器）之间常用的方式。如今，这通常需要一个适配器设备，它通过USB连接到工程师的笔记本电脑，然后通过串行电缆连接到要管理的设备上的串行端口。这些设备一旦连接到你的Linux系统，便会自动建立连接，你无需做任何操作。
+- en: 'Serial ports (more commonly called terminal ports) can be physical or virtual.
+    Most physical serial connections today are auto-negotiated through the USB bus;
+    however, on older systems, those devices may have used a PS2 connection or the
+    older serial port otherwise known as **DB9**. Serial ports may also be used by
+    industrial automation systems, printers, scanners, and some medical devices. The
+    following figure shows the serial connection female connector (left) and the serial
+    connection male (right):'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 串行端口（更常被称为终端端口）可以是物理的也可以是虚拟的。如今，大多数物理串行连接通过USB总线自动协商；然而，在旧系统上，这些设备可能使用PS2连接或更早的串行端口，也就是**DB9**。串行端口还可以被工业自动化系统、打印机、扫描仪和一些医疗设备使用。下图展示了串行连接的女性连接器（左）和男性连接器（右）：
+- en: '![Figure 12.2 – Serial connector examples](img/B22104_12_02.jpg)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图12.2 – 串行连接器示例](img/B22104_12_02.jpg)'
+- en: Figure 12.2 – Serial connector examples
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图12.2 – 串行连接器示例
+- en: Linux systems can also have **virtual serial connections**. It’s important to
+    know how your system is mapping these connections. First, why should you care?
+    Well, this directly impacts how many terminal sessions can be directly established
+    with your system concurrently. If your appliance is a console/text-based appliance,
+    this metric is crucial in its management and control. In the simplest terms possible,
+    this metric denotes how many doors can be opened at once. When not crucial to
+    your appliance’s user experience, these TTY console sessions should be limited
+    as much as possible without breaking the operation of the appliance.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux系统也可以有**虚拟串行连接**。了解你的系统如何映射这些连接非常重要。那么，为什么你需要关心这个呢？这直接影响到可以同时与系统建立多少个终端会话。如果你的设备是基于控制台/文本的设备，这一指标对于其管理和控制至关重要。用最简单的术语来说，这个指标表示可以同时打开多少扇门。当这些TTY控制台会话对你的设备用户体验不至关重要时，它们应该尽量受到限制，而不会破坏设备的正常运行。
+- en: To get a great sense of just how many TTY sessions your system starts at boot
+    time, here’s an example command that will show you how your system has these ports
+    named and mapped. Consider each one an open door that either should be locked,
+    boarded up, or simply guarded.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更好地了解你的系统在启动时启动了多少个TTY会话，这里有一个示例命令，展示了你的系统如何命名和映射这些端口。可以将每一个端口视作一个打开的门，它要么应该被锁上，要么被封住，要么只是被看守。
+- en: 'Let’s see how many TTY sessions are possible in our current system:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看在当前系统中可以进行多少个TTY会话：
+- en: '[PRE0]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The output for this one will definitely be lengthy so I have truncated it...
+    What you will see will be an exhaustive list of physical and virtual terminal
+    port possibilities.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这部分的输出肯定会很长，因此我已经进行了截断……你将看到的是一个详尽的物理和虚拟终端端口可能性列表。
+- en: '[PRE1]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Knowing how to track these connections is crucial for maintaining device security.
+    Let’s move on to yet another bus that also uses the DB9 connector – the CAN bus.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解如何追踪这些连接对于维护设备安全至关重要。接下来我们来看一下另一种也使用 DB9 连接器的总线——CAN 总线。
+- en: The CAN bus
+  id: totrans-60
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: CAN 总线
+- en: The **Controller Area Network** (**CAN**) bus is a vehicular standard. Its main
+    purpose is to control communication between **electronic control units** (**ECUs**).
+    It was first introduced back in 1983; however, it still has no standard connector,
+    although the DB9 connector seems to be a de facto standard today.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**控制器局域网** (**CAN**) 总线是一种车辆标准。它的主要目的是控制 **电子控制单元** (**ECUs**) 之间的通信。它最早于 1983
+    年推出；然而，至今仍没有标准连接器，尽管 DB9 连接器今天似乎已经成为事实上的标准。'
+- en: As cars nowadays are becoming rolling data centers (even the non-self-driving
+    ones), I felt it important to mention this bus type as many manufacturers are
+    jumping to build embedded systems in this evolving space.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于如今的汽车正变成滚动的数据中心（即使是非自动驾驶的汽车），我觉得有必要提到这种总线类型，因为许多制造商正在跃跃欲试，准备在这一不断发展的领域中构建嵌入式系统。
+- en: However, CAN is not limited to automobiles. CAN bus architectures can be seen
+    deployed in maritime environments, agricultural equipment, and even in large buildings
+    to control elevators, escalators, and other building automation. It’s even being
+    leveraged in modern robotics.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，CAN 并不限于汽车。CAN 总线架构可以在海事环境、农业设备，甚至是大型建筑中用于控制电梯、自动扶梯和其他建筑自动化系统中看到。它甚至被现代机器人技术所利用。
+- en: Sadly, CAN is not encrypted. Be mindful and be aware. Another problem with CAN
+    is the lack of authentication. Ultimately, this means whoever can access the bus
+    has control of the bus. All security be abandoned. What could possibly go wrong?
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可惜，CAN 没有加密功能。请保持警惕，留意这个问题。CAN 的另一个问题是缺乏身份验证。这意味着，最终，任何能够访问总线的人都能控制总线。所有的安全性都将被放弃。会发生什么不好的事情呢？
+- en: There’s a whole community around hacking cars’ control systems. Most who engage
+    in this journey do so to squeeze a little more performance out of their own vehicle.
+    No malicious intent there, just an engineer’s curiosity. That said, a bad actor
+    could easily access a car’s locks, GPS records, or controls, or possibly conduct
+    other malicious activities.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一个专门的社区致力于破解汽车的控制系统。大多数参与这项活动的人，目的是从自己的车辆中挤出更多的性能。没有恶意，只是工程师的好奇心。不过，恶意行为者很容易访问到汽车的锁、GPS
+    记录或控制系统，甚至可能进行其他恶意活动。
+- en: Another factor, just like with USB and serial, is that the lack of encryption
+    means any credentials passed across the bus are done in plain text. Anyone watching
+    traffic on the bus can see that data and potentially use it to do less than nice
+    things.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个因素，像 USB 和串口一样，缺乏加密意味着任何通过总线传输的凭证都是以明文方式传输的。任何监控总线流量的人都可以看到这些数据，并可能利用它做一些不太友好的事情。
+- en: As more and more vehicles rely on electronics to create a better driver’s experience,
+    let’s hope that the CAN standard itself can get some much-needed security added
+    in its next version.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着越来越多的车辆依赖电子设备来创造更好的驾驶体验，大家都希望 CAN 标准本身能在下一个版本中加入一些急需的安全功能。
+- en: Let’s move on to a key component in setting up encryption – creating certificates.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来我们来讨论设置加密时的一个关键组件——创建证书。
+- en: Enhancing security with certificates
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用证书增强安全性
+- en: '**Certificates** are used for many facets of secure communications globally.
+    Your hardware and software vendors often digitally sign their drivers and operating
+    system packages. Trusted authorities use certificates to ensure you can safely
+    use DNS and the internet. The list of use cases for certificates is significant.
+    Generally, these security certificates are obtained through a global **certificate
+    authority** (**CA**) organization. Many internet service providers (ISPs) also
+    have the ability to grant their customers an SSL certificate.'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**证书**被用于全球许多安全通信领域。你的硬件和软件供应商通常会为他们的驱动程序和操作系统包进行数字签名。受信任的机构使用证书来确保你可以安全地使用
+    DNS 和互联网。证书的使用案例非常广泛。通常，这些安全证书是通过全球 **证书颁发机构** (**CA**) 获得的。许多互联网服务提供商（ISP）也能够为他们的客户颁发
+    SSL 证书。'
+- en: These shared system certificates enable things like NSS, TLS, OpenSSL, and applications
+    to have a joint shared source of trust via a system certificate (trust anchor).
+    Not having an SSL certificate will prevent you from using an encrypted web server.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些共享的系统证书使得像 NSS、TLS、OpenSSL 以及应用程序等能够通过系统证书（信任锚）共享信任源。没有 SSL 证书将阻止你使用加密的 Web
+    服务器。
+- en: There is also the ability in Linux to create a self-signed certificate. These
+    are generally good enough for internal lab work but are considered insufficient
+    in a production environment and definitely not a good idea for your product.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Linux中也可以创建自签名证书。这些证书通常足够用于内部实验室工作，但在生产环境中被认为不足够，绝对不适合用于你的产品。
+- en: In thinking of where I can show you an example suitable for lab or demo usage,
+    I came up with this thought, “Where might we consider using a certificate? Your
+    DNF repository server?”
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在思考在哪里展示一个适合实验室或演示用途的例子时，我想到这个问题：“我们可以在哪些地方考虑使用证书？你的DNF仓库服务器？”
+- en: Let’s explore that thought with some hands-on exercises.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过一些动手练习来探索这个思路。
+- en: 'Exercise 1: Creating a self-signed certificate'
+  id: totrans-75
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习1：创建一个自签名证书
+- en: 'In this hands-on exercise, we’ll create a self-signed certificate that we could
+    possibly use to encrypt a web server. Let’s begin:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个动手练习中，我们将创建一个自签名证书，可能用于加密一个Web服务器。让我们开始：
+- en: First, we’ll verify that the web server is hosting our repository as previously
+    configured in [*Chapter 5*](B22104_05.xhtml#_idTextAnchor179).
+  id: totrans-77
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们将验证网络服务器是否按之前在[*第5章*](B22104_05.xhtml#_idTextAnchor179)中配置的方式托管我们的仓库。
+- en: '[PRE2]'
+  id: totrans-78
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: Important note
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: You’ll need to substitute your hostname or IP address that you configured for
+    your system.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你需要替换成你为系统配置的主机名或IP地址。
+- en: Confirm that the service is hosting your repository via your web browser.
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确认服务通过浏览器托管了你的仓库。
+- en: '![Figure 12.3 – Verifying your repository via a web browser](img/B22104_12_03.jpg)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图12.3 – 通过浏览器验证你的仓库](img/B22104_12_03.jpg)'
+- en: Figure 12.3 – Verifying your repository via a web browser
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图12.3 – 通过浏览器验证你的仓库
+- en: We will now begin setting up the environment by setting a system variable. For
+    this next step, replace `<hostname>` with your system’s FQDN. As root, execute
+    the following command.
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们现在将开始设置环境，首先设置一个系统变量。在这一步中，将`<hostname>`替换为你系统的FQDN。作为root，执行以下命令。
+- en: '[PRE3]'
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: .pem file.
+  id: totrans-86
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: .pem 文件。
+- en: '[PRE4]'
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: openssl req -new -key ${ssl_name}.pem -out ${ssl_name}.csr
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: openssl req -new -key ${ssl_name}.pem -out ${ssl_name}.csr
+- en: '[PRE5]'
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: You are about to be asked to enter information that will be incorporated
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你即将被要求输入一些信息，这些信息将被纳入
+- en: into your certificate request.
+  id: totrans-91
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 输入到证书请求中。
+- en: What you are about to enter is what is called a Distinguished Name or a DN.
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你即将输入的内容被称为“区分名称”或DN。
+- en: There are quite a few fields but you can leave some blank
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 有很多字段，但你可以留空某些字段
+- en: For some fields there will be a default value,
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 对于某些字段，将有默认值，
+- en: If you enter '.', the field will be left blank.
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果你输入'.'，该字段将留空。
+- en: '-----'
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '-----'
+- en: Country Name (2 letter code) [XX]:US
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 国家名称（2个字母代码）[XX]：US
+- en: State or Province Name (full name) []:MA
+  id: totrans-98
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 州或省名称（全名） []：MA
+- en: Locality Name (eg, city) [Default City]:Wilmington
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 本地名称（例如，城市）[默认城市]：威尔明顿
+- en: Organization Name (eg, company) [Default Company Ltd]:Embedded Security Book
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 组织名称（例如，公司）[默认公司有限公司]：嵌入式安全书籍
+- en: Organizational Unit Name (eg, section) []:Development
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 组织单位名称（例如，部门） []：开发
+- en: Common Name (eg, your name or your server's hostname) []:bm02.local
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 通用名称（例如，你的名字或服务器的主机名） []：bm02.local
+- en: Email Address []:admin@bm02.local
+  id: totrans-103
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 电子邮件地址 []：admin@bm02.local
+- en: Please enter the following 'extra' attributes
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请按要求输入以下“额外”属性
+- en: to be sent with your certificate request
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将随证书请求一起发送
+- en: A challenge password []:EmbeddedBook
+  id: totrans-106
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 挑战密码 []：嵌入式书籍
+- en: .csr file properly.
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: .csr 文件正确。
+- en: '[PRE6]'
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: This CSR file is what you would be sending to your CA if you were procuring
+    an enterprise SSL certificate. We can also leverage this to create a temporary
+    self-signed certificate locally.
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这个CSR文件是你在申请企业SSL证书时会发送给CA的文件。我们也可以利用这个文件在本地创建一个临时的自签名证书。
+- en: '[PRE7]'
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Let’s create a temporary cert that’s good for 90 days.
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们创建一个有效期为90天的临时证书。
+- en: '[PRE9]'
+  id: totrans-113
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Your output should look something like the following:'
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你的输出应该类似于以下内容：
+- en: '[PRE10]'
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: ls -l *<hostname>*
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ls -l *<hostname>*
+- en: '[PRE11]'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: -rw-r--r--. 1 root root 2110 Aug 25 21:30 bm02.local.cert
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: -rw-r--r--. 1 root root 2110 8月 25 21:30 bm02.local.cert
+- en: -rw-r--r--. 1 root root 1850 Aug 25 21:22 bm02.local.csr
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: -rw-r--r--. 1 root root 1850 8月 25 21:22 bm02.local.csr
+- en: -rw-------. 1 root root 3272 Aug 25 21:12 bm02.local.pem
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: -rw-------. 1 root root 3272 8月 25 21:12 bm02.local.pem
+- en: '[PRE12]'
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Wow, wasn’t that easy?! You’ve now created your first self-signed server certificate.
+    Please never use that in production unless there is no other way of securing your
+    web service. Now that we’ve created our certificate, let’s put it to good use
+    in our next exercise by attaching it to our web service.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哇，难道这不简单吗？！你现在已经创建了第一个自签名的服务器证书。除非没有其他方式来保护你的网络服务，否则请永远不要在生产环境中使用这个证书。现在我们已经创建了证书，让我们在下一个练习中将它应用到实际的网络服务中。
+- en: 'Exercise 2: Adding a certificate to your custom repository server'
+  id: totrans-123
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习 2：将证书添加到自定义仓库服务器
+- en: In this exercise, we’ll install your previously created self-signed certificate
+    into the web server you built previously to host your custom DNF repository. Once
+    completed, the web server itself will default to leverage the HTTPS protocol versus
+    the previous default of HTTP. The change in protocol means you’ll also need to
+    ensure that the firewall rules have also been updated. Let’s get started.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本练习中，我们将把之前创建的自签名证书安装到你之前搭建的 web 服务器中，用来托管你自定义的 DNF 仓库。完成后，web 服务器将默认使用 HTTPS
+    协议，而不是之前的默认 HTTP 协议。协议的更改意味着你还需要确保防火墙规则已经更新。我们开始吧。
+- en: As root, install `mod_ssl`.
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以 root 用户安装 `mod_ssl`。
+- en: '[PRE13]'
+  id: totrans-126
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Your output may be lengthy, but it should look somewhat like this – I have truncated
+    the output to save space.
+  id: totrans-127
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你的输出可能很长，但它应该大致像这样——我已将输出截断以节省空间。
+- en: '[PRE14]'
+  id: totrans-128
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: .pem file to the proper directory. Remember to substitute your own .pem file
+    (mine is shown as an example).
+  id: totrans-129
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将 .pem 文件放到正确的目录。记得替换成你自己的 .pem 文件（我的文件作为示例）。
+- en: '[PRE15]'
+  id: totrans-130
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: /etc/httpd/conf.d/ssl.conf file as root. Follow the instructions on which lines
+    to uncomment and edit. When done with the listed changes, save and exit the editor.
+  id: totrans-131
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /etc/httpd/conf.d/ssl.conf 文件以 root 用户身份编辑。按照指示取消注释并编辑相应行。完成修改后，保存并退出编辑器。
+- en: '[PRE16]'
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-133
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-134
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-135
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: Change this line to your own CRT file – mine is shown for example.
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将这一行更改为你自己的 CRT 文件——我的文件作为示例。
+- en: '[PRE20]'
+  id: totrans-137
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Change this line to your own PEM file – mine is shown for example.
+  id: totrans-138
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将这一行更改为你自己的 PEM 文件——我的文件作为示例。
+- en: '[PRE21]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '#SSLCertificateChainFile /etc/pki/tls/certs/server-chain.crt'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '#SSLCertificateChainFile /etc/pki/tls/certs/server-chain.crt'
+- en: httpd service as root and test. Run the following commands as root.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以 root 用户身份运行 httpd 服务并进行测试。以下命令以 root 用户身份运行。
+- en: '[PRE22]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: systemctl status httpd
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: systemctl status httpd
+- en: '[PRE23]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: ● httpd.service - The Apache HTTP Server
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ● httpd.service - Apache HTTP 服务器
+- en: 'Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; preset: disabled)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '已加载: 加载 (/usr/lib/systemd/system/httpd.service; 启用; 预设: 禁用)'
+- en: 'Drop-In: /usr/lib/systemd/system/service.d'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'Drop-In: /usr/lib/systemd/system/service.d'
+- en: └─10-timeout-abort.conf
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: └─10-timeout-abort.conf
+- en: 'Active: active (running) since Sun 2024-08-25 22:14:15 EDT; 8s ago'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '活跃状态: 活跃（运行中），自2024年8月25日 22:14:15 EDT 起，已运行 8 秒'
+- en: 'Docs: man:httpd.service(8)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '文档: man:httpd.service(8)'
+- en: 'Main PID: 4907 (httpd)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '主进程 PID: 4907 (httpd)'
+- en: 'Status: "Started, listening on: port 443, port 80"'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '状态: "已启动，监听端口：443，端口80"'
+- en: 'Tasks: 178 (limit: 38323)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '任务: 178（限制: 38323）'
+- en: 'Memory: 16.2M (peak: 17.8M)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '内存: 16.2M（峰值: 17.8M）'
+- en: 'CPU: 115ms'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'CPU: 115ms'
+- en: 'CGroup: /system.slice/httpd.service'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'CGroup: /system.slice/httpd.service'
+- en: ├─4907 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ├─4907 /usr/sbin/httpd -DFOREGROUND
+- en: ├─4908 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ├─4908 /usr/sbin/httpd -DFOREGROUND
+- en: ├─4909 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ├─4909 /usr/sbin/httpd -DFOREGROUND
+- en: ├─4910 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ├─4910 /usr/sbin/httpd -DFOREGROUND
+- en: ├─4911 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ├─4911 /usr/sbin/httpd -DFOREGROUND
+- en: └─4912 /usr/sbin/httpd -DFOREGROUND
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: └─4912 /usr/sbin/httpd -DFOREGROUND
+- en: 'Aug 25 22:14:15 bm02.local systemd[1]: Starting httpd.service - The Apache
+    HTTP Server...'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '2024年8月25日 22:14:15 bm02.local systemd[1]: 正在启动 httpd.service - Apache HTTP
+    服务器...'
+- en: 'Aug 25 22:14:15 bm02.local (httpd)[4907]: httpd.service: Referenced but unset
+    environment variable evaluates to an e>'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '2024年8月25日 22:14:15 bm02.local (httpd)[4907]: httpd.service: 引用但未设置的环境变量被解析为
+    e>'
+- en: 'Aug 25 22:14:15 bm02.local httpd[4907]: Server configured, listening on: port
+    443, port 80'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '2024年8月25日 22:14:15 bm02.local httpd[4907]: 服务器配置完成，监听端口：443，端口80'
+- en: https). Since we have used a self-signed certificate, your browser will definitely
+    not like it, and it will make you confirm that you wish to proceed to that site.
+    Some browsers are more forgiving than others (regardless of the operating system
+    they are run on).Confirm in your browser window that you wish to continue by clicking
+    the `https` and the self-signed cert.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: https）。由于我们使用了自签名证书，浏览器肯定不喜欢它，并且会要求你确认是否要继续访问该网站。某些浏览器比其他浏览器更宽容（无论它们运行在哪个操作系统上）。在浏览器窗口中确认你希望继续，点击
+    `https` 并接受自签名证书。
+- en: '![Figure 12.4 – SSL warning because of the self-signed certificate](img/B22104_12_04.jpg)'
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图 12.4 – 因为自签名证书而出现的 SSL 警告](img/B22104_12_04.jpg)'
+- en: Figure 12.4 – SSL warning because of the self-signed certificate
+  id: totrans-168
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 12.4 – 因为自签名证书而出现的 SSL 警告
+- en: 'If all has worked as planned, you should have been able to get to your newly
+    encrypted web server and the page should look something like this:'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果一切按计划顺利进行，您应该能够访问到新加密的 Web 服务器，页面应该如下所示：
+- en: '![Figure 12.5 – HTTPS main test page](img/B22104_12_05.jpg)'
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图 12.5 – HTTPS 主要测试页面](img/B22104_12_05.jpg)'
+- en: Figure 12.5 – HTTPS main test page
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 12.5 – HTTPS 主要测试页面
+- en: Now let’s test the repository URL. Remember to use HTTPS (not HTTP) in the URL.
+    You may be prompted with the same SSL cert warnings. Drive on and confirm it’s
+    OK (substitute your own URL – mine is shown again as an example).
+  id: totrans-172
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们测试仓库 URL。记得在 URL 中使用 HTTPS（而不是 HTTP）。您可能会看到相同的 SSL 证书警告。继续并确认它是安全的（替换为您自己的
+    URL——这里再次使用的是我的 URL 作为示例）。
+- en: '![Figure 12.6 – Our custom DNF repository now uses HTTPS !!!](img/B22104_12_06.jpg)'
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图 12.6 – 我们自定义的 DNF 仓库现在使用 HTTPS !!!](img/B22104_12_06.jpg)'
+- en: Figure 12.6 – Our custom DNF repository now uses HTTPS !!!
+  id: totrans-174
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 12.6 – 我们自定义的 DNF 仓库现在使用 HTTPS !!!
+- en: So, now that we’ve walked through the creation of a self-signed certificate
+    and then taken it to make our custom DNF repository SSL-enabled, I want to impart
+    to you yet another consideration before we close.
+  id: totrans-175
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 现在，我们已经完成了自签名证书的创建，并使我们的自定义 DNF 仓库启用了 SSL，在结束之前，我想再给你们一个需要考虑的事项。
+- en: If your solution is going to use HTTPS, please build into your interface a way
+    for the end-user to click a button and have this process automated for them. Even
+    better, add in the option for the appliance to automatically ingest keys and a
+    certificate from a CA in your interface as well. These efforts are in line with
+    the tamper-proofing and user experience topics that were covered in [*Chapter
+    10*](B22104_10.xhtml#_idTextAnchor305). We should always strive to provide our
+    end-users with a positive user experience when using our appliance.
+  id: totrans-176
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果您的解决方案将使用 HTTPS，请在界面中提供一种方式，让最终用户可以点击按钮，自动执行此过程。更好的是，在界面中加入让设备自动从 CA 获取密钥和证书的选项。这些工作与[*第
+    10 章*](B22104_10.xhtml#_idTextAnchor305)中讨论的防篡改和用户体验主题相一致。我们应该始终致力于为最终用户提供积极的用户体验。
+- en: In this section, we secured the HTTPS service with encryption and a certificate.
+    Let’s move on to our next section, where we will review tools for securing all
+    of the actual network connections to services and ports of your appliance.
+  id: totrans-177
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在本节中，我们通过加密和证书确保了 HTTPS 服务的安全性。接下来我们将进入下一节，回顾用于保护您的设备服务和端口实际网络连接的工具。
+- en: Confirming that your networking is secure
+  id: totrans-178
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 确认您的网络是否安全
+- en: Almost all machines at some level communicate with other machines. In the embedded
+    Linux systems space, this may not always be true. Some appliances are simply standalone
+    solutions that are not connected to any network. In other use cases, the security
+    posture of where they may reside might dictate that they are on a heavily restricted
+    LAN segment that has limited access to other systems and no access whatsoever
+    to the internet or other segments of the enterprise.
+  id: totrans-179
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 几乎所有机器在某种程度上都会与其他机器进行通信。在嵌入式 Linux 系统领域，这一点并不总是成立。某些设备仅仅是独立解决方案，没有连接到任何网络。在其他使用案例中，它们可能所在的安全环境要求它们位于一个严格限制的局域网段，只有有限的对其他系统的访问权限，且完全无法访问互联网或企业的其他网络段。
+- en: Network configuration and securitization are intrinsic to basic Linux systems
+    administration. But we are not designing systems to reside within our own datacenter
+    or network. We are building products that will reside in a customer’s ecosystem,
+    whatever level of security that might entail. Our customers have placed a level
+    of trust and responsibility in our hands to ensure that what we deliver to them
+    is already locked down and secure. Oftentimes, more so than what their own limited
+    staff might have had the skills to perform. That’s why they are buying your solution.
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 网络配置和安全化是基本 Linux 系统管理的一部分。但我们并不是设计要部署在自己数据中心或网络中的系统。我们在构建将部署在客户生态系统中的产品，不论这种部署需要何种级别的安全性。我们的客户已将信任和责任交给我们，确保我们交付给他们的产品已经过锁定并安全可靠。很多时候，这比他们有限的员工可能具备的技能要好。这也是他们购买你解决方案的原因。
+- en: In the next few blocks, we’ll very briefly cover command-line and graphical
+    tools that I truly hope you already know. My reasoning is blunt and simple. Use
+    what works for your team, your environment, and your company’s build chain style.
+    I am actually hoping that this section is redundant and unnecessary for you. Even
+    better if it actually helps a little. Let’s move on to do a quick review of how
+    we can prepare our appliances (somewhat) for their new homes by using tools to
+    secure what traffic may pass in our next section covering firewalls.
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在接下来的几个模块中，我们将简要介绍我真心希望你已经了解的命令行和图形工具。我的理由直白且简单：使用适合你的团队、环境和公司构建链风格的工具。我实际上希望这一部分对你来说是多余且不必要的。如果它能稍微帮上一点忙，那就更好了。接下来，让我们快速回顾一下如何通过使用工具来为我们的设备（稍微）做好迎接新家准备，确保在下一部分的防火墙章节中可以控制哪些流量能够通过。
+- en: Firewalls
+  id: totrans-182
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 防火墙
+- en: 'Here’s a quick breakdown of some of the major settings groups for Linux firewalls:'
+  id: totrans-183
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这是一个关于 Linux 防火墙主要设置组的快速概览：
+- en: '**Connection**: This is a defined *named* network connection.'
+  id: totrans-184
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**连接**：这是一个定义好的*命名*网络连接。'
+- en: '**Zone**: A firewalld zone is a predefined level of trust for you to leverage.'
+  id: totrans-185
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**区域**：一个 firewalld 区域是你可以利用的预定义信任级别。'
+- en: '**Interface**: This one is pretty self-explanatory. It’s the interface that
+    you plan to apply new settings onto.'
+  id: totrans-186
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**接口**：这个很简单明了。它是你计划应用新设置的接口。'
+- en: '**Services**: These are predefined services that can be made accessible. Having
+    them predefined absolutely helps in the configuration process as memorizing every
+    service to port mapping and whether it’s UDP or TCP can be daunting.'
+  id: totrans-187
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**服务**：这些是可以使其可访问的预定义服务。预定义服务在配置过程中大有帮助，因为记住每个服务与端口的映射关系，以及它是 UDP 还是 TCP，都可能让人头大。'
+- en: '**Ports**: This is a fast way of defining multiple ports or ranges to make
+    them accessible.'
+  id: totrans-188
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**端口**：这是快速定义多个端口或端口范围使其可访问的一种方式。'
+- en: '**Configuration**: There are two possible selections for the state of the configuration
+    that you may be editing – **runtime** and **permanent**. Runtime state changes
+    are lost after a reboot or after a restart of the **firewalld** service.'
+  id: totrans-189
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**配置**：你正在编辑的配置有两种可能的状态——**运行时**和**永久性**。运行时状态的更改在重启或重启**firewalld**服务后会丢失。'
+- en: '**IPSets**: These are whitelists or blacklists that you can manage and easily
+    deploy.'
+  id: totrans-190
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IPSets**：这些是你可以管理和轻松部署的白名单或黑名单。'
+- en: There are several different ways of configuring a Linux firewall (firewalld).
+    Let’s browse through some examples.
+  id: totrans-191
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 有几种不同的方式可以配置 Linux 防火墙（firewalld）。让我们浏览一些示例。
+- en: The command line
+  id: totrans-192
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 命令行
+- en: The command-line tools for managing firewalls are virtually always installed
+    for you when you build a new system. The main tool we’ll highlight here is **firewall-cmd**.
+    As you can see from the *massively truncated* listing of all the possible settings,
+    firewall-cmd is a feature-rich toolset. It can easily be scripted as well.
+  id: totrans-193
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 管理防火墙的命令行工具在你构建新系统时几乎总是会预装。我们在这里重点介绍的主要工具是**firewall-cmd**。正如你从*大幅缩减*的所有可能设置列表中看到的，firewall-cmd
+    是一个功能丰富的工具集。它也可以轻松地编写脚本。
+- en: For an example of all the options, one could run the following command in a
+    terminal.
+  id: totrans-194
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 对于所有选项的示例，可以在终端中运行以下命令。
+- en: '[PRE24]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: The output of that command is rather lengthy. I’d recommend that you study it
+    on your own machine, pipe the output to the more or less command, and then page
+    your way through it.
+  id: totrans-196
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 那个命令的输出内容相当长。我建议你在自己的机器上研究它，将输出结果通过管道传输给 `more` 或 `less` 命令，然后分页浏览。
+- en: '[PRE25]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: The command line is the greatest and most flexible way to set firewall parameters,
+    but let’s be honest, it will take a bit of skill to master it. This methodology
+    is the preferred method by sysadmins around the world as it can be scripted and
+    easily repeated. It’s the ease of scripting that will aid your team greatly in
+    making such functionality behind the scenes from the end-users of your solution.
+  id: totrans-198
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 命令行是设置防火墙参数最强大、最灵活的方式，但说实话，掌握它需要一点技巧。这种方法是全球系统管理员的首选，因为它可以编写脚本并轻松重复。正是脚本化的便利将大大帮助你的团队，在用户看不见的后台实现这些功能。
+- en: Let’s take a look at some other alternative means to configure your firewall.
+  id: totrans-199
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 让我们来看看其他一些配置防火墙的替代方式。
+- en: Web console
+  id: totrans-200
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Web 控制台
+- en: The **web console** has been evolving rapidly over the past few years by extending
+    its basic sysadmin functionality to creating systems images or managing containers
+    or virtual machines. The further enhancement of the web console has lowered the
+    bar for admins of other platforms to get comfortable in the management of Linux
+    systems when their skills were rooted in other platforms.
+  id: totrans-201
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '**网络控制台**在过去几年里快速发展，逐步将其基础的系统管理员功能扩展到创建系统镜像或管理容器和虚拟机等方面。网络控制台的进一步增强降低了其他平台管理员对Linux系统管理的门槛，尤其是当他们的技能来源于其他平台时。'
+- en: Here’s an example screenshot of the web console (aka Cockpit) running on Fedora
+    40\. Under the **Networking** submenu, we can easily modify the firewall rules
+    as well as configure connections and other networking settings.
+  id: totrans-202
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这是一个展示在Fedora 40上运行的网络控制台（即Cockpit）的截图。在**网络**子菜单下，我们可以轻松修改防火墙规则，并配置连接和其他网络设置。
+- en: '![Figure 12.7 – Configuring a firewall via the web console](img/B22104_12_07.jpg)'
+  id: totrans-203
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图12.7 – 通过网络控制台配置防火墙](img/B22104_12_07.jpg)'
+- en: Figure 12.7 – Configuring a firewall via the web console
+  id: totrans-204
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图12.7 – 通过网络控制台配置防火墙
+- en: The web console is great for configuring your own systems in a lab or datacenter
+    environment; however, I strongly recommend avoiding this from being used by your
+    end-users on your appliances as it will require administrative privileges to do
+    most tasks… And now we’re back to the childproofing discussion again. Let’s move
+    on to a quick review of graphical UI tools for your firewall.
+  id: totrans-205
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 网络控制台非常适合在实验室或数据中心环境中配置您的系统；然而，我强烈建议避免终端用户在您的设备上使用它，因为执行大多数任务需要管理员权限……而现在我们又回到了防护措施的讨论。接下来，我们将快速回顾防火墙的图形用户界面工具。
+- en: Graphical UI-based tools
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 基于图形用户界面的工具
+- en: In Fedora (and most Linux distributions), there are actually multiple graphical
+    firewall configuration tools. Any can be installed via the gnome-software application
+    or via the command line. These tools make configuring and managing the firewall
+    vastly easier than trying to memorize the thousands of options found within the
+    command line.
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在Fedora（以及大多数Linux发行版）中，实际上有多个图形防火墙配置工具。任何工具都可以通过gnome-software应用程序或命令行进行安装。这些工具使得配置和管理防火墙比尝试记住命令行中成千上万的选项要容易得多。
+- en: Please note that when you search for tools to manage your firewall, gnome-software
+    (the app store within the Gnome desktop) also offers up the web console (Cockpit)
+    as a solution.
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，当您搜索管理防火墙的工具时，gnome-software（Gnome桌面中的应用商店）也会提供网络控制台（Cockpit）作为一种解决方案。
+- en: '![Figure 12.8 – Searching for software via the gnome-software GUI](img/B22104_12_08.jpg)'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图12.8 – 通过gnome-software图形界面搜索软件](img/B22104_12_08.jpg)'
+- en: Figure 12.8 – Searching for software via the gnome-software GUI
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图12.8 – 通过gnome-software图形界面搜索软件
+- en: Here’s what the firewall management GUI looks like while running it within the
+    Gnome desktop environment GUI.
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这是防火墙管理图形用户界面的截图，展示了它在Gnome桌面环境下运行的样子。
+- en: '![Figure 12.9 – The firewall GUI](img/B22104_12_09.jpg)'
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![图12.9 – 防火墙图形用户界面](img/B22104_12_09.jpg)'
+- en: Figure 12.9 – The firewall GUI
+  id: totrans-213
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图12.9 – 防火墙图形用户界面
+- en: My stance on these GUI-based firewall tools is the same as with the web console.
+    They’re great in the datacenter and the lab but I wouldn’t give an end-user of
+    an appliance access to them. Ever. Seriously.
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 我对这些基于图形用户界面的防火墙工具的态度与网络控制台相同。它们在数据中心和实验室中很有用，但我不会让任何设备的终端用户访问它们。永远不会。真的。
+- en: Should your appliance provide services that may require the end-user to open
+    additional ports on your appliance, you should automate and build into your interface
+    anything that might possibly require the end-user to have root access – just like
+    we covered in depth in [*Chapter 10*](B22104_10.xhtml#_idTextAnchor305). This
+    isn’t just tamper-proofing. You should think of it as futureproofing, or even
+    better, enhancing the user experience.
+  id: totrans-215
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果您的设备提供可能需要终端用户打开额外端口的服务，您应该自动化并将所有可能需要终端用户具有root权限的功能集成到您的界面中——就像我们在[*第10章*](B22104_10.xhtml#_idTextAnchor305)中深入讨论的那样。这不仅仅是防篡改。您应该把它当作是未来-proofing，或者更好的是，增强用户体验。
+- en: Honestly, it’s doubtful anyone will actually care which tools you used or didn’t
+    use to configure your appliance. Here’s where we shift from configuring the firewall
+    to confirming that what you think you’ve configured is the actual state of your
+    appliance. This is where I (again) remind you of that old saying, *Trust, but
+    verify*. Trust in your team’s efforts but verify that what you think you have
+    configured is what the appliance’s state actually is. I greatly recommend automating
+    this where you find it appropriate, but make sure that human hands still touch
+    the appliance, human eyes inspect the appliance, and all is well documented for
+    each unit.
+  id: totrans-216
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 说实话，没人会在乎你用了哪些工具或没用哪些工具来配置你的设备。这里我们从配置防火墙转到确认你认为已配置的内容是否就是设备的实际状态。再次提醒你那句老话，*信任，但要验证*。信任你团队的努力，但要验证你认为自己已配置的内容是否与设备的实际状态一致。我强烈建议在适当的地方进行自动化处理，但要确保依然有人工接触设备、人工检查设备，并且每个单元的所有操作都要有文档记录。
+- en: Let’s move on to activities that should always be religiously enacted at the
+    end of your build or upgrade cycles. Let’s review the validation of your solution.
+  id: totrans-217
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 让我们继续讨论在构建或升级周期结束时应始终严格执行的活动。让我们回顾一下如何验证你的解决方案。
+- en: Limitations of legacy hardware and software
+  id: totrans-218
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 遗留硬件和软件的局限性
+- en: Here’s where I feel compelled to deliver some bad news. You may not always have
+    a choice in which hardware, connectivity methods, or buses your solution leverages.
+    The long-term supportability of your solution may force you and your team to implement
+    something less than ideal in order to maintain backward and forward compatibility
+    (a perfect example is the CAN bus).
+  id: totrans-219
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这里我觉得有必要传达一些坏消息。你可能无法总是选择你的解决方案所使用的硬件、连接方式或总线。解决方案的长期可维护性可能迫使你和你的团队实现某些不理想的设计，以保持向前和向后兼容性（一个典型的例子就是CAN总线）。
+- en: Older, legacy hardware wouldn’t be so bad if there wasn’t a common practice
+    for deprecating driver support for extremely old or unsupported chipsets. This
+    means that one could be forced to use unsupported drivers that are not included
+    in your operating system, that may not have been updated for a significant amount
+    of time, or that come from an unreliable source. Unsupported drivers (software)
+    may also mean that there are risks and vulnerabilities that are not addressed.
+    It’s a ticking time bomb.
+  id: totrans-220
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果没有一个普遍的做法来淘汰对极其老旧或不支持芯片组的驱动程序支持，老旧的遗留硬件可能不会那么糟糕。这意味着你可能被迫使用不受支持的驱动程序，这些驱动程序可能不包含在操作系统中，可能已经很久没有更新，或者来自不可靠的来源。不受支持的驱动程序（软件）也可能意味着有一些风险和漏洞没有得到解决。这是一个定时炸弹。
+- en: A compounding problem is that newer operating systems tend to require much newer
+    components. It seems that with each new release of Linux (regardless of distribution),
+    we get vastly more capabilities and functions. These new bells and whistles come
+    with a price tag – newer, more powerful hardware.
+  id: totrans-221
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 一个加重的问题是，较新的操作系统往往需要更新的组件。似乎每发布一个新的Linux版本（无论是哪个发行版），我们就能获得更多的功能和能力。这些新的花里胡哨的功能都有一个代价——需要更新、更强大的硬件。
+- en: 'Why does using the most current hardware and software matter? Here’s a real-world
+    example: most cars, short of catastrophic accidents, can realistically be on the
+    road for many years and outlive their computer subsystems’ normal lifecycle. That’s
+    just one example among countless possibilities.'
+  id: totrans-222
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 为什么使用最新的硬件和软件很重要？这里有一个现实的例子：大多数汽车，除非发生灾难性事故，否则通常可以在路上行驶多年，甚至超出其计算机子系统的正常生命周期。这只是无数可能性中的一个例子。
+- en: Security starts at the design table, but that doesn’t mean that you’ll always
+    have the best components (hardware or software) to choose from. Keep in mind there
+    will be limits.
+  id: totrans-223
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 安全从设计阶段开始，但这并不意味着你总是能选择到最好的组件（硬件或软件）。要记住，总会有一些限制。
+- en: Validating your solution before shipping
+  id: totrans-224
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在交付前验证你的解决方案
+- en: As we have progressed in our journey to secure our solution as much as possible,
+    there are still some critical activities that must be completed before you can
+    confidently ship your solution. These should be considered non-negotiable. Ignore
+    them at your peril.
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在我们尽可能确保解决方案安全的过程中，仍然有一些关键活动必须完成，才能让你自信地交付解决方案。这些活动应视为不可妥协的，忽视它们后果自负。
+- en: First is compliance integrations and testing, where you’ll confirm that your
+    appliance meets or exceeds any government or industry standards that may be applicable
+    within the domain it will be used. I feel this is such a crucial subject, that
+    the entire next chapter is dedicated to it entirely.
+  id: totrans-226
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 首先是合规集成和测试，你需要确认你的设备是否符合或超出了可能适用于它使用领域的任何政府或行业标准。我认为这是一个至关重要的主题，整个下一个章节将专门讲解这一部分内容。
+- en: Secondly, **penetration testing** (aka **pen-testing**) by a third party can
+    give you peace of mind and detailed insights as to anything you may have overlooked.
+    In this scenario, a professional ethical hacker (contractor) would leverage all
+    the tools of the trade in an attempt to gain unauthorized access or degrade the
+    usability of the appliance. Passing this type of testing will be a testament to
+    your team’s success and the brightness of your product’s future.
+  id: totrans-227
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 其次，**渗透测试**（也称为**渗透测试**）通过第三方可以让你安心，并深入了解任何你可能忽略的细节。在这种情况下，专业的道德黑客（承包商）将利用所有行业工具，试图获取未经授权的访问权限或降低设备的可用性。通过这种测试将是你团队成功和你产品未来前景光明的证明。
+- en: Let’s move on to our end-of-chapter summary.
+  id: totrans-228
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 让我们继续进行章节总结。
+- en: Summary
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: What is attached to your solution and what it communicates with absolutely matters.
+    These communications will also dictate what security concerns need to be addressed
+    proactively. In this chapter, we’ve toured a key group of buses and connection
+    types that you are most likely to encounter along with their unique use cases.
+    As we progressed, we reviewed a critical set of securitizations – your firewall
+    and encryption for your web traffic. These activities require a special amount
+    of attention to detail. The knowledge gained in this chapter should empower you
+    and your team to prepare for and design for such connectivity risks. We then closed
+    out the chapter with a simple reminder that you may have to worry about forward
+    and backward compatibility, which will impact your security profile.
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你的解决方案所附带的内容以及它与之通信的对象绝对重要。这些通信也将决定需要主动解决的安全问题。在本章中，我们介绍了一组你最有可能遇到的关键总线和连接类型，以及它们的独特应用场景。随着内容的推进，我们审视了一个关键的安全措施集——你的防火墙和网站流量加密。这些活动需要特别关注细节。本章中获得的知识应使你和你的团队能够为此类连接风险做好准备并进行设计。最后，我们通过一个简单的提醒结束本章，你可能需要考虑向前和向后兼容性问题，这将影响你的安全配置。
+- en: Again, I’d like to thank you for continuing this journey with me. In the next
+    chapter, we’ll be diving headfirst into applying security standards to our solutions.
+  id: totrans-231
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 再次感谢你继续和我一起走这段旅程。在接下来的章节中，我们将深入探讨如何将安全标准应用到我们的解决方案中。
+- en: '[PRE26]'
+  id: totrans-232
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-233
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'

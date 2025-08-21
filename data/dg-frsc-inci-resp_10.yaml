@@ -1,0 +1,1303 @@
+- en: '10'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '10'
+- en: Analyzing System Memory
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析系统内存
+- en: For a long time, law enforcement and other organizations performing digital
+    forensic tasks associated with incident investigations often relied on methodologies
+    that focused on evidence contained within the hard drive of a machine. Procedures
+    dictated that the system should be powered down and the hard drive removed for
+    imaging. While this methodology and the associated procedures were effective at
+    ensuring the integrity of the evidence, this overlooked the wealth of information
+    that was contained within the **Random Access Memory** (**RAM**), or memory for
+    short, of the targeted system. As a result, incident response analysts began to
+    focus a great deal of attention on ensuring that appropriate methods were employed
+    that maintained the integrity of this evidence, as well as giving them a platform
+    from which to obtain information of evidentiary value.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 长时间以来，执法部门和其他执行与事件调查相关的数字取证任务的组织常常依赖于专注于计算机硬盘中证据的方法论。程序要求关闭系统并拆卸硬盘以进行成像。虽然这种方法论及其相关程序有效地确保了证据的完整性，但它忽略了目标系统中**随机存取内存**（**RAM**，即内存）中包含的大量信息。因此，事件响应分析师开始将大量注意力集中在确保采用适当的方法来保持这些证据的完整性，同时为他们提供一个平台，从中获取具有证据价值的信息。
+- en: This chapter will focus on the types of evidence that can be located within
+    the memory of a system, the tools and techniques available to incident response
+    analysts, and, finally, how to analyze this information to obtain a clear understanding
+    of how the system was compromised. In addition, these techniques can also be integrated
+    into the analysis of other evidence, such as network log files and files located
+    on the targeted system.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将重点介绍可以在系统内存中定位的证据类型，事件响应分析师可用的工具和技术，最后，如何分析这些信息以清楚地了解系统是如何被入侵的。此外，这些技术还可以与其他证据的分析结合使用，例如网络日志文件和存储在目标系统上的文件。
+- en: 'In this chapter, the following main topic areas will be addressed:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涉及以下主要内容：
+- en: '**Memory analysis overview**: This section addresses the critical data points
+    that can be discovered through proper memory analysis'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**内存分析概述**：本节讨论通过适当的内存分析可以发现的关键数据点。'
+- en: '**Memory analysis methodology**: A structured approach is important to ensure
+    that responders can extract the necessary data'
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**内存分析方法论**：结构化的方法非常重要，确保响应人员能够提取必要的数据。'
+- en: '**Memory analysis with Volatility**: Often thought of as the gold standard
+    of memory analysis, this command-line tool has extensive features for data acquisition
+    and analysis'
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Volatility内存分析**：通常被认为是内存分析的黄金标准，这个命令行工具具有广泛的数据采集和分析功能。'
+- en: '**Memory analysis with Strings**: A simple but effective tool that affords
+    responders the ability to cull data from those areas of memory that other tools
+    may miss'
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**字符串内存分析**：一个简单但有效的工具，使响应人员能够从其他工具可能遗漏的内存区域中提取数据。'
+- en: At the end of this chapter, you will have both an understanding of the methodology
+    and the tools necessary for finding data points, analyzing them, and extracting
+    other evidence for follow-up analysis.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章结束时，您将掌握必要的方法论和工具，能够找到数据点，分析它们，并提取其他证据以供后续分析。
+- en: Memory analysis overview
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内存分析概述
+- en: When discussing how to analyze the memory of a system, two terms are used interchangeably.
+    The terms RAM and memory are used to describe the portion of the computer’s internal
+    systems where the operating system places data utilized by applications and the
+    system hardware while that application or hardware is in use. What makes RAM or
+    memory different from storage is the volatile nature of the data. Often, if the
+    system is shut down, the data will be lost.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在讨论如何分析系统内存时，两个术语通常互换使用。术语RAM和内存用于描述计算机内部系统中的一部分，在该部分中，操作系统放置被应用程序和系统硬件在使用时所需的数据。RAM或内存与存储的区别在于数据的易失性。通常，如果系统关闭，数据会丢失。
+- en: 'One change in operating systems that has had a direct impact on memory analysis
+    is the advent of the 64-bit OS. The use of a 64-bit register allows the OS to
+    reference a total of 17,179,869,184 GB of memory. When compared to the 32-bit
+    OS, this is several million times the amount of data previously available. As
+    a result, there is a good deal of data contained within RAM at the time a system
+    is running that is valuable in incident investigation. This includes the following:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统的一个变化，直接影响了内存分析，那就是 64 位操作系统的出现。使用 64 位寄存器使操作系统可以引用总共 17,179,869,184 GB
+    的内存。与 32 位操作系统相比，这个数据量是以前可用数据的几百万倍。因此，系统运行时，RAM 中包含了大量有价值的数据，这些数据在事件调查中具有重要作用。包括以下内容：
+- en: Running processes
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 正在运行的进程
+- en: Loaded **Dynamic Link** **Libraries** (**DLL**)
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加载的 **动态链接库** (**DLL**)
+- en: Loaded device drivers
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加载的设备驱动程序
+- en: Open registry keys
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打开注册表键
+- en: Network connections
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络连接
+- en: Command history
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 命令历史记录
+- en: As the necessity for analyzing the memory of systems has increased, there are
+    several tools that analysts have at their disposal. This chapter will focus on
+    three such tools; all of them are either open source or freeware and can be deployed
+    easily. These tools allow analysts to gain critical insight into the activity
+    of exploits and malware that have impacted a system.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着分析系统内存的必要性增加，分析师有几种工具可供使用。本章将重点介绍三种工具；它们都是开源或免费软件，且可以轻松部署。这些工具使分析师能够深入了解利用漏洞和恶意软件对系统造成的影响。
+- en: Throughout this chapter, two memory captures will be utilized. The first memory
+    capture is from a Windows system that has been infected by the Cridex virus. The
+    memory image can be downloaded from [http://files.sempersecurus.org/dumps/cridex_memdump.zip](http://files.sempersecurus.org/dumps/cridex_memdump.zip).
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，将使用两个内存捕获文件。第一个内存捕获文件来自一台被 Cridex 病毒感染的 Windows 系统。内存镜像可以从 [http://files.sempersecurus.org/dumps/cridex_memdump.zip](http://files.sempersecurus.org/dumps/cridex_memdump.zip)
+    下载。
+- en: The second is another Windows system that is part of a training exercise available
+    at [https://dfirmadness.com/case001/DC01-memory.zip](https://dfirmadness.com/case001/DC01-memory.zip).
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二部分是另一个 Windows 系统，属于一个可供训练使用的练习，文件可以通过 [https://dfirmadness.com/case001/DC01-memory.zip](https://dfirmadness.com/case001/DC01-memory.zip)
+    下载。
+- en: While both of the malware infections are relatively old, they are useful for
+    highlighting specific features of the toolsets we are going to examine.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这两种恶意软件感染相对较旧，但它们有助于突出我们将要分析的工具集的特定功能。
+- en: Memory analysis methodology
+  id: totrans-23
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内存分析方法论
+- en: When examining system memory, analysts should follow a methodology. This ensures
+    that all potential evidence is uncovered and can be utilized in an incident investigation.
+    We will examine two methodologies. The first of these is the SANS six-part methodology.
+    This is geared toward identifying indicators of compromise associated with the
+    execution of malware. Another methodology focuses on leveraging an IP address
+    or other network artifact to identify the malicious code associated with that
+    IP address.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在检查系统内存时，分析师应遵循一定的方法论。这可以确保所有潜在证据被发现，并且可以在事件调查中加以利用。我们将探讨两种方法论。其中一种是 SANS 六部分方法论，旨在识别与恶意软件执行相关的妥协指标。另一种方法论则侧重于利用
+    IP 地址或其他网络物品来识别与该 IP 地址相关的恶意代码。
+- en: One of the chief aims of memory analysis is to identify potentially malicious
+    processes or executables that can be extracted and examined. Much of the material
+    that is present in this chapter will carry over into [*Chapter 16*](B18571_16.xhtml#_idTextAnchor284),
+    where the extracted data will be further analyzed.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存分析的主要目标之一是识别潜在的恶意进程或可执行文件，这些文件可以提取出来进行检查。本章中的大部分内容将在 [*第 16 章*](B18571_16.xhtml#_idTextAnchor284)
+    中继续探讨，其中提取的数据将进一步分析。
+- en: SANS six-part methodology
+  id: totrans-26
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SANS 六部分方法论
+- en: 'The SANS institution makes use of a six-part methodology for analyzing memory
+    images. This process is designed to start from an overall view of what is running
+    to identifying and accessing the malicious software. The SANS methodology follows
+    the following steps:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SANS 机构采用六部分方法论来分析内存镜像。该过程旨在从全面了解正在运行的程序开始，直到识别和访问恶意软件。SANS 方法论包括以下步骤：
+- en: '**Identify rogue processes**: Malware often hides its behavior behind processes
+    that, on the surface, may seem legitimate. Uncovering these involves identifying
+    what processes are running, finding the location in the operating system they
+    are running from, and verifying that only legitimate processes are in use. Sometimes,
+    processes are hidden in plain sight, and adversaries change a single letter in
+    a process name. Other times, they will attempt to execute a process from an illegitimate
+    source.'
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**识别恶意进程**：恶意软件常常将其行为隐藏在表面上看似合法的进程后面。揭示这些进程需要识别当前运行的进程，找到它们在操作系统中的位置，并验证只使用了合法的进程。有时，进程会明目张胆地隐藏起来，攻击者通过修改进程名称中的一个字母来掩盖其踪迹。其他时候，他们会尝试从不合法的来源执行一个进程。'
+- en: '**Analyze process DLLs and handles**: Once a process or multiple processes
+    have been identified as rogue, the next step is to examine the DLL files associated
+    with the process, as well as other factors such as account information. DLL files
+    are often leveraged by malware coders to hide their activity. Techniques for using
+    DLL files to compromise a system include techniques where malware coders insert
+    their own malicious DLL files as part of the malware. Other techniques include
+    DLL injection, where a path to one of the malicious DLLs is written in the process.'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**分析进程的DLL和句柄**：一旦识别出某个进程或多个进程为恶意进程，下一步是检查与该进程相关的DLL文件，以及其他因素，如账户信息。恶意软件编程人员常常利用DLL文件隐藏其活动。利用DLL文件来攻破系统的技术包括恶意软件编程人员将自己的恶意DLL文件作为恶意软件的一部分插入系统。其他技术则包括DLL注入，即将恶意DLL文件的路径写入进程中。'
+- en: '**Review network artifacts**: Malware, especially multi-stage malware, requires
+    a connection to the internet. Even systems that are fully compromised often beacon
+    out to C2 servers. Active and listening network connections are contained within
+    the memory of these systems. Identifying external host IP addresses may give some
+    insight into what type of compromise has taken place.'
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**审查网络痕迹**：恶意软件，尤其是多阶段恶意软件，需要与互联网建立连接。即使完全被攻破的系统，通常也会向C2服务器发送信号。活动和监听中的网络连接存在于这些系统的内存中。识别外部主机的IP地址可能有助于洞察已发生的入侵类型。'
+- en: '**Look for evidence of code injection**: Techniques such as process hollowing,
+    and unmapped sections of the memory are often used by advanced malware coders.
+    Memory analysis tools help analysts find evidence of these techniques.'
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**寻找代码注入的证据**：进程空洞化和内存中未映射的区域等技术通常被高级恶意软件编程人员使用。内存分析工具帮助分析人员找到这些技术的证据。'
+- en: '**Check for signs of a rootkit**: Achieving persistence is a goal for many
+    external threat actors. If they can compromise the system initially, they must
+    maintain that. As a result, adversaries might use a rootkit or malware that embeds
+    itself deep within the operating system. This malware allows the adversary to
+    have continuous and often elevated access to the system while remaining undetected.'
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**检查根套件的迹象**：持久性是许多外部威胁行为者的目标。如果他们最初能够攻破系统，他们必须保持这种控制。因此，攻击者可能会使用根套件或嵌入到操作系统深处的恶意软件。这种恶意软件使攻击者能够持续、常常是以更高权限的方式访问系统，同时保持未被发现。'
+- en: '**Dump suspicious processes and drivers**: After locating any suspicious processes
+    or executables, analysts need to be able to acquire them for later analysis with
+    additional tools.'
+  id: totrans-33
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**转储可疑的进程和驱动程序**：在定位到任何可疑的进程或可执行文件后，分析人员需要能够获取它们，以便使用额外的工具进行后续分析。'
+- en: Next, we will look at the network connections methodology.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将了解网络连接的方法。
+- en: Network connections methodology
+  id: totrans-35
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 网络连接方法
+- en: 'In many incidents, the first indication that a system has been compromised
+    is attempted or completed connections to external hosts. Detection mechanisms
+    such as firewalls or web proxies may indicate that a system or systems are attempting
+    to communicate with suspect external hosts. From this starting position, it may
+    be possible to identify potential malware on a system:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在许多事件中，系统被攻破的第一个迹象是尝试或完成与外部主机的连接。防火墙或Web代理等检测机制可能表明系统正在尝试与可疑的外部主机通信。基于此起点，可能能够识别出系统上潜在的恶意软件：
+- en: '**Suspicious network connections**: Conducting a review of network connections
+    on hosts that have been associated with external connections will often provide
+    the process that is attempting to communicate.'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**可疑的网络连接**：对与外部连接相关的主机上的网络连接进行审查，通常能提供尝试进行通信的进程。'
+- en: '**Process name**: Examining the process from the network connections allows
+    analysts to perform similar actions found within the SANS methodology. It is advisable
+    for the analyst to also determine whether the identified process is one that often
+    requires a network connection.'
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程名称**：通过网络连接检查进程可以让分析员执行 SANS 方法中类似的操作。建议分析员还应该判断所识别的进程是否是一个通常需要网络连接的进程。'
+- en: '**Parent process ID**: Further insight into the parent process is useful for
+    determining whether the process is legitimate and has a legitimate need to communicate
+    via a network connection.'
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**父进程 ID**：深入了解父进程有助于判断该进程是否是合法的，并且是否有合法的需求通过网络连接进行通信。'
+- en: '**Associated entities**: Finally, examining the associated DLLs and other artifacts
+    brings us to the stage where they can be acquired and analyzed.'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**关联实体**：最后，检查关联的 DLL 和其他遗留物将引导我们到达一个阶段，届时可以获取并分析它们。'
+- en: Now, let’s look at some memory analysis tools.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来看一些内存分析工具。
+- en: Memory analysis tools
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内存分析工具
+- en: Analysts can use several tools to review memory images. Some tools provide a
+    GUI for ease of use, while others operate via the command line, making them useful
+    for scripting. In this chapter, three tools will be examined. The first of these,
+    Mandiant Redline, is a GUI-based memory analysis tool that examines memory images
+    for signs of rogue processes and scores them based on several factors. The second
+    of these tools is Volatility, a command-line tool that allows analysts to drill
+    into the details of the memory image and identify potentially malicious code.
+    The final tool that will be examined is the Strings utility available in Linux.
+    Strings allows keyword searching through GREP, which allows the responder to identify
+    IOCs that may not be readily visible with the other tools.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析员可以使用多个工具来查看内存映像。一些工具提供图形用户界面（GUI）以便使用，而其他工具则通过命令行操作，这使得它们对于脚本编写非常有用。本章将检查三种工具。第一种是
+    Mandiant Redline，它是一个基于 GUI 的内存分析工具，能够检查内存映像中的恶意进程迹象，并根据几个因素对其进行评分。第二种工具是 Volatility，它是一个命令行工具，允许分析员深入分析内存映像的细节，并识别潜在的恶意代码。最后将检查的是
+    Linux 中可用的 Strings 工具。Strings 允许通过 GREP 进行关键字搜索，帮助响应人员识别出可能不容易通过其他工具看到的 IOC。
+- en: Memory analysis with Volatility
+  id: totrans-44
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用 Volatility 进行内存分析
+- en: Volatility is an advanced open source memory forensics framework. The primary
+    tool within the framework is the Volatility Python script, which utilizes a wide
+    array of plugins to analyze memory images. As a result, Volatility can be run
+    on any operating system that supports Python. In addition, Volatility can be utilized
+    against memory image files from most of the commonly distributed operating systems,
+    including Windows for Windows XP to Windows Server 2016, macOS, and, finally,
+    common Linux distributions.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 是一个高级的开源内存取证框架。该框架中的主要工具是 Volatility Python 脚本，它利用多种插件来分析内存映像。因此，Volatility
+    可以在任何支持 Python 的操作系统上运行。此外，Volatility 还可以用于分析来自大多数常见操作系统的内存映像文件，包括从 Windows XP
+    到 Windows Server 2016 的 Windows 系统、macOS 以及常见的 Linux 发行版。
+- en: A range of plugins is available for Volatility, with more being developed. To
+    examine system memory, we will examine several plugins to ensure that you have
+    sufficient information to conduct a proper analysis. However, before using Volatility,
+    it is recommended that you ensure that your software is up to date and that any
+    new plugins have been explored to determine their applicability to the current
+    incident investigation.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 提供了一系列插件，且正在开发更多插件。为了检查系统内存，我们将检查几个插件，确保你拥有足够的信息进行正确的分析。不过，在使用 Volatility
+    之前，建议确保你的软件是最新的，并且已探索任何新插件，以判断它们是否适用于当前的事件调查。
+- en: Volatility versions
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 版本
+- en: Volatility is currently in version 3, but version 2 is still in use, especially
+    for analysts that may still need to analyze memory images from Windows XP or Server
+    2003 systems. The main difference between the two is that version 3 no longer
+    requires the analyst to set a system profile for Volatility to correctly parse
+    the memory image. In addition, there have been changes to the syntax of the various
+    plugins. Ashley Pearson’s Volatility cheat sheet blog, available at [https://blog.onfvp.com/post/volatility-cheatsheet/](https://blog.onfvp.com/post/volatility-cheatsheet/),
+    shows the differences.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 当前是版本 3，但版本 2 仍然在使用，尤其是对于那些可能仍需分析来自 Windows XP 或 Server 2003 系统的内存镜像的分析人员。两者之间的主要区别在于，版本
+    3 不再要求分析人员为 Volatility 设置系统配置文件，以便正确解析内存镜像。此外，插件的语法也发生了变化。Ashley Pearson 的 Volatility
+    备忘单博客，地址为 [https://blog.onfvp.com/post/volatility-cheatsheet/](https://blog.onfvp.com/post/volatility-cheatsheet/)，展示了这两者的差异。
+- en: Installing Volatility
+  id: totrans-49
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 安装 Volatility
+- en: 'Volatility is available for Linux, Windows, and macOS. Information on installing
+    it on the various OSs is available at [https://www.volatilityfoundation.org/releases](https://www.volatilityfoundation.org/releases).
+    For this chapter, Volatility was installed on the Linux Ubuntu subsystem available
+    on the Windows 10 OS. The following command will install Volatility on the Ubuntu
+    subsystem, as well as other Linux OSs:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 可用于 Linux、Windows 和 macOS。在 [https://www.volatilityfoundation.org/releases](https://www.volatilityfoundation.org/releases)
+    网站上可以找到关于如何在不同操作系统上安装它的信息。本章中，Volatility 被安装在 Windows 10 操作系统下的 Linux Ubuntu 子系统上。以下命令将在
+    Ubuntu 子系统及其他 Linux 操作系统上安装 Volatility：
+- en: '[PRE0]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'This will produce the following output:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成以下输出：
+- en: '![Figure 10.1 – Installing Volatility ](img/Image_B18571_10_01.jpg)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.1 – 安装 Volatility](img/Image_B18571_10_01.jpg)'
+- en: Figure 10.1 – Installing Volatility
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.1 – 安装 Volatility
+- en: 'Running the `ls` command shows the various scripts and files that are part
+    of the Volatility framework:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行 `ls` 命令显示了 Volatility 框架中各种脚本和文件：
+- en: '![Figure 10.2 – Verifying the Volatility installation ](img/Image_B18571_10_02.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.2 – 验证 Volatility 安装](img/Image_B18571_10_02.jpg)'
+- en: Figure 10.2 – Verifying the Volatility installation
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.2 – 验证 Volatility 安装
+- en: 'You can access the help menu in Volatility by running the following command:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过运行以下命令来访问 Volatility 的帮助菜单：
+- en: '![Figure 10.3 – Volatility help menu ](img/Image_B18571_10_03.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.3 – Volatility 帮助菜单](img/Image_B18571_10_03.jpg)'
+- en: Figure 10.3 – Volatility help menu
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.3 – Volatility 帮助菜单
+- en: Volatility commands
+  id: totrans-61
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Volatility 命令
+- en: 'Volatility uses a straightforward command structure. When using the Python
+    file, as we are here, use Python 3 and then the Volatility Python file. Next,
+    indicate the path to the file and finally the plugin. Additional parameters are
+    dependent on the plugin; you will see this in several of the plugins that we will
+    discuss. This is how the command line should look:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 使用简单的命令结构。当使用 Python 文件时，像我们这里一样，使用 Python 3 然后是 Volatility Python
+    文件。接下来，指明文件路径，最后是插件。附加参数取决于插件；你将在我们接下来讨论的几个插件中看到这一点。命令行应该如下所示：
+- en: '[PRE1]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Let’s go ahead and cover some of the plugins we can leverage with Volatility.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们继续介绍一些可以在 Volatility 中使用的插件。
+- en: Volatility image information
+  id: totrans-65
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Volatility 图像信息
+- en: 'First, we will start by getting some initial information about the memory image
+    and the system that it was obtained from. Even if the analyst is certain of the
+    OS, it is still a good practice to run the memory images against Volatility’s
+    `windows.info` plugin. The output of this plugin identifies the potential profile
+    of the memory image that becomes critical to utilizing the other plugins available.
+    In general, the Volatility syntax is composed of the path to the memory image
+    and the specific plugin. In this case, the following command is used:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将通过获取一些关于内存镜像及其来源系统的初步信息开始。即使分析人员确定了操作系统，运行内存镜像并使用 Volatility 的 `windows.info`
+    插件仍然是一种良好的实践。该插件的输出会识别出内存镜像的潜在配置文件，这对于使用其他插件至关重要。一般来说，Volatility 的语法由内存镜像的路径和特定插件组成。在这种情况下，使用以下命令：
+- en: '[PRE2]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'This produces the following results:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成以下结果：
+- en: '![Figure 10.4 – The windows.info plugin ](img/Image_B18571_10_04.jpg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.4 – windows.info 插件](img/Image_B18571_10_04.jpg)'
+- en: Figure 10.4 – The windows.info plugin
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.4 – windows.info 插件
+- en: In this case, the `NTBuildLab` field indicates that the memory image is from
+    a Windows XP machine. Next, let’s start analyzing the Windows process information.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，`NTBuildLab` 字段表明该内存镜像来自 Windows XP 计算机。接下来，让我们开始分析 Windows 进程信息。
+- en: Volatility process analysis
+  id: totrans-72
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Volatility 进程分析
+- en: In keeping with the SANS six-part methodology, the first of the plugins that
+    will be discussed are those that provide data about the processes running on the
+    system at the time of the memory capture. The aim here is to identify those processes
+    that appear suspicious and to identify any related data associated with them.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据SANS六步法，首先讨论的是那些提供有关系统在内存捕获时运行进程数据的插件。目标是识别那些看起来可疑的进程，并识别与其相关的任何数据。
+- en: Process list
+  id: totrans-74
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: 进程列表
+- en: 'The first of these will be the `windows.pslist` plugin. This plugin lists the
+    current processes running in memory. This plugin outputs the offset, process name,
+    PID, the number of threads and handles, and the date and time the process started
+    and exited. Because the `pslist` plugin walks the doubly-linked list indicated
+    by **PsActiveProcessHead**, it cannot detect hidden or unlinked processes. To
+    execute this plugin, enter the following into the Command Prompt:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个插件是`windows.pslist`插件。这个插件列出了当前在内存中运行的进程。它输出偏移量、进程名称、PID、线程和句柄的数量，以及进程启动和退出的日期和时间。由于`pslist`插件遍历的是由**PsActiveProcessHead**指示的双向链表，因此无法检测到隐藏或未链接的进程。要执行此插件，可以在命令提示符中输入以下内容：
+- en: '[PRE3]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'This will produce the following output:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将产生以下输出：
+- en: '![Figure 10.5 – Process list ](img/Image_B18571_10_05.jpg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.5 – 进程列表](img/Image_B18571_10_05.jpg)'
+- en: Figure 10.5 – Process list
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.5 – 进程列表
+- en: An initial analysis of the output does show a suspicious entry. Based on a cursory
+    examination, a file called `reader_sl.exe` was executed. This suspicion is largely
+    based on the non-standard file name but as we get further into the process, we
+    will get some more context and insight about this file.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对输出的初步分析确实显示了一个可疑的条目。根据粗略检查，执行了一个名为`reader_sl.exe`的文件。这个怀疑主要基于非标准的文件名，但随着我们进一步深入分析，我们将获得更多关于这个文件的上下文和洞察。
+- en: Process scan
+  id: totrans-81
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: 进程扫描
+- en: 'The `windows.psscan` plugin allows an analyst to examine processes that have
+    been terminated. As we discussed previously, `pslist` only shows active processes.
+    `psscan` can provide data about the possibility of a rootkit upon examining those
+    processes that have been unlinked or hidden. The following command will execute
+    the plugin:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`windows.psscan`插件允许分析员检查已终止的进程。正如我们之前所讨论的，`pslist`仅显示活动进程。`psscan`可以提供关于是否存在根套件的可能性，特别是在检查那些已经被取消链接或隐藏的进程时。执行以下命令可以启动插件：'
+- en: '[PRE4]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'This command produces the following output:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个命令将产生以下输出：
+- en: '![Figure 10.6 – Process scan ](img/Image_B18571_10_06.jpg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.6 – 进程扫描](img/Image_B18571_10_06.jpg)'
+- en: Figure 10.6 – Process scan
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.6 – 进程扫描
+- en: From the output of this plugin, it does not appear that any additional processes
+    have exited. The responder can then start to look at the existing processes for
+    any that may appear to be malicious.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这个插件的输出来看，似乎没有额外的进程已退出。响应人员可以开始查看现有进程，找出可能看起来是恶意的进程。
+- en: Process tree
+  id: totrans-88
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: 进程树
+- en: 'It is often necessary for responders to see what parent processes that child
+    processes are executed under. One indicator of a system being compromised is the
+    identification of a process executed outside the normal parent process. The `windows.pstree`
+    plugin provides examiners with a tree-like structure that identifies the parent
+    process that is executing a potential suspect process. The Cridex image is run
+    with this plugin, utilizing the following command:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，响应人员需要查看子进程是在哪些父进程下执行的。系统被入侵的一个标志是识别出一个在正常父进程之外执行的进程。`windows.pstree`插件为检查人员提供了一个树状结构，能够识别执行潜在可疑进程的父进程。使用以下命令，可以在运行Cridex映像时启用这个插件：
+- en: '[PRE5]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'This command produces the following output:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个命令将产生以下输出：
+- en: '![Figure 10.7 – Process tree ](img/Image_B18571_10_07.jpg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.7 – 进程树](img/Image_B18571_10_07.jpg)'
+- en: Figure 10.7 – Process tree
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.7 – 进程树
+- en: 'An analysis of the results from the three plugins shows an interesting entry.
+    PID 1640 is associated with the `reader_sl.exe` executable. The responder may
+    focus on this since it may not look like an application that should run. Further,
+    the parent PID indicates that it was run via Windows Explorer:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对这三个插件结果的分析显示了一个有趣的条目。PID 1640与`reader_sl.exe`可执行文件相关联。响应人员可以集中关注这个进程，因为它可能看起来不像是应该运行的应用程序。此外，父PID显示它是通过Windows资源管理器运行的：
+- en: '![Figure 10.8 – Suspicious processes ](img/Image_B18571_10_08.jpg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.8 – 可疑进程](img/Image_B18571_10_08.jpg)'
+- en: Figure 10.8 – Suspicious processes
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.8 – 可疑进程
+- en: From here, the responder can supplement the existing process data with additional
+    data, such as which DLLs are loaded and other ancillary data.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此，响应者可以用额外的数据补充现有的进程数据，例如加载了哪些 DLL 和其他辅助数据。
+- en: DLL list
+  id: totrans-98
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: DLL 列表
+- en: 'Responders can also check the loaded DLL files associated with a process. This
+    allows the analyst to determine whether a suspect process accessed these files
+    when it was executed. For example, if a responder would like to examine the DLL
+    files that are loaded as part of the suspect processes, PID 1640, the following
+    command can be run:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 响应者还可以检查与进程相关的加载 DLL 文件。这允许分析员确定可疑进程在执行时是否访问了这些文件。例如，如果响应者想检查作为可疑进程一部分加载的 DLL
+    文件（PID 1640），可以运行以下命令：
+- en: '[PRE6]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'This command produces the following output:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令生成以下输出：
+- en: '![Figure 10.9 – Associated DLL files ](img/Image_B18571_10_09.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.9 – 关联的 DLL 文件 ](img/Image_B18571_10_09.jpg)'
+- en: Figure 10.9 – Associated DLL files
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.9 – 关联的 DLL 文件
+- en: From here, analysts may be able to determine some of the functionality of the
+    process by analyzing the various DLL files that are loaded. Later in this chapter,
+    these DLL files will be acquired for further examination.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这里开始，分析员可能通过分析加载的各种 DLL 文件来确定进程的一些功能。稍后在本章中，将获取这些 DLL 文件以供进一步检查。
+- en: The windows.handles plugin
+  id: totrans-105
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: '`windows.handles` 插件'
+- en: 'The `windows.handles` plugin allows analysts to view what types of handles
+    are open in an existing process. These handles are references to resources that
+    are managed by the operating system. This data provides the responder with an
+    understanding of the specific blocks of memory an application or process is using.
+    This includes a wide variety of information, including registry keys and files
+    associated with that process. To identify the open handles for PID 1640 that were
+    previously identified, the following command can be used:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`windows.handles`插件允许分析员查看现有进程中打开的句柄类型。这些句柄是操作系统管理的资源的引用。该数据为响应者提供了应用程序或进程使用的特定内存块的理解。此数据包括广泛的信息，例如与该进程相关的注册表键和文件。要识别先前确定的
+    PID 1640 的打开句柄，可以使用以下命令：'
+- en: '[PRE7]'
+  id: totrans-107
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'This command produces the following output:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令生成以下输出：
+- en: '![Figure 10.10 – Handles output ](img/Image_B18571_10_10.jpg)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.10 – 句柄输出 ](img/Image_B18571_10_10.jpg)'
+- en: Figure 10.10 – Handles output
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.10 – 句柄输出
+- en: As the output indicates, the suspect process has several open handle processes,
+    threads, and registry keys. These may become important data points moving forward
+    and give some indication of the behavior of the `reader_sl.exe` executable.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如输出所示，嫌疑进程有多个打开的句柄进程、线程和注册表键。这些可能成为未来重要的数据点，并提供一些关于`reader_sl.exe`可执行文件行为的线索。
+- en: LDR modules
+  id: totrans-112
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: LDR 模块
+- en: 'A common practice with malware coders is attempting to hide the activities
+    of the malware. One technique is to attempt to hide the DLL files associated with
+    the malicious code. This can be accomplished by unlinking the suspect DLL from
+    the `windows.ldrmodules` plugin compares the list of processes and determines
+    if they are in the PEB. The following command runs `windows.ldrmodules` against
+    the Cridex image file:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件编写者常用的一种做法是尝试隐藏恶意软件的活动。一种技术是试图隐藏与恶意代码相关的 DLL 文件。这可以通过将可疑的 DLL 从 `windows.ldrmodules`
+    插件中取消链接来实现，该插件会比较进程列表并确定它们是否存在于 PEB 中。以下命令在 Cridex 镜像文件上运行 `windows.ldrmodules`：
+- en: '[PRE8]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'This produces the following output:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成以下输出：
+- en: '![Figure 10.11 – LDR modules output ](img/Image_B18571_10_11.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.11 – LDR 模块输出 ](img/Image_B18571_10_11.jpg)'
+- en: Figure 10.11 – LDR modules output
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.11 – LDR 模块输出
+- en: A review of the output reveals an interesting entry on the top line. From this
+    output, the `reader_sl.exe` file warrants further investigation.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 审查输出时，顶部行显示了一个有趣的条目。从该输出中，`reader_sl.exe`文件需要进一步调查。
+- en: Malfind
+  id: totrans-119
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: Malfind
+- en: 'Adversaries use a variety of code injection techniques to run malware. The
+    Volatility `windows.malfind` plugin displays ranges within memory that may contain
+    injected code. Run the following command:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对手使用各种代码注入技术来运行恶意软件。Volatility 的`windows.malfind`插件显示可能包含注入代码的内存范围。运行以下命令：
+- en: '[PRE9]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'This produces the following abridged output:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成以下简化的输出：
+- en: '![Figure 10.12 – Malfind output ](img/Image_B18571_10_12.jpg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.12 – Malfind 输出 ](img/Image_B18571_10_12.jpg)'
+- en: Figure 10.12 – Malfind output
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.12 – Malfind 输出
+- en: In this screen capture, the two processes, `explorer.exe` and `reader_sl.exe`,
+    are indicated as executable due to the MZ header for both files. The `malfind`
+    plugin does not automatically indicate that the processes in question are malware
+    but indicates further analysis should be conducted. In this case, we will look
+    at extracting code associated with `reader_sl.exe` from memory, along with extracting
+    the associated DLL files.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此屏幕截图中，两个进程 `explorer.exe` 和 `reader_sl.exe` 被标识为可执行文件，因为两个文件都有 MZ 头。`malfind`
+    插件不会自动标识这些进程是恶意软件，但表示应该进行进一步的分析。在这种情况下，我们将查看如何从内存中提取与 `reader_sl.exe` 相关的代码，并提取相关的
+    DLL 文件。
+- en: Dumpfiles
+  id: totrans-126
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: Dumpfiles
+- en: 'Now that we have identified the suspected file, `reader_sl.exe`, let’s use
+    the `windows.dumpfiles` plugin. In this case, the plugin requires an output file.
+    In this case, we will output the `/home/forensics/EvidenceFiles/PID1640Dump` directory.
+    Finally, Process ID 1640 is used instead of a filename. The overall command looks
+    like this:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经识别出疑似文件 `reader_sl.exe`，接下来使用 `windows.dumpfiles` 插件。在这种情况下，插件需要一个输出文件。在这里，我们将输出
+    `/home/forensics/EvidenceFiles/PID1640Dump` 目录。最后，使用进程 ID 1640 而不是文件名。整体命令如下所示：
+- en: '[PRE10]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'This command outputs the following:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令输出以下内容：
+- en: '![Figure 10.13 – Dumpfiles output ](img/Image_B18571_10_13.jpg)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.13 – Dumpfiles 输出](img/Image_B18571_10_13.jpg)'
+- en: Figure 10.13 – Dumpfiles output
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.13 – Dumpfiles 输出
+- en: 'In this case, there are `.dat` and `.img` files for the `reader_sl.exe` executable,
+    along with the corresponding DLL files. By examining the `reader_sl.exe` image
+    file with a hex editor, we can see the header information:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，`reader_sl.exe` 可执行文件有 `.dat` 和 `.img` 文件，以及相应的 DLL 文件。通过使用十六进制编辑器查看
+    `reader_sl.exe` 图像文件，我们可以看到头信息：
+- en: '![Figure 10.14 – Hex view of reader_sl.exe ](img/Image_B18571_10_14.jpg)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.14 – reader_sl.exe 的十六进制视图](img/Image_B18571_10_14.jpg)'
+- en: Figure 10.14 – Hex view of reader_sl.exe
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.14 – reader_sl.exe 的十六进制视图
+- en: 'Next, obtaining an MD5 hash of the file output allows us to search VirusTotal
+    for any information about the file. The hash can be obtained by running the following
+    command:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，获取文件的 MD5 哈希值可以让我们在 VirusTotal 上搜索文件的任何信息。可以通过运行以下命令来获取哈希值：
+- en: '[PRE11]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'This outputs the `2a63509ad62eeeed0564dcb0981d90e1` hash. A check of VirusTotal
+    produces the following output:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将输出 `2a63509ad62eeeed0564dcb0981d90e1` 哈希值。通过 VirusTotal 检查，得到以下输出：
+- en: '![Figure 10.15 – VirusTotal results ](img/Image_B18571_10_15.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.15 – VirusTotal 结果](img/Image_B18571_10_15.jpg)'
+- en: Figure 10.15 – VirusTotal results
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.15 – VirusTotal 结果
+- en: 'While it might seem strange for there to only be anti-virus companies indicating
+    that the file hash is malicious, this does bring up a point: Volatility will only
+    output the code that is contained in memory and not the entire file. This is critical
+    to keep in mind when extracting code. Even if the antivirus providers indicate
+    it is not malicious, the file associated with the code may still be. Depending
+    on the investigation, the data that’s extracted will have to go through a much
+    more detailed malware analysis.'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管仅有反病毒公司指出文件哈希值是恶意的可能看起来有些奇怪，但这确实提出了一个要点：Volatility 只会输出内存中包含的代码，而不是整个文件。在提取代码时，必须牢记这一点。即使反病毒提供商指出它不是恶意的，与该代码关联的文件可能仍然是恶意的。根据调查情况，提取的数据必须经过更详细的恶意软件分析。
+- en: Volatility Workbench
+  id: totrans-141
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Volatility 工作台
+- en: One aspect of working with Volatility is using the command line. The main advantage
+    of using Volatility in the command line is the ability to create scripts that
+    automate the commands and output to text files. The drawback for analysts that
+    are not used to working with Volatility and the command line is that they may
+    need to continually reference commands or struggle with the correct syntax.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Volatility 的一个方面是使用命令行。使用命令行运行 Volatility 的主要优势是能够创建自动化命令的脚本并将输出保存为文本文件。对于不习惯使用
+    Volatility 和命令行的分析人员来说，缺点是他们可能需要不断参考命令或与正确的语法作斗争。
+- en: 'An option for analysts that may want a GUI-based version of Volatility is PassMark
+    Software’s Volatility Workbench. This tool can be downloaded at [https://www.osforensics.com/tools/volatility-workbench.html](https://www.osforensics.com/tools/volatility-workbench.html)
+    and installed on a Windows platform. Once installed, the GUI allows the analyst
+    to navigate to the image file and set the `windows.pslist` plugin was run against
+    a Windows memory capture:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于希望使用图形界面版本的 Volatility 的分析师，可以选择 PassMark Software 的 Volatility Workbench。该工具可以从
+    [https://www.osforensics.com/tools/volatility-workbench.html](https://www.osforensics.com/tools/volatility-workbench.html)
+    下载并安装在 Windows 平台上。安装后，图形界面允许分析师导航到映像文件并设置`windows.pslist`插件，以便对 Windows 内存捕获进行分析：
+- en: '![Figure 10.16 – Volatility Workbench ](img/Image_B18571_10_16.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.16 – Volatility Workbench ](img/Image_B18571_10_16.jpg)'
+- en: Figure 10.16 – Volatility Workbench
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.16 – Volatility Workbench
+- en: The tool also has additional functionality, such as logging all the commands
+    and outputs, along with the ability to copy them to a clipboard so that the output
+    can be included in the incident reporting. As stated previously, this is a solid
+    option for analysts that do not need the additional functionality and flexibility
+    of the command line.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具还具有其他功能，例如记录所有命令和输出，并能够将它们复制到剪贴板，以便将输出包括在事件报告中。如前所述，这是一个非常适合那些不需要命令行额外功能和灵活性的分析师的可靠选项。
+- en: Next, we will look at how to augment memory analysis using the simple Strings
+    tool and GREP.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将介绍如何使用简单的 Strings 工具和 GREP 来增强内存分析。
+- en: Memory analysis with Strings
+  id: totrans-148
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Strings 进行内存分析
+- en: In the previous section, the Volatility tools we looked at focused on those
+    areas of the memory image that are mapped. If data is not mapped properly, these
+    tools would be unable to extract the data and present it properly. This is one
+    of the drawbacks of these tools for memory analysis. There is a good deal of data
+    that will become unstructured and invisible to these tools. This could be the
+    case when network connections are shut down or processes are exited. Even though
+    they may not show up when the RAM is examined via Volatility, trace evidence will
+    often still be present. Other evidence such as the pagefile also contains evidence
+    that is unmapped and searchable.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一节中，我们查看的 Volatility 工具集中于内存映像中已映射的区域。如果数据未正确映射，这些工具将无法提取数据并正确显示。这是这些内存分析工具的一个缺点。很多数据会变得无结构，并且对这些工具不可见。这可能发生在网络连接被关闭或进程退出时。即使这些数据在通过
+    Volatility 检查 RAM 时无法显示，痕迹证据仍然可能存在。其他证据，例如页面文件，也包含未映射且可以搜索的证据。
+- en: One tool that is useful for extracting these traces is the Strings command,
+    which is present in many Linux and Windows OSs. Strings allows a responder to
+    search for human-readable strings of characters. Given a set of keywords or **Global
+    Regular Expression Print** (**GREP)** commands, the responder may be able to extract
+    additional relative data, even from RAM captures that may have been corrupted
+    via malware or improper acquisitions.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个有用的工具，用于提取这些痕迹的是字符串（Strings）命令，它在许多 Linux 和 Windows 操作系统中都可用。Strings 允许响应者搜索可读的字符字符串。给定一组关键字或**全局正则表达式打印**（**GREP**）命令，响应者可能能够提取更多的相关数据，即使是来自可能由于恶意软件或不当采集而损坏的
+    RAM 捕获。
+- en: Installing Strings
+  id: totrans-151
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装 Strings
+- en: 'Strings will often come preinstalled in many Linux distributions. Windows has
+    a standalone executable for string searches available at [https://docs.microsoft.com/en-us/sysinternals/downloads/strings](https://docs.microsoft.com/en-us/sysinternals/downloads/strings).
+    If Strings is not installed on the Linux platform of choice for the responder,
+    the following command will install it:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Strings 经常会在许多 Linux 发行版中预装。Windows 提供了一个独立的可执行文件，用于字符串搜索，地址为 [https://docs.microsoft.com/en-us/sysinternals/downloads/strings](https://docs.microsoft.com/en-us/sysinternals/downloads/strings)。如果
+    Strings 在响应者选择的 Linux 平台上未安装，可以使用以下命令进行安装：
+- en: '[PRE12]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'For a rather simple tool, Strings is a powerful way to search through bulk
+    data for specific keyword-based strings. In this book, the focus will be on extracting
+    specific data points with the following Strings syntax:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于一个相当简单的工具，Strings 是一种强大的方法，可以在大量数据中搜索特定的基于关键字的字符串。在本书中，重点将放在使用以下 Strings 语法提取特定数据点：
+- en: '[PRE13]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Common Strings searches
+  id: totrans-156
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 常见的 Strings 搜索
+- en: 'Network artifacts such as IP addresses and domains can often be found within
+    the pagefile or memory. To find IP addresses, use the `strings` command with the
+    following parameters:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络痕迹，如 IP 地址和域名，通常可以在页面文件或内存中找到。要查找 IP 地址，请使用 `strings` 命令，并添加以下参数：
+- en: '[PRE14]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'To find URIs and URLs, use `http` or `https`, respectively:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查找URI和URL，请分别使用`http`或`https`：
+- en: '[PRE15]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'There are also remnants of email addresses that may be discoverable. This is
+    very useful in investigating possible phishing attempts. To find email addresses,
+    use the following command:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可能会发现电子邮件地址的残留痕迹。这在调查可能的网络钓鱼攻击时非常有用。要查找电子邮件地址，请使用以下命令：
+- en: '[PRE16]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: There is a wide range of search terms and parameters, and it is impossible to
+    cover all of them in this chapter. The main takeaway from this is that the analyst
+    can leverage string searches across the memory image and pagefile as part of the
+    overall memory analysis.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 搜索词和参数的种类繁多，本章无法覆盖所有内容。主要的收获是，分析师可以通过内存镜像和交换文件进行字符串搜索，作为整体内存分析的一部分。
+- en: Summary
+  id: totrans-164
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 小结
+- en: This chapter discussed two major topic areas of memory analysis. First, we covered
+    the available data points and the methodology that can be followed. In addition,
+    several tools, such as Volatility, Volatility Workbench, and Strings, have been
+    explored. In addition to an overview of these tools, several of their features
+    have been explored. This only scratches the surface of the number of features
+    each of these tools has to offer the incident response analyst. These tools, taken
+    in conjunction with a methodology for analyzing system RAM, can give the analyst
+    a powerful tool for determining if a system has been compromised. With malware
+    becoming more advanced, including malware that executes entirely in RAM, analysts
+    must incorporate memory analysis into their capabilities. Marrying these techniques
+    with network evidence collection can provide analysts and their organizations
+    with a powerful tool to identify and remediate an incident.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章讨论了内存分析的两个主要主题。首先，我们介绍了可用的数据点和可以遵循的方法论。此外，还探讨了多个工具，如Volatility、Volatility
+    Workbench和Strings。除了对这些工具的概述外，还探讨了它们的一些功能。这仅仅是每个工具为事件响应分析师提供的功能的冰山一角。这些工具结合系统RAM分析方法论，可以为分析师提供强大的工具，以确定系统是否已被攻破。随着恶意软件变得更加先进，包括完全在RAM中执行的恶意软件，分析师必须将内存分析纳入其能力范围。将这些技术与网络证据收集相结合，可以为分析师及其组织提供强大的工具，帮助识别和修复安全事件。
+- en: In the next chapter, we will delve into examining a system’s permanent storage.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将深入探讨系统的永久存储检查。
+- en: Questions
+  id: totrans-167
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions to test your knowledge of this chapter:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请回答以下问题以测试您对本章内容的掌握情况：
+- en: What are some of the data points that can be found via memory analysis?
+  id: totrans-169
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过内存分析可以找到哪些数据点？
+- en: Running processes
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正在运行的进程
+- en: Network connection
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 网络连接
+- en: Command history
+  id: totrans-172
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 命令历史
+- en: All of the above
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 上述所有内容
+- en: What is not part of the network connections methodology?
+  id: totrans-174
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 什么不属于网络连接方法的一部分？
+- en: Process name
+  id: totrans-175
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进程名称
+- en: Parent process ID
+  id: totrans-176
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 父进程ID
+- en: Check for signs of a rootkit
+  id: totrans-177
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查是否有Rootkit迹象
+- en: Associated entities
+  id: totrans-178
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 相关实体
+- en: Dumping files associated with a process will never introduce malware into a
+    responder’s system.
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转储与进程相关的文件永远不会将恶意软件引入响应者的系统。
+- en: 'True'
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: One of the primary goals of memory analysis is to acquire malicious processes
+    or executables for further analysis.
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 内存分析的主要目标之一是获取恶意进程或可执行文件以便进一步分析。
+- en: 'True'
+  id: totrans-183
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-184
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: Further reading
+  id: totrans-185
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'For more information about the topics covered in this chapter, refer to the
+    following:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要了解本章涉及的主题，参见以下内容：
+- en: '*SANS Memory Forensics Cheat* *Sheet*: [https://digital-forensics.sans.org/blog/2017/12/11/updated-memory-forensics-cheat-sheet](https://digital-forensics.sans.org/blog/2017/12/11/updated-memory-forensics-cheat-sheet)'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*SANS内存取证备忘单*： [https://digital-forensics.sans.org/blog/2017/12/11/updated-memory-forensics-cheat-sheet](https://digital-forensics.sans.org/blog/2017/12/11/updated-memory-forensics-cheat-sheet)'
+- en: '*The Art of Memory* *Forensics*: [https://www.memoryanalysis.net/amf](https://www.memoryanalysis.net/amf)'
+  id: totrans-188
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*内存取证的艺术*： [https://www.memoryanalysis.net/amf](https://www.memoryanalysis.net/amf)'

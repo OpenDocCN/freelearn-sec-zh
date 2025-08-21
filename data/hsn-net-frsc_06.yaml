@@ -1,0 +1,886 @@
+- en: Statistical Flow Analysis
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 统计流分析
+- en: '**Statistical flow analysis** helps identify compromised machines in a vast
+    network, approves or disapproves **Data Leakage Prevention** (**DLP**) system
+    findings by cross references, and profiles individuals when needed. This style
+    of analysis can reveal a lot of information. It can help you find a compromised
+    machine or critical business files being leaked to the outside world. You can
+    profile someone to find out their work schedule, hours of inactivity, or sources
+    of entertainment while at work.'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**统计流分析**有助于在庞大的网络中识别被攻陷的机器，通过交叉参考来批准或否定**数据泄漏防护**（**DLP**）系统的发现，并在需要时进行个人画像。这种分析方式可以揭示大量信息。它可以帮助您找到被攻陷的机器或外泄的关键业务文件。您可以通过分析某人，了解他们的工作时间表、非工作时间或在工作时的娱乐来源。'
+- en: 'We will cover the following key concepts in this chapter:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下关键概念：
+- en: Statistical flow analysis
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 统计流分析
+- en: Collecting and aggregating data
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 收集和聚合数据
+- en: Key concepts around **Internet Protocol Flow Information Export** (**IPFIX**)
+    and NetFlow
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 关于**互联网协议流信息导出**（**IPFIX**）和NetFlow的关键概念
+- en: Technical requirements
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete exercises from this chapter, you will need the following tools
+    and codes:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成本章练习时，您将需要以下工具和代码：
+- en: Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    installed on Windows 10 OS/ Ubuntu 14.04
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark v3.0.0（[https://www.wireshark.org/download.html](https://www.wireshark.org/download.html)）安装在Windows
+    10操作系统/ Ubuntu 14.04上
+- en: YAF ([https://tools.netsa.cert.org/yaf/libyaf/yaf_silk.html](https://tools.netsa.cert.org/yaf/libyaf/yaf_silk.html))
+    only available on Linux (Not a part of Kali Linux)
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: YAF（[https://tools.netsa.cert.org/yaf/libyaf/yaf_silk.html](https://tools.netsa.cert.org/yaf/libyaf/yaf_silk.html)）仅在Linux上可用（不属于Kali
+    Linux的一部分）
+- en: SiLK ([https://tools.netsa.cert.org/silk/download.html](https://tools.netsa.cert.org/silk/download.html))
+    only available on Linux (not a part of Kali Linux)
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SiLK（[https://tools.netsa.cert.org/silk/download.html](https://tools.netsa.cert.org/silk/download.html)）仅在Linux上可用（不属于Kali
+    Linux的一部分）
+- en: '[https://github.com/nipunjaswal/networkforensics/tree/master/Ch4](https://github.com/nipunjaswal/networkforensics/tree/master/Ch4)'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://github.com/nipunjaswal/networkforensics/tree/master/Ch4](https://github.com/nipunjaswal/networkforensics/tree/master/Ch4)'
+- en: The flow record and flow-record processing systems (FRPS)
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 流记录和流记录处理系统（FRPS）
+- en: A **flow record** is the metadata information about flow on the network. Consider
+    a scenario where an infected system is talking to the attacker's system and has
+    uploaded two documents of 5 MB each to the attacker's system. In such cases, the
+    flow record will contain information such as the IP addresses of both the compromised
+    host and the attacker system, port numbers, date and time, and the amount of data
+    exchanged, which in this case would be around 10 MB.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**流记录**是网络上流的元数据。考虑一个场景，其中一个被感染的系统正在与攻击者的系统通信，并将两个5 MB的文档上传到攻击者的系统。在这种情况下，流记录将包含如被感染主机和攻击者系统的IP地址、端口号、日期和时间以及交换的数据量等信息，在本例中大约为10
+    MB。'
+- en: Understanding flow-record processing systems
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解流记录处理系统
+- en: 'The systems responsible for managing, building, and processing flow records
+    are called **flow-record processing systems**. An FRPS consists of the following
+    components:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 负责管理、构建和处理流记录的系统被称为**流记录处理系统**。FRPS包括以下组件：
+- en: '**Sensor**: Monitors the network for all the traffic flows, and generates flow
+    records for these flows.'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**传感器**：监控网络中的所有流量流，并为这些流生成流记录。'
+- en: '**Collector**: A server application that receives flow records from the sensor
+    and stores it the drive. There can be many collectors on a network.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**收集器**：一种服务器应用程序，从传感器接收流记录并将其存储到磁盘中。网络中可以有多个收集器。'
+- en: '**Aggregator**: Used to aggregate, sort, and manage data coming from multiple
+    sources (collectors).'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**聚合器**：用于聚合、排序和管理来自多个来源（收集器）的数据。'
+- en: '**Analyzer**: Analyzes the bits and bytes of data, and produces meaningful
+    information that reveals a wide variety of problems.'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**分析器**：分析数据的位和字节，并产生有意义的信息，揭示各种问题。'
+- en: Sensors are responsible for creating flow records. A sensor can vary from type
+    to type. Network-based sensors are mainly switches and other network equipment
+    that support flow-record generation and export. Equipment, such as Cisco switches,
+    generates flow records in the IPFIX format, while other devices may use the NetFlow
+    and sFlow formats. Hardware-based standalone appliances may also be used if the
+    existing infra does not support NetFlow's record and export features.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 传感器负责创建流记录。传感器的种类各异。基于网络的传感器主要是交换机和其他支持流记录生成和导出的网络设备。例如，思科交换机生成 IPFIX 格式的流记录，而其他设备可能使用
+    NetFlow 或 sFlow 格式。如果现有的基础设施不支持 NetFlow 的记录和导出功能，也可以使用基于硬件的独立设备。
+- en: Exploring Netflow
+  id: totrans-21
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索 NetFlow
+- en: Now that we've understood flow records and FRPS, let's begin to explore NetFlow.
+    Consider a forensic scenario where we have captured 100 GB of full-packet PCAP
+    files. Such large PCAP files are not easily portable and workable. This is where
+    we turn to NetFlow. It removes the payload part of the packet and harvests only
+    the header details.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了流记录和 FRPS，接下来我们开始探索 NetFlow。假设在取证场景中，我们捕获了 100 GB 的完整数据包 PCAP 文件。这么大的
+    PCAP 文件不容易携带和处理。此时，我们可以转向 NetFlow。它去除了数据包的负载部分，仅收集头部信息。
+- en: In the previous chapters, we learned to work with various headers, such as IPV4,
+    TCP, and UDP. Removing the payload so we are only left with headers would convert
+    our 100 gigs of PCAPs into a workable 600-700 MB.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的章节中，我们学习了如何处理各种头部信息，如 IPV4、TCP 和 UDP。如果我们去除负载，只剩下头部信息，那么我们的 100 GB PCAP
+    文件就能缩减为可处理的 600-700 MB。
+- en: 'NetFlow has a variety of headers, such as the following:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NetFlow 有多种头部信息，例如以下内容：
+- en: Source IP
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 源 IP
+- en: Destination IP
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 目标 IP
+- en: Source port
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 源端口
+- en: Destination port
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 目标端口
+- en: Protocol
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 协议
+- en: TCP flags
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: TCP 标志
+- en: Time
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 时间
+- en: Bytes info
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 字节信息
+- en: Packet info
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据包信息
+- en: In other words, we can say that it can be used as a replacement for full-packet
+    capture. However, we cannot depend on it for intelligent analysis, which requires
+    a full-packet capture. NetFlow can be thought of as a phone bill where we see
+    who called but cannot retrieve the conversation. NetFlow has ten versions, v1
+    to v10\. However, the widely-used ones are v5 and v10 (IPFIX), which we will discuss
+    in more detail.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 换句话说，我们可以说它可以作为完全数据包捕获的替代方案。然而，我们不能依赖它进行智能分析，因为这需要完全的数据包捕获。NetFlow 可以被看作是一张电话账单，我们知道是谁打了电话，但无法恢复通话内容。NetFlow
+    有十个版本，从 v1 到 v10。然而，广泛使用的版本是 v5 和 v10（IPFIX），我们将在后续进行更详细的讨论。
+- en: Uniflow and bitflow
+  id: totrans-35
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 单向流和双向流
+- en: 'Another simple concept is **uniflow** and **bitflow**. Consider a scenario
+    where system 1 has sent 500 bytes to system 2 and system 2 responded with 3500
+    bytes of data. In uniflow, this would be viewed as two separate entities, while
+    in bitflow it would be considered a single bidirectional entity with transfers
+    of 4,000 bytes. This can be viewed as follows:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个简单的概念是**单向流**（uniflow）和**双向流**（bitflow）。假设系统 1 向系统 2 发送了 500 字节的数据，而系统 2
+    回应了 3500 字节的数据。在单向流中，这将被视为两个独立的实体，而在双向流中，它将被视为一个单一的双向实体，传输了 4000 字节的数据。可以如下查看：
+- en: '| `172.16.62.1` | 59,628 | `172.16.62.2` | 80 | 19-01-2019 14:22 | 500 bytes
+    |'
+  id: totrans-37
+  prefs: []
+  type: TYPE_TB
+  zh: '| `172.16.62.1` | 59,628 | `172.16.62.2` | 80 | 2019-01-19 14:22 | 500 字节 |'
+- en: '| `172.16.62.2` | 80 | `172.16.62.1` | 59,628 | 19-01-2019 14:22 | 3,500 bytes
+    |'
+  id: totrans-38
+  prefs: []
+  type: TYPE_TB
+  zh: '| `172.16.62.2` | 80 | `172.16.62.1` | 59,628 | 2019-01-19 14:22 | 3,500 字节
+    |'
+- en: '| `172.16.62.1` | 59,628 | `172.16.62.2` | 80 | 19-01-2019 14:22 | 4,000 bytes
+    |  |'
+  id: totrans-39
+  prefs: []
+  type: TYPE_TB
+  zh: '| `172.16.62.1` | 59,628 | `172.16.62.2` | 80 | 2019-01-19 14:22 | 4,000 字节
+    |  |'
+- en: The first two entries represent uniflow, while the last one represents bitflow. Meanwhile,
+    uniflow provides much more information than bitflow, since you can tell how much
+    data was sent/received from each endpoint
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前两条记录代表单向流（uniflow），而最后一条记录代表双向流（bitflow）。同时，单向流提供比双向流更多的信息，因为你可以知道每个端点发送/接收了多少数据。
+- en: Sensor deployment types
+  id: totrans-41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 传感器部署类型
+- en: 'We just looked at uniflow and bitflow. Let''s discuss the FRP deployment and
+    architectures followed for smooth network analysis. Generally, the FRP components
+    are connected to a network in the setup shown in the following diagram:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们刚才看过了单向流和双向流。现在让我们讨论一下 FRP 部署和架构，帮助顺利进行网络分析。通常，FRP 组件按以下示意图所示连接到网络中：
+- en: '![](img/9adce81e-89ec-4431-b19b-fb9cafa1f18a.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9adce81e-89ec-4431-b19b-fb9cafa1f18a.png)'
+- en: The preceding diagram highlights the sensor deployment in a network where the
+    sensor is a part of the router, and through a dedicated channel, it transports
+    logs to the collector from where they are stored to the storage units. The storage
+    units are further connected to the analyzer for in-depth analysis. The architecture
+    can vary from one type to another, such as for host-flow, perimeter, and enclave
+    visibility.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述图示强调了网络中传感器的部署，其中传感器是路由器的一部分，通过专用通道，它将日志传输到收集器，然后存储到存储单元中。存储单元进一步与分析器连接，用于深入分析。架构可以根据不同类型有所不同，例如用于主机流量、边界和区域网络的可视化。
+- en: '![](img/284daf05-5ef3-4e3d-b4d7-d016148b7f03.png)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/284daf05-5ef3-4e3d-b4d7-d016148b7f03.png)'
+- en: 'We will denote the FRP system through a single icon, as shown in preceding
+    diagram. We can see that FRP is placed in between the firewall and the internal
+    router. The setup demonstrates the usage for perimeter visibility. Similarly,
+    enclave (switch level) visibility can be achieved by placing the sensors on most
+    of the switches and then aggregating the records:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将通过一个图标表示 FRP 系统，如前图所示。我们可以看到，FRP 位于防火墙与内部路由器之间。该设置展示了边界可视化的使用。类似地，通过将传感器放置在大多数交换机上并聚合记录，可以实现区域（交换机层级）可视化：
+- en: '![](img/54c733e4-f30d-413a-a7d3-58e43da9956a.png)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/54c733e4-f30d-413a-a7d3-58e43da9956a.png)'
+- en: 'Host-flow visibility can be achieved by placing the sensor right on the endpoint
+    itself and then aggregating the records:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 主机流量可通过将传感器放置在端点本身并聚合记录来实现：
+- en: '![](img/603e6306-f87c-4fbd-85c7-f3773b9daa85.png)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/603e6306-f87c-4fbd-85c7-f3773b9daa85.png)'
+- en: Analyzing the flow
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析流量
+- en: Many tools help to aid statistical flow analysis. The most common ones are **Yet
+    Another Flowmeter** (**YAF**), **System for Internet-Level Knowledge** (**SiLK**),
+    iSiLK, Argus, Wireshark, and Bro. While most of them provide a similar set of
+    features, we will primarily be discussing YAF and SiLK being open source and *easily
+    gettable*. We discussed IPFIX a bit in the previous section. Let's see how we
+    can convert a PCAP file into an IPFIX-enabled format through YAF. YAF is a tool
+    that processes packets from pcap files or live captures from network interfaces
+    into bidirectional flows to an IPFIX-oriented file format. The output retrieved
+    from YAF can be fed to popular tools, such as SiLK and other IPFIX-compliant tools.
+    YAF contains two primary tools, one is YAF itself, and the other is **yafascii**,
+    which prints data in the ASCII format based on the IPFIX-enabled input files.
+    YAF has other PCAP tools, such as **yafMetas2Pcap** and **getFlowKeyHash**, which
+    we will make use of in the upcoming chapters.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多工具有助于辅助统计流量分析。最常见的有**Yet Another Flowmeter**（**YAF**）、**Internet-Level 知识系统**（**SiLK**）、iSiLK、Argus、Wireshark
+    和 Bro。虽然它们大多数提供类似的功能集，我们将主要讨论开源的 YAF 和 SiLK，因为它们*易于获取*。我们在前面的章节中稍微讨论了 IPFIX。让我们来看一下如何通过
+    YAF 将 PCAP 文件转换为 IPFIX 格式。YAF 是一个将 pcap 文件或来自网络接口的实时捕获数据处理成双向流并转换为 IPFIX 定向文件格式的工具。YAF
+    输出的数据可以供流行的工具使用，如 SiLK 和其他 IPFIX 兼容工具。YAF 包含两个主要工具，一个是 YAF 本身，另一个是**yafascii**，它根据启用
+    IPFIX 的输入文件以 ASCII 格式打印数据。YAF 还有其他 PCAP 工具，如**yafMetas2Pcap**和**getFlowKeyHash**，我们将在后续章节中使用这些工具。
+- en: Converting PCAP to the IPFIX format
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将 PCAP 转换为 IPFIX 格式
+- en: 'YAF can convert PCAP files to the IPFIX format, as shown in the following screenshot:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: YAF 可以将 PCAP 文件转换为 IPFIX 格式，如下图所示：
+- en: '![](img/5098de2f-6b9f-46c9-94c0-dc322b5398e0.png)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5098de2f-6b9f-46c9-94c0-dc322b5398e0.png)'
+- en: We can see that executing the preceding command, `yaf --in filename.pcap --out
+    filename.yaf`, results in the generation of a new file, `Fullpack.yaf`, in the
+    IPFIX format. YAF optionally enables us to perform application labeling, deep-packet
+    inspection, DHCP fingerprinting, and much more.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，执行之前的命令`yaf --in filename.pcap --out filename.yaf`会生成一个新的文件`Fullpack.yaf`，该文件为
+    IPFIX 格式。YAF 还可以选择性地进行应用标签、深度数据包检查、DHCP 指纹识别等操作。
+- en: Viewing the IPFIX data
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查看 IPFIX 数据
+- en: 'Since we have converted the file into the IPFIX format, let''s print the contents
+    out in ASCII format using the yafscii tool, as shown in the following screenshot:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们已将文件转换为 IPFIX 格式，让我们使用 yafascii 工具以 ASCII 格式打印出其内容，如下图所示：
+- en: '![](img/97e8afd7-966c-4999-a161-9b2559fe9b8d.png)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/97e8afd7-966c-4999-a161-9b2559fe9b8d.png)'
+- en: 'Running the previous command will produce a text file similar to the following:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行之前的命令将生成类似于以下内容的文本文件：
+- en: '![](img/4bdd8f03-a6cd-4c76-b88b-73ea557cc8e8.png)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4bdd8f03-a6cd-4c76-b88b-73ea557cc8e8.png)'
+- en: We can see that the data is presented in the IPFIX-printable format. Since we've
+    covered the basics of PCAP conversion, let's try performing some analysis on the
+    IPFIX file.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到数据以IPFIX可打印格式呈现。既然我们已经覆盖了PCAP转换的基础知识，接下来让我们尝试对IPFIX文件进行一些分析。
+- en: Flow analysis using SiLK
+  id: totrans-62
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用SiLK进行流量分析
+- en: SiLK is a collection of various tools and scripts by CERT NetSA to facilitate
+    analysis in large and vast network setups. SiLK aids the collection, storage,
+    and analysis of the network data, and also enables the security teams to query
+    a variety of historical datasets. Let's perform some analysis over the file from
+    the previous example and make use of different utilities offered by SiLK.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SiLK是CERT NetSA提供的一组工具和脚本，旨在简化大型网络环境中的分析工作。SiLK帮助收集、存储和分析网络数据，并使安全团队能够查询各种历史数据集。让我们对上一个示例中的文件进行一些分析，并使用SiLK提供的不同工具。
+- en: 'However, before we do that, we need the file under analysis to be in the SiLK
+    format and not the flat IPFIX one. The reason we convert the file into the SiLK
+    format rather than using the flat IPFIX one is that files in the SiLK format are
+    more space-efficient. In the previous example, we converted the PCAP file to the
+    IPFIX format. Let''s use that converted file and convert it into the SiLK format,
+    as follows:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在我们这样做之前，我们需要将分析文件转换为SiLK格式，而不是使用平面的IPFIX格式。我们将文件转换为SiLK格式而不是使用平面IPFIX格式的原因是，SiLK格式的文件在空间使用上更加高效。在前面的示例中，我们将PCAP文件转换为IPFIX格式。现在让我们使用转换后的文件并将其转换为SiLK格式，如下所示：
+- en: '![](img/24855f59-2576-4e8e-b9f2-7800a47102e1.png)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/24855f59-2576-4e8e-b9f2-7800a47102e1.png)'
+- en: 'The SiLK suite contains a **rwipfix2silk** tool that converts IPFIX formats
+    to SiLK. We can see that we defined the output file using the `--silk-output`
+    switch. Let''s perform some basic file-information gathering on the `test.rw`
+    file we just created using the **rwfileinfo** tool, as shown in the following
+    screenshot:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SiLK套件包含一个**rwipfix2silk**工具，可以将IPFIX格式转换为SiLK格式。我们可以看到我们通过`--silk-output`开关定义了输出文件。让我们使用**rwfileinfo**工具对刚才创建的`test.rw`文件进行一些基本的文件信息收集，如下图所示：
+- en: '![](img/3e682798-bd00-43ca-93c3-41fb4895270f.png)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3e682798-bd00-43ca-93c3-41fb4895270f.png)'
+- en: 'The `rwfileinfo` tool prints the information, such as type, version, byte order,
+    header length, record length, and record counts, about a SiLK flow, IPset (command-line
+    utility for managing large list of IPs) , or a bag (data structure and a binary
+    file format containing IPv6 address) file. Additionally, we can specify the fields
+    to print using the `--field` switch followed by the numerically-unique prefix,
+    for example, to print count records, we will use the number `7`, as shown in the
+    following screenshot:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`rwfileinfo`工具打印有关SiLK流、IP集（用于管理大量IP地址的命令行工具）或袋文件（包含IPv6地址的二进制文件格式）的信息，如类型、版本、字节顺序、头部长度、记录长度和记录数。此外，我们还可以使用`--field`开关后跟数字唯一前缀来指定要打印的字段，例如，要打印计数记录，我们将使用数字`7`，如以下截图所示：'
+- en: '![](img/1e539561-017a-4dc0-8551-809b044878c7.png)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1e539561-017a-4dc0-8551-809b044878c7.png)'
+- en: To view all the unique prefixes, use the `help` command: `rwfileinfo --help`.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看所有唯一的前缀，使用`help`命令：`rwfileinfo --help`。
+- en: 'To view multiple record files, we can specify wildcards in the filename as
+    shown in the following screenshot that issuing the `rwfileinfo *.rw –summary`
+    command will print the following information:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看多个记录文件，我们可以在文件名中指定通配符，如下图所示，执行`rwfileinfo *.rw –summary`命令将打印以下信息：
+- en: '![](img/12635397-cd77-4da6-bc3b-cd844f0b253e.png)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/12635397-cd77-4da6-bc3b-cd844f0b253e.png)'
+- en: 'Having the `--summary` switch at the end will display the cumulative analysis
+    of the files:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在末尾添加`--summary`开关将显示文件的累计分析结果：
+- en: '![](img/099b4ff1-22ea-43a3-aea1-12d0ef91fa6d.png)'
+  id: totrans-74
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/099b4ff1-22ea-43a3-aea1-12d0ef91fa6d.png)'
+- en: We can see that using the `--summary` switch has given us a combined summary
+    of the total records, number of files, and file sizes.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，使用`--summary`开关给我们提供了总记录数、文件数量和文件大小的综合摘要。
+- en: Viewing flow records as text
+  id: totrans-76
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 以文本形式查看流量记录
+- en: 'We can view SiLK records using the **rwcut** tool:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用**rwcut**工具查看SiLK记录：
+- en: '![](img/2df04a83-0b06-40f0-bc45-b2a61db5cdf9.png)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2df04a83-0b06-40f0-bc45-b2a61db5cdf9.png)'
+- en: 'The `--num-rec` switch allows us to view only a specific set of records, which
+    in our case is the first five. Again, we have a variety of options with the rwcut
+    tool as well. We can define the fields using the `--fields` switch, as follows:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`--num-rec`开关允许我们仅查看特定的记录集，在我们的例子中是前五个记录。同样，rwcut工具也提供了多种选项。我们可以使用`--fields`开关来定义字段，如下所示：'
+- en: '![](img/7430b7f4-b3ea-4e53-b085-fafe1199f958.png)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7430b7f4-b3ea-4e53-b085-fafe1199f958.png)'
+- en: 'The output from the SiLK set of tools is very flexible and can be delimited
+    using the `--delimited` switch, as follows:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SiLK 工具集的输出非常灵活，可以使用 `--delimited` 开关进行分隔，如下所示：
+- en: '![](img/b5b30fb7-4258-4f39-84ca-98ec1473c3ce.png)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b5b30fb7-4258-4f39-84ca-98ec1473c3ce.png)'
+- en: We can see that `|` is the default delimiter. However, we can define our delimiter
+    character using the `--column-sep` switch, as shown in the preceding screenshot.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，`|` 是默认的分隔符。然而，我们可以使用 `--column-sep` 开关来定义我们的分隔符字符，如前面的截图所示。
+- en: 'The **rwtotal** tool summarizes the SiLK flow records by a specified key and
+    prints data matching the key. Consider a scenario where we need to count the data
+    flowing to the specific ports of the systems in a network, and we can use rwtotal
+    with the `--dport` switch as the key:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**rwtotal** 工具根据指定的键汇总 SiLK 流记录并打印匹配该键的数据。考虑这样一个场景，我们需要统计流向网络中某些系统特定端口的数据，并且可以使用
+    rwtotal 配合 `--dport` 开关作为键：'
+- en: '![](img/374993ac-700b-4954-ad00-e6b4375c962e.png)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/374993ac-700b-4954-ad00-e6b4375c962e.png)'
+- en: 'We can see that the data traveled massively to port `80`. The `--skip-zero`
+    switch eliminates the entries with zero records. Additionally, since SiLK is used
+    in large networks, summarizing the data flows from a particular VLAN, or a subnet,
+    becomes extremely easy using `--sip-first-16` and its other related options, as
+    shown in the following screenshot:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，数据大量传输到端口 `80`。`--skip-zero` 开关可以排除零记录的条目。此外，由于 SiLK 被用于大型网络，因此使用 `--sip-first-16`
+    及其相关选项来汇总来自特定 VLAN 或子网的数据流变得非常容易，如下截图所示：
+- en: '![](img/d2dc14e9-1b90-4221-9a29-a4a63564550f.png)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d2dc14e9-1b90-4221-9a29-a4a63564550f.png)'
+- en: 'We can see that using the first 24 in the source IP address; we have four entries
+    for `91.189` range having `1`, `2`, `30`, and `1` records, respectively. However,
+    if we only choose to view the first 16, the stats get clobbered and we get `34`
+    records from that specific range. This becomes extremely handy in dealing with
+    large network setups. Similar to rwtotal, **rwuniq** summarizes the records with
+    the `--field` switch, as shown in the following screenshot:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，使用源 IP 地址的前 24 位时，我们有四个条目对应 `91.189` 范围，记录分别为 `1`、`2`、`30` 和 `1`。然而，如果我们只选择查看前
+    16 位，统计数据会被覆盖，我们从该特定范围获得 `34` 条记录。这在处理大型网络设置时非常有用。类似于 rwtotal，**rwuniq** 使用 `--field`
+    开关总结记录，如下截图所示：
+- en: '![](img/171a386c-194b-49b7-9d53-44af1672f8d4.png)'
+  id: totrans-89
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/171a386c-194b-49b7-9d53-44af1672f8d4.png)'
+- en: 'The rwtotal tool is generally faster than the rwuniq tool but has less functionality.
+    The **rwstats** tool summarizes flow records by specified fields into bins, and
+    for each of the bins, it computes specific values and then displays the top and
+    bottom *N* number of values based on the primary value; let''s see an example:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: rwtotal 工具通常比 rwuniq 工具更快，但功能较少。**rwstats** 工具根据指定的字段将流记录总结到不同的桶中，对于每个桶，它计算特定的值，然后根据主值显示前后
+    *N* 个数值；我们来看一个例子：
+- en: '![](img/a823a766-94b8-48ef-95a0-a3dfb520ea19.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a823a766-94b8-48ef-95a0-a3dfb520ea19.png)'
+- en: 'We can see that we used overall stats in the preceding screenshot and we have
+    stats related to bytes, packets, and bytes per packet. The stats show vitals related
+    to intervals, counts, the percentile of input, and various other details. Let''s
+    see a better example where it will eventually make a lot of sense:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，在前面的截图中，我们使用了总体统计数据，并且有关于字节、数据包和每包字节的统计数据。这些统计数据显示了与时间间隔、计数、输入百分位数以及其他各种细节相关的重要信息。让我们看一个更好的例子，它最终会让这一切变得更有意义：
+- en: '![](img/b62095f1-df94-40cd-bf9b-85f325afeae3.png)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b62095f1-df94-40cd-bf9b-85f325afeae3.png)'
+- en: In the preceding screenshot, we have filtered the top-20 source/destination
+    pairs based on the number of  packets and chosen to display fields 1 and 2, that
+    is, source IP and destination IP, with packets as the value. We can immediately
+    see that the first entry on the output has the highest packet transfer, which
+    makes up 19.72% of the total flows from the capture.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们根据数据包数量过滤了前 20 个源/目标对，并选择显示字段 1 和字段 2，即源 IP 和目标 IP，以数据包为值。我们可以立即看到，输出中的第一个条目具有最高的数据包传输量，占捕获的总流量的
+    19.72%。
+- en: 'Figuring out the top-10 sources and destination ports is an easy job as well:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计算前 10 个源和目标端口也是一件简单的事情：
+- en: '![](img/f6895233-d631-4ce2-9ab9-f57b3a6c6a9b.png)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f6895233-d631-4ce2-9ab9-f57b3a6c6a9b.png)'
+- en: 'We can see that port `80` is one of the highest originating ports, making up
+    20.46% of the total packets, while port `56446` is the biggest receiving port,
+    receiving 14.76% of the total packets. We can also set threshold values as the
+    percentage using the `--percentage` switch, as shown in the following screenshot:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到端口`80`是流量来源最多的端口，占所有数据包的20.46%，而端口`56446`是接收数据最多的端口，占所有数据包的14.76%。我们还可以使用`--percentage`开关设置阈值百分比，如下图所示：
+- en: '![](img/d3c95d97-1518-4891-bc23-8355b0400256.png)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d3c95d97-1518-4891-bc23-8355b0400256.png)'
+- en: 'We now have the values based on the percentile. The **rwcount** tool allows
+    us to break the records into time intervals. Say we want to view the total number
+    of packets flowing every two minutes, we can issue the `rwcount` command with
+    the `--bin-size` switch having the seconds as the parameter as shown in the following
+    screenshot:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在拥有基于百分位数的数值。**rwcount**工具允许我们将记录划分为时间间隔。例如，我们想查看每两分钟流动的数据包总数，可以使用`rwcount`命令并加上`--bin-size`开关，以秒为参数，如下图所示：
+- en: '![](img/a06752d8-ca47-4a94-bf48-afa0095109d2.png)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a06752d8-ca47-4a94-bf48-afa0095109d2.png)'
+- en: We can now see records for every two-minute activity and can deduce that the
+    traffic spiked between 14:00 and 14:06 hrs. In a large setup, the preceding tool
+    proves to be extremely handy in pinpointing any unusual spikes at random times
+    of the day.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以看到每两分钟的活动记录，并且可以推断出流量在14:00到14:06之间出现了峰值。在大型环境中，前述工具在定位一天中任何随机时间点的异常流量尖峰时非常有用。
+- en: '**rwfilter** – what we call the S*wiss Army knife* for filtering flows – is
+    one of the most popular tools in the package. Let''s see an example:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**rwfilter**——我们称其为过滤流量的瑞士军刀——是这个软件包中最受欢迎的工具之一。让我们看一个例子：'
+- en: '![](img/2e172868-5e04-4213-92a5-2cce00e855f8.png)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2e172868-5e04-4213-92a5-2cce00e855f8.png)'
+- en: 'In the preceding screenshot, we built a filter for the source, port `80`, and
+    fed that as an input to the rwstats tool, where it displayed the source IP and
+    number of bytes transferred and its percentage. Additionally, we set a threshold
+    of 0.5%. Similarly, we can build filters of various kinds and feed the output
+    of one tool as an input to the other. Let''s see how we can make use of `rwscan`
+    and `rwsort` together:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们为源端口`80`构建了一个过滤器，并将其作为输入传递给rwstats工具，工具会显示源IP、传输的字节数及其百分比。此外，我们设置了0.5%的阈值。同样，我们可以构建各种类型的过滤器，并将一个工具的输出作为另一个工具的输入。接下来让我们看看如何一起使用`rwscan`和`rwsort`：
+- en: '![](img/3cd9a347-c514-4e38-a177-d40c05e3af1b.png)'
+  id: totrans-105
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3cd9a347-c514-4e38-a177-d40c05e3af1b.png)'
+- en: The rwscan tool detects scanning activities in the records, while the rwsort
+    reads the flow records and sorts them by specified fields. We used `--scan-model=2`,
+    which denotes a threshold random walk algorithm for portscan detection. Additionally,
+    in the output, we can see that for the source IP addresses, we have a start time,
+    end time, total flows, packets, and bytes transferred in the interval.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: rwscan工具检测记录中的扫描活动，而rwsort工具读取流记录并按指定字段对其进行排序。我们使用了`--scan-model=2`，这表示一种用于端口扫描检测的阈值随机行走算法。此外，在输出中，我们可以看到源IP地址的开始时间、结束时间、总流量、数据包数量以及在该时间间隔内传输的字节数。
+- en: Well, we have now covered a small number of SiLK utilities; we will cover more
+    in the upcoming chapters.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好了，我们现在已涵盖了一小部分SiLK工具，接下来会在后续章节中介绍更多。
+- en: 'Statistical flow analysis is making the life of forensic investigators easy
+    in terms of its portability and ease of maneuvering around the data. However,
+    network investigations in most of the cases require full-packet captures to determine
+    the payloads. Wireshark also provides basic flow-analysis features, such as protocol
+    hierarchy, I/O graphs, and IPv4 and IPv6 statistics. Let''s look at a few of them:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 统计流分析使得法医调查人员的工作变得更加轻松，尤其是在数据的可移植性和操作的便捷性方面。然而，大多数网络调查仍然需要进行完整的数据包捕获以确定有效载荷。Wireshark还提供了基本的流分析功能，例如协议层级、I/O图表以及IPv4和IPv6的统计信息。我们来看几个示例：
+- en: '![](img/48d9cf57-973a-449c-9b59-7981b679deef.png)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/48d9cf57-973a-449c-9b59-7981b679deef.png)'
+- en: 'Browsing to the **Statistics** | **Protocol** hierarchy, we find the detailed
+    list of protocols and associated bytes, bits/second and the percentage of bytes
+    as well as the count of packets. The Wireshark **Statistics** | **IO Graph** tab
+    allows us to view the sudden rise in traffic at certain time intervals:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 浏览到**统计**|**协议**层级，我们可以找到协议的详细列表以及相关的字节数、比特/秒、字节的百分比以及数据包的计数。Wireshark的**统计**|**I/O图表**标签允许我们查看在某些时间间隔内流量的突然上升：
+- en: '![](img/28fe27c4-66cd-49e4-934e-30c5ff036351.png)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/28fe27c4-66cd-49e4-934e-30c5ff036351.png)'
+- en: 'Additionally, browsing to **Statistics** | **IPv4** | **All Addresses** will
+    allow us to view statistics related to all the associated IP addresses, as shown
+    in the following screenshot:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，浏览到 **统计信息** | **IPv4** | **所有地址**，将允许我们查看所有相关 IP 地址的统计数据，如下图所示：
+- en: '![](img/b9cfa71e-1f21-4407-9880-0bd1a90f41e1.png)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b9cfa71e-1f21-4407-9880-0bd1a90f41e1.png)'
+- en: 'Similarly, **Statistics** | **IPv4** | **Destinations and Ports** options allow
+    us to view destinations and associated ports statistics, as follows:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，**统计信息** | **IPv4** | **目的地和端口**选项允许我们查看目的地和相关端口的统计数据，如下所示：
+- en: '![](img/2070dceb-55c3-4066-99ce-93678408fd98.png)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2070dceb-55c3-4066-99ce-93678408fd98.png)'
+- en: 'We can see that we can gather quick knowledge of the most transmitting endpoint
+    and port used by it with ease. Similar options exist for IPv6 traffic as well.
+    The HTTP packet-counter option from the **Statistics** | **HTTP** | **Packet Counter**
+    tab allows us to quickly jot down errors in the web applications and the type
+    of response sent by the application to the user:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，我们可以轻松地快速了解最频繁传输的端点和它使用的端口。类似的选项也适用于 IPv6 流量。来自 **统计信息** | **HTTP** |
+    **数据包计数器** 标签的 HTTP 数据包计数器选项可以帮助我们快速记录 Web 应用中的错误以及应用向用户发送的响应类型：
+- en: '![](img/0b4efa40-aa60-4163-8ccb-0370c4b0ea80.png)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0b4efa40-aa60-4163-8ccb-0370c4b0ea80.png)'
+- en: Summary
+  id: totrans-118
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: We will use statistical analysis techniques in the upcoming chapters in a much
+    more efficient manner. The goal of this chapter was to familiarize ourselves with
+    the tools used in the process. We looked at YAF, SiLK, and Wireshark for statistical
+    data analysis in the IPFIX and NetFlow formats.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在接下来的章节中以更高效的方式使用统计分析技术。本章的目标是让我们熟悉过程中使用的工具。我们查看了 YAF、SiLK 和 Wireshark 以进行
+    IPFIX 和 NetFlow 格式的统计数据分析。
+- en: In the next chapter, we will learn how to uncover the tunneled traffic and gain
+    forensic value from it. We will look at a variety of techniques to decode and
+    decrypt traffic sessions and active encryptions.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将学习如何揭示隧道流量并从中获得取证价值。我们将研究各种解码和解密流量会话以及活动加密的方法。
+- en: Questions
+  id: totrans-121
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions based on the exercises covered in this chapter:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据本章中的练习，回答以下问题：
+- en: What is the difference between Full packet capture and NetFlow?
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 完整数据包捕获与 NetFlow 有什么区别？
+- en: What kind of attacks can be analyzed using NetFlow and IPFIX data?
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可以通过 NetFlow 和 IPFIX 数据分析哪些类型的攻击？
+- en: Repeat the exercise covered in the chapter using the PCAP file from GIT repository
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 GIT 仓库中的 PCAP 文件重复本章中的练习
+- en: Further reading
+  id: totrans-126
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入阅读
+- en: 'In order to gain most out of this chapter, refer to the following links:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了从本章中获得最大收益，请参考以下链接：
+- en: For more on NetFlow using Silk, refer to this amazing guide at [https://tools.netsa.cert.org/silk/analysis-handbook.pdf](https://tools.netsa.cert.org/silk/analysis-handbook.pdf)
+  id: totrans-128
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 欲了解更多关于使用 SiLK 的 NetFlow 信息，请参考这本精彩的指南：[https://tools.netsa.cert.org/silk/analysis-handbook.pdf](https://tools.netsa.cert.org/silk/analysis-handbook.pdf)
+- en: For more on NetFlow to IPFIX, refer to [https://www.youtube.com/watch?v=LDmy-tVCsHg](https://www.youtube.com/watch?v=LDmy-tVCsHg)
+  id: totrans-129
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 欲了解更多关于 NetFlow 到 IPFIX 的信息，请参考 [https://www.youtube.com/watch?v=LDmy-tVCsHg](https://www.youtube.com/watch?v=LDmy-tVCsHg)
+- en: Refer to an excellent free training on glow analysis at [http://opensecuritytraining.info/Flow.html](http://opensecuritytraining.info/Flow.html)
+  id: totrans-130
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 请参考一个关于流量分析的优秀免费培训，[http://opensecuritytraining.info/Flow.html](http://opensecuritytraining.info/Flow.html)

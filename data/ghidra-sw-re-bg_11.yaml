@@ -1,0 +1,1300 @@
+- en: '*Chapter 9*: Scripting Binary Audits'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第 9 章*：二进制审计脚本'
+- en: Auditing binaries is a time-consuming task, so it is recommended to automate
+    the process as much as possible. When auditing a software project, hunting some
+    kind of vulnerabilities such as logical issues or architectural issues leading
+    to vulnerabilities cannot be automated but, in some other cases, such as memory
+    corruption vulnerabilities, they are generic and capable of being automated using,
+    for instance, a Ghidra script developed for this purpose.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 审计二进制文件是一项耗时的任务，因此建议尽可能自动化此过程。在审计软件项目时，寻找某些漏洞（如逻辑问题或架构问题）是无法自动化的，但在其他一些情况下，例如内存损坏漏洞，它们是通用的，可以通过开发
+    Ghidra 脚本来实现自动化。
+- en: In this chapter, you will learn how to automate the task of looking for vulnerabilities
+    in executable binaries using Ghidra. You will analyze how a Ghidra script developed
+    by Zero Day Initiative works by looking for vulnerable calls to `sscanf` (a C
+    library that reads formatted data from a string) in order to automate the bug
+    hunting process explained in the previous chapter.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将教你如何使用 Ghidra 自动化查找可执行二进制文件中的漏洞。你将分析 Zero Day Initiative 开发的 Ghidra 脚本，通过寻找调用
+    `sscanf`（一个从字符串中读取格式化数据的 C 库）的位置，以实现自动化漏洞搜索，进而延续上一章的漏洞挖掘过程。
+- en: Finally, we will discuss PCode, Ghidra's intermediate language, allowing you
+    to abstract your scripts from the processor's architecture.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们将讨论 PCode，Ghidra 的中间语言，它允许你将脚本与处理器架构解耦。
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主要内容：
+- en: Looking for vulnerable functions
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找易受攻击的函数
+- en: Looking for `sscanf` callers
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找 `sscanf` 的调用者
+- en: Analyzing the caller function using PCode
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 PCode 分析调用函数
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The requirements for this chapter are as follows:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的要求如下：
+- en: 'The GitHub repository containing all the necessary code for this chapter: [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter09](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter09)'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 包含本章所需所有代码的 GitHub 仓库：[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter09](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter09)
+- en: '`sscanf`: A Zero Day Initiative Ghidra script for automated bug hunting by
+    modeling vulnerable code: [https://github.com/thezdi/scripts/blob/master/sscanf/sscanf_ghidra.py](https://github.com/thezdi/scripts/blob/master/sscanf/sscanf_ghidra.py)'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sscanf`：Zero Day Initiative 开发的 Ghidra 脚本，用于通过建模易受攻击代码来进行自动化漏洞搜索：[https://github.com/thezdi/scripts/blob/master/sscanf/sscanf_ghidra.py](https://github.com/thezdi/scripts/blob/master/sscanf/sscanf_ghidra.py)'
+- en: 'Mingw-w64: GCC compiler for Windows 64- and 32-bit architectures: [http://mingw-w64.org/doku.php](http://mingw-w64.org/doku.php)'
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Mingw-w64：Windows 64 位和 32 位架构的 GCC 编译器：[http://mingw-w64.org/doku.php](http://mingw-w64.org/doku.php)
+- en: 'GNU ARM Embedded Toolchain: A suite of tools for compiling C, C++, and ASM
+    targeting ARM architectures. It allows us to cross-compile our source code targeting
+    the ARM platform: [https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads)'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GNU ARM 嵌入式工具链：一套用于编译 C、C++ 和 ASM 代码的工具，目标是 ARM 架构。它允许我们交叉编译源代码以支持 ARM 平台：[https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads)
+- en: 'If you want to learn more about toolchains, please, refer to the Packt book
+    *Mastering Embedded Linux Programming - Second Edition*, *Chris Simmonds*, *June
+    2017*: [https://subscription.packtpub.com/book/networking_and_servers/9781787283282](https://subscription.packtpub.com/book/networking_and_servers/9781787283282).'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果你想了解更多关于工具链的信息，请参考 Packt 出版社的书籍 *掌握嵌入式 Linux 编程 - 第二版*，*Chris Simmonds*，*2017
+    年 6 月*：[https://subscription.packtpub.com/book/networking_and_servers/9781787283282](https://subscription.packtpub.com/book/networking_and_servers/9781787283282)
+- en: 'Check out the following video to see the Code in Action: [https://bit.ly/2Io58y6](https://bit.ly/2Io58y6)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请查看以下视频，观看代码实战：[https://bit.ly/2Io58y6](https://bit.ly/2Io58y6)
+- en: Looking for vulnerable functions
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查找易受攻击的函数
+- en: If you remember from the previous chapter, when looking for vulnerabilities,
+    we started by looking for unsafe C/C++ functions listed in the symbols table.
+    Unsafe C/C++ functions are likely to introduce vulnerabilities because it's up
+    to the developer to check the parameters passed to the function. Therefore, they
+    have the opportunity to commit a programming error with safety implications.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你记得上一章的内容，当寻找漏洞时，我们从查找符号表中列出的不安全的C/C++函数开始。不安全的C/C++函数可能会引入漏洞，因为开发者需要检查传递给函数的参数。因此，他们有可能犯下有安全隐患的编程错误。
+- en: 'In this case, we will analyze a script that looks for the use of variables
+    expected to be initialized by `sscanf` without validating the proper initialization:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们将分析一个脚本，该脚本查找预期由`sscanf`初始化但未验证正确初始化的变量的使用：
+- en: '[PRE0]'
+  id: totrans-19
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-20
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-21
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-22
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-24
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '[PRE7]'
+  id: totrans-26
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: When compiling this code and executing it, the result is unpredictable. Since
+    the `data` variable is initialized to an empty string in line `01`, when `sscanf`
+    is called in line `04`, it is not able to read the `name` string and the `age`
+    integer from the `data` buffer.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当编译这段代码并执行时，结果是不可预测的。由于`data`变量在第`01`行初始化为空字符串，当`sscanf`在第`04`行被调用时，它无法从`data`缓冲区读取`name`字符串和`age`整数。
+- en: 'Therefore, `name` and `age` contain some unpredictable values when retrieving
+    their values on lines `05` and `06`, respectively. During an execution, in my
+    case (it will probably be different for you), it produced the following unpredictable
+    output:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，当分别在第`05`行和第`06`行检索`name`和`age`的值时，它们包含一些不可预测的值。在执行过程中，在我的情况下（可能与你不同），它产生了以下不可预测的输出：
+- en: '[PRE8]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: '[PRE9]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'To fix this vulnerability, you must check the return value of `sscanf` because,
+    on success, this function returns the number of values successfully scanned from
+    the given buffer. Only use the `age` and `name` variables in cases where both
+    are successfully read:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了解决这个漏洞，你必须检查`sscanf`的返回值，因为在成功时，该函数会返回成功从给定缓冲区扫描的值的数量。仅在成功读取`age`和`name`的情况下，才使用这两个变量：
+- en: '[PRE12]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-35
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: In the next section, you will learn how to look for the `sscanf` functions in
+    the symbols table in order to hunt for the kinds of vulnerabilities covered in
+    this section.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，你将学习如何在符号表中查找`sscanf`函数，以便寻找本节中涵盖的各种漏洞。
+- en: Retrieving unsafe C/C++ functions from the symbols table
+  id: totrans-43
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从符号表中检索不安全的C/C++函数
+- en: 'As you know from [*Chapter 2*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031),
+    *Automating RE Tasks with Ghidra Scripts*, when developing a `GhidraScript` script
+    to automate a task, the following states are available from scripting:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你在[*第二章*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031)中所知，*使用Ghidra脚本自动化反向工程任务*，当开发`GhidraScript`脚本以自动化任务时，脚本提供以下状态：
+- en: '`currentProgram`'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`currentProgram`'
+- en: '`currentAddress`'
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`currentAddress`'
+- en: '`currentLocation`'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`currentLocation`'
+- en: '`currentSelection`'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`currentSelection`'
+- en: '`currentHighlight`'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`currentHighlight`'
+- en: 'To obtain a symbols table instance of the current program, the Zero Day Initiative
+    script calls to the `getSymbolTable()` method from `currentProgram`:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了获得当前程序的符号表实例，Zero Day Initiative脚本调用`currentProgram`中的`getSymbolTable()`方法：
+- en: '[PRE20]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'And to pick all symbols related to the `_sscanf` function, we call the `getSymbols()`
+    method from the symbols table instance:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了获取与`_sscanf`函数相关的所有符号，我们从符号表实例中调用`getSymbols()`方法：
+- en: '[PRE21]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'Then, if there are no symbols in the `list_of_scanfs` list, our static analysis
+    indicates that the program is not vulnerable to unsafe `_sscanf` calls, so we
+    can return:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，如果`list_of_scanfs`列表中没有符号，我们的静态分析表明程序不会受到不安全的`_sscanf`调用的影响，因此我们可以返回：
+- en: '[PRE22]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '[PRE23]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: As you can see, it is straightforward to look for unsafe functions using Ghidra
+    scripting; this kind of script can be easily implemented using the Ghidra API.
+    Remember you have a quick reference to it in [*Chapter 6*](B16207_06_Final_SK_ePub.xhtml#_idTextAnchor108),
+    *Scripting Malware Analysis*.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，使用Ghidra脚本查找不安全函数非常简单；这种脚本可以很容易地使用Ghidra API实现。记得你可以在[*第六章*](B16207_06_Final_SK_ePub.xhtml#_idTextAnchor108)中快速查阅它，*恶意软件分析的脚本化*。
+- en: Decompiling the program using scripting
+  id: totrans-59
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用脚本反编译程序
+- en: 'Decompiling allows you to retrieve the program''s disassembly, which is the
+    view of the program that we use when looking for vulnerabilities. The following
+    Zero Day Initiative script code snippet is responsible for decompiling the program:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反编译使你能够检索程序的反汇编，这是我们在查找漏洞时使用的程序视图。以下是Zero Day Initiative脚本代码片段，负责反编译程序：
+- en: '[PRE25]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '[PRE28]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '[PRE29]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: '[PRE30]'
+  id: totrans-66
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '[PRE31]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: '[PRE32]'
+  id: totrans-68
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: '[PRE33]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: '[PRE34]'
+  id: totrans-70
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: '[PRE35]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '[PRE37]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: '[PRE38]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: '[PRE39]'
+  id: totrans-75
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: '[PRE40]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: '[PRE41]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '[PRE42]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: '[PRE43]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: 'Let me explain the steps taken in the preceding code snippet in order to perform
+    decompilation:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我解释一下前面代码片段中进行反编译的步骤：
+- en: 'Getting a `DecompilerOptions` instance: In order to decompile the program,
+    we need to obtain a decompiler object for a single decompile process. We start
+    by instantiating a `decompiler_options` object (line `00`).'
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取`DecompilerOptions`实例：为了反编译程序，我们需要为单次反编译过程获取一个反编译器对象。我们通过实例化一个`decompiler_options`对象来开始（`00`行）。
+- en: 'Retrieving options relevant to the decompiling process: To set the options,
+    we use the `grabFromToolAndProgram()` API, passing to it the tool options specific
+    to the decompiler and the target program, which is relevant to the decompiling
+    process.'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取与反编译过程相关的选项：为了设置选项，我们使用`grabFromToolAndProgram()` API，将反编译器特定的工具选项和目标程序传递给它，这对于反编译过程至关重要。
+- en: Ghidra classes implementing Ghidra's interface tools (`FrontEndTool`, `GhidraTool`,
+    `ModalPluginTool`, `PluginTool`, `StandAlonePluginTool`, `TestFrontEndTool`, and
+    `TestTool`) have associated options grouped by category.
+  id: totrans-83
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 实现Ghidra接口工具的Ghidra类（`FrontEndTool`、`GhidraTool`、`ModalPluginTool`、`PluginTool`、`StandAlonePluginTool`、`TestFrontEndTool`和`TestTool`）都有按类别分组的相关选项。
+- en: So, to obtain the decompiler category options (options relevant to decompiling)
+    of the current tool (which is `PluginTool`), the code snippet uses the option
+    service to retrieve the relevant decompiling options (lines `01`–`05`).
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 因此，要获取当前工具（即`PluginTool`）的反编译类别选项（与反编译相关的选项），代码片段使用选项服务来检索相关的反编译选项（`01`–`05`行）。
+- en: 'Setting values to the retrieved decompiling options: After retrieving the options
+    relevant for decompiling, the code snippet gets the appropriate decompiler option
+    values using the `grabFromToolAndProgram`() API, passing to it the tool options
+    and the target program (lines `06`–`10`).'
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 设置获取的反编译选项的值：在获取与反编译相关的选项后，代码片段使用`grabFromToolAndProgram()` API获取适当的反编译器选项值，将工具选项和目标程序传递给它（`06`–`10`行）。
+- en: Next, the code snippet obtains an instance of the decompiler and sets the decompiler
+    options to it (lines `11`–`15`).
+  id: totrans-86
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 接下来，代码片段获取反编译器实例并设置其选项（`11`–`15`行）。
+- en: 'Setting values to the retrieved decompiling options: Finally, the code snippet
+    checks whether it is able to decompile the program by calling to the `openProgram()`
+    API (lines `16`–`18`).'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 设置获取的反编译选项的值：最后，代码片段通过调用`openProgram()` API来检查是否能够反编译程序（`16`–`18`行）。
+- en: After obtaining a configured decompiler that is able to decompile the program,
+    we can start looking for callers of the `_sscanf` unsafe function.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在获得能够反编译程序的配置反编译器后，我们可以开始寻找`_sscanf`不安全函数的调用者。
+- en: Looking for sscanf callers
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 寻找`sscanf`调用者
+- en: As you know, finding an unsafe function in the program does not necessarily
+    mean that the program is vulnerable. To confirm if a function is vulnerable we
+    need to analyze the caller functions and analyze the parameters passed to the
+    unsafe function.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所知，在程序中找到一个不安全函数并不一定意味着程序存在漏洞。为了确认函数是否存在漏洞，我们需要分析调用者函数并分析传递给不安全函数的参数。
+- en: Enumerating caller functions
+  id: totrans-91
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 枚举调用者函数
+- en: 'The following code snippet can be used to identify the caller functions:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码片段可用于识别调用者函数：
+- en: '[PRE44]'
+  id: totrans-93
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: '[PRE45]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: '[PRE46]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: '[PRE47]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: '[PRE48]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: '[PRE49]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: '[PRE50]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: '[PRE51]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: '[PRE52]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: '[PRE53]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: '[PRE54]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: '[PRE55]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: '[PRE56]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: '[PRE57]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: The preceding code snippet looks for caller functions making use of the function
+    manager. It can be easily retrieved by calling to the `getFunctionManager()` function,
+    as shown in line `01`.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码片段通过使用函数管理器来寻找调用者函数。通过调用`getFunctionManager()`函数，可以轻松获取该管理器，如`01`行所示。
+- en: After that, we can iterate over the list of `_sscanf` symbols, checking whether
+    those symbols are functions, because we are interested in `_sscanf` functions
+    (lines `02` and `03`).
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，我们可以遍历`_sscanf`符号列表，检查这些符号是否是函数，因为我们关心的是`_sscanf`函数（`02`和`03`行）。
+- en: For every `_sscanf` symbol function identified, we enumerate its references
+    (line `04`).
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对每个已识别的`_sscanf`符号函数，我们枚举其引用（`04`行）。
+- en: The function referencing `_sscanf` is the caller function, so we can use the
+    `getFunctionContaining()` API to retrieve the caller function (lines `05`–`07`).
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 引用`_sscanf`的函数就是调用者函数，因此我们可以使用`getFunctionContaining()` API来获取调用者函数（`05`–`07`行）。
+- en: Finally, we can decompile the caller by using the `decompileFunction()` Ghidra
+    API (lines `08`–`13`).
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们可以通过使用`decompileFunction()` Ghidra API反编译调用者（`08`–`13`行）。
+- en: In the next section, we will analyze the resulting `caller_function_decompiled`
+    object using PCode to determine whether it is or isn't vulnerable.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将使用PCode分析得到的`caller_function_decompiled`对象，以确定它是否存在漏洞。
+- en: Analyzing the caller function using PCode
+  id: totrans-113
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 PCode 分析调用函数
+- en: 'Ghidra can work with both assembly language and PCode. PCode is an abstraction
+    of the assembly level, meaning that if you develop a script using PCode, you are
+    automatically supporting all the assembly languages that offer translation from
+    PCode. (At the time of writing this book, the following processors are supported:
+    6502, 68000, 6805, 8048, 8051, 8085, AARCH64, ARM, Atmel, CP1600, CR16, DATA,
+    Dalvik, HCS08, HCS12, JVM, MCS96, MIPS, PA-RISC, PIC, PowerPC, RISCV, Sparc, SuperH,
+    SuperH4, TI_MSP430, Toy, V850, Z80, TriCore, and x86.) Really powerful, right?'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra 可以同时处理汇编语言和 PCode。PCode 是汇编级别的抽象，这意味着如果你使用 PCode 编写脚本，你将自动支持所有能够从 PCode
+    翻译的汇编语言。（在撰写本书时，以下处理器是支持的：6502, 68000, 6805, 8048, 8051, 8085, AARCH64, ARM, Atmel,
+    CP1600, CR16, DATA, Dalvik, HCS08, HCS12, JVM, MCS96, MIPS, PA-RISC, PIC, PowerPC,
+    RISCV, Sparc, SuperH, SuperH4, TI_MSP430, Toy, V850, Z80, TriCore 和 x86。）真的很强大吧？
+- en: PCode to assembly-level translation
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode 到汇编级别的翻译
+- en: 'PCode assembly is generated with a processor specification language named SLEIGH:
+    [https://ghidra.re/courses/languages/html/sleigh.html](https://ghidra.re/courses/languages/html/sleigh.html).
+    You can check the current list of supported processors and their SLEIGH specifications
+    here: [https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Processors](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Processors).'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode 汇编是使用名为 SLEIGH 的处理器规格语言生成的：[https://ghidra.re/courses/languages/html/sleigh.html](https://ghidra.re/courses/languages/html/sleigh.html)。你可以在这里查看当前支持的处理器及其
+    SLEIGH 规格：[https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Processors](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Processors)。
+- en: 'To understand PCode, you must be familiar with three key concepts:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要理解 PCode，你必须熟悉三个关键概念：
+- en: '**Address space**: A generalization of the indexed memory (RAM) that a typical
+    processor has access to. The following screenshot shows a PCode code snippet highlighting
+    address space references:![Figure 9.1 – Address space in PCode'
+  id: totrans-118
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**地址空间**：是对典型处理器可访问的索引内存（RAM）的泛化。以下截图展示了一个 PCode 代码片段，突出显示了地址空间引用：![图 9.1 –
+    PCode 中的地址空间'
+- en: '](img/B16207_09_001.jpg)'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_001.jpg)'
+- en: Figure 9.1 – Address space in PCode
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.1 – PCode 中的地址空间
+- en: '**Varnode**: The unit of data manipulated by PCode. A sequence of bytes in
+    some address space is represented by the address and the number of bytes (constant
+    values are also varnodes). The following screenshot shows a PCode code snippet
+    highlighting varnodes:![Figure 9.2 – Varnodes in PCode'
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Varnode**：PCode 操作的数据单元。某个地址空间中的一系列字节通过地址和字节数来表示（常数值也被视为 varnode）。以下截图展示了一个
+    PCode 代码片段，突出显示了 varnode：![图 9.2 – PCode 中的 Varnodes'
+- en: '](img/B16207_09_002.jpg)'
+  id: totrans-122
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_002.jpg)'
+- en: Figure 9.2 – Varnodes in PCode
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.2 – PCode 中的 Varnodes
+- en: '**Operation**: One or many PCode operations enables to emulate a processor
+    instruction. PCode operations allow arithmetic, data moving, branching, logical,
+    Boolean, floating-point, integer comparison, extension/truncation, and managed
+    code. The following screenshot shows a PCode code snippet highlighting operations:![Figure
+    9.3 – Operations in PCode'
+  id: totrans-124
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**操作**：一个或多个 PCode 操作可用于模拟处理器指令。PCode 操作支持算术运算、数据移动、分支、逻辑运算、布尔运算、浮点数、整数比较、扩展/截断以及托管代码。以下截图展示了一个
+    PCode 代码片段，突出显示了操作：![图 9.3 – PCode 中的操作'
+- en: '](img/B16207_09_003.jpg)'
+  id: totrans-125
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_003.jpg)'
+- en: Figure 9.3 – Operations in PCode
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.3 – PCode 中的操作
+- en: 'You can also learn PCode and how to distinguish between address space/varnode/operation
+    in practice. To learn it this way, right-click on the instruction and choose **Instruction
+    Info…** to see the details:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你也可以通过实践学习 PCode，了解如何区分地址空间/varnode/操作。若想以这种方式学习，右键单击指令并选择 **指令信息...** 以查看详细信息：
+- en: '![Figure 9.4 – Retrieving information of a PCode instruction'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.4 – 检索 PCode 指令的信息'
+- en: '](img/B16207_09_004.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_004.jpg)'
+- en: Figure 9.4 – Retrieving information of a PCode instruction
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.4 – 检索 PCode 指令的信息
+- en: PCode mnemonics are self-explanatory. But for better understanding the PCode
+    assembly listing, please check the PCode reference.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode 助记符是自我解释的。但为了更好地理解 PCode 汇编清单，请查看 PCode 参考。
+- en: PCode reference
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode 引用
+- en: 'The list of PCode operations are fully documented here: [https://ghidra.re/courses/languages/html/pcodedescription.html](https://ghidra.re/courses/languages/html/pcodedescription.html).
+    You can also check out the `PcodeOp` Java autogenerated documentation: [https://ghidra.re/ghidra_docs/api/ghidra/program/model/pcode/PcodeOp.html](https://ghidra.re/ghidra_docs/api/ghidra/program/model/pcode/PcodeOp.html).'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode操作列表在此处有完整文档：[https://ghidra.re/courses/languages/html/pcodedescription.html](https://ghidra.re/courses/languages/html/pcodedescription.html)。你还可以查看`PcodeOp`的Java自动生成文档：[https://ghidra.re/ghidra_docs/api/ghidra/program/model/pcode/PcodeOp.html](https://ghidra.re/ghidra_docs/api/ghidra/program/model/pcode/PcodeOp.html)。
+- en: Even though PCode is a powerful tool, it cannot act as a complete substitute
+    for assembly language. Let's compare both to better understand this.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管PCode是一个强大的工具，但它不能完全取代汇编语言。我们通过对比这两者来更好地理解这个问题。
+- en: PCode versus assembly language
+  id: totrans-135
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: PCode与汇编语言
+- en: When comparing assembly language with PCode, we can notice that assembly language
+    is more human-readable because one assembly instruction is translated into one
+    or more PCode operations (one-to-many translation) making it more verbose. On
+    the other hand, PCode offers more granularity, allowing you to control every operation
+    step by step instead of doing a lot of things using a single instruction (that
+    is, move a value and update the flags at the same time).
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在比较汇编语言和PCode时，我们可以注意到，汇编语言更具可读性，因为一个汇编指令会翻译成一个或多个PCode操作（一对多的翻译），这使得它更为冗长。另一方面，PCode提供了更多的细粒度控制，可以让你逐步控制每个操作，而不是通过单一指令执行很多操作（即同时移动一个值并更新标志）。
+- en: 'So, in conclusion, PCode is preferable for scripting development while assembly
+    language is preferable when code is being analyzed by humans:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，总的来说，PCode更适合用于脚本开发，而汇编语言更适合人类分析代码时使用：
+- en: '![Figure 9.5 – Comparing both _sum disassembly listings: x86 assembly versus
+    PCode'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图9.5 – 比较两种_sum反汇编列表：x86汇编与PCode'
+- en: '](img/B16207_09_005.jpg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_005.jpg)'
+- en: 'Figure 9.5 – Comparing both _sum disassembly listings: x86 assembly versus
+    PCode'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图9.5 – 比较两种_sum反汇编列表：x86汇编与PCode
+- en: In the next section, we will use PCode to analyze the caller function stored
+    in the `caller_function_decompiled` variable.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将使用PCode分析存储在`caller_function_decompiled`变量中的调用者函数。
+- en: Retrieving PCode and analyzing it
+  id: totrans-142
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 获取PCode并分析它
+- en: 'Let''s start by retrieving the PCode decompilation from the `caller_function_decompiled`
+    variable. To do so, we only need access to the `highFunction` property:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们首先通过获取`caller_function_decompiled`变量的PCode反编译结果开始。为此，我们只需要访问`highFunction`属性：
+- en: '[PRE58]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: 'Every PCode basic block is constructed from PCode operations. We can access
+    the PCode operations of `caller_pcode` as follows:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个PCode基本块都是由PCode操作构成的。我们可以如下访问`caller_pcode`的PCode操作：
+- en: '[PRE59]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: 'We can also determine whether the operation is a `CALL` operation targeting
+    `sscanf` by checking whether the PCode operation is `CALL` and whether its first
+    operand is the address of `sscanf`:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以通过检查PCode操作是否为`CALL`，以及其第一个操作数是否为`sscanf`的地址，来判断操作是否为指向`sscanf`的`CALL`操作：
+- en: '[PRE60]'
+  id: totrans-148
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: 'The `CALL` operation on PCode will usually have the following three input values:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCode上的`CALL`操作通常有以下三个输入值：
+- en: '`input0`: The call target'
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`input0`：调用目标'
+- en: '`input1`: The destination'
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`input1`：目标地址'
+- en: '`input2`: The format string'
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`input2`：格式字符串'
+- en: 'The rest of the parameters are variables where the values retrieved from the
+    format string will be stored. So, we can calculate how many variables are given
+    to `sscanf` using the following code:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 剩余的参数是变量，用于存储从格式字符串中提取的值。因此，我们可以使用以下代码计算传递给`sscanf`的变量数量：
+- en: '[PRE61]'
+  id: totrans-154
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: After calculating the number of variables given to `sscanf`, we can determine
+    whether the output of `CALL` (the number of values read from the input buffer
+    of `sscanf`) is checked in the right way – meaning, to see whether all variables
+    (the counter is stored on the integer `num_variables`) were successfully read.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计算完传递给`sscanf`的变量数量后，我们可以确定`CALL`的输出（从`sscanf`输入缓冲区读取的值的数量）是否得到了正确的检查——也就是说，检查所有变量（计数器存储在整数`num_variables`中）是否成功读取。
+- en: 'It could be that the return value of `sscanf` is not ever checked, so the script
+    that we are analyzing starts performing this check, reporting this vulnerability
+    indicator if detected:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可能`sscanf`的返回值从未被检查，所以我们正在分析的脚本开始执行此检查，如果检测到该漏洞指示符，就报告该问题：
+- en: '[PRE62]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: 'After that, the script checks the **descendants**. Ghidra uses the term descendants
+    when referring to the subsequent uses of a variable:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，脚本检查**后代**。Ghidra使用“后代”一词来指代变量的后续使用：
+- en: '[PRE63]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: 'It looks for integer equality comparisons containing the output of `sscanf`
+    as operand and stores the value it is comparing with in the `comparand_var` variable:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它查找包含`sscanf`输出作为操作数的整数相等比较，并将它与之进行比较的值存储在`comparand_var`变量中：
+- en: '[PRE64]'
+  id: totrans-161
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: '[PRE65]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: '[PRE66]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: '[PRE67]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: '[PRE68]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: 'Finally, it checks whether the comparand value is a constant value, and if
+    it is less than the number of variables passed to `sscanf`, the script reports
+    it because some variable could be used without being properly initialized:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，它检查比较值是否是常量值，如果小于传递给`sscanf`的变量数量，脚本会报告这个问题，因为有些变量可能在未正确初始化的情况下被使用：
+- en: '[PRE69]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: '[PRE70]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: '[PRE71]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: As you can guess, this script logic can be applied to detect multiple kinds
+    of vulnerabilities; for instance, it can be easily adapted in order to detect
+    use-after-free vulnerabilities. To do so, you can look for `free` function calls
+    and determine whether the freed buffer is used after that.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所猜测的，这种脚本逻辑可以应用于检测多种类型的漏洞；例如，它可以很容易地改编为检测“使用后释放”（use-after-free）漏洞。为此，你可以查找`free`函数调用，并确定是否在释放后的缓冲区被使用。
+- en: Using the same PCode-based script in multiple architectures
+  id: totrans-171
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 在多个架构中使用相同的基于PCode的脚本
+- en: 'In this section, we will analyze the following vulnerable program but compiled
+    in two flavors – ARM and x86\. Thanks to PCode, we will code the script only once:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将分析以下脆弱的程序，但它在两种架构下编译——ARM和x86。得益于PCode，我们只需编写一次脚本：
+- en: '[PRE72]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: '[PRE73]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: '[PRE74]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: '[PRE75]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE75]'
+- en: '[PRE76]'
+  id: totrans-177
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE76]'
+- en: '[PRE77]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE77]'
+- en: '[PRE78]'
+  id: totrans-179
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE78]'
+- en: '[PRE79]'
+  id: totrans-180
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE79]'
+- en: '[PRE80]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE80]'
+- en: '[PRE81]'
+  id: totrans-182
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE81]'
+- en: '[PRE82]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE82]'
+- en: As you can see, the program is vulnerable because it checks whether `return_value`
+    is equal to `1`, but there are two variables (`name` and `age`) given to the `sscanf`
+    function.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，程序存在漏洞，因为它检查`return_value`是否等于`1`，但有两个变量（`name`和`age`）传递给`sscanf`函数。
+- en: 'Now we can compile the program for both x86 and the ARM processor:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以为x86和ARM处理器编译该程序：
+- en: 'Use Ming-w64 to compile it for the x86 architecture (don''t worry about whether
+    it''s 32 or 64 bits; it doesn''t matter for this experiment) to produce an `sscanf_x
+    86.exe` executable binary file:'
+  id: totrans-186
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用Ming-w64为x86架构编译它（不用担心是32位还是64位；对于此实验来说并不重要），生成`sscanf_x86.exe`可执行二进制文件：
+- en: '[PRE83]'
+  id: totrans-187
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE83]'
+- en: 'Use GNU Arm Embedded Toolchain to compile it for ARM to produce an `sscanf_arm.exe`
+    binary file:'
+  id: totrans-188
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用GNU Arm Embedded Toolchain为ARM架构编译它，生成`sscanf_arm.exe`二进制文件：
+- en: '[PRE84]'
+  id: totrans-189
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE84]'
+- en: 'We have to perform some minor changes in the `sscanf` script developed by Zero
+    Day Initiative in order to make it also work for ARM. These modifications are
+    not related to PCode. Modifications are necessary because Ghidra detects the `sscanf`
+    symbol instead of `_sscanf` and it is also detected as `SymbolNameRecordIterator`:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要对Zero Day Initiative开发的`sscanf`脚本进行一些小的修改，以便使其也能在ARM架构上运行。这些修改与PCode无关。之所以需要修改，是因为Ghidra检测到的是`sscanf`符号，而不是`_sscanf`，并且它也被检测为`SymbolNameRecordIterator`：
+- en: '![Figure 9.6 – Symbol tree and type identification of sscanf in an ARM binary'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图9.6 – ARM二进制中sscanf的符号树和类型识别'
+- en: '](img/B16207_09_006.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_006.jpg)'
+- en: Figure 9.6 – Symbol tree and type identification of sscanf in an ARM binary
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图9.6 – ARM二进制中sscanf的符号树和类型识别
+- en: 'So, we modify it to also include the `sscanf` symbol while calling the `next()`
+    method to retrieve the first element (the function) of our given `SymbolNameRecordIterator`:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们修改脚本，在调用`next()`方法检索给定`SymbolNameRecordIterator`的第一个元素（即函数）时，还包括`sscanf`符号：
+- en: '[PRE85]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE85]'
+- en: '[PRE86]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE86]'
+- en: 'As the last step, we execute the script after the analysis, setting the `postScript`
+    option. We execute Ghidra in headless mode over the `vunls` directory containing
+    both executable files – `sscanf_x86.exe` and `sscanf_arm.exe`:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一步，我们在分析后执行脚本，设置`postScript`选项。我们在headless模式下运行Ghidra，分析包含两个可执行文件（`sscanf_x86.exe`和`sscanf_arm.exe`）的`vunls`目录：
+- en: '[PRE87]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE87]'
+- en: 'The result will look as follows:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果如下所示：
+- en: '![Figure 9.7 – Running a single sscanf_ghidra.py script over the x86 and ARM
+    binaries'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图9.7 – 对x86和ARM二进制文件运行单一的`sscanf_ghidra.py`脚本'
+- en: '](img/B16207_09_007.jpg)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_09_007.jpg)'
+- en: Figure 9.7 – Running a single sscanf_ghidra.py script over the x86 and ARM binaries
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图9.7 – 对x86和ARM二进制文件运行单一的`sscanf_ghidra.py`脚本
+- en: As you can see, by using PCode, you can write a script once and support all
+    architectures without worrying about it.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，通过使用PCode，你只需编写一次脚本，就可以支持所有架构，而无需担心平台差异。
+- en: On the other hand, PCode allows you to automate the bug hunting process, having
+    fine-grained control due to the single assignment property accomplished by PCode.Fine-grained
+    control can be very useful with bug hunting. For instance, for checking whether
+    some program input exists that can reach a vulnerable function, it is easier to
+    use PCode than assembly language, because assembly operations usually modify a
+    lot of stuff (registers, memory, flags, and more) in a single operation.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，PCode 允许你自动化漏洞挖掘过程，利用 PCode 所实现的单一赋值特性，能够实现细粒度的控制。细粒度的控制在漏洞挖掘中非常有用。例如，检查是否存在能够触及易受攻击函数的程序输入时，使用
+    PCode 比使用汇编语言更容易，因为汇编操作通常会在一次操作中修改很多内容（寄存器、内存、标志等）。
+- en: Summary
+  id: totrans-205
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: In this chapter, you learned how to use Ghidra to automatically audit program
+    binaries to hunt for bugs on them. We started scripting to look for vulnerable
+    functions in the symbols table, then we continued by looking for the callers of
+    those functions, and, finally, we analyzed the caller functions to determine whether
+    those functions are vulnerable or not.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何使用 Ghidra 自动化审计程序二进制文件以进行漏洞挖掘。我们从脚本化查找符号表中的易受攻击函数开始，然后继续查找那些函数的调用者，最后分析调用者函数，判断这些函数是否存在漏洞。
+- en: You learned how to script a binary auditing process using Ghidra and how to
+    do so using PCode and its benefits. You also learned why PCode cannot entirely
+    substitute for assembly language in manual analysis.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你已经学习了如何使用 Ghidra 脚本化二进制审计过程，以及如何使用 PCode 和它的好处。你还了解了为什么 PCode 不能完全替代汇编语言在手动分析中的作用。
+- en: In the next chapter of this book, we will cover how to extend Ghidra using plugins.
+    We mentioned this in [*Chapter 4*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063),
+    *Using Ghidra Extensions*, but this topic deserves special mention because it
+    allows you to deeply extend Ghidra in a powerful way.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的下一章中，我们将介绍如何使用插件扩展 Ghidra。我们在[*第4章*](B16207_04_Final_SK_ePub.xhtml#_idTextAnchor063)，*使用
+    Ghidra 扩展* 中提到过这一点，但这个话题值得特别提及，因为它允许你以一种强大的方式深入扩展 Ghidra。
+- en: Questions
+  id: totrans-209
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What is the difference between SLEIGH and PCode?
+  id: totrans-210
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: SLEIGH 和 PCode 之间的区别是什么？
+- en: Is PCode easier to read for humans than assembly language? Why is PCode useful?
+  id: totrans-211
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: PCode 比汇编语言更易于人类阅读吗？为什么 PCode 有用？
+- en: Further reading
+  id: totrans-212
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 延伸阅读
+- en: 'You can refer to the following links for more information on the topics covered
+    in this chapter:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以参考以下链接，获取本章涉及的更多信息：
+- en: 'Mindshare: Automated bug hunting by modeling vulnerable code: [https://www.thezdi.com/blog/2019/7/16/mindshare-automated-bug-hunting-by-modeling-vulnerable-code](https://www.thezdi.com/blog/2019/7/16/mindshare-automated-bug-hunting-by-modeling-vulnerable-code)'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'Mindshare: 通过建模易受攻击的代码进行自动化漏洞挖掘：[https://www.thezdi.com/blog/2019/7/16/mindshare-automated-bug-hunting-by-modeling-vulnerable-code](https://www.thezdi.com/blog/2019/7/16/mindshare-automated-bug-hunting-by-modeling-vulnerable-code)'
+- en: 'River Loop Security: Working with Ghidra''s PCode to identify vulnerable function
+    calls: [https://www.riverloopsecurity.com/blog/2019/05/pcode/](https://www.riverloopsecurity.com/blog/2019/05/pcode/)'
+  id: totrans-215
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'River Loop Security: 使用 Ghidra 的 PCode 识别易受攻击的函数调用：[https://www.riverloopsecurity.com/blog/2019/05/pcode/](https://www.riverloopsecurity.com/blog/2019/05/pcode/)'
+- en: '*Three Heads Are Better Than One: Mastering NSA''s Ghidra Reverse Engineering
+    Tool*: [https://github.com/0xAlexei/INFILTRATE2019/blob/master/INFILTRATE%20Ghidra%20Slides.pdf](https://github.com/0xAlexei/INFILTRATE2019/blob/master/INFILTRATE%20Ghidra%20Slides.pdf)'
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*三人行，必有我师：掌握 NSA 的 Ghidra 反向工程工具*：[https://github.com/0xAlexei/INFILTRATE2019/blob/master/INFILTRATE%20Ghidra%20Slides.pdf](https://github.com/0xAlexei/INFILTRATE2019/blob/master/INFILTRATE%20Ghidra%20Slides.pdf)'

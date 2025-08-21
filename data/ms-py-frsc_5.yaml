@@ -1,0 +1,1021 @@
+- en: Chapter 5. Using Python for Virtualization Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第 5 章：使用 Python 进行虚拟化取证
+- en: Currently, virtualization is one of the most trending concepts of modern IT.
+    For forensic analysis, it introduces new challenges as well as new techniques.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当前，虚拟化是现代 IT 领域最热门的概念之一。对于取证分析，它既带来了新的挑战，也引入了新的技术。
+- en: 'In this chapter, we will show how virtualization introduces the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将展示虚拟化如何引入以下内容：
+- en: New attack vectors
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 新的攻击途径
+- en: New chances of gathering evidence
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 收集证据的新机会
+- en: New targets for forensic analysis such as the virtualization layer
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 取证分析的新目标，例如虚拟化层
+- en: New sources for forensic data
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 取证数据的新来源
+- en: Considering virtualization as a new attack surface
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将虚拟化视为一个新的攻击面
+- en: Before we start with a forensic analysis, it is important to understand what
+    to look for. With virtualization, there are new attack vectors and scenarios that
+    are introduced. In the following sections, we will describe some of the scenarios
+    and how to look for the corresponding evidence.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始取证分析之前，理解该寻找什么是非常重要的。通过虚拟化，出现了新的攻击途径和场景。在接下来的章节中，我们将描述一些场景，并讲解如何寻找相应的证据。
+- en: Virtualization as an additional layer of abstraction
+  id: totrans-9
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 作为附加抽象层的虚拟化
+- en: 'Virtualization is the technique of emulating IT systems such as servers, workstations,
+    networks, and storages. The component that is responsible for the emulation of
+    virtual hardware is defined as **hypervisor**. The following figure depicts the
+    two main types of system virtualization that are used today:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟化是模拟 IT 系统（如服务器、工作站、网络和存储）的技术。负责虚拟硬件仿真的组件被定义为**虚拟化管理程序**。下图展示了当前使用的两种主要的系统虚拟化类型：
+- en: '![Virtualization as an additional layer of abstraction](img/2087_05_01.jpg)'
+  id: totrans-11
+  prefs: []
+  type: TYPE_IMG
+  zh: '![作为附加抽象层的虚拟化](img/2087_05_01.jpg)'
+- en: The architecture on the left-hand side is called **bare-metal hypervisor** architecture
+    and is also known as a **Type 1** hypervisor. In this architecture, the hypervisor
+    replaces the operating system and runs directly on the bare metal hardware. Examples
+    of Type I hypervisors are VMware ESXi and Microsoft Hyper-V.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 左侧的架构被称为**裸机虚拟化管理程序**架构，也被称为**Type 1**虚拟化管理程序。在这种架构中，虚拟化管理程序替代了操作系统，直接运行在裸机硬件上。Type
+    I 虚拟化管理程序的例子包括 VMware ESXi 和 Microsoft Hyper-V。
+- en: The right-hand side of the image depicts an architecture that is usually referred
+    to as **desktop virtualization** or a **Type 2** hypervisor. In this architecture,
+    there is a standard operating system that is running on the hardware, for example,
+    a standard Windows 8 or Linux Desktop system. The hypervisor runs among other
+    native applications directly on this operating system. Some functionality of the
+    hypervisor may directly interact with the underlying hardware, for example, by
+    providing special drivers. For Type 2 hypervisors, the operating system that is
+    running directly on the hardware is called **host OS**, while the operating system
+    running on a virtual machine is called **guest OS**. Examples of Type 2 hypervisor
+    architectures are Oracle VirtualBox and VMware Workstation. These hypervisors
+    can be installed just like any other application on an existing operating system.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图片右侧的架构通常被称为**桌面虚拟化**或**Type 2**虚拟化管理程序。在这种架构中，有一个标准操作系统运行在硬件上，例如标准的 Windows
+    8 或 Linux 桌面系统。虚拟化管理程序在该操作系统上与其他本地应用程序一起运行。虚拟化管理程序的一些功能可能会直接与底层硬件交互，例如通过提供特殊的驱动程序。对于
+    Type 2 虚拟化管理程序，直接运行在硬件上的操作系统被称为**主机操作系统**，而运行在虚拟机上的操作系统被称为**客户操作系统**。Type 2 虚拟化管理程序架构的例子包括
+    Oracle VirtualBox 和 VMware Workstation。这些虚拟化管理程序可以像其他应用程序一样在现有操作系统上安装。
+- en: Note
+  id: totrans-14
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: While Hyper-V seems like Type 2, it actually converts the host OS into just
+    another guest OS during the installation and establishes a Type 1 architecture.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管 Hyper-V 看起来像 Type 2 虚拟化管理程序，实际上它在安装过程中将主机操作系统转换为另一个客户操作系统，从而建立了 Type 1 架构。
+- en: A common feature of almost all virtualization environments is the ability to
+    create **snapshots**. A snapshot of a virtual system contains a frozen-in-time
+    state of the system. All changes to the system that are happening after the snapshot
+    creation can be undone by the hypervisor to roll back to the point in time when
+    the snapshot was taken. Furthermore, most systems allow having multiple snapshots
+    of a single system and rolling back and forward to arbitrary snapshots. Snapshots
+    can be utilized as a source of forensic data, which we will demonstrate in the
+    *Using virtualization as source of evidence* section.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 几乎所有虚拟化环境的一个共同特点是能够创建**快照**。虚拟系统的快照包含系统在某一时刻的冻结状态。所有在快照创建之后对系统的更改，可以通过虚拟机监控器（hypervisor）回滚到创建快照时的状态。此外，大多数系统允许对单个系统拥有多个快照，并在不同的快照之间进行回滚和前进。快照可以作为法医数据的来源，我们将在*使用虚拟化作为证据来源*一节中演示这一点。
+- en: Tip
+  id: totrans-17
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**For forensics, snapshots are to be treated like independent machines!**'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**对于法医分析，快照应当被视为独立的机器！**'
+- en: If a virtual system is subject to forensic analysis, always check whether this
+    system is a virtual system and whether there are snapshots. If snapshots exist,
+    the forensic analysis has to be repeated for every single snapshot as if this
+    were an independent virtual machine. The rationale behind this requirement is
+    that it is most likely unknown when the system was compromised, when the attacker
+    tried to destroy evidence, and most importantly, what version of the machine was
+    running during the attack.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果虚拟系统需要进行法医分析，始终检查该系统是否为虚拟系统以及是否存在快照。如果存在快照，法医分析必须针对每一个快照进行重复，就像每个快照都是一个独立的虚拟机。这样做的理由是，很可能不知道系统何时被攻破，攻击者何时试图销毁证据，最重要的是，攻击发生时运行的是哪个版本的虚拟机。
+- en: 'Most virtualization environments consist of more than one hypervisor. To ease
+    the management of multiple hypervisors and to enable additional features; for
+    example, moving machines between hypervisors for fail over, load balancing, and
+    save power; these environments provide a central management for all of hypervisors.
+    In the case of VMware vSphere, this management component is called **vCenter Server**,
+    as follows:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数虚拟化环境由多个虚拟机监控器组成。为了简化多个虚拟机监控器的管理，并启用额外的功能，例如：在虚拟机监控器之间移动机器以实现故障转移、负载均衡以及节省电力，这些环境提供了一个集中管理所有虚拟机监控器的组件。在VMware
+    vSphere的情况下，这个管理组件叫做**vCenter Server**，如下所示：
+- en: '![Virtualization as an additional layer of abstraction](img/2087_05_02.jpg)'
+  id: totrans-21
+  prefs: []
+  type: TYPE_IMG
+  zh: '![虚拟化作为额外的抽象层](img/2087_05_02.jpg)'
+- en: If **vCenter Server** is used, then all administrative tasks are supposed to
+    be handled via this **vCenter Server** instance.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果使用**vCenter Server**，那么所有的管理任务应该通过这个**vCenter Server**实例来处理。
+- en: How does this new hypervisor layer influence attack scenarios and forensics?
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个新的虚拟机监控器层是如何影响攻击场景和法医分析的？
+- en: The introduction of the new hypervisor layer also introduces a new layer that
+    can be used to manipulate virtual systems without detection and adds another new
+    layer that can be subject to the attacks. In the following sections, we will provide
+    some sample scenarios for attacks that are committed through the hypervisor.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 新的虚拟机监控器层的引入也带来了一个新的层次，这个层次可以被用来在不被察觉的情况下操控虚拟系统，并且增加了一个新的层次，可能会成为攻击的目标。在接下来的章节中，我们将提供一些通过虚拟机监控器实施的攻击示例。
+- en: Creation of rogue machines
+  id: totrans-25
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 恶意虚拟机的创建
+- en: If an attacker can get access to the hypervisor, he may just create new virtual
+    resources. These resources can act as a bridgehead in the network or just steal
+    memory and compute resources from the environment. Therefore, it is crucial to
+    extract the creation and disposal of virtual resources during a forensic analysis
+    of the hypervisor environment.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果攻击者能够访问虚拟机监控器，他可能会创建新的虚拟资源。这些资源可以作为网络中的桥头堡，或者只是窃取环境中的内存和计算资源。因此，在进行虚拟机监控器环境的法医分析时，提取虚拟资源的创建和处置过程至关重要。
+- en: Fortunately, every widespread virtualization environment offers APIs and language
+    bindings to enumerate the virtual machines and other virtual resources of the
+    environment. In this chapter, we chose to use VMware vSphere as the prominent
+    example of a virtualization environment.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，每个广泛使用的虚拟化环境都提供了API和语言绑定，可以列举该环境中的虚拟机及其他虚拟资源。在本章中，我们选择了VMware vSphere作为虚拟化环境的代表性示例。
+- en: Note
+  id: totrans-28
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '**VMware vSphere** is one of the most used virtualization environments for
+    on-premise virtualization. Its basic structure consists of one central management
+    instance called vCenter Server and one or multiple systems that are actually hosting
+    the virtual environment (hypervisors), called **ESXi** servers. To programmatically
+    control a vSphere environment with Python, pyVmomi is used. This Python SDK is
+    available on Github at [https://github.com/vmware/pyvmomi](https://github.com/vmware/pyvmomi).'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**VMware vSphere** 是最常用的本地虚拟化环境之一。它的基本结构由一个中央管理实例（称为vCenter Server）和一个或多个实际托管虚拟环境（虚拟化管理程序，简称**ESXi**）的系统组成。要通过Python编程控制vSphere环境，使用的是pyVmomi。这个Python
+    SDK可以在GitHub上找到，网址为 [https://github.com/vmware/pyvmomi](https://github.com/vmware/pyvmomi)。'
+- en: In the following, we will use `pyVmomi` to create a list of all virtual machines.
+    It is recommended to run such inventory scan at regular intervals to compare the
+    list of existing virtual assets with your local inventory database.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的内容中，我们将使用`pyVmomi`创建所有虚拟机的列表。建议定期运行此类清单扫描，将现有虚拟资产的列表与本地库存数据库进行对比。
+- en: 'We recommend to install pyVmomi using `pip`:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们建议使用`pip`安装pyVmomi：
+- en: '[PRE0]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Tip
+  id: totrans-33
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Sample code for pyVmomi**'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**pyVmomi的示例代码**'
+- en: There is a project on GitHub about a community-provided sample code for `pyVmomi`.
+    More information about these samples is available on [https://vmware.github.io/pyvmomi-community-samples/](https://vmware.github.io/pyvmomi-community-samples/).
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在GitHub上有一个社区提供的关于`pyVmomi`的示例代码项目。更多关于这些示例的信息可以在 [https://vmware.github.io/pyvmomi-community-samples/](https://vmware.github.io/pyvmomi-community-samples/)
+    查阅。
+- en: 'Then, a script as shown in the following may be used to enumerate all systems
+    of the vSphere environment:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，可以使用以下示例脚本来枚举vSphere环境中的所有系统：
+- en: '[PRE1]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: This script creates a connection to the vCenter Server platform. However, it
+    can also be used to connect to a single ESXi hypervisor instance. This is possible
+    because the API offered to the script is identical for both management variants.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该脚本创建了一个与vCenter Server平台的连接。然而，它也可以用来连接到单个ESXi虚拟化管理程序实例。这是因为该脚本所提供的API在两种管理模式下是相同的。
+- en: Note
+  id: totrans-39
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: The API used by `pyVmomi` is the **vSphere Web Service API**. A detailed description
+    is available in the vSphere Web Services SDK via [https://www.vmware.com/support/developer/vc-sdk/](https://www.vmware.com/support/developer/vc-sdk/).
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pyVmomi`使用的API是**vSphere Web Service API**。在vSphere Web Services SDK中有详细的描述，网址为
+    [https://www.vmware.com/support/developer/vc-sdk/](https://www.vmware.com/support/developer/vc-sdk/)。'
+- en: The highlighted lines show that the script uses recursion to enumerate all virtual
+    machines. This is necessary because in VMware vSphere, virtual machines can be
+    put into nested groups.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 高亮的行表明脚本使用了递归来枚举所有虚拟机。这是必要的，因为在VMware vSphere中，虚拟机可以被放入嵌套组中。
+- en: 'Here is a sample call of this script with the output of a single virtual machine:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是此脚本的示例调用，以及输出的单个虚拟机信息：
+- en: '[PRE2]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The output lists the name of the virtual machine, its current state, the path
+    of its configuration file, a hint for the guest operating system, and the unique
+    IDs for the instance and the BIOS configuration. The path information is valuable,
+    especially, because it shows where to find all the virtual machine's configuration
+    and data file.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出列出了虚拟机的名称、当前状态、配置文件路径、操作系统提示信息，以及实例和BIOS配置的唯一ID。路径信息尤其重要，因为它显示了虚拟机配置文件和数据文件的存储位置。
+- en: Cloning of systems
+  id: totrans-45
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 系统克隆
+- en: In the previous section, we used the API of the hypervisor to get the forensic
+    data. In this section, we will look for traces of abuse of this API. Therefore,
+    we will analyse the log information of the vSphere installation.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一节中，我们使用了虚拟化管理程序的API来获取取证数据。在本节中，我们将寻找滥用此API的痕迹。因此，我们将分析vSphere安装的日志信息。
+- en: Note
+  id: totrans-47
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '**Collect log information on a central log system**'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**在中央日志系统中收集日志信息**'
+- en: In this section, we will assume that the log information is stored with the
+    default settings of the vSphere installation. However, when setting up a system,
+    we recommend to store the log information on a dedicated logging system. This
+    makes it more difficult for an attacker to manipulate system logs as he requires
+    access to not only his target system, but also to the central log collection system.
+    Another advantage of many central log collection systems is the built-in log analysis
+    function.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们假设日志信息是按照 vSphere 安装的默认设置存储的。然而，在设置系统时，我们建议将日志信息存储在专用的日志系统中。这可以使攻击者更难以篡改系统日志，因为他不仅需要访问目标系统，还需要访问中央日志收集系统。许多中央日志收集系统的另一个优势是内置的日志分析功能。
+- en: 'While a copy of all system logs is highly recommended for a forensically sound
+    analysis, single events can also be reviewed using the event browser of VMware
+    vSphere, as follows:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然强烈建议为法医分析保留所有系统日志的副本，但也可以使用 VMware vSphere 的事件浏览器单独查看单个事件，如下所示：
+- en: '![Cloning of systems](img/2087_05_03.jpg)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![系统克隆](img/2087_05_03.jpg)'
+- en: 'The vSphere environment offers collecting and storing all log files in an archive.
+    Perform the following steps to get an archive of all the available log data:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: vSphere 环境提供收集并存储所有日志文件的归档功能。请按照以下步骤获取所有可用日志数据的归档：
+- en: Use the Windows version of vSphere Web Client and log in to the **vCenter Server**.
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Windows 版本的 vSphere Web 客户端登录到**vCenter Server**。
+- en: In the **Administration** menu, select **Export System Logs**.
+  id: totrans-54
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在**管理**菜单中，选择**导出系统日志**。
+- en: Select one or multiple vCenter Servers to export the logs, as shown in the following:![Cloning
+    of systems](img/2087_05_04.jpg)
+  id: totrans-55
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 选择一个或多个 vCenter Server 导出日志，如下所示：![系统克隆](img/2087_05_04.jpg)
+- en: When asked to **Select System Logs**, ensure that all log types are selected,
+    as follows:![Cloning of systems](img/2087_05_05.jpg)
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在提示选择**系统日志**时，确保选择所有日志类型，如下所示：![系统克隆](img/2087_05_05.jpg)
+- en: The log files are saved as compressed archives. One archive represents the log
+    information of one system, that is, vCenter Server or ESXi host.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 日志文件以压缩归档的形式保存。每个归档代表一个系统的日志信息，即 vCenter Server 或 ESXi 主机。
+- en: 'First, we will extract the collected log file using `tar` with a command as
+    follows:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将使用 `tar` 提取收集的日志文件，命令如下：
+- en: '[PRE3]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The filename of this archive follows the format Host/IP—`vcsupport` (for vCenter
+    Server)—timestamp. The directory in this archive follows the vc-Hostname-Timestamp
+    naming scheme, for example, `vc-winserver-2015-07-05--02.19`. The timestamps of
+    the archive name and the contained directory usually do not match. This can be
+    caused due to the clock drift and the time required to transmit and compress the
+    logs.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该归档的文件名遵循格式：主机/IP—`vcsupport`（用于 vCenter Server）—时间戳。该归档中的目录遵循 vc-主机名-时间戳命名规则，例如
+    `vc-winserver-2015-07-05--02.19`。归档名称和其中包含的目录的时间戳通常不匹配。这可能是由于时钟漂移以及传输和压缩日志所需的时间造成的。
+- en: 'In the following, we will use the vCenter Server logs to reconstruct events
+    indicating the cloning of virtual machines. In this example, we will use the redundancy
+    of the logs and use the log data from one of the core services of vCenter Server:
+    `vpxd`, that is, the core vCenter daemon:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的内容中，我们将使用 vCenter Server 的日志重建表示虚拟机克隆的事件。在这个例子中，我们将利用日志的冗余性，使用 vCenter
+    Server 核心服务之一的日志数据：`vpxd`，即核心 vCenter 守护进程：
+- en: '[PRE4]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'First, this script reads the so-called performance log of `vpxd`. This log
+    contains data about client sessions and we use it to extract a mapping from the
+    unique session identifier to the client username and the IP address that the client
+    is connecting from. In the second step, the main log of `vpxd` is searched for
+    the start of tasks of `vim.VirtualMachine.clone` type, that is, the cloning of
+    virtual machines on the server side. The session information is then looked up
+    in the mapping that is harvested from the performance log to retrieve the data
+    about possible cloning events, as follows:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，这个脚本读取所谓的 `vpxd` 性能日志。该日志包含有关客户端会话的数据，我们使用它提取从唯一会话标识符到客户端用户名及客户端连接的 IP 地址的映射。第二步，搜索
+    `vpxd` 的主日志，查找 `vim.VirtualMachine.clone` 类型任务的开始，即在服务器端克隆虚拟机。然后，在从性能日志中提取的映射中查找会话信息，以获取可能的克隆事件数据，如下所示：
+- en: '[PRE5]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: In the example, the script revealed that the `Administrator` account was used
+    to clone a virtual machine. This hint can be correlated with the event log of
+    vCenter Server and it will show up there as well. If it does not, then this is
+    a strong indicator of a compromised environment.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，脚本揭示了`Administrator`账户被用来克隆虚拟机。这个提示可以与vCenter Server的事件日志相关联，并且在那里也会显示出来。如果没有显示，那么这就是一个强烈的迹象，表明环境可能已被入侵。
+- en: Note
+  id: totrans-66
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Depending on your system environment, operations such as cloning and exporting
+    virtual machines may be a part of daily operations. In that case, the previous
+    script or its variants may be used to detect unusual users or source IPs that
+    are performing these operations.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据你的系统环境，像克隆和导出虚拟机这样的操作可能是日常操作的一部分。在这种情况下，可以使用之前的脚本或其变体来检测执行这些操作的异常用户或来源IP。
+- en: Similar searches and correlations can be used for other events of interest.
+    Copying of files of the datastore or exporting virtual machines are promising
+    candidates.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似的搜索和关联也可以应用于其他感兴趣的事件。数据存储区文件的复制或虚拟机的导出是值得关注的候选项。
+- en: Searching for misuse of virtual resources
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 搜索虚拟资源的滥用
+- en: It is not just the motivated attacker that we are looking for. With virtualization,
+    there is also the legitimate administrator of the virtual infrastructure who makes
+    his life easier by bending some rules. Additionally, an attacker may use the power
+    of virtualization to reshape the topology of the infrastructure according to his
+    needs. In the following sections, we will show some scenarios and detection methods.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们不仅仅是在寻找有动机的攻击者。通过虚拟化，还有合法的虚拟基础设施管理员，通过改变一些规则来简化自己的工作。此外，攻击者可能利用虚拟化的强大功能，根据自己的需求重塑基础设施的拓扑。在接下来的章节中，我们将展示一些场景和检测方法。
+- en: Detecting rogue network interfaces
+  id: totrans-71
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检测恶意网络接口
+- en: Network virtualization allows operations to create almost arbitrary network
+    infrastructures in a static, physical network. This capability is sometimes referred
+    to as **Data center as a Service** (**DCaaS**). DCaaS allows the customers to
+    utilize a defined portion of a physical data center to define virtual data centers
+    in software.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络虚拟化允许操作人员在静态的物理网络中创建几乎任意的网络基础设施。这种能力有时被称为**数据中心即服务**（**DCaaS**）。DCaaS允许客户利用物理数据中心的定义部分，在软件中定义虚拟数据中心。
+- en: Due to malicious access to this capability or human error, the resulting network
+    configuration may expose internal resources to the internet, bypass firewalls,
+    or allow access to malicious services.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于恶意访问此功能或人为错误，结果可能导致网络配置暴露内部资源到互联网，绕过防火墙，或允许访问恶意服务。
+- en: Therefore, we will show a simple way to programmatically get the network configuration
+    of a vSphere environment using Python.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们将展示一种简单的方式，使用Python编程获取vSphere环境的网络配置。
+- en: Tip
+  id: totrans-75
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Visualize virtual networks**'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**可视化虚拟网络**'
+- en: Most virtualization environments have built-in capabilities to visualize the
+    virtual network setup. For example, VMware vSphere can create an image of the
+    network topology. In a forensic analysis, this may serve as the starting point
+    and support focusing the next step on the most promising assets.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数虚拟化环境都具备可视化虚拟网络设置的内建能力。例如，VMware vSphere可以创建网络拓扑图。在取证分析中，这可以作为起点，并支持将下一步的焦点集中在最有潜力的资源上。
+- en: '![Detecting rogue network interfaces](img/2087_05_06.jpg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![检测恶意网络接口](img/2087_05_06.jpg)'
+- en: This image was generated with the Windows client software for VMware vCenter
+    Server and it depicts our test setup. Obviously, **EvesMachine** is not connected
+    properly, that is, it can bypass the **Firewall**.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这张图是通过Windows客户端软件为VMware vCenter Server生成的，展示了我们的测试设置。显然，**EvesMachine**未能正确连接，也就是说，它能够绕过**防火墙**。
+- en: 'The community sample scripts for `pyVmomi` already provide a script for iterating
+    over all network interfaces, [https://github.com/vmware/pyvmomi-community-samples/blob/master/samples/getvnicinfo.py](https://github.com/vmware/pyvmomi-community-samples/blob/master/samples/getvnicinfo.py),
+    and displaying the connections of virtual machines. Therefore, we modified this
+    script to display only those virtual machines that have multiple network connections,
+    as follows:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pyVmomi`的社区示例脚本已经提供了一个脚本，用于遍历所有网络接口，[https://github.com/vmware/pyvmomi-community-samples/blob/master/samples/getvnicinfo.py](https://github.com/vmware/pyvmomi-community-samples/blob/master/samples/getvnicinfo.py)，并显示虚拟机的连接。因此，我们修改了这个脚本，仅显示那些有多个网络连接的虚拟机，如下所示：'
+- en: '[PRE6]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: First, this script iterates over all (hypervisor) hosts to collect information
+    about the virtual switches that are present on each ESXi system. Then, it iterates
+    over all virtual machines to collect those with more than one network card. Then
+    the information about virtual network cards is combined with the information about
+    virtual switches to derive the information about the connectivity.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，这个脚本遍历所有（虚拟机监控器）主机，以收集每个 ESXi 系统上存在的虚拟交换机的信息。然后，它遍历所有虚拟机，收集那些拥有多个网络接口卡的虚拟机。接着，虚拟网络卡的信息与虚拟交换机的信息结合，推导出关于网络连接的信息。
+- en: 'Here is the sample output from our lab environment as depicted previously:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们实验环境中的示例输出，如前所述：
+- en: '[PRE7]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Our script correctly identified the two systems, `EvesMachine` and `Firewall`,
+    being simultaneously connected to different networks. In this particular case,
+    both the systems can be used to connect `VLAN 0` with `VLAN 8` on the same virtual
+    switch, `dvSwitch`.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的脚本正确识别了两个系统，`EvesMachine` 和 `Firewall`，它们同时连接到不同的网络。在这个特定的案例中，两个系统都可以用来在同一个虚拟交换机
+    `dvSwitch` 上连接 `VLAN 0` 和 `VLAN 8`。
+- en: Detecting direct hardware access
+  id: totrans-86
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检测直接硬件访问
+- en: 'It may sound like an oxymoron, but most virtualization techniques allow direct
+    hardware access. The legitimate reasons to allow virtual systems to directly access
+    a piece of hardware without having to use the services of the hypervisor are as
+    follows:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 听起来可能像是自相矛盾，但大多数虚拟化技术允许直接硬件访问。允许虚拟系统直接访问某些硬件，而不必通过虚拟机监控器提供服务的合法理由如下：
+- en: '**Special hardware supposed to be connected to a virtual machine**: Special
+    hardware such as radio clocks for virtual time servers or dongles being part of
+    a copy protection mechanism.'
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**应连接到虚拟机的特殊硬件**：特殊硬件，如虚拟时间服务器的无线时钟或作为复制保护机制一部分的加密狗。'
+- en: '**Temporary use of physical media on a virtual system**: Sometimes, this capability
+    is used to access media from physical systems from a virtual environment, for
+    example, to restore backups from a physical media to a virtual system. In general,
+    the network attached storage systems should be preferred over attaching physical
+    media to a virtual system.'
+  id: totrans-89
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**虚拟系统临时使用物理介质**：有时，这种功能用于从虚拟环境中访问物理系统的介质，例如从物理介质恢复备份到虚拟系统。通常，应该优先使用网络附加存储系统，而不是将物理介质附加到虚拟系统。'
+- en: '**Permanent use of drives of a hypervisor from a virtual machine**: This can
+    be useful if the virtual system uses software that is provided on physical media
+    and therefore, needs access to a real physical drive for installation and updates
+    of the software. However, one should consider using downloaded versions or ISO
+    images instead of granting direct access to the hardware of the hypervisor.'
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**虚拟机永久使用虚拟机监控器的驱动器**：如果虚拟系统使用的是通过物理介质提供的软件，因此需要访问真实的物理驱动器来安装和更新软件，这种方式可能是有用的。然而，应该考虑使用下载版本或
+    ISO 镜像，而不是授予直接访问虚拟机监控器硬件的权限。'
+- en: As you may guess, according to this list, direct hardware access is more the
+    exception than the rule in a modern virtualized data center. Furthermore, direct
+    access to the hypervisor hardware breaks one fundamental principle of virtualization.
+  id: totrans-91
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 正如你可能猜到的，根据这个列表，直接硬件访问在现代虚拟化数据中心中更像是例外而非常规。此外，直接访问虚拟机监控器硬件会破坏虚拟化的一个基本原则。
+- en: Note
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Direct hardware access bypasses the security mechanism of the virtualization
+    environment, that is, all the virtual hardware is controlled by the hypervisor.
+    Consequently, direct hardware access always poses the risk of manipulation of
+    hypervisor resources, data leakage, and system instabilities.
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 直接硬件访问绕过了虚拟化环境的安全机制，也就是说，所有虚拟硬件都由虚拟机监控器控制。因此，直接硬件访问总是带来虚拟机监控器资源篡改、数据泄漏和系统不稳定的风险。
+- en: 'The following are some examples of the directly attached hardware that are
+    most likely malicious:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一些最可能是恶意的直接附加硬件的示例：
+- en: Network devices (create network connections that are invisible to the hypervisor)
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络设备（创建对虚拟机监控器不可见的网络连接）
+- en: Keyboard, mouse, and so on (create console access that are invisible to the
+    hypervisor)
+  id: totrans-96
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 键盘、鼠标等（创建对虚拟机监控器不可见的控制台访问）
+- en: Hypervisor disk partitions
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 虚拟机监控器磁盘分区
+- en: The latter is especially dangerous. If a virtual machine manages to get the
+    raw disk access to the hypervisor, it can manipulate the virtualization environment.
+    The consequences include the complete control over the virtualization environment
+    along with the access to all virtual machines, all virtual networks, the capability
+    to create new rogue resources and reshape the overall network topology.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 后者特别危险。如果虚拟机设法获得对虚拟机监控器的原始磁盘访问，它可以操控虚拟化环境。后果包括对虚拟化环境的完全控制，并可以访问所有虚拟机、所有虚拟网络，具备创建新恶意资源的能力，并重塑整个网络拓扑。
+- en: Note
+  id: totrans-99
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: For VMware vSphere, the direct hardware access is stored in the configuration
+    of the virtual machines. Consequently, importing a virtual machine from an unknown
+    or untrusted source (in the native format of vSphere) can create rogue hardware
+    access.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 VMware vSphere，直接硬件访问权限存储在虚拟机的配置中。因此，从未知或不受信任的来源（以 vSphere 的本地格式）导入虚拟机可能会创建恶意硬件访问权限。
+- en: 'The following script connects to a VMware vSphere instance and lists all virtual
+    machines with direct hardware access:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下脚本连接到 VMware vSphere 实例，并列出所有具有直接硬件访问权限的虚拟机：
+- en: '[PRE8]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'This script is very eager, that is, it does not check whether the device is
+    actually in a connected state or whether there is media accessible through the
+    device. Nevertheless, an output similar to the following calls for deeper inspection:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本非常急功近利，即它不会检查设备是否实际上处于连接状态，或是否可以通过设备访问媒体。然而，类似以下的输出提示需要更深入的检查：
+- en: '[PRE9]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '`EvesMachine` appears to have direct access to a USB device attached to its
+    hypervisor system. Moreover, there seems to be a direct link to the serial port
+    of the hypervisor. `Access to CD/DVD drive` of the hypervisor should not be granted
+    in general. However, for a lot of installations, people tend to use the optical
+    drive of the hypervisor to install or update a software.'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`EvesMachine` 似乎具有对其虚拟机监控器系统上附加的 USB 设备的直接访问权限。此外，似乎还有与虚拟机监控器的串口的直接连接。通常不应允许访问虚拟机监控器的
+    `CD/DVD 驱动器`。然而，对于许多安装，人们往往会使用虚拟机监控器的光驱来安装或更新软件。'
+- en: Tip
+  id: totrans-106
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Extract hardware configuration from the VMX file**'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**从 VMX 文件中提取硬件配置**'
+- en: Using a script such as the previous one requires access to the virtual environment.
+    Therefore, the main purpose of such scripts is to narrow the focus of the forensic
+    investigation. For permanent evidence and record, the directory of the virtual
+    machines should be copied from the datastore. There, the VMX file contains all
+    VM specific configuration settings including the hardware access.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用如前所述的脚本需要访问虚拟环境。因此，这类脚本的主要目的是缩小取证调查的范围。为了确保证据和记录的永久性，应该从数据存储区复制虚拟机的目录。在那里，VMX
+    文件包含所有与虚拟机相关的配置设置，包括硬件访问权限。
+- en: In this and the previous sections, virtualization is considered as an additional
+    attack surface. In the following section, we will outline how virtualization techniques
+    can actually support a forensic investigation.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节和上一节中，虚拟化被视为额外的攻击面。在接下来的章节中，我们将概述虚拟化技术如何真正支持取证调查。
+- en: Using virtualization as a source of evidence
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将虚拟化作为证据来源
+- en: Virtualization is not just dangerous and challenging when it comes to forensic
+    investigations, there is also the potential to use virtualization as a tool for
+    gathering forensic evidence. In the following sections, you will see various sources
+    which can lead to the evidence.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟化不仅在取证调查中是危险且具有挑战性的，它还具有将虚拟化作为收集取证证据的工具的潜力。在接下来的章节中，您将看到可能导致证据的各种来源。
+- en: Creating forensic copies of RAM content
+  id: totrans-112
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建内存内容的取证副本
+- en: Normally, creating a copy of a system's RAM contents requires access to the
+    target system, a logon, installing the required tools, and copying away the RAM
+    dump to an external media. All of these steps are intrusive, that is, changing
+    the state of the system and being subject to detection by the attacker or his
+    malware. Furthermore, an attacker with administrative privileges may hide portions
+    of the system memory from the memory dumps, for example, by manipulating the memory
+    allocation and protection algorithms.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，创建系统内存内容的副本需要访问目标系统、登录、安装所需工具，并将内存转储复制到外部媒体。这些步骤都是侵入性的，即改变系统的状态，并可能被攻击者或其恶意软件检测到。此外，具有管理员权限的攻击者可能会通过操控内存分配和保护算法来隐藏部分系统内存，例如，隐藏内存转储中的一部分内容。
+- en: 'To overcome the disadvantages of this method, the hypervisor layer can be utilized
+    to get a complete, non-tampered copy of the memory of a virtual system. The following
+    script can be used to create a snapshot including the RAM content of a virtual
+    machine:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了克服这种方法的缺点，可以利用虚拟机监控器层来获取虚拟系统内存的完整、未篡改的副本。以下脚本可用于创建包含虚拟机 RAM 内容的快照：
+- en: '[PRE10]'
+  id: totrans-115
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: This script searches for virtual machines with the specified name and creates
+    a snapshot. The highlighted parameter causes vSphere to write the RAM contents
+    of the virtual machine to the datastore along with the other snapshot data files.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此脚本会搜索指定名称的虚拟机并创建快照。突出显示的参数会使 vSphere 将虚拟机的 RAM 内容与其他快照数据文件一起写入数据存储区。
+- en: These RAM dumps reside in the directory of the virtual machine. The enumeration
+    script in this chapter shows the path to this directory. Additionally, the vSphere
+    Client allows browsing and downloading the datastore of the virtual machine.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些 RAM 转储文件位于虚拟机目录中。本章中的枚举脚本显示了该目录的路径。此外，vSphere 客户端允许浏览和下载虚拟机的数据存储区。
+- en: The RAM contents are stored in a file with the `.vmem` extension, for example,
+    `EvesMachine-Snapshot2.vmem`.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RAM 内容存储在扩展名为 `.vmem` 的文件中，例如 `EvesMachine-Snapshot2.vmem`。
+- en: Using snapshots as disk images
+  id: totrans-119
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 将快照作为磁盘镜像使用
+- en: For physical systems, creating a forensic disk image usually incorporates taking
+    the system offline, shutting it down, removing the hard drive, and copying it.
+    Obviously, the system is not operational during this procedure and as a consequence,
+    business owners are very reluctant in granting these downtimes due to a vague
+    suspicion of a possible compromise.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于物理系统，创建取证磁盘镜像通常需要将系统下线，关机，拆卸硬盘并进行复制。显然，在此过程中系统无法正常运行，因此，业务所有者通常不愿意批准这些停机时间，因为他们对可能发生的安全漏洞存在模糊的怀疑。
+- en: On the other hand, the creation of a snapshot of a virtual machine results in
+    basically no downtime but the result is a forensically sound disk image of the
+    virtual asset.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，创建虚拟机快照基本上不会造成任何停机，但结果是一个具有取证严谨性的虚拟资产磁盘镜像。
+- en: Tip
+  id: totrans-122
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: '**Always check whether a system is virtual!**'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**始终检查系统是否为虚拟机！**'
+- en: As the creation of forensic data is much easier for virtual systems than for
+    physical systems, one of the very first steps in a forensic investigation should
+    be checking whether the target system is virtual.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于为虚拟系统创建取证数据比为物理系统创建要容易得多，因此取证调查的第一步应该是检查目标系统是否为虚拟系统。
+- en: The creation of the snapshot is identical to the script in the previous section.
+    For VMware vSphere 5, all the files have to be copied from the datastore directory
+    of the hypervisor to get a complete dump of the hard drives. If the virtual system
+    is still running, some files may not get copied as the hypervisor will not allow
+    read access while these files are in use. Typically, this is not a problem as
+    these files are only needed by the snapshot, that is, all the changes since the
+    creation of the snapshot are stored in special snapshot files.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 快照的创建与上一节中的脚本相同。对于 VMware vSphere 5，必须从虚拟机监控器的数据存储目录复制所有文件，以获取硬盘的完整转储。如果虚拟系统仍在运行，则某些文件可能无法复制，因为虚拟机监控器在这些文件正在使用时不允许读取访问。通常，这不是问题，因为这些文件仅供快照使用，也就是说，自快照创建以来的所有更改都存储在特殊的快照文件中。
+- en: In VMware vSphere 6, the snapshot mechanism has been changed. Instead of writing
+    disk changes in the snapshot files, the changes made after snapshot creation are
+    directly written to the files that represent the virtual hard drives. The snapshot
+    files are used to preserve the original contents of the disk drives (copy-on-write
+    behavior).
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 VMware vSphere 6 中，快照机制已发生变化。创建快照后所做的磁盘更改不会写入快照文件，而是直接写入表示虚拟硬盘的文件中。快照文件用于保留磁盘驱动器的原始内容（写时复制行为）。
+- en: Therefore, the files that are to be copied from a VMware vSphere 6 environment
+    will contain all entries of the directory of the virtual machine.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，从 VMware vSphere 6 环境中复制的文件将包含虚拟机目录的所有条目。
+- en: For the forensic analysis, the captured disk images can be connected to a virtual
+    forensic workstation. There, these images can be treated like any other physical
+    hard drive. Of course, the original copies must remain intact in order to provide
+    forensic soundness.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于取证分析，捕获的磁盘镜像可以连接到虚拟取证工作站。在那里，这些镜像可以像任何其他物理硬盘一样进行处理。当然，原始副本必须保持完好，以确保取证的严谨性。
+- en: Capturing network traffic
+  id: totrans-129
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 捕获网络流量
+- en: The virtualization environment not only represents virtual machines and **Network
+    Interfaces Card** (**NIC**), but also the virtual network devices that are needed
+    to interconnect these systems. This combination can be used to collect all the
+    network traffic of a virtual network by adding a monitoring port to the virtual
+    switch and connecting a system to it, which can capture all the network traffic.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟化环境不仅代表虚拟机和**网络接口卡**（**NIC**），还代表了连接这些系统所需的虚拟网络设备。通过在虚拟交换机上添加一个监控端口并连接一个系统，可以捕获整个虚拟网络的所有网络流量。
+- en: Note
+  id: totrans-131
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: If a virtual system in VMware vSphere is allowed to switch a NIC into a promiscuous
+    mode, then this will automatically turn the corresponding switch port into the
+    monitoring mode.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果VMware vSphere中的虚拟系统被允许将NIC切换为混杂模式，那么这将自动使相应的交换机端口进入监控模式。
+- en: Furthermore, the enterprise editions of VMware vSphere provide an advanced version
+    of a virtual switch called **vSphere Distributed Switch** (**VDS**). This switch
+    can act more like a physical switch and provide mirroring of selected ports to
+    a defined port for the traffic analysis. In addition, this switch is also capable
+    of providing NetFlow logs to a defined port.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，VMware vSphere的企业版提供了一种虚拟交换机的高级版本，称为**vSphere分布式交换机**（**VDS**）。该交换机可以更像物理交换机，并提供端口镜像功能，将选定端口的流量镜像到指定端口以进行流量分析。此外，该交换机还能够将NetFlow日志提供给指定端口。
+- en: 'For the standard virtual switch, the following steps are required in order
+    to monitor the network traffic:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于标准虚拟交换机，需要执行以下步骤以监控网络流量：
+- en: Create a new port group on this switch to monitor. While this is not strictly
+    required, it is highly recommended. Without a dedicated port group to monitor,
+    all virtual systems on the switch would be allowed to monitor all the traffic
+    of the switch.
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在此交换机上创建一个新的端口组进行监控。虽然这并非严格要求，但强烈建议这么做。如果没有一个专用的端口组进行监控，那么交换机上的所有虚拟系统将能够监控交换机的所有流量。
+- en: Modify the **Security** settings of this port group and change the **Promiscuous
+    mode** to **Accept**.
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 修改此端口组的**安全**设置，并将**混杂模式**更改为**接受**。
+- en: Configure the network card of the virtual capture system to the new port group.
+    This system can now capture all the network traffic of this switch.
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将虚拟捕获系统的网络卡配置到新的端口组。此系统现在可以捕获该交换机的所有网络流量。
+- en: The exact steps may differ between virtual switch types and their versions.
+    Nevertheless, the core message is that virtualization environments can ease this
+    task of network traffic capturing. Moreover, physical and virtual switches do
+    have different behaviors, for example, they can react to configuration changes
+    of the connected network cards.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 具体步骤可能会根据虚拟交换机的类型和版本有所不同。然而，核心信息是，虚拟化环境可以简化网络流量捕获的任务。此外，物理交换机和虚拟交换机的行为有所不同，例如，它们会对连接的网络卡的配置变化做出反应。
+- en: In the next chapter, we will see how to generate and analyze this captured network
+    traffic.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将看到如何生成和分析这些捕获的网络流量。
+- en: Summary
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we outlined how virtualization changes the landscape not just
+    for IT operations, but also for the attacker and forensic specialist. Systems
+    can be created, reshaped, and copied for good and bad reasons.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们概述了虚拟化如何改变不仅仅是IT运维的格局，也改变了攻击者和取证专家的工作方式。系统可以因善意或恶意的原因被创建、重构和复制。
+- en: We provided examples of how to detect possibly malicious behavior or configuration
+    on the vSphere virtualization environment. Moreover, we demonstrated how virtualization
+    can be beneficial in getting untampered RAM dumps from the systems that should
+    be analyzed. In the next chapter, you will see examples on how to analyze these
+    RAM dumps.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们提供了如何检测vSphere虚拟化环境中可能存在的恶意行为或配置的示例。此外，我们演示了虚拟化如何有助于从应分析的系统中获取未经篡改的RAM转储。在下一章中，您将看到如何分析这些RAM转储的示例。
+- en: With this knowledge, you are now prepared to analyze and utilize virtual environments
+    in your forensic analyses.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这些知识，您现在已经准备好在取证分析中分析和利用虚拟环境。

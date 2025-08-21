@@ -1,0 +1,2347 @@
+- en: Denial of Service
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 拒绝服务
+- en: 'Any time you make resources publicly accessible over the Internet or even to
+    a small community over an internal network, it is important to consider the risk
+    of **denial-of-service** (**DoS**) attacks. DoS attacks can be frustrating and
+    can be very costly at times. Worst of all, these threats can often be some of
+    the most difficult ones to mitigate. To be able to properly assess the threat
+    to your network and information resources, you must understand the types of DoS
+    threats that exist and the trends associated with them. This chapter will include
+    the following recipes to evaluate DoS threats:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 任何时候，只要你让资源在互联网上公开访问，或者通过内部网络向一个小社区开放，都需要考虑 **拒绝服务**（**DoS**）攻击的风险。DoS 攻击可能令人沮丧，且有时非常昂贵。最糟糕的是，这些威胁通常是最难以缓解的之一。为了能够正确评估网络和信息资源面临的威胁，你必须理解存在的
+    DoS 威胁类型以及与之相关的趋势。本章将包括以下评估 DoS 威胁的解决方案：
+- en: Fuzz testing to identify buffer overflows
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用模糊测试识别缓冲区溢出
+- en: Remote FTP service buffer overflow DoS
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 远程 FTP 服务缓冲区溢出 DoS
+- en: Smurf DoS attack
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Smurf DoS 攻击
+- en: DNS amplification DoS attack
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DNS 放大 DoS 攻击
+- en: SNMP amplification DoS attack
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SNMP 放大 DoS 攻击
+- en: SYN flood DoS attack
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SYN 洪水 DoS 攻击
+- en: Sock stress DoS attack
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Sock stress DoS 攻击
+- en: DoS attacks with Nmap NSE
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Nmap NSE 进行的 DoS 攻击
+- en: DoS attacks with Metasploit
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 进行 DoS 攻击
+- en: DoS attacks with the exploit database
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 利用数据库进行的 DoS 攻击
+- en: Introduction
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: Prior to addressing each of these listed recipes individually, we should address
+    some of the underlying principles and understand how they relate to the DoS attacks
+    that will be discussed in this chapter. The DoS attacks that we will discuss in
+    the recipes that follow could all be categorized as buffer overflows, traffic-amplification
+    attacks, or resource-consumption attacks. We will address the general principles
+    associated with how each of these types of attacks works in this order.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在逐一解决以下列出的解决方案之前，我们应该讨论一些基本原理，并了解它们如何与本章中讨论的 DoS 攻击相关。我们将在接下来的解决方案中讨论的 DoS 攻击都可以归类为缓冲区溢出、流量放大攻击或资源消耗攻击。我们将按顺序讨论与每种攻击类型相关的一般原理。
+- en: Buffer overflows are a type of coding vulnerability that can result in the denial
+    of service of an application, service, or the entire underlying operating system.
+    Generally speaking, buffer overflows are capable of causing a denial of service
+    because they can result in arbitrary data being loaded into unintended segments
+    of memory. This can disrupt the flow of execution and result in a crash of the
+    service or operating system.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 缓冲区溢出是一种编码漏洞，可能导致应用程序、服务或整个操作系统的拒绝服务。一般来说，缓冲区溢出能够导致拒绝服务，因为它们会将任意数据加载到不应访问的内存区域。这会中断执行流程，导致服务或操作系统崩溃。
+- en: 'Traffic-amplification DoS attacks are able to generate a DoS condition by consuming
+    the network bandwidth that is available to a particular server, device, or network.
+    Two conditions are required for a traffic-amplification attack to be successful.
+    These conditions are as follows:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 流量放大 DoS 攻击通过消耗特定服务器、设备或网络可用的网络带宽来生成 DoS 状况。为了让流量放大攻击成功，需要满足两个条件。这些条件如下：
+- en: '**Redirection**: An attacker must be able to solicit a response that can be
+    redirected to a victim. This is generally accomplished by IP spoofing. As UDP
+    is not a connection-oriented protocol, most application-layer protocols that use
+    UDP as their associated transport layer protocol can be used to redirect service
+    responses to other hosts via spoofed requests.'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**重定向**：攻击者必须能够请求一个可以被重定向到受害者的响应。这通常通过 IP 欺骗来实现。由于 UDP 是无连接协议，大多数使用 UDP 作为传输层协议的应用层协议都可以通过伪造请求将服务响应重定向到其他主机。'
+- en: '**Amplification**: The redirected response must be larger than the request
+    that solicited that response. The larger the response byte size to request byte
+    size ratio, the more successful the attack will be.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**放大**：重定向的响应必须大于发起该请求的请求本身。响应的字节大小与请求字节大小的比率越大，攻击成功的概率就越高。'
+- en: For example, if a UDP service that generates a response that is 10 times larger
+    than the associated request is discovered, an attacker could leverage this service
+    to potentially generate 10 times the amount of attack traffic than it could otherwise
+    generate by sending spoofed requests to the vulnerable service at the highest
+    rate of transmission possible.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，如果发现一个 UDP 服务生成的响应比相关请求大 10 倍，攻击者可能会利用此服务，通过向易受攻击的服务发送伪造请求，并以尽可能高的传输速率发送，来生成比原本能产生的流量多
+    10 倍的攻击流量。
+- en: Resource-consumption attacks are attacks that generate a condition in which
+    the local resources of the hosting server or device are consumed to such an extent
+    that these resources are no longer available to perform their intended operational
+    function. This type of attack can target various local resources, including memory,
+    processor power, disk space, or sustainability of concurrent network connections.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 资源消耗攻击是通过生成一种条件，使得承载服务器或设备的本地资源消耗到无法再执行其预定功能的程度的攻击。这种类型的攻击可以针对各种本地资源，包括内存、处理器能力、磁盘空间或并发网络连接的可持续性。
+- en: Fuzz testing to identify buffer overflows
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过模糊测试识别缓冲区溢出
+- en: One of the most effective techniques to identify buffer-overflow vulnerabilities
+    is fuzz testing. **Fuzzing** is the practice of testing the results associated
+    with various input by passing crafted or random data to a function. In the right
+    circumstances, it is possible that input data can escape its designated buffer
+    and flow into adjacent registers or segments of memory. This process will disrupt
+    the execution flow and result in application or system crashes. In certain circumstances,
+    buffer-overflow vulnerabilities can also be leveraged to execute unauthorized
+    code. In this particular recipe, we will discuss how to test for buffer-overflow
+    vulnerabilities by developing custom fuzzing tools.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 识别缓冲区溢出漏洞最有效的技术之一是模糊测试。**模糊测试**是通过将精心制作或随机的数据传递给函数来测试与各种输入相关的结果的做法。在合适的情况下，输入数据有可能逃离其指定的缓冲区，流入相邻的寄存器或内存段。这一过程将扰乱执行流程，导致应用程序或系统崩溃。在某些情况下，缓冲区溢出漏洞还可以被利用来执行未经授权的代码。在这个具体的示例中，我们将讨论如何通过开发自定义模糊测试工具来测试缓冲区溢出漏洞。
+- en: Getting ready
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To perform remote fuzz testing, you will need to have a system that is running
+    network services over TCP or UDP. In the example provided, a Windows XP system
+    with an FTP service is used for this task. For more information on setting up
+    a Windows system, refer to the *Installing Windows Server* recipe in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem, using a text
+    editor such as Vim or GNU nano. For more information on writing scripts, refer
+    to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行远程模糊测试，你需要有一个运行 TCP 或 UDP 网络服务的系统。在提供的示例中，使用的是一台 Windows XP 系统，配备了 FTP 服务。有关设置
+    Windows 系统的更多信息，请参阅 [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)
+    中的 *安装 Windows Server* 示例，*入门*。此外，本节还需要写一个脚本到文件系统中，使用文本编辑器如 Vim 或 GNU nano 编辑。有关编写脚本的更多信息，请参阅
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426) 中的 *使用文本编辑器（Vim 和
+    GNU nano）* 示例，*入门*。
+- en: How to do it…
+  id: totrans-24
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何做...
+- en: 'Python is an excellent scripting language that can be used to effectively develop
+    custom fuzzing utilities. When assessing TCP services, the `socket` function can
+    be useful in simplifying the process of performing the full three-way handshake
+    sequence and connecting to a listening service port. The main objective of any
+    fuzzing script is to send data to any given function as input and evaluate the
+    result:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Python 是一种优秀的脚本语言，可以有效地用于开发自定义模糊测试工具。在评估 TCP 服务时，`socket` 函数可以简化执行完整三次握手过程并连接到监听服务端口的过程。任何模糊测试脚本的主要目标是将数据作为输入发送到任何给定的函数，并评估结果：
+- en: 'I have developed a script that can be used to fuzz the post-authentication
+    functions of an FTP service:'
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我开发了一个可以用于模糊测试 FTP 服务认证后功能的脚本：
+- en: '[PRE0]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The first part of the script defines the location of the Python interpreter
+    and imports the required libraries.
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本的第一部分定义了 Python 解释器的位置并导入所需的库。
+- en: The second part evaluates the number of arguments supplied to ensure that it
+    is consistent with the appropriate usage of the script.
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第二部分评估传递的参数数量，以确保其与脚本的正确用法一致。
+- en: The third part of the script defines the variables that will be used throughout
+    the script execution. Several of these variables receive their values from system
+    arguments that are passed to the script upon execution.
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本的第三部分定义了将在整个脚本执行过程中使用的变量。其中一些变量从执行时传递给脚本的系统参数中获取其值。
+- en: The remaining variables are defined by accepting input from the user of the
+    script.
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 剩余的变量通过接受脚本用户的输入来定义。
+- en: 'Finally, the remainder of the script defines the fuzzing process. We execute
+    the `ftp_fuzz.py` file, as follows:'
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，脚本的其余部分定义了模糊测试过程。我们执行`ftp_fuzz.py`文件，方法如下：
+- en: '![](../images/00190.jpeg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00190.jpeg)'
+- en: 'If the script is executed without the appropriate number of system arguments,
+    the script will return the expected usage. There are several values that must
+    be included as system arguments:'
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果脚本在没有适当数量的系统参数下执行，脚本将返回预期的用法。必须作为系统参数包含几个值：
+- en: The first argument to be passed to the script is the `Target IP` address. This
+    IP address is the one associated with the system that is running the FTP service
+    that you wish to fuzz.
+  id: totrans-35
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个传递给脚本的参数是`目标IP`地址。此IP地址与运行你希望模糊测试的FTP服务的系统相关联。
+- en: The next argument is the `Port Number` on which the FTP service is running.
+    In most cases, FTP will run on the TCP port `21`. The `Payload` argument will
+    define the character or sequence of characters to be passed in bulk to the service.
+  id: totrans-36
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一个参数是`端口号`，即FTP服务运行的端口。通常情况下，FTP服务会运行在TCP端口`21`。`有效负载`参数将定义要批量传递给服务的字符或字符序列。
+- en: The `Interval` argument defines the number of instances of the defined payload
+    that will be passed to the FTP service on the first iteration. The argument will
+    also be the number by which the number of payload instances will be incremented
+    with on each successive iteration up to the `Maximum` value. This `Maximum` value
+    is defined by the value of the last argument.
+  id: totrans-37
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`间隔`参数定义了在第一次迭代中将传递给FTP服务的有效负载实例的数量。该参数还将作为每次迭代时有效负载实例数量递增的步长，直到达到`最大值`。该`最大值`由最后一个参数的值定义。'
+- en: After the script is executed with these system arguments, it will request authentication
+    credentials for the FTP service and will ask which post-authentication function
+    should be fuzzed.
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本执行这些系统参数后，会请求FTP服务的认证凭证，并询问应该模糊测试哪个身份验证后的功能。
+- en: In the example provided, the fuzzing was performed against the FTP service that
+    runs on the TCP port `21` of the Windows XP host at the IP address `172.16.69.129`.
+    Anonymous login credentials were passed to the FTP service with an arbitrary e-mail
+    address. Also, a series of `A` was passed to the `MKD` post-authentication function,
+    starting with `100` instances and incrementing by 100 until the maximum of `1000`
+    instances was reached.
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，模糊测试针对运行在TCP端口`21`的Windows XP主机的FTP服务进行，主机的IP地址是`172.16.69.129`。通过任意电子邮件地址将匿名登录凭证传递给FTP服务。此外，一系列`A`字符被传递给`MKD`身份验证后的功能，起始实例为`100`，每次递增`100`，直到达到最大值`1000`。
+- en: 'The same script could also be used to pass a series of characters in the payload:'
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 同样的脚本也可以用来将一系列字符传递到有效负载中：
+- en: '![](../images/00666.jpeg)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00666.jpeg)'
+- en: In the example provided, the payload was defined as `ABCD`, and instances of
+    this payload were defined as multiples of 100 up to the value of `500`.
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，有效负载被定义为`ABCD`，并且该有效负载的实例被定义为100的倍数，直到值为`500`。
+- en: How it works…
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: Generally speaking, buffer overflows are capable of causing a denial of service,
+    because they can result in arbitrary data being loaded into unintended segments
+    of memory. This can disrupt the flow of execution and result in a crash of the
+    service or operating system. The particular script discussed in this recipe works
+    because in the event that the service or operating system did crash, the socket
+    would no longer accept input, and the script would not be able to complete the
+    entire payload series injection sequence. If this occurred, the script would need
+    to be force-closed using *Ctrl* + *C*. In such a case, the script would return
+    an indication that subsequent payloads could not be sent and that the server may
+    have crashed.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，缓冲区溢出可能会导致服务拒绝（DoS），因为它们可能会导致任意数据被加载到不应放置的内存区域。这会中断执行流程，导致服务或操作系统崩溃。本食谱中讨论的特定脚本之所以有效，是因为如果服务或操作系统崩溃，套接字将不再接受输入，脚本也无法完成整个有效载荷系列注入。如果发生这种情况，脚本需要通过*Ctrl*
+    + *C*强制关闭。在这种情况下，脚本会返回指示，表明后续的有效载荷无法发送，且服务器可能已经崩溃。
+- en: Remote FTP service buffer-overflow DoS
+  id: totrans-45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 远程 FTP 服务缓冲区溢出 DoS
+- en: In the right circumstances, it is possible that input data can escape its designated
+    buffer and flow into adjacent registers or segments of memory. This process will
+    disrupt the execution flow and result in application or system crashes. In certain
+    circumstances, buffer-overflow vulnerabilities can also be leveraged to execute
+    unauthorized code. In this particular recipe, we will demonstrate an example of
+    how to perform a DoS attack based on buffer overflow against a Cesar 0.99 FTP
+    service.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在适当的情况下，输入数据有可能逃逸出其指定的缓冲区，流入相邻的寄存器或内存段。这个过程会破坏执行流，并导致应用程序或系统崩溃。在某些情况下，缓冲区溢出漏洞还可以被利用来执行未经授权的代码。在本食谱中，我们将演示如何针对
+    Cesar 0.99 FTP 服务执行基于缓冲区溢出的拒绝服务攻击（DoS）。
+- en: Getting ready
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To perform remote fuzz testing, you will need to have a system that is running
+    network services over TCP or UDP. In the example provided, a Windows XP system
+    with an FTP service is used for this task. For more information on setting up
+    a Windows system, refer to the *Installing Windows Server* recipe in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem, using a text
+    editor such as Vim or GNU nano. For more information on writing scripts, refer
+    to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行远程模糊测试，您需要一台运行网络服务（通过 TCP 或 UDP）的系统。在提供的示例中，使用的是带有 FTP 服务的 Windows XP 系统来完成此任务。有关如何设置
+    Windows 系统的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Windows 服务器* 食谱，*入门指南*。此外，本节还需要编写脚本并将其保存到文件系统中，您可以使用 Vim 或 GNU nano 等文本编辑器来完成此操作。有关编写脚本的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *使用文本编辑器（Vim 和 GNU nano）* 食谱，*入门指南*。
+- en: How to do it…
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 操作步骤…
+- en: 'There is a publicly disclosed vulnerability associated with the Cesar 0.99
+    FTP service. This vulnerability is defined by the **Common Vulnerabilities and
+    Exposures** (**CVE**) numbering system as `CVE-2006-2961`. By performing research
+    on this vulnerability, it becomes apparent that a stack-based buffer overflow
+    can be triggered by sending a post-authentication sequence of line-break characters
+    to the `MKD` function:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Cesar 0.99 FTP 服务存在一个公开披露的漏洞。该漏洞通过 **常见漏洞和暴露**（**CVE**）编号系统定义为 `CVE-2006-2961`。通过对该漏洞进行研究，明显可以发现通过向
+    `MKD` 函数发送经过身份验证后的换行符序列，可以触发基于堆栈的缓冲区溢出：
+- en: 'To avoid the difficulty associated in passing the `n` escape sequence to the
+    Python script and then having it properly interpreted in the supplied input, we
+    should modify the script that was discussed in the previous recipe. We can then
+    use the modified script to exploit this existing vulnerability, as follows:'
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了避免在将`n`转义序列传递给 Python 脚本时遇到的困难，并确保它在提供的输入中被正确解析，我们应该修改在前面食谱中讨论过的脚本。然后，我们可以使用修改后的脚本利用现有的漏洞，具体操作如下：
+- en: '[PRE1]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Modifications made to the script include modifying the usage description and
+    removing the payload as a supplied argument and then hardcoding a line-break payload
+    into the script to be sent in sequence:'
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对脚本所做的修改包括修改使用说明，移除作为参数提供的有效载荷，然后将一个换行符有效载荷硬编码到脚本中，按顺序发送：
+- en: '![](../images/00051.jpeg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00051.jpeg)'
+- en: If the script is executed without the appropriate number of system arguments,
+    the script will return the expected usage. We can then execute the script and
+    send a series of payloads as multiples of `100` and up to the maximum of `1000`.
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果脚本在没有适当数量的系统参数的情况下执行，脚本将返回预期的使用方式。然后，我们可以执行脚本并发送多个`100`的有效载荷，直到最大`1000`。
+- en: 'After sending the payload of `700` line-break characters, the script stops
+    sending payloads and sits idle. After a period of inactivity, the script is forced
+    to close with *Ctrl* + *C*. The script indicates that it has been unable to send
+    characters and that the remote server might have crashed. Have a look at the following
+    screenshot:'
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在发送了`700`个换行符的有效载荷后，脚本停止发送有效载荷并处于空闲状态。经过一段时间的不活动后，脚本会被强制关闭，使用*Ctrl* + *C*。脚本指示它无法发送字符，远程服务器可能已经崩溃。请看以下截图：
+- en: '![](../images/00118.jpeg)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00118.jpeg)'
+- en: By returning to the Windows XP machine that is running the Cesar 0.99 FTP service,
+    we can see that the `server.exe` application has crashed. To resume operations
+    after the denial of service, the Cesar FTP service has to be manually restarted.
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过返回运行Cesar 0.99 FTP服务的Windows XP机器，我们可以看到`server.exe`应用程序已经崩溃。为了恢复拒绝服务后的操作，必须手动重新启动Cesar
+    FTP服务。
+- en: How it works…
+  id: totrans-59
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: Generally speaking, buffer overflows are capable of causing a denial of service
+    because they can result in arbitrary data being loaded into unintended segments
+    of memory. This can disrupt the flow of execution and result in a crash of the
+    service or operating system.The particular script discussed in this recipe works
+    because in the event that the service or operating system did crash, the socket
+    would no longer accept input, and the script would not be able to complete the
+    entire payload series injection sequence. If this occurred, the script would need
+    to be force-closed using *Ctrl + C*. In such a case, the script would return an
+    indication that subsequent payloads could not be sent and that the server might
+    have crashed.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，缓冲区溢出能够导致服务拒绝，因为它们可以导致任意数据被加载到不想要的内存段。这会中断执行流并导致服务或操作系统崩溃。本食谱中讨论的特定脚本之所以有效，是因为如果服务或操作系统崩溃，套接字将不再接受输入，脚本无法完成整个有效载荷注入序列。如果发生这种情况，脚本需要通过*Ctrl
+    + C*强制关闭。在这种情况下，脚本将返回一个指示，表明后续有效载荷无法发送，并且服务器可能已经崩溃。
+- en: Smurf DoS attack
+  id: totrans-61
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Smurf DoS攻击
+- en: A **smurf** attack is historically one of the oldest techniques to perform a
+    **distributed denial-of-service** (**DDoS**) amplification attack. This attack
+    consists of sending a series of ICMP echo requests with a spoofed source IP address
+    to the network broadcast address. When this echo request is broadcast, all hosts
+    on the LAN should simultaneously reply to the target for each spoofed request
+    received. This technique is less effective against modern systems, as most will
+    not reply to IP-directed broadcast traffic.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Smurf**攻击是历史上最古老的分布式拒绝服务（**DDoS**）放大攻击技术之一。该攻击通过向网络广播地址发送一系列带有伪造源IP地址的ICMP回显请求来实施。当这个回显请求被广播时，局域网中的所有主机都会对每个收到的伪造请求做出回应，目标主机会受到多次回应。这种技术在现代系统中效果较差，因为大多数系统不会响应定向广播流量。'
+- en: Getting ready
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To perform a smurf attack, you will need to have the LAN with multiple systems
+    running on it. In the examples provided, an installation of Ubuntu is used as
+    a scan target. For more information on setting up Ubuntu, refer to the *Installing
+    Ubuntu Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行smurf攻击，你需要有一个包含多个系统的局域网。在提供的示例中，使用了一个Ubuntu的安装作为扫描目标。有关如何设置Ubuntu的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Ubuntu服务器*。
+- en: How to do it…
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'To attempt to perform a traditional smurf attack, Scapy can be used to build
+    the necessary packets from scratch:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了尝试执行传统的smurf攻击，可以使用Scapy从头开始构建所需的数据包：
+- en: 'To use Scapy from the Kali Linux command line, use the `scapy` command from
+    a Terminal; this is shown in the following screenshots. To send an ICMP request
+    to the broadcast address, we must first build the layers of this request. The
+    first layer that we will need to construct is the IP layer:'
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在Kali Linux命令行中使用Scapy，可以通过终端使用`scapy`命令，如下截图所示。为了向广播地址发送ICMP请求，我们必须首先构建这个请求的各个层。我们需要构建的第一层是IP层：
+- en: '![](../images/00191.jpeg)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00191.jpeg)'
+- en: To build the IP layer of our request, we should assign the `IP` object to the
+    variable `i`. By calling the `display()` function, we can identify the attribute
+    configurations for the object. By default, both the sending and receiving addresses
+    are set to the loopback address of `127.0.0.1`. These values can be modified by
+    changing the destination address by setting `i.dst` equal to the string value
+    of the broadcast address. By calling the `display()` function again, we can see
+    that not only has the destination address been updated, but Scapy will also automatically
+    update the source IP address to the address associated with the default interface.
+  id: totrans-69
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要构建请求的 IP 层，我们应将 `IP` 对象分配给变量 `i`。通过调用 `display()` 函数，我们可以识别对象的属性配置。默认情况下，发送和接收地址均设置为
+    `127.0.0.1` 的环回地址。通过将目标地址设置为广播地址的字符串值，可以修改这些值。再次调用 `display()` 函数后，我们可以看到目标地址不仅已更新，而且
+    Scapy 还会自动将源 IP 地址更新为与默认接口关联的地址。
+- en: 'Now that we have constructed the IP layer of the request, we should proceed
+    to the ICMP layer:'
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经构建了请求的 IP 层，我们应继续进行 ICMP 层：
+- en: '![](../images/00264.jpeg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00264.jpeg)'
+- en: To build the ICMP layer of our request, we will use the same technique as we
+    did for the IP layer. By default, the ICMP layer is already configured to perform
+    an echo request.
+  id: totrans-72
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要构建请求的 ICMP 层，我们将使用与 IP 层相同的技术。默认情况下，ICMP 层已配置为执行回显请求。
+- en: 'Now that we have created both the IP and ICMP layers, we need to construct
+    the request by stacking these layers:'
+  id: totrans-73
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经创建了 IP 和 ICMP 层，我们需要通过堆叠这些层来构建请求：
+- en: '![](../images/00341.jpeg)'
+  id: totrans-74
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00341.jpeg)'
+- en: 'The IP and ICMP layers can be stacked by separating the variables with a forward
+    slash. These layers can then be set equal to a new variable that will represent
+    the entire request. The `display()` function can then be called to view the configurations
+    for the request. Once the request has been built, it can then be passed to the
+    function. A packet-capture utility such as Wireshark or TCPdump can be used to
+    monitor the result. In the example provided, Wireshark reveals that two of the
+    IP addresses on the LAN responded to the broadcast echo request:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: IP 和 ICMP 层可以通过斜杠分隔的变量堆叠。然后，可以将这些层设置为将代表整个请求的新变量。可以调用 `display()` 函数来查看请求的配置。构建请求后，可以将其传递给函数。可以使用诸如
+    Wireshark 或 TCPdump 的数据包捕获工具监视结果。在提供的示例中，Wireshark 显示局域网上的两个 IP 地址响应了广播回显请求：
+- en: '![](../images/00433.jpeg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00433.jpeg)'
+- en: 'In reality, two responsive addresses are not sufficient to perform an effective
+    DoS attack. If this exercise is replicated in another lab with semimodern hosts,
+    it is likely that the results will be similar. In the case that there were enough
+    responsive addresses to trigger a denial of service, the source address would
+    need to be substituted for the IP address of the attack target:'
+  id: totrans-77
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实际上，两个响应地址不足以执行有效的拒绝服务攻击。如果在另一个带有半现代主机的实验室中复制此操作，则结果可能会类似。如果有足够的响应地址触发了拒绝服务，源地址需要替换为攻击目标的
+    IP 地址：
+- en: '![](../images/00507.jpeg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00507.jpeg)'
+- en: In the example provided, a one-line command in Scapy is used to perform the
+    same action as we had discussed earlier, except this time with the source IP address
+    spoofed to the address of another system on the LAN. Additionally, the count value
+    can be used to send multiple requests in sequence.
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，使用 Scapy 中的一行命令执行与我们先前讨论过的相同操作，不同之处在于此时将源 IP 地址欺骗为局域网上另一系统的地址。此外，计数值可以用于连续发送多个请求。
+- en: How it works…
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它的工作原理…
+- en: 'Amplification attacks work by overwhelming a target with network traffic by
+    leveraging one or more third-party devices. For most amplification attacks, two
+    conditions are true, which are as follows:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 放大攻击通过利用一个或多个第三方设备，通过网络流量淹没目标来工作。对于大多数放大攻击，两个条件成立，如下所述：
+- en: The protocol used to perform the attack does not verify the requesting source. The
+    response from the network function used should be significantly larger than the
+    request used to solicit it.
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 发动攻击所使用的协议并未验证请求源。所用的网络功能响应应比用于请求的内容明显大。
+- en: The effectiveness of a traditional smurf attack is contingent upon the hosts
+    on the LAN responding to IP-directed broadcast traffic. Such hosts will receive
+    the broadcast ICMP echo request from the spoofed IP address of the target system
+    and then return simultaneous ICMP echo replies for each request received.
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 传统的 Smurf 攻击的有效性取决于局域网上的主机是否响应指向 IP 的广播流量。这些主机将从目标系统伪造的 IP 地址接收到广播的 ICMP 回显请求，并对每个收到的请求返回同时的
+    ICMP 回显应答。
+- en: DNS amplification DoS attacks
+  id: totrans-84
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: DNS 放大拒绝服务攻击
+- en: A **domain-name dystem** (**DNS**) amplification attack exploits open DNS resolvers
+    by performing a spoofed query of all record types for a given domain. The effectiveness
+    of this attack can be increased by employing a DDoS component as well by sending
+    requests to multiple open resolvers simultaneously.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**域名系统**（**DNS**）放大攻击通过执行伪造查询来利用开放的 DNS 解析器，查询某一给定域名的所有记录类型。通过结合使用 DDoS 组件并同时向多个开放解析器发送请求，可以增强这种攻击的有效性。'
+- en: Getting ready
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To simulate a DNS amplification attack, you will need to either have a local
+    nameserver or know the IP address of an open and publicly accessible nameserver.
+    In the examples provided, an installation of Ubuntu is used as a scan target.
+    For more information on setting up Ubuntu, refer to the *Installing Windows Server*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了模拟 DNS 放大攻击，您需要有一个本地的名称服务器或知道一个开放且可以公开访问的名称服务器的 IP 地址。在提供的示例中，使用的是 Ubuntu
+    安装作为扫描目标。有关 Ubuntu 设置的更多信息，请参阅 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Windows Server* 配方，*入门指南*。
+- en: How to do it…
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'To perform a DNS amplification attack, follow the given steps:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行 DNS 放大攻击，请按照以下步骤操作：
+- en: 'In order to understand how DNS amplification works, one can use a basic DNS
+    query utility such as `host`, `dig`, or `nslookup`:'
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了理解 DNS 放大是如何工作的，可以使用基本的 DNS 查询工具，如 `host`、`dig` 或 `nslookup`：
+- en: 'By performing a request for all record types associated with a well-established
+    domain, you will notice that some return a fairly sizable response:'
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过执行对某一知名域名所有记录类型的请求，您会注意到某些返回了相当大的响应：
+- en: '![](../images/00573.jpeg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00573.jpeg)'
+- en: In the example provided, a request for all record types associated with the
+    `yahoo.com` domain returns a response that includes seven `A` records, three `AAAA`
+    records, five `NS` records, and three `MX` records. A DNS amplification attack's
+    effectiveness is directly correlated to the size of the response. We will now
+    attempt to perform the same action using packets built in Scapy.
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，针对 `yahoo.com` 域名请求所有记录类型的查询返回的响应包括七个 `A` 记录、三个 `AAAA` 记录、五个 `NS` 记录和三个
+    `MX` 记录。DNS 放大攻击的有效性与响应的大小直接相关。我们现在将尝试使用 Scapy 构建的数据包执行相同的操作。
+- en: 'To send our DNS query request, we must first build the layers of this request.
+    The first layer that we will need to construct is the IP layer:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要发送我们的 DNS 查询请求，我们必须首先构建该请求的各个层级。我们需要构建的第一层是 IP 层：
+- en: '![](../images/00633.jpeg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00633.jpeg)'
+- en: To build the IP layer of our request, we should assign the `IP` object to the
+    variable `i`. By calling the `display()` function, we can identify the attribute
+    configurations for the object. By default, both the sending and receiving addresses
+    are set to the loopback address of `127.0.0.1`. These values can be modified by
+    changing the destination address by setting `i.dst` equal to the string value
+    of the address of the nameserver to be queried.
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建请求的 IP 层，我们应该将 `IP` 对象赋值给变量 `i`。通过调用 `display()` 函数，我们可以识别该对象的属性配置。默认情况下，发送和接收地址都设置为
+    `127.0.0.1` 的回送地址。通过设置 `i.dst` 为要查询的名称服务器的地址字符串，可以修改这些值。
+- en: By calling the `display()` function again, we can see that not only has the
+    destination address been updated, but Scapy will also automatically update the
+    source IP address to the address associated with the default interface.
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过再次调用 `display()` 函数，我们可以看到不仅目标地址已经更新，Scapy 还会自动将源 IP 地址更新为与默认接口关联的地址。
+- en: 'Now that we have constructed the IP layer of the request, we should proceed
+    to the next layer. As DNS is handled over UDP, the next layer to construct is
+    the UDP layer:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经构建了请求的 IP 层，接下来应该继续构建下一层。由于 DNS 是通过 UDP 处理的，下一层要构建的是 UDP 层：
+- en: '![](../images/00001.jpeg)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00001.jpeg)'
+- en: To build the UDP layer of our request, we will use the same technique as we
+    did for the IP layer. In the example provided, the `UDP` object was assigned to
+    the `u` variable. As discussed earlier, the default configurations can be identified
+    by calling the `display()` function.
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建请求的UDP层，我们将使用与构建IP层相同的技术。在提供的示例中，`UDP`对象被分配给了`u`变量。如前所述，可以通过调用`display()`函数来识别默认配置。
+- en: Here, we can see that the default values for both the source and destination
+    ports are listed as `domain`. As you might likely suspect, this is to indicate
+    the DNS service associated with the port `53`. DNS is a common service that can
+    often be discovered on networked systems. To confirm this, one can call the value
+    directly by referencing the variable name and attribute.
+  id: totrans-101
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到源端口和目标端口的默认值都列为`domain`。如你所猜测的那样，这是为了指示与端口`53`相关的DNS服务。DNS是一种常见的服务，通常可以在网络系统中发现。要确认这一点，可以通过引用变量名和属性直接调用该值。
+- en: 'Now that the IP and UDP layers have been constructed, we need to build the
+    DNS layer:'
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在IP和UDP层已经构建完成，我们需要构建DNS层：
+- en: '![](../images/00068.jpeg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00068.jpeg)'
+- en: 'To build the DNS layer of our request, we will use the same technique as we
+    did for both the IP and UDP layers. In the example provided, the `DNS` object
+    was assigned to the `d` variable. As discussed earlier, the default configurations
+    can be identified by calling the `display()` function. Here, we can see that there
+    are several values that need to be modified:'
+  id: totrans-104
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建请求的DNS层，我们将使用与构建IP层和UDP层相同的技术。在提供的示例中，`DNS`对象被分配给了`d`变量。如前所述，可以通过调用`display()`函数来识别默认配置。在这里，我们可以看到有几个值需要修改：
+- en: '![](../images/00656.jpeg)'
+  id: totrans-105
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00656.jpeg)'
+- en: The *recursion-desired* bit needs to be activated; this can be done by setting
+    the `rd` value equal to `1`. Also, a value of `0x0001` needs to be supplied for
+    `qdcount`; this can be done by supplying an integer value of `1`. By calling the
+    `display()` function again, we can verify that the configuration adjustments have
+    been made.
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '*递归所需*位需要激活；这可以通过将`rd`值设置为`1`来完成。此外，`qdcount`需要提供`0x0001`的值；这可以通过提供整数值`1`来实现。通过再次调用`display()`函数，我们可以验证配置调整是否已完成。'
+- en: 'Now that the IP, UDP, and DNS layers have been constructed, we need to build
+    a DNS question record to assign to the `qd` value:'
+  id: totrans-107
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在IP、UDP和DNS层已经构建完成，我们需要构建一个DNS查询记录并分配给`qd`值：
+- en: '![](../images/00211.jpeg)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00211.jpeg)'
+- en: 'To build the DNS question record, we will use the same technique as we did
+    for the IP, UDP, and DNS layers. In the example provided, the DNS question record
+    was assigned to the `q` variable. As discussed earlier, the default configurations
+    can be identified by calling the `display()` function. Here, we can see that there
+    are several values that need to be modified:'
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建DNS查询记录，我们将使用与构建IP、UDP和DNS层相同的技术。在提供的示例中，DNS查询记录被分配给了`q`变量。如前所述，可以通过调用`display()`函数来识别默认配置。在这里，我们可以看到有几个值需要修改：
+- en: '![](../images/00087.jpeg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00087.jpeg)'
+- en: The `qname` value needs to be set to the domain that is being queried. Also,
+    `qtype` needs to be set to `ALL` by passing an integer value of `255.` By calling
+    the `display()` function again, we can verify that the configuration adjustments
+    have been made.
+  id: totrans-111
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`qname`值需要设置为正在查询的域名。此外，`qtype`需要通过传递整数值`255`来设置为`ALL`。通过再次调用`display()`函数，我们可以验证配置调整是否已完成。'
+- en: 'Now that the question record has been configured, the question record object
+    should be assigned as the DNS `qd` value:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在查询记录已经配置完成，查询记录对象应该被分配为DNS的`qd`值：
+- en: '![](../images/00346.jpeg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00346.jpeg)'
+- en: 'We can verify that the question record has been assigned to the DNS `qd` value
+    by calling the `display()` function. Now that the IP, UDP, and DNS layers have
+    been constructed and the appropriate question record has been assigned to the
+    DNS layer, we can construct the request by stacking these layers:'
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过调用`display()`函数来验证查询记录是否已分配给DNS的`qd`值。现在，IP、UDP和DNS层已经构建完成，且相应的查询记录已分配给DNS层，我们可以通过堆叠这些层来构建请求：
+- en: '![](../images/00007.jpeg)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00007.jpeg)'
+- en: The IP, UDP, and DNS layers can be stacked by separating the variables with
+    a forward slash. These layers can then be set equal to a new variable that will
+    represent the entire request. The `display()` function can then be called to view
+    the configurations for the request.
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: IP、UDP 和 DNS 层可以通过用正斜杠分隔变量来堆叠。这些层然后可以设置为一个新的变量，该变量将表示整个请求。然后可以调用 `display()`
+    函数来查看请求的配置。
+- en: 'Prior to sending this request, we should view it in the same display format
+    as we will view the response. By doing this, we can get a better visual understanding
+    of the amplification that occurs between the request and response. This can be
+    done by calling the variable directly:'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在发送此请求之前，我们应该以与查看响应相同的显示格式查看它。通过这样做，我们可以更清晰地理解请求和响应之间的放大过程。这可以通过直接调用变量来实现：
+- en: '![](../images/00366.jpeg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00366.jpeg)'
+- en: 'Once the request has been built, it can be passed to the send (`send()`) and
+    receive (`recv()`) functions so that we can analyze the response. We will not
+    assign this to a variable, but instead, we will call the function directly so
+    that the response can be viewed in the same format:'
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦请求构建完成，就可以将其传递给发送（`send()`）和接收（`recv()`）函数，以便分析响应。我们不会将其赋值给变量，而是直接调用该函数，以便响应能够以相同的格式显示：
+- en: '![](../images/00590.jpeg)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00590.jpeg)'
+- en: The response confirms that we have successfully built the desired request, and
+    we have solicited a sizable payload that includes seven `A` records, three `AAAA`
+    record, five `NS` records, and three `MX` records for the `yahoo.com` domain.
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 响应确认我们已成功构建了期望的请求，并已请求到一个包含七个 `A` 记录、三个 `AAAA` 记录、五个 `NS` 记录和三个 `MX` 记录的庞大有效负载，且这些记录属于
+    `yahoo.com` 域名。
+- en: 'This exercise makes it clear that the response to this request is significantly
+    larger than the request itself. To make this an effective amplification attack,
+    it needs to be redirected to our target by spoofing the source IP address:'
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个练习明确表明，此请求的响应比请求本身大得多。为了使这一放大攻击有效，它需要通过伪造源 IP 地址将流量重定向到我们的目标：
+- en: '![](../images/00644.jpeg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00644.jpeg)'
+- en: 'After redefining the source IP address value to the string equivalent of the
+    IP address of the target system, we can confirm that the value has been adjusted
+    using the `display()` function. We can then rebuild our request with the change.
+    To verify that we are then able to redirect the DNS query response to this spoofed
+    host, we can start a TCP dump on the host using the `tcpdump` command, as shown
+    in the following screenshot:'
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在将源 IP 地址值重新定义为目标系统的 IP 地址的字符串等效项后，我们可以使用 `display()` 函数确认该值已被调整。然后，我们可以重新构建带有此更改的请求。为了验证我们是否能够将
+    DNS 查询响应重定向到这个伪造的主机，我们可以使用 `tcpdump` 命令在主机上启动一个 TCP 抓包，正如下图所示：
+- en: '![](../images/00019.jpeg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00019.jpeg)'
+- en: 'In the example provided, the `tcpdump` configurations will capture all traffic
+    that crosses the `eth0` interface from a source address of `192.168.68.2` (the
+    address of the queried DNS server). Then, we can send our requests using the `send()`
+    function:'
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`tcpdump` 配置将捕获所有通过 `eth0` 接口的流量，源地址为 `192.168.68.2`（即被查询的 DNS 服务器的地址）。然后，我们可以使用
+    `send()` 函数发送我们的请求：
+- en: '![](../images/00085.jpeg)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00085.jpeg)'
+- en: 'After sending the requests, we should refer back to the `tcpdump` content to
+    verify that the response to the DNS queries was returned to the victim server:'
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 发送请求后，我们应回到 `tcpdump` 内容中，验证 DNS 查询的响应是否返回到了受害服务器：
+- en: '![](../images/00150.jpeg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00150.jpeg)'
+- en: 'This entire process of performing DNS amplification can actually be performed
+    with a single one-liner command in Scapy. This command uses all of the same values
+    that we discussed in the previous exercise. The count value can then be modified
+    to define the number of payload responses that you want to be sent to the victim
+    server:'
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实际上，整个执行 DNS 放大攻击的过程可以通过在 Scapy 中执行一条单行命令来完成。此命令使用了我们在之前练习中讨论的所有相同的值。然后，可以修改计数值来定义希望发送到受害服务器的有效负载响应数量：
+- en: '![](../images/00230.jpeg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00230.jpeg)'
+- en: How it works…
+  id: totrans-132
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: 'Amplification attacks work by overwhelming a target with network traffic by
+    leveraging one or more third-party devices. For most amplification attacks, two
+    conditions are true:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 放大攻击通过利用一个或多个第三方设备，向目标系统发送大量网络流量，从而使目标被压垮。对于大多数放大攻击，以下两个条件是成立的：
+- en: The protocol used to perform the attack does not verify the requesting source. The
+    response from the network function used should be significantly larger than the
+    request used to solicit it.
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 执行攻击所使用的协议不会验证请求源。网络功能的响应应明显大于用来请求的请求数据包。
+- en: The effectiveness of a DNS amplification attack is directly correlated to the
+    size of the DNS query response. Additionally, the potency of the attack can be
+    increased by employing the use of multiple DNS servers.
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DNS 放大攻击的效果与 DNS 查询响应的大小直接相关。此外，通过使用多个 DNS 服务器，攻击的威力也可以得到增强。
+- en: SNMP amplification DoS attack
+  id: totrans-136
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SNMP 放大 DoS 攻击
+- en: An SNMP amplification attack exploits SNMP devices with predictable community
+    strings by spoofing queries with large responses. The effectiveness of this attack
+    can be increased by employing a DDoS component as well as by sending requests
+    to multiple SNMP devices simultaneously.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SNMP 放大攻击利用具有可预测社区字符串的 SNMP 设备，通过伪造查询并返回大响应来进行攻击。通过使用 DDoS 组件以及同时向多个 SNMP 设备发送请求，可以提高此攻击的效果。
+- en: Getting ready
+  id: totrans-138
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To simulate an SNMP amplification attack, you will need to have a device with
+    SNMP enabled on it. In the examples provided, a Windows XP device is used for
+    this purpose. For more information on setting up a Windows system, refer to the
+    *Installing Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, an installation of Ubuntu is used as a scan target.
+    For more information on setting up Ubuntu, refer to the *Installing Ubuntu Server*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了模拟 SNMP 放大攻击，您需要一个启用 SNMP 的设备。在提供的示例中，使用了 Windows XP 设备。有关设置 Windows 系统的更多信息，请参阅[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *安装 Windows Server*
+    章节，*入门*。此外，还使用了安装了 Ubuntu 的设备作为扫描目标。有关设置 Ubuntu 的更多信息，请参阅[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的
+    *安装 Ubuntu Server* 章节，*入门*。
+- en: How to do it…
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何执行…
+- en: 'To perform an SNMP amplification attack, follow the given steps:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行 SNMP 放大攻击，请按照以下步骤操作：
+- en: 'To get started, we should craft an SNMP query to be returned to our system
+    to assess the size of the payload to be used. To send our SNMP query request,
+    we must first build the layers of this request. The first layer that we will need
+    to construct is the IP layer:'
+  id: totrans-142
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了开始，我们需要构造一个 SNMP 查询，以返回到我们的系统来评估所使用的有效载荷的大小。要发送我们的 SNMP 查询请求，首先需要构建该请求的各层。我们需要构建的第一层是
+    IP 层：
+- en: '![](../images/00300.jpeg)'
+  id: totrans-143
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00300.jpeg)'
+- en: To build the IP layer of our request, we should assign the `IP` object to the
+    variable `i`. By calling the `display()` function, we can identify the attribute
+    configurations for the object. By default, both the sending and receiving addresses
+    are set to the loopback address of `127.0.0.1`. These values can be modified by
+    changing the destination address by setting `i.dst` equal to the string value
+    of the address of the nameserver to be queried. By calling the `display()` function
+    again, we can see that not only has the destination address been updated, but
+    Scapy will also automatically update the source IP address to the address associated
+    with the default interface.
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要构建请求的 IP 层，我们应将 `IP` 对象分配给变量 `i`。通过调用 `display()` 函数，我们可以识别该对象的属性配置。默认情况下，发送和接收地址都设置为回环地址
+    `127.0.0.1`。这些值可以通过设置 `i.dst` 为要查询的名称服务器的地址的字符串值来修改目标地址。再次调用 `display()` 函数，我们可以看到，不仅目标地址已更新，Scapy
+    还会自动将源 IP 地址更新为与默认接口关联的地址。
+- en: 'Now that we have constructed the IP layer of the request, we should proceed
+    to the next layer. As SNMP is handled over UDP, the next layer to construct is
+    the UDP layer:'
+  id: totrans-145
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经构建了请求的 IP 层，接下来应该构建下一层。由于 SNMP 是通过 UDP 处理的，接下来要构建的层是 UDP 层：
+- en: '![](../images/00385.jpeg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00385.jpeg)'
+- en: 'To build the UDP layer of our request, we will use the same technique as we
+    did for the IP layer. In the example provided, the `UDP` object was assigned to
+    the `u` variable. As discussed earlier, the default configurations can be identified
+    by calling the `display()` function. Here, we can see that the default value for
+    both the source and destination ports is listed as `domain`. As you might likely
+    suspect, this is to indicate the DNS service associated with the port `53`. This
+    needs to be changed to the port associated with SNMP:'
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建我们请求的UDP层，我们将使用与IP层相同的技术。在提供的示例中，`UDP`对象被分配给了`u`变量。如前所述，默认配置可以通过调用`display()`函数来识别。在这里，我们可以看到源端口和目标端口的默认值都列为`domain`。正如你可能猜到的，这表示与端口`53`相关的DNS服务。这个值需要更改为与SNMP相关的端口：
+- en: '![](../images/00470.jpeg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00470.jpeg)'
+- en: 'To change the source port and destination port to SNMP, the integer value of
+    `161` should be passed to it; this value corresponds to the UDP port associated
+    with the service. These changes can be verified by once again calling the `display()`
+    function. Now that the IP and UDP layers have been constructed, we need to build
+    the SNMP layer:'
+  id: totrans-149
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了将源端口和目标端口更改为SNMP，应该传递整数值`161`；这个值对应于与该服务相关的UDP端口。通过再次调用`display()`函数，可以验证这些更改。现在，IP和UDP层已经构建完成，我们需要构建SNMP层：
+- en: '![](../images/00539.jpeg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00539.jpeg)'
+- en: 'To build the SNMP layer of our request, we will use the same technique as we
+    did for both the IP and UDP layers. In the example provided, the `SNMP` object
+    was assigned to the `snmp` variable. As discussed earlier, the default configurations
+    can be identified by calling the `display()` function. Now that the IP, UDP, and
+    SNMP layers have been constructed, we need to build a bulk request to substitute
+    the SNMP `GET` request that is assigned by default to the PDU value:'
+  id: totrans-151
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建我们请求的SNMP层，我们将使用与IP和UDP层相同的技术。在提供的示例中，`SNMP`对象被分配给了`snmp`变量。如前所述，默认配置可以通过调用`display()`函数来识别。现在，IP、UDP和SNMP层已经构建完成，我们需要构建一个bulk请求来替代默认分配给PDU值的SNMP
+    `GET`请求：
+- en: '![](../images/00003.jpeg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00003.jpeg)'
+- en: 'To build the `SNMPbulk()` request, we will use the same technique as we did
+    for the IP, UDP, and SNMP layers. In the example provided, the `SNMPbulk()` request
+    was assigned to the `bulk` variable. As discussed earlier, the default configurations
+    can be identified by calling the `display()` function. Here, we can see that there
+    are several values that need to be modified:'
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建`SNMPbulk()`请求，我们将使用与IP、UDP和SNMP层相同的技术。在提供的示例中，`SNMPbulk()`请求被分配给了`bulk`变量。如前所述，默认配置可以通过调用`display()`函数来识别。在这里，我们可以看到有几个值需要修改：
+- en: '![](../images/00006.jpeg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00006.jpeg)'
+- en: 'The SNMP `varbindlist` needs to be modified to include the queried `oid` values.
+    Additionally, `max_repetitions` was assigned the integer value of `50`. Now that
+    the bulk request has been configured, the bulk request object should be assigned
+    as the SNMP PDU value:'
+  id: totrans-155
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: SNMP `varbindlist`需要修改，以包括查询的`oid`值。此外，`max_repetitions`被分配了整数值`50`。现在，bulk请求已经配置完成，bulk请求对象应该作为SNMP
+    PDU值进行分配：
+- en: '![](../images/00008.jpeg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00008.jpeg)'
+- en: 'We can verify that the bulk request has been assigned to the SNMP PDU value
+    by calling the `display()` function. Now that the IP, UDP, and SNMP layers have
+    been constructed and the bulk request has been configured and assigned to the
+    SNMP layer, we can construct the request by stacking these layers:'
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过调用`display()`函数来验证bulk请求是否已分配给SNMP PDU值。现在，IP、UDP和SNMP层已经构建完成，bulk请求也已配置并分配给了SNMP层，我们可以通过堆叠这些层来构建请求：
+- en: '![](../images/00009.jpeg)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00009.jpeg)'
+- en: 'The IP, UDP, and SNMP layers can be stacked by separating the variables with
+    a forward slash. These layers can then be set equal to a new variable that will
+    represent the entire request. The `display()` function can then be called to view
+    the configurations for the request. Once the request has been built, this can
+    then be passed to the `send` and `receive` functions so that we can analyze the
+    response:'
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: IP、UDP和SNMP层可以通过使用正斜杠分隔变量来堆叠。这些层可以被设置为一个新变量，该变量将表示整个请求。然后，可以调用`display()`函数来查看请求的配置。一旦请求构建完成，可以将其传递给`send`和`receive`函数，以便我们可以分析响应：
+- en: '![](../images/00012.jpeg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00012.jpeg)'
+- en: 'The response confirms that we have successfully built the desired request and
+    have solicited a sizable payload in comparison to the relatively small request
+    that was initially made. This entire process can similarly be performed with a
+    simple one-liner command in Scapy. This command uses all of the same values that
+    we discussed in the previous exercise:'
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 响应确认我们已经成功构建了期望的请求，并且与最初发出的相对较小的请求相比，我们已经请求了一个相当大的有效负载。这个整个过程也可以通过在 Scapy 中使用一个简单的一行命令来执行。这个命令使用了我们在前一个练习中讨论的所有相同的值：
+- en: '![](../images/00015.jpeg)'
+  id: totrans-162
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00015.jpeg)'
+- en: 'To actually use this command as an attack, the source IP address needs to be
+    changed to the IP address of the target system. By doing this, we should be able
+    to redirect the payload to that victim. This can be done by changing the IP `src`
+    value to the string equivalent of the target IP address:'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了实际使用此命令进行攻击，源 IP 地址需要更改为目标系统的 IP 地址。通过这样做，我们应该能够将有效负载重定向到那个受害者。这可以通过将 IP `src`
+    值更改为目标 IP 地址的字符串等效项来完成：
+- en: '![](../images/00017.jpeg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00017.jpeg)'
+- en: 'The `send()` function should be used to send these spoofed requests, as no
+    response is expected to be returned on the local interface. To confirm that the
+    payload does arrive at the target system, a `tcpdump` command can be used to capture
+    the incoming traffic:'
+  id: totrans-165
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`send()` 函数应该用来发送这些伪造的请求，因为不期望在本地接口上返回任何响应。为了确认有效负载确实到达了目标系统，可以使用 `tcpdump`
+    命令捕获传入的流量：'
+- en: '![](../images/00018.jpeg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00018.jpeg)'
+- en: In the example provided, `tcpdump` is configured to capture traffic going across
+    the `eth0` interface that originates from a source IP address of `172.16.69.129` (the
+    IP address of the SNMP host).
+  id: totrans-167
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`tcpdump` 被配置为捕获从源 IP 地址 `172.16.69.129`（SNMP 主机的 IP 地址）发出的流量，该流量通过
+    `eth0` 接口传输。
+- en: How it works…
+  id: totrans-168
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何运作……
+- en: 'Amplification attacks work by overwhelming a target with network traffic by
+    leveraging one or more third-party devices. For most amplification attacks, two
+    conditions are true:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 放大攻击通过利用一个或多个第三方设备，用大量的网络流量压倒目标。对于大多数放大攻击，两个条件是成立的：
+- en: The protocol used to perform the attack does not verify the requesting source.
+    The response from the network function used should be significantly larger than
+    the request used to solicit it.
+  id: totrans-170
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 执行攻击的协议不会验证请求的源。所使用的网络功能的响应应该显著大于请求所发出的请求。
+- en: The effectiveness of an SNMP amplification attack is directly correlated to
+    the size of the SNMP query response. Additionally, the potency of the attack can
+    be increased by employing the use of multiple SNMP devices.
+  id: totrans-171
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SNMP 放大攻击的有效性与 SNMP 查询响应的大小直接相关。此外，通过使用多个 SNMP 设备，可以增强攻击的威力。
+- en: SYN flood DoS attack
+  id: totrans-172
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SYN 洪水 DoS 攻击
+- en: A **SYN flood DoS** attack is a resource-consumption attack. It works by sending
+    a large number of TCP SYN requests to the remote port associated with the service
+    that is the target of the attack. For each initial SYN packet that is received
+    by the target service, it will then send out a SYN+ACK packet and hold the connection
+    open to wait for the final ACK packet from the initiating client. By overloading
+    the target with these half-open requests, an attacker can render a service unresponsive.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**SYN 洪水 DoS** 攻击是一种资源消耗型攻击。它通过向与攻击目标服务相关的远程端口发送大量的 TCP SYN 请求来工作。对于每一个收到的初始
+    SYN 数据包，目标服务将发送一个 SYN+ACK 数据包，并保持连接以等待来自发起客户端的最终 ACK 数据包。通过用这些半开请求压倒目标，攻击者可以使服务无法响应。'
+- en: Getting ready
+  id: totrans-174
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Scapy to perform a full SYN flood against a target, you will need to
+    have a remote system that is running network services over TCP. In the examples
+    provided, an instance of Metasploitable2 is used to perform this task. For more
+    information on setting up Metasploitable2, refer to the *Installing Metasploitable2*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*. Additionally, this section will require a script to be written to the
+    filesystem, using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Scapy对目标进行完整的SYN洪泛攻击，您需要有一个远程系统，该系统正在通过TCP运行网络服务。在提供的示例中，使用了Metasploitable2实例来执行此任务。有关设置Metasploitable2的更多信息，请参阅[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Metasploitable2*食谱，*入门*。此外，本节还需要编写一个脚本到文件系统中，可以使用Vim或GNU
+    nano等文本编辑器进行编写。有关编写脚本的更多信息，请参阅[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*使用文本编辑器（Vim和GNU
+    nano）*食谱，*入门*。
+- en: How to do it…
+  id: totrans-176
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: 'To perform a SYN flood using Scapy, follow the given steps:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Scapy执行SYN洪泛攻击，请按照给定的步骤操作：
+- en: 'We need to get started by sending TCP SYN requests to the port associated with
+    the target service. To send a TCP SYN request to any given port, we must first
+    build the layers of this request. The first layer that we will need to construct
+    is the IP layer:'
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们需要通过向与目标服务关联的端口发送TCP SYN请求来开始。为了向任何给定端口发送TCP SYN请求，我们必须先构建该请求的各个层。我们需要构建的第一层是IP层：
+- en: '![](../images/00122.jpeg)'
+  id: totrans-179
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00122.jpeg)'
+- en: To build the IP layer of our request, we should assign the `IP` object to the
+    variable `i`. By calling the `display()` function, we can identify the attribute
+    configurations for the object. By default, both the sending and receiving addresses
+    are set to the loopback address of `127.0.0.1`. These values can be modified by
+    changing the destination address by setting `i.dst` equal to the string value
+    of the address we wish to scan. By calling the `display()` function again, we
+    can see that not only has the destination address been updated, but Scapy also
+    will automatically update the source IP address to the address associated with
+    the default interface.
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要构建我们请求的IP层，我们应该将`IP`对象赋值给变量`i`。通过调用`display()`函数，我们可以识别该对象的属性配置。默认情况下，发送和接收地址都设置为`127.0.0.1`的回送地址。通过修改目的地址，将`i.dst`设置为我们希望扫描的地址的字符串值，可以更改这些值。再次调用`display()`函数时，我们可以看到，不仅目的地址已更新，Scapy还会自动更新源IP地址为与默认接口相关联的地址。
+- en: 'Now that we have constructed the IP layer of the request, we should proceed
+    to the TCP layer:'
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经构建了请求的IP层，我们应该继续构建TCP层：
+- en: '![](../images/00022.jpeg)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00022.jpeg)'
+- en: To build the TCP layer of our request, we will use the same technique as we
+    did for the IP layer. In the example provided, the `TCP` object was assigned to
+    the `t` variable. As discussed earlier, the default configurations can be identified
+    by calling the `display()` function. Here, we can see that the default value for
+    the destination port is the HTTP port `80`. For our initial scan, we will leave
+    the default TCP configurations as they are.
+  id: totrans-183
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要构建我们请求的TCP层，我们将使用与构建IP层时相同的技术。在提供的示例中，`TCP`对象被赋值给`t`变量。如前所述，通过调用`display()`函数可以识别默认配置。在这里，我们可以看到目的端口的默认值是HTTP端口`80`。对于我们的初步扫描，我们将保持默认的TCP配置不变。
+- en: 'Now that we have created both the IP and TCP layers, we need to construct the
+    request by stacking these layers:'
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经创建了IP层和TCP层，我们需要通过堆叠这些层来构建请求：
+- en: '![](../images/00025.jpeg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00025.jpeg)'
+- en: The IP and TCP layers can be stacked by separating the variables with a forward
+    slash. These layers can then be set equal to a new variable that will represent
+    the entire request. The `display()` function can then be called to view the configurations
+    for the request.
+  id: totrans-186
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: IP层和TCP层可以通过使用斜杠分隔变量来堆叠。然后，这些层可以被设置为一个新的变量，该变量将表示整个请求。接着可以调用`display()`函数来查看请求的配置。
+- en: 'Once the request has been built, this can then be passed to the `send` and
+    `receive` functions so that we can analyze the response:'
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦请求构建完成，可以将其传递给`send`和`receive`函数，以便我们可以分析响应：
+- en: '![](../images/00028.jpeg)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00028.jpeg)'
+- en: 'The same request can be performed without independently building and stacking
+    each layer. Instead, a single one-line command can be used by calling the functions
+    directly and passing the appropriate arguments to them:'
+  id: totrans-189
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 相同的请求可以不必独立构建和堆叠每一层。相反，可以使用单行命令，通过直接调用函数并传递适当的参数来执行：
+- en: '![](../images/00031.jpeg)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00031.jpeg)'
+- en: 'The effectiveness of the SYN flood depends on the number of SYN requests that
+    can be generated in a given period of time. To improve the effectiveness of this
+    attack sequence, I have written a multithreaded script that can perform as many
+    concurrent processes of SYN packet injection as can be handled by an attacking
+    system:'
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: SYN洪水的效果取决于在给定时间内能够生成的SYN请求的数量。为了提高此攻击序列的效果，我编写了一个多线程脚本，可以执行尽可能多的SYN数据包注入并发进程，具体取决于攻击系统的处理能力：
+- en: '[PRE2]'
+  id: totrans-192
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The script accepts three arguments upon execution. These arguments include the
+    target IP address, the port number that the SYN flood will be sent to, and the
+    number of threads or concurrent processes that will be used to execute the SYN
+    flood.
+  id: totrans-193
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本在执行时接受三个参数。这些参数包括目标IP地址、SYN洪水将发送到的端口号，以及用于执行SYN洪水的线程数或并发进程数。
+- en: Each thread starts by generating an integer value between 0 and 65,535\. This
+    range represents the total possible values that can be assigned to the source
+    port. The portions of the TCP header that define the source and destination port
+    addresses are both 16 bits in length. Each bit can retain a value of `1` or `0`.
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 每个线程开始时会生成一个介于0和65,535之间的整数值。这个范围代表可以分配给源端口的所有可能值。TCP头中定义源端口和目标端口地址的部分都是16位长。每个比特位可以保持`1`或`0`的值。
+- en: 'As such, there are 2^(16), or 65,536, possible TCP port addresses. A single
+    source port can only hold a single half-open connection, so by generating unique
+    source port addresses for each SYN request, we can drastically improve the performance
+    of the attack:'
+  id: totrans-195
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 因此，存在2^(16)，即65,536个可能的TCP端口地址。单个源端口只能保持一个半开放连接，因此通过为每个SYN请求生成唯一的源端口地址，我们可以大大提高攻击的性能：
+- en: '![](../images/00033.jpeg)'
+  id: totrans-196
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00033.jpeg)'
+- en: When the script is executed without any arguments, the usage is returned to
+    the user. In the example provided, the script is then executed against the HTTP
+    web service hosted on the TCP port `80` of `172.16.69.128`, with `20` concurrent
+    threads.
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当脚本在没有任何参数的情况下执行时，使用方法将返回给用户。在提供的示例中，脚本随后将针对托管在`172.16.69.128`的`80`号TCP端口的HTTP
+    Web服务进行执行，并且使用`20`个并发线程。
+- en: The script itself provides little feedback; however, a traffic capture utility
+    such as Wireshark or TCPdump can be run to verify that the connections are being
+    sent. After a very brief moment, connection attempts to the server will become
+    very slow or altogether unresponsive.
+  id: totrans-198
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 脚本本身提供的反馈很少；然而，可以运行诸如Wireshark或TCPdump这样的流量捕获工具来验证连接是否正在发送。经过短暂的一段时间后，尝试连接到服务器的过程将变得非常缓慢，甚至完全无响应。
+- en: How it works…
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: TCP services only allow a limited number of half-open connections to be established.
+    By rapidly sending a large number of TCP SYN requests, these available connections
+    are depleted, and the server will no longer be able to accept new incoming connections.
+    As such, the service will become completely inaccessible to new users. The effectiveness
+    of this attack can be intensified to an even greater extent by using it as a DDoS
+    and having multiple attacking systems execute the script simultaneously.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TCP服务只允许建立有限数量的半开放连接。通过快速发送大量的TCP SYN请求，这些可用的连接会被耗尽，服务器将无法再接受新的连接。因此，服务将对新的用户完全不可用。如果将此攻击作为DDoS攻击并让多个攻击系统同时执行该脚本，攻击的效果可以进一步增强。
+- en: Sock stress DoS attack
+  id: totrans-201
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Sock stress DoS 攻击
+- en: The **sock stress DoS** attack consists of establishing a series of open connections
+    to the TCP port associated with the service to be attacked. The final ACK response
+    in the TCP handshake should have a value of `0`.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Sock stress DoS** 攻击包括建立一系列到目标服务的TCP端口的开放连接。TCP握手中的最终ACK响应应该为`0`。'
+- en: Getting ready
+  id: totrans-203
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Scapy to perform a sock stress DoS attack against a target, you will
+    need to have a remote system that is running network services over TCP. In the
+    examples provided, an instance of Metasploitable2 is used to perform this task.
+    For more information on setting up Metasploitable2, refer to the *Installing Metasploitable2*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*. Additionally, this section will require a script to be written to the
+    filesystem, using a text editor such as Vim or GNU nano. For more information
+    on writing scripts, refer to the *Using text editors (Vim and GNU nano)* recipe
+    in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 Scapy 对目标执行 sock stress DoS 攻击，您需要有一台运行 TCP 网络服务的远程系统。在提供的示例中，使用了 Metasploitable2
+    实例来执行此任务。有关如何设置 Metasploitable2 的更多信息，请参考[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)的
+    *安装 Metasploitable2* 章节， *入门*。此外，本节还需要编写脚本并保存到文件系统中，您可以使用 Vim 或 GNU nano 等文本编辑器来进行编辑。有关编写脚本的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)的 *使用文本编辑器（Vim 和 GNU
+    nano）* 章节， *入门*。
+- en: How to do it…
+  id: totrans-205
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'To perform a sock stress DoS attack, follow the given steps:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行 sock stress DoS 攻击，请按照以下步骤进行：
+- en: 'The following script was written in Scapy to perform a sock stress DoS attack
+    against a target system. The following script can be used to test for vulnerable
+    services:'
+  id: totrans-207
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下脚本使用 Scapy 编写，用于对目标系统执行 sock stress DoS 攻击。以下脚本可用于测试易受攻击的服务：
+- en: '[PRE3]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Notice that this script has two major functions: the sockstress attack function
+    and a separate graceful shutdown function. A separate function is required for
+    shutdown because in order for the script to function properly, the script has
+    to modify the local IPtables rules. This change is necessary in order to complete
+    TCP connections with a remote host using Scapy. The justification for this was
+    more thoroughly addressed in the *Connect scanning with Scapy* recipe in [Chapter
+    4](part0146.html#4B7I41-cf89710d791c4a3bb78ec273d9322426), *Port Scanning*.'
+  id: totrans-209
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，该脚本有两个主要功能：sockstress 攻击功能和一个独立的优雅关闭功能。需要一个单独的关闭功能，因为为了让脚本正常工作，脚本必须修改本地的
+    IPtables 规则。为了使用 Scapy 完成与远程主机的 TCP 连接，这一修改是必要的。这个问题在[第 4 章](part0146.html#4B7I41-cf89710d791c4a3bb78ec273d9322426)的
+    *使用 Scapy 进行连接扫描* 中有更详细的说明， *端口扫描*。
+- en: 'Prior to executing the script, we can use the `netstat` and `free` utilities
+    to get a baseline for the connections established and memory being used:'
+  id: totrans-210
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在执行脚本之前，我们可以使用 `netstat` 和 `free` 工具来获取已建立连接和内存使用的基准值：
+- en: '![](../images/00034.jpeg)'
+  id: totrans-211
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00034.jpeg)'
+- en: By using `netstat` and then by piping the output over to a `grep` function and
+    extracting only the established connections, we can see that only two connections
+    exist. We can also use the `free` utility to see the current memory usage. The
+    `-m` option will return the values in megabytes.
+  id: totrans-212
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过使用 `netstat`，然后将输出通过管道传递给 `grep` 函数并提取出已建立的连接，我们可以看到只有两个连接存在。我们还可以使用 `free`
+    工具查看当前的内存使用情况。`-m` 选项将以兆字节为单位返回数值。
+- en: 'After determining the baseline for established connections and available memory,
+    we can launch the attack on this target server:'
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在确定了已建立连接和可用内存的基准值后，我们可以对该目标服务器发起攻击：
+- en: '![](../images/00035.jpeg)'
+  id: totrans-214
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00035.jpeg)'
+- en: When executing the script without any supplied arguments, the script will return
+    the expected syntax and usage. The script accepts three arguments upon execution.
+    These arguments include the target IP address, the port number that the sock stress
+    DoS will be sent to, and the number of threads or concurrent processes that will
+    be used to execute the sock stress DoS.
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当在没有任何参数的情况下执行脚本时，脚本将返回预期的语法和使用方法。该脚本在执行时接受三个参数。这些参数包括目标 IP 地址、将接收 sock stress
+    DoS 的端口号以及用于执行 sock stress DoS 的线程数或并发进程数。
+- en: Each thread starts by generating an integer value between 0 and 65,535\. This
+    range represents the total possible values that can be assigned to the source
+    port. The portions of the TCP header that define the source and destination port
+    addresses are both 16 bits in length. Each bit can retain a value of `1` or `0`.
+    As such, there are 2^(16), or 65,536, possible TCP port addresses. A single source
+    port can only hold a single connection, so by generating unique source port addresses
+    for each connection, we can drastically improve the performance of the attack.
+  id: totrans-216
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 每个线程开始时生成一个介于0和65,535之间的整数值。这个范围代表可以分配给源端口的所有可能值。TCP头中定义源端口和目标端口地址的部分都是16位长。每个比特位可以保存`1`或`0`的值。因此，存在2^(16)或65,536个可能的TCP端口地址。单一的源端口只能保持一个连接，因此，通过为每个连接生成唯一的源端口地址，我们可以大大提高攻击的性能。
+- en: 'Once the attack has been started, we can verify that it is working by checking
+    the active connections that have been established on the target server:'
+  id: totrans-217
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦攻击开始，我们可以通过检查已在目标服务器上建立的活动连接来验证它是否有效：
+- en: '![](../images/00038.jpeg)'
+  id: totrans-218
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00038.jpeg)'
+- en: 'A few moments after executing the script, we can see that the number of established
+    connections has drastically increased. The output displayed here is truncated,
+    and the list of connections was actually significantly longer than this. By consistently
+    using the `free` utility, we can watch the available memory of the system progressively
+    deplete. Once the memory free value has dropped to nearly nothing, the free buffer/cache
+    space will begin to drop:'
+  id: totrans-219
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行脚本后几秒钟，我们可以看到已建立的连接数量急剧增加。这里显示的输出已被截断，实际的连接列表比这长得多。通过持续使用`free`工具，我们可以看到系统的可用内存逐渐耗尽。当内存空闲值降到几乎为零时，空闲的缓冲区/缓存空间将开始下降：
+- en: '![](../images/00040.jpeg)'
+  id: totrans-220
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00040.jpeg)'
+- en: After all resources on the local system have been depleted, the system will
+    finally crash. The amount of time required to complete this process will vary
+    depending on the amount of local resources available. In the case of the demonstration
+    provided here, which was performed on a Metasploitable VM with 512 MB of RAM,
+    the attack took approximately 2 minutes to deplete all available local resources
+    and crash the server.
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在本地系统的所有资源被耗尽后，系统将最终崩溃。完成此过程所需的时间将根据本地资源的数量而有所不同。在这里提供的演示案例中，攻击发生在一台具有512 MB内存的Metasploitable虚拟机上，攻击大约花费了2分钟来耗尽所有本地资源并使服务器崩溃。
+- en: 'After the server has crashed or whenever you wish to stop the DoS attack, you
+    can press *Ctrl* + *C*:'
+  id: totrans-222
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在服务器崩溃后，或者在任何时候你希望停止DoS攻击时，可以按*Ctrl* + *C*：
+- en: '![](../images/00042.jpeg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00042.jpeg)'
+- en: The script is written to catch the termination signal transmitted as a result
+    of pressing *Ctrl* + *C*, and it will repair the local iptables by removing the
+    rule that was generated prior to killing the script's execution sequence.
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 该脚本旨在捕获由于按下*Ctrl* + *C*键而传输的终止信号，并通过删除在终止脚本执行序列之前生成的规则来修复本地iptables。
+- en: How it works…
+  id: totrans-225
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理…
+- en: In a sock stress DoS, the final ACK packet in the three-way handshake includes
+    a window value of `0`. Vulnerable services will not transmit any data in response
+    to the connection because of the indication of any empty window on the part of
+    the connecting client. Instead, the server will hold the data to be transmitted
+    in memory. Flooding a server with these connections will deplete the resources
+    of the server to include the memory, swap space, and processing power.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在sock stress DoS攻击中，三次握手中的最终ACK数据包包含一个窗口值为`0`。易受攻击的服务由于连接客户端发出的空窗口指示，不会响应任何数据。相反，服务器会将待传输的数据保存在内存中。通过使用这些连接对服务器进行洪泛攻击，会消耗服务器的资源，包括内存、交换空间和处理能力。
+- en: DoS attacks with Nmap NSE
+  id: totrans-227
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Nmap NSE执行DoS攻击
+- en: The **Nmap Scripting Engine** (**NSE**) has numerous scripts that can be used
+    to perform DoS attacks. This specific recipe will demonstrate how to locate DoS
+    NSE scripts, identify the usage of the scripts, and execute them.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Nmap脚本引擎**（**NSE**）拥有众多脚本，可以用来执行DoS攻击。本示例将演示如何定位DoS NSE脚本，识别脚本的使用方法，并执行它们。'
+- en: Getting ready
+  id: totrans-229
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Nmap NSE to perform DoS attacks, you will need to have a system that
+    is running a vulnerable service addressed by one of the Nmap NSE DoS scripts.
+    In the examples provided, an instance of Windows XP is used for this purpose.
+    For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Nmap NSE进行DoS攻击，您需要有一个运行易受攻击服务的系统，该服务由Nmap NSE DoS脚本中的一个脚本处理。在提供的示例中，使用了Windows
+    XP实例。有关如何设置Windows系统的更多信息，请参见[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Windows
+    Server*配方，*入门*部分。
+- en: How to do it…
+  id: totrans-231
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'The following are the steps demonstrate an Dos attacks using Nmap NSE:'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是演示使用Nmap NSE进行DoS攻击的步骤：
+- en: 'Prior to using Nmap NSE scripts to perform DoS testing, we will need to identify
+    what DoS scripts are available. There is a greppable `script.db` file in the Nmap
+    NSE script directory that can be used to identify scripts in any given category:'
+  id: totrans-233
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在使用Nmap NSE脚本进行DoS测试之前，我们需要先确认可用的DoS脚本。在Nmap NSE脚本目录下，有一个可供搜索的`script.db`文件，可以用来识别任何给定类别中的脚本：
+- en: '![](../images/00044.jpeg)'
+  id: totrans-234
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00044.jpeg)'
+- en: 'By grepping DoS from the `script.db` file and then piping the output to a `cut`
+    function, we can extract the scripts that can be used. By reading the beginning
+    of any one of the scripts, we can usually find a lot of helpful information:'
+  id: totrans-235
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过在`script.db`文件中搜索DoS并将输出结果通过`cut`函数过滤，我们可以提取出可以使用的脚本。通过阅读其中一个脚本的开头，我们通常可以找到很多有用的信息：
+- en: '![](../images/00045.jpeg)'
+  id: totrans-236
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00045.jpeg)'
+- en: 'To read the script from top to bottom, we should use the `cat` command on the
+    file and then pipe the output to the `more` utility. The top part of the script
+    describes the vulnerability that it exploits and the conditions that must exist
+    for a system to be vulnerable. It also explains that the exploit will cause a
+    **blue screen of death** (**BSOD**) DoS. By scrolling further down, we can find
+    more useful information:'
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要从头到尾阅读脚本，我们应该在文件上使用`cat`命令，然后将输出传递给`more`工具。脚本的前部分描述了它所利用的漏洞以及系统易受攻击的条件。它还解释了该漏洞会导致**蓝屏死机**（**BSOD**）DoS。继续向下滚动，我们可以找到更多有用的信息：
+- en: '![](../images/00049.jpeg)'
+  id: totrans-238
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00049.jpeg)'
+- en: 'Further down in the script, we can find a description of the script usage and
+    the arguments that can be supplied with the script. It also provides additional
+    details about the vulnerability it exploits. To execute the script, we will need
+    to use the `--script` option in Nmap:'
+  id: totrans-239
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在脚本的进一步部分，我们可以找到有关脚本使用说明及可提供的参数的信息。它还提供了有关其利用的漏洞的额外细节。要执行该脚本，我们需要在Nmap中使用`--script`选项：
+- en: '![](../images/00504.jpeg)'
+  id: totrans-240
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00504.jpeg)'
+- en: In the example provided, Nmap is directed to only scan TCP port `445`, which
+    is the port associated with the vulnerability. The `--script` option is used in
+    conjunction with the argument that specifies the script to be used. A single script
+    argument is passed to indicate that an unsafe scan is acceptable.
+  id: totrans-241
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，Nmap被指示只扫描TCP端口`445`，这是与漏洞相关的端口。`--script`选项与指定要使用的脚本参数一起使用。传递一个单一的脚本参数表示可以接受不安全扫描。
+- en: 'This argument is described as a safety switch that can be used to authorize
+    the DoS attack. After executing the script in Nmap, the output indicates that
+    the system is vulnerable to the attack. Looking back at the Windows XP machine,
+    we can see that the DoS was successful, and this results in a BSOD:'
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个参数被描述为一个安全开关，用于授权DoS攻击。在Nmap中执行脚本后，输出结果表明系统易受该攻击。回顾Windows XP机器，我们可以看到DoS攻击成功，导致了蓝屏死机（BSOD）：
+- en: '![](../images/00055.jpeg)'
+  id: totrans-243
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00055.jpeg)'
+- en: How it works…
+  id: totrans-244
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The Nmap NSE script demonstrated in this exercise is an example of a buffer-overflow
+    attack. Generally speaking, buffer overflows are capable of causing denial of
+    service because they can result in arbitrary data being loaded into unintended
+    segments of memory. This can disrupt the flow of execution and results in a crash
+    of the service or operating system.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本练习中演示的Nmap NSE脚本是一个缓冲区溢出攻击的示例。一般来说，缓冲区溢出能够导致服务拒绝，因为它们可能导致任意数据被加载到不正确的内存段。这会干扰执行流程，导致服务或操作系统崩溃。
+- en: DoS attacks with Metasploit
+  id: totrans-246
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Metasploit进行DoS攻击
+- en: The Metasploit framework has numerous auxiliary module scripts that can be used
+    to perform DoS attacks. This specific recipe will demonstrate how to locate DoS
+    modules, identify the usage of the modules, and execute them.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploit框架有许多辅助模块脚本可以用来执行DoS攻击。本配方将演示如何定位DoS模块，识别模块的使用方法并执行它们。
+- en: Getting ready
+  id: totrans-248
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Metasploit to perform DoS attacks, you will need to have a system that
+    is running a vulnerable service addressed by one of the Metasploit DoS auxiliary
+    modules. In the examples provided, an instance of Windows XP is used for this
+    purpose. For more information on setting up a Windows system, refer to the *Installing
+    Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Metasploit执行DoS攻击，你需要有一个运行着易受攻击服务的系统，该服务由Metasploit DoS辅助模块中的某个模块处理。在提供的示例中，使用了一个Windows
+    XP实例作为目标。有关设置Windows系统的更多信息，请参见[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Windows
+    Server*配方，*入门指南*。
+- en: How to do it…
+  id: totrans-250
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 操作步骤…
+- en: 'The following steps demonstrate the use of Metasploit to perform Dos attacks:'
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下步骤演示了如何使用Metasploit执行DoS攻击：
+- en: 'Prior to using Metasploit auxiliary modules to perform DoS testing, we will
+    need to identify what DoS modules are available. The relevant modules can be identified
+    by browsing through the Metasploit directory tree:'
+  id: totrans-252
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在使用Metasploit辅助模块进行DoS测试之前，我们需要识别可用的DoS模块。通过浏览Metasploit目录树，可以识别相关的模块：
+- en: '![](../images/00630.jpeg)'
+  id: totrans-253
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00630.jpeg)'
+- en: 'By browsing to the `/modules/auxiliary/dos` directory, we can see the various
+    categories of DoS modules. In the example provided, we have browsed to the directory
+    that contains Windows HTTP denial-of-service exploits:'
+  id: totrans-254
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过浏览到`/modules/auxiliary/dos`目录，我们可以看到各种DoS模块的类别。在提供的示例中，我们浏览到了包含Windows HTTP拒绝服务攻击的目录：
+- en: '![](../images/00059.jpeg)'
+  id: totrans-255
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00059.jpeg)'
+- en: The vulnerability allows remote unauthenticated attackers to force the IIS server
+    to become unresponsive until the IIS service is restarted manually by the administrator.
+    It is required that active server pages are hosted by the IIS and that an ASP
+    script reads out a post form value.
+  id: totrans-256
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 该漏洞允许远程未认证的攻击者迫使IIS服务器变得无响应，直到管理员手动重启IIS服务。要求IIS托管活动服务器页面，并且一个ASP脚本需要读取一个POST表单值。
+- en: 'To read the script from top to bottom, we should use the `cat` command on the
+    file and then pipe the output to the `more` utility. The top part of the script
+    describes the vulnerability that it exploits and the conditions that must exist
+    for a system to be vulnerable. We can also identify potential DoS exploits within
+    the Metasploit Framework Console. To access this, type `msfconsole` in a Terminal:'
+  id: totrans-257
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要从上到下读取脚本，我们应使用`cat`命令打开文件，并将输出通过管道传递给`more`工具。脚本的顶部描述了它所利用的漏洞以及系统易受攻击所需的条件。我们还可以在Metasploit框架控制台中识别潜在的DoS漏洞利用。要访问此功能，在终端中输入`msfconsole`：
+- en: '![](../images/00060.jpeg)'
+  id: totrans-258
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00060.jpeg)'
+- en: 'Once it''s opened, the `search` command can be used in conjunction with a search
+    term to identify the potential exploits to use:'
+  id: totrans-259
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦打开，可以使用`search`命令配合搜索词来识别可能的漏洞利用：
+- en: '![](../images/00062.jpeg)'
+  id: totrans-260
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00062.jpeg)'
+- en: 'In the example provided, the search term `dos` was used to query the database.
+    A series of auxiliary DoS modules was returned, and the relative path for each
+    was included. This relative path can be used to narrow down the search results:'
+  id: totrans-261
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，搜索词`dos`被用来查询数据库。返回了一系列辅助DoS模块，并且为每个模块都包含了相对路径。这个相对路径可以用来缩小搜索结果的范围：
+- en: '![](../images/00064.jpeg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00064.jpeg)'
+- en: 'After querying the relative path of `/dos/windows/smb`, the only results that
+    are returned are the DoS modules in this directory. The directories are well organized
+    and can be used to effectively search for exploits that pertain to a particular
+    platform or service. Once we decide which exploit to use, we can select it with
+    the `use` command and the relative path of the module:'
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在查询`/dos/windows/smb`的相对路径后，返回的唯一结果是该目录中的DoS模块。目录组织得很好，可以用来有效地搜索与特定平台或服务相关的漏洞。确定了要使用的漏洞后，我们可以用`use`命令以及模块的相对路径来选择它：
+- en: '![](../images/00067.jpeg)'
+  id: totrans-264
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00067.jpeg)'
+- en: 'Once the module has been selected, the `show options` command can be used to
+    identify and/or modify scan configurations. This command will display four column
+    headers: `Name`, `Current Setting`, `Required`, and `Description`:'
+  id: totrans-265
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择模块后，可以使用 `show options` 命令来识别和/或修改扫描配置。该命令将显示四个列标题：`Name`、`Current Setting`、`Required`
+    和 `Description`：
+- en: The `Name` column identifies the name of each configurable variable.
+  id: totrans-266
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Name` 列标识每个可配置变量的名称。'
+- en: The `Current Setting` column lists the existing configuration for any given
+    variable.
+  id: totrans-267
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Current Setting` 列列出任何给定变量的现有配置。'
+- en: The `Required` column identifies whether a value is required for any given variable.
+  id: totrans-268
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Required` 列标识是否需要为任何给定变量提供值。'
+- en: 'The `Description` column describes the function of each variable. The value
+    for any given variable can be changed using the `set` command and by providing
+    the new value as an argument:'
+  id: totrans-269
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Description` 列描述每个变量的功能。任何给定变量的值可以使用 `set` 命令进行更改，并通过提供新的值作为参数：'
+- en: '![](../images/00070.jpeg)'
+  id: totrans-270
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00070.jpeg)'
+- en: 'In the example provided, the `RHOST` value was changed to the IP address of
+    the remote system that we wish to scan. After updating the necessary variables,
+    the configurations can be verified using the `show options` command again. Once
+    the desired configurations have been verified, the module can be launched with
+    the `run` command:'
+  id: totrans-271
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`RHOST` 的值被更改为我们希望扫描的远程系统的 IP 地址。更新必要的变量后，可以再次使用 `show options` 命令来验证配置。一旦所需的配置得到验证，就可以使用
+    `run` 命令启动模块：
+- en: '![](../images/00071.jpeg)'
+  id: totrans-272
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00071.jpeg)'
+- en: 'After executing the Metasploit DoS `auxiliary` module, a series of messages
+    is returned to indicate that a series of malicious SMB transactions have been
+    performed, and a final message indicating that the module execution completed
+    is returned. The success of the exploit can be verified by referring back to the
+    Windows XP system, which has crashed and now displays a BSOD:'
+  id: totrans-273
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行 Metasploit DoS `auxiliary` 模块后，将返回一系列消息，指示已经执行了一系列恶意的 SMB 事务，并返回最终消息，指示模块执行完成。通过查看已经崩溃并显示蓝屏死机（BSOD）的
+    Windows XP 系统，可以验证攻击是否成功：
+- en: '![](../images/00073.jpeg)'
+  id: totrans-274
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00073.jpeg)'
+- en: How it works…
+  id: totrans-275
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The Metasploit DoS `auxiliary` module demonstrated in this exercise is an example
+    of a buffer-overflow attack. Generally speaking, buffer overflows are capable
+    of causing a denial of service because they can result in arbitrary data being
+    loaded into unintended segments of memory. This can disrupt the flow of execution
+    and result in a crash of the service or operating system.
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本练习中演示的 Metasploit DoS `auxiliary` 模块是一个缓冲区溢出攻击的示例。一般来说，缓冲区溢出能够导致服务拒绝，因为它们可能会导致任意数据被加载到不预期的内存区域。这会干扰执行流程并导致服务或操作系统崩溃。
+- en: DoS attacks with the exploit database
+  id: totrans-277
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用漏洞数据库进行 DoS 攻击
+- en: The **exploit database** is a collection of publicly released exploits for all
+    types of platforms and services. The exploit database has numerous exploits that
+    can be used to perform DoS attacks. This specific recipe will demonstrate how
+    to locate DoS exploits in the exploit database, identify the usage of the exploits,
+    make the necessary modifications, and execute them.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**漏洞数据库**是一个公开发布的漏洞集合，涵盖所有类型的平台和服务。漏洞数据库中包含大量漏洞，可用于执行 DoS 攻击。本特定方案将演示如何在漏洞数据库中定位
+    DoS 漏洞，识别漏洞的使用方法，进行必要的修改并执行它们。'
+- en: Getting ready
+  id: totrans-279
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the exploit database to perform DoS attacks, you will need to have a
+    system that is running a vulnerable service addressed by one of the Metasploit
+    DoS auxiliary modules. In the examples provided, an instance of Windows XP is
+    used for this purpose. For more information on setting up a Windows system, refer
+    to the *Installing Windows Server* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用漏洞数据库执行 DoS 攻击，您需要有一个运行有 Metasploit DoS 辅助模块所涉及的漏洞服务的系统。在提供的示例中，使用了 Windows
+    XP 实例来完成此任务。有关设置 Windows 系统的更多信息，请参阅 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)
+    中的 *安装 Windows Server* 配方，*入门指南*。
+- en: How to do it…
+  id: totrans-281
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'To perform DoS attacks using the exploit database, follow the given steps:'
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用漏洞数据库执行 DoS 攻击，请按照以下步骤进行：
+- en: 'Prior to using the exploit database to perform DoS testing, we will need to
+    identify which DoS exploits are available. The total exploit database can be found
+    online at [http://www.exploit-db.com](http://www.exploit-db.com). Alternatively,
+    a copy is locally stored in the Kali Linux filesystem. There is a `files.csv`
+    file within the `exploitdb` directory that contains a catalog of all the contents.
+    This file can be used to `grep` for keywords to help locate usable exploits:'
+  id: totrans-283
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在使用漏洞数据库进行DoS测试之前，我们需要确认哪些DoS漏洞可用。完整的漏洞数据库可以在线找到，网址为[http://www.exploit-db.com](http://www.exploit-db.com)。另外，也可以在Kali
+    Linux文件系统中找到本地副本。`exploitdb`目录中有一个`files.csv`文件，里面包含了所有内容的目录。可以使用该文件通过`grep`查找关键词，帮助定位可用的漏洞：
+- en: '![](../images/00075.jpeg)'
+  id: totrans-284
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00075.jpeg)'
+- en: 'In the example provided, the `grep` function was used to search the `files.csv`
+    file for any exploit database contents that could be identified by the word `SMB`.
+    It is also possible to narrow down the search even further by piping the output
+    to another `grep` function and searching for an additional term:'
+  id: totrans-285
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`grep`函数被用来在`files.csv`文件中搜索任何可以通过单词`SMB`识别的漏洞数据库内容。还可以通过将输出传送到另一个`grep`函数来进一步缩小搜索范围，查找额外的术语：
+- en: '![](../images/00077.jpeg)'
+  id: totrans-286
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00077.jpeg)'
+- en: 'In the example provided, two independent `grep` functions are used in sequence
+    to search for any DoS exploits that are related to the SMB service:'
+  id: totrans-287
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，依次使用了两个独立的`grep`函数来搜索与SMB服务相关的任何DoS漏洞：
+- en: '![](../images/00080.jpeg)'
+  id: totrans-288
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00080.jpeg)'
+- en: 'We can continue to narrow down the search results to be as specific as possible.
+    In the example provided, we have looked for any Python DoS scripts for the SMB
+    service, but we looked for those that are not for the Windows 7 platform. The
+    `-v` option in `grep` can be used to exclude content from the results. It is usually
+    best to copy the desired exploit to another location to not modify the contents
+    of the exploit database directories:'
+  id: totrans-289
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以继续将搜索结果缩小到尽可能具体。在提供的示例中，我们查找了与SMB服务相关的任何Python DoS脚本，但排除了针对Windows 7平台的脚本。`grep`中的`-v`选项可用于从结果中排除某些内容。通常，最好将所需的漏洞复制到另一个位置，以免修改漏洞数据库目录中的内容：
+- en: '![](../images/00320.jpeg)'
+  id: totrans-290
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00320.jpeg)'
+- en: 'In the example provided, a new directory is created for the script. The script
+    is then copied from the absolute path that can be inferred by the directory location
+    of the exploit database and the relative path defined in the `files.csv` file.
+    Once relocated, the script can be read from top to bottom using the `cat` command
+    and then piping the content of the script over to the `more` utility:'
+  id: totrans-291
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，为脚本创建了一个新的目录。然后，脚本从可以通过漏洞数据库目录位置推断出的绝对路径以及在`files.csv`文件中定义的相对路径中复制过来。一旦重新定位，脚本可以使用`cat`命令从头到尾读取，然后将脚本内容通过管道传送到`more`工具：
+- en: '![](../images/00409.jpeg)'
+  id: totrans-292
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00409.jpeg)'
+- en: Unlike the NSE scripts and Metasploit auxiliary modules, there is no standardized
+    format for scripts within the exploit database. As such, working with the exploits
+    can sometimes be tricky. Nonetheless, it is often helpful to review the contents
+    of the script briefly for comments or explanation of usage. In the example provided,
+    we can see that the usage is listed in the contents of the script and is also
+    printed to the user if the appropriate number of arguments is not supplied.
+  id: totrans-293
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 与NSE脚本和Metasploit辅助模块不同，漏洞数据库中的脚本没有标准化格式。因此，使用这些漏洞有时会比较棘手。尽管如此，简要检查脚本的内容，查看是否有注释或使用说明，通常是很有帮助的。在提供的示例中，我们可以看到脚本的使用方式列在脚本内容中，如果没有提供适当数量的参数，也会输出到用户：
+- en: 'After evaluation, the script can be executed as follows:'
+  id: totrans-294
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 评估后，脚本可以按如下方式执行：
+- en: '![](../images/00488.jpeg)'
+  id: totrans-295
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00488.jpeg)'
+- en: 'However, after attempting to execute the script, we can see that problems arise.
+    As a result of the lack of standardization and because some of the scripts are
+    only proofs of concept, adjustments often need to be made to these scripts:'
+  id: totrans-296
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然而，在尝试执行脚本后，我们可以看到出现了一些问题。由于缺乏标准化，并且某些脚本仅为概念验证，通常需要对这些脚本进行调整：
+- en: '![](../images/00559.jpeg)'
+  id: totrans-297
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00559.jpeg)'
+- en: 'After the script errors out, we will need to return to the text editor and
+    attempt to determine the source of the errors. The first error indicates a problem
+    with the location of the Python interpreter that is listed at the beginning of
+    the script. This must be changed to point to the interpreter in the Kali Linux
+    filesystem:'
+  id: totrans-298
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当脚本出错后，我们需要返回到文本编辑器，尝试找出错误的来源。第一个错误表明脚本开头列出的Python解释器的位置有问题。必须更改为指向Kali Linux文件系统中的解释器：
+- en: '![](../images/00620.jpeg)'
+  id: totrans-299
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00620.jpeg)'
+- en: 'It is often a good idea to attempt to run a script again after each problem
+    is resolved, as sometimes fixing a single problem will eliminate multiple execution
+    errors. In this case, after changing the location of the Python interpreter, we
+    are able to successfully run the script:'
+  id: totrans-300
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 解决每个问题后重新尝试运行脚本通常是一个好主意，因为有时解决一个问题会消除多个执行错误。在这种情况下，修改了Python解释器的位置后，我们成功地运行了脚本：
+- en: '![](../images/00667.jpeg)'
+  id: totrans-301
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00667.jpeg)'
+- en: 'When the script runs, several messages are returned to identify the progress
+    of the script execution. The final message indicates that the malicious payload
+    was delivered and that the server should have crashed. The success of the script
+    can be verified by referring back to the Windows server, which has now crashed
+    and is displaying a BSOD:'
+  id: totrans-302
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当脚本运行时，会返回几个消息以识别脚本执行的进度。最终的消息表明恶意负载已被传送，服务器应该已经崩溃。可以通过查看已崩溃并显示蓝屏死机（BSOD）的Windows服务器来验证脚本的成功：
+- en: '![](../images/00052.jpeg)'
+  id: totrans-303
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00052.jpeg)'
+- en: How it works…
+  id: totrans-304
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: The exploit database DoS script demonstrated in this exercise is an example
+    of the buffer-overflow attack. Generally speaking, buffer overflows are capable
+    of causing a denial of service because they can result in arbitrary data being
+    loaded into unintended segments of memory. This can disrupt the flow of execution
+    and result in a crash of the service or operating system.
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本练习中演示的漏洞利用数据库DoS脚本是一个缓冲区溢出攻击的示例。一般来说，缓冲区溢出能够导致拒绝服务，因为它们可能会导致任意数据被加载到不正确的内存段中。这会干扰执行流程，并导致服务或操作系统崩溃。

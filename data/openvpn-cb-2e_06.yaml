@@ -1,0 +1,2046 @@
+- en: Chapter 6. Troubleshooting OpenVPN - Configurations
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第六章：故障排除 OpenVPN - 配置
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将讨论以下内容：
+- en: Cipher mismatches
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加密算法不匹配
+- en: TUN versus TAP mismatches
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: TUN 与 TAP 不匹配
+- en: Compression mismatches
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 压缩不匹配
+- en: Key mismatches
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 密钥不匹配
+- en: Troubleshooting MTU and `tun-mtu` issues
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除 MTU 和 `tun-mtu` 问题
+- en: Troubleshooting network connectivity
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除网络连接
+- en: Troubleshooting `client-config-dir` issues
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除 `client-config-dir` 问题
+- en: Troubleshooting multiple `remote` issues
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除多个 `remote` 问题
+- en: Troubleshooting bridging issues
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 故障排除桥接问题
+- en: How to read the OpenVPN log files
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何读取 OpenVPN 日志文件
+- en: Introduction
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: The topic of this chapter and the next is troubleshooting OpenVPN. This chapter
+    will focus on troubleshooting OpenVPN misconfigurations, whereas the next chapter
+    will focus on the all-too-common routing issues that occur when setting up a VPN.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章和下一章的主题是故障排除 OpenVPN。本章将专注于故障排除 OpenVPN 配置错误，而下一章将专注于在设置 VPN 时常见的路由问题。
+- en: The recipes in these chapters will therefore deal first with breaking things.
+    We will then provide the tools on how to find and solve the configuration errors.
+    Some of the configuration directives used in this chapter have not been demonstrated
+    before, so even if you are not interested in breaking things, this chapter will
+    still be insightful.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，本章中的方法首先将致力于破坏配置。然后，我们将提供查找和解决配置错误的工具。本章中使用的一些配置指令之前没有演示过，所以即使你不打算破坏配置，本章仍然很有启发性。
+- en: Cipher mismatches
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密算法不匹配
+- en: In this recipe, we will change the cryptographic ciphers that OpenVPN uses.
+    Initially, we will change the cipher only on the client side, which will cause
+    the initialization of the VPN connection to fail. The primary purpose of this
+    recipe is to show the error messages that appear, not to explore the different
+    types of ciphers that OpenVPN supports.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本示例中，我们将更改 OpenVPN 使用的加密算法。最初，我们只会在客户端侧更改加密算法，这将导致 VPN 连接初始化失败。本示例的主要目的是展示出现的错误信息，而不是探索
+    OpenVPN 支持的不同类型的加密算法。
+- en: Getting ready
+  id: totrans-17
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11, and the client was running Windows 7 64 bit and OpenVPN 2.3.10\.
+    Keep the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file, `basic-udp-client.conf`.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 [第 2 章](part0025.xhtml#aid-NQU21 "第 2 章。客户端-服务器仅 IP 网络") *客户端-服务器仅 IP 网络*
+    中的第一个方法设置客户端和服务器证书。在本示例中，服务器计算机运行 CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行 Windows
+    7 64 位和 OpenVPN 2.3.10。保留来自 [第 2 章](part0025.xhtml#aid-NQU21 "第 2 章。客户端-服务器仅 IP
+    网络") *客户端-服务器仅 IP 网络* 中的 *服务器端路由* 配置文件 `basic-udp-server.conf`，以及客户端配置文件 `basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-19
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-20
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE0]'
+  id: totrans-21
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Next, create the client configuration file by appending a line to the `basic-udp-client.conf`
+    file:'
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，通过向 `basic-udp-client.conf` 文件中添加一行来创建客户端配置文件：
+- en: '[PRE1]'
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Save it as `example6-1-client.conf`.
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example6-1-client.conf`。
+- en: 'Start the client, after which the following message will appear in the client
+    log:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端后，客户端日志中将出现以下信息：
+- en: '[PRE2]'
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'And, similarly, on the server side:'
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 同样，在服务器端：
+- en: '[PRE3]'
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The connection will not be successfully established, but it will also not be
+    disconnected immediately.
+  id: totrans-29
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 连接不会成功建立，但也不会立即断开连接。
+- en: How it works...
+  id: totrans-30
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: During the connection phase, the client and the server negotiate several parameters
+    needed to secure the connection. One of the most important parameters in this
+    phase is the encryption cipher, which is used to encrypt and decrypt all the messages.
+    If the client and server are using different ciphers, then they are simply not
+    capable of talking to each other.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在连接阶段，客户端和服务器协商多个安全连接所需的参数。此阶段最重要的参数之一是加密算法，它用于加密和解密所有消息。如果客户端和服务器使用不同的加密算法，它们根本无法互相通信。
+- en: 'By adding the following configuration directive to the server configuration
+    file, the client and the server can communicate again:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过向服务器配置文件中添加以下配置指令，客户端和服务器可以重新通信：
+- en: '[PRE4]'
+  id: totrans-33
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: There's more...
+  id: totrans-34
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'OpenVPN supports quite a few ciphers, although support for some of the ciphers
+    is still experimental. To view the list of supported ciphers, type:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN支持许多加密算法，尽管有些加密算法的支持仍处于实验阶段。要查看受支持的加密算法列表，请输入：
+- en: '[PRE5]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: This will list all ciphers with both variables and fixed cipher length. The
+    ciphers with variable cipher length are very well supported by OpenVPN, the others
+    can sometimes lead to unpredictable results.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将列出所有加密算法，其中包括变量长度和固定长度的加密算法。OpenVPN对变量长度的加密算法有很好的支持，其他加密算法有时可能会导致不可预测的结果。
+- en: Pushable ciphers
+  id: totrans-38
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 可推送的加密算法
+- en: Starting with version 2.4, OpenVPN clients support the option to process a cipher
+    pushed from the server to the client. Thus, if all clients are running OpenVPN
+    2.4 or later it becomes much easier to change the encryption cipher in an existing
+    deployment.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从版本2.4开始，OpenVPN客户端支持处理从服务器推送到客户端的加密算法选项。因此，如果所有客户端都运行OpenVPN 2.4或更高版本，那么在现有部署中更改加密算法将变得更加容易。
+- en: TUN versus TAP mismatches
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: TUN与TAP的不匹配
+- en: A common mistake when setting up a VPN based on OpenVPN is the type of adapter
+    that is used. If the server is configured to use a TUN-style network but a client
+    is configured to use a TAP-style interface, then the VPN connection will fail.
+    In this recipe, we will show what is typically seen when this common configuration
+    error is made.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在基于OpenVPN设置VPN时，一个常见的错误是所使用的适配器类型。如果服务器配置为使用TUN风格的网络，而客户端配置为使用TAP风格的接口，那么VPN连接将失败。在这个配方中，我们将展示当出现这个常见配置错误时，通常会看到的情况。
+- en: Getting ready
+  id: totrans-42
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章。客户端-服务器仅IP网络")中第一个配方中的内容来设置客户端和服务器证书，*客户端-服务器仅IP网络*。在这个配方中，服务器计算机运行的是CentOS
+    6 Linux和OpenVPN 2.3.11。客户端运行的是Fedora 22 Linux和OpenVPN 2.3.11。保留来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章。客户端-服务器仅IP网络")中*服务器端路由*配方的配置文件，`basic-udp-server.conf`，*客户端-服务器仅IP网络*。
+- en: How to do it...
+  id: totrans-44
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件`basic-udp-server.conf`启动服务器：
+- en: '[PRE6]'
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Next, create the client configuration:'
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置：
+- en: '[PRE7]'
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Save it as`example6-2-client.conf`.
+  id: totrans-49
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example6-2-client.conf`。
+- en: 'Start the client:'
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：
+- en: '[PRE8]'
+  id: totrans-51
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'The client log will show the following:'
+  id: totrans-52
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 客户端日志将显示如下内容：
+- en: '[PRE9]'
+  id: totrans-53
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'At this point, you can try pinging the server, but it will respond with an
+    error:'
+  id: totrans-54
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 此时，您可以尝试ping服务器，但它将返回错误：
+- en: '[PRE10]'
+  id: totrans-55
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: How it works...
+  id: totrans-56
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'A TUN-style interface offers a point-to-point connection over which only TCP/IP
+    traffic can be tunneled. A TAP-style interface offers the equivalent of an Ethernet
+    interface that includes extra headers. This allows a user to tunnel other types
+    of traffic over the interface. When the client and the server are misconfigured,
+    the expected packet size is different:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TUN风格的接口提供点对点连接，只有TCP/IP流量可以通过该接口进行隧道化。TAP风格的接口提供等同于以太网接口的功能，并包含额外的头信息。这允许用户通过该接口隧道其他类型的流量。当客户端和服务器配置错误时，预期的数据包大小会有所不同：
+- en: '[PRE11]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: This shows that each packet that is sent through a TAP-style interface is 32-
+    bytes larger than the packets sent through a TUN-style interface.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这表明通过TAP风格接口发送的每个数据包比通过TUN风格接口发送的包大32字节。
+- en: By correcting the client configuration, this problem is resolved.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过纠正客户端配置，解决了这个问题。
+- en: Compression mismatches
+  id: totrans-61
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 压缩不匹配
+- en: OpenVPN supports on-the-fly compression of the traffic that is sent over the
+    VPN tunnel. This can improve the performance over a slow network line, but it
+    does add a little overhead. When transferring uncompressible data (such as ZIP
+    files), the performance actually decreases slightly.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN支持对通过VPN隧道发送的流量进行即时压缩。这可以提高慢速网络线路上的性能，但也会增加一些开销。在传输无法压缩的数据（如ZIP文件）时，性能实际上会略微下降。
+- en: If the compression is enabled on the server but not on the client, then the
+    VPN connection will fail.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果服务器启用了压缩，但客户端没有启用，那么VPN连接将失败。
+- en: Getting ready
+  id: totrans-64
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the *Setting up public and private
+    keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.11\. The client was running
+    Fedora 22 Linux and OpenVPN 2.3.11\. Keep the configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    as well as the client configuration file, `basic-udp-client.conf`, at hand.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中的 *设置公钥和私钥* 配方来设置客户端和服务器证书。对于此配方，服务器计算机运行的是
+    CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行的是 Fedora 22 Linux 和 OpenVPN 2.3.11。保留[第
+    2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中 *服务器端路由* 配方中的配置文件 `basic-udp-server.conf`，以及客户端配置文件
+    `basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-66
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: 'Append a line to the server configuration file, `basic-udp-server.conf`:'
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 向服务器配置文件 `basic-udp-server.conf` 添加一行：
+- en: '[PRE12]'
+  id: totrans-68
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Save it as `example6-3-server.conf`.
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example6-3-server.conf`。
+- en: 'Start the server:'
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE13]'
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Next, start the client:'
+  id: totrans-72
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：
+- en: '[PRE14]'
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'The connection will initiate, but when data is sent over the VPN connection,
+    the following messages will appear:'
+  id: totrans-74
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 连接将会启动，但是当数据通过 VPN 连接发送时，以下消息将会出现：
+- en: '[PRE15]'
+  id: totrans-75
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: How it works...
+  id: totrans-76
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: During the connection phase, no compression is used to transfer information
+    between the client and the server. One of the parameters that is negotiated is
+    the use of compression for the actual VPN payload. If there is a configuration
+    mismatch between the client and the server, then both the sides will get confused
+    by the traffic that the other side is sending.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在连接阶段，不使用压缩在客户端和服务器之间传输信息。商定的参数之一是是否为实际的 VPN 负载使用压缩。如果客户端和服务器之间的配置不匹配，那么双方将对对方发送的流量感到困惑。
+- en: 'This error can easily be fixed for all the clients by just adding another line:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个错误可以通过添加一行来轻松修复所有客户端：
+- en: '[PRE16]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: Key mismatches
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 密钥不匹配
+- en: OpenVPN offers extra protection for its TLS control channel in the form of HMAC
+    keys. These keys are exactly the same as the static "secret" keys used in [Chapter
+    1](part0015.xhtml#aid-E9OE1 "Chapter 1.  Point-to-Point Networks"), *Point-to-Point
+    Networks*, for point-to-point style networks. For multi-client style networks,
+    this extra protection can be enabled using the `tls-auth` directive. If there
+    is a mismatch between the client and the server related to this `tls-auth` key,
+    then the VPN connection will fail to get initialized.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 为其 TLS 控制通道提供额外保护，使用的是 HMAC 密钥。这些密钥与在[第 1 章](part0015.xhtml#aid-E9OE1
+    "第 1 章. 点对点网络")中用于点对点式网络的静态“秘密”密钥完全相同。对于多客户端式网络，可以通过使用 `tls-auth` 指令启用这种额外的保护。如果客户端和服务器之间与
+    `tls-auth` 密钥相关的配置不匹配，则 VPN 连接将无法初始化。
+- en: Getting ready
+  id: totrans-82
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中的第一个配方来设置客户端和服务器证书。对于此配方，服务器计算机运行的是
+    CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行的是 Fedora 22 Linux 和 OpenVPN 2.3.11。保留[第
+    2 章](part0025.xhtml#aid-NQU21 "第 2 章. 客户端-服务器 IP 仅网络")中 *服务器端路由* 配方中的配置文件 `basic-udp-server.conf`。
+- en: How to do it...
+  id: totrans-84
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE17]'
+  id: totrans-86
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Next, create the client configuration:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置：
+- en: '[PRE18]'
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Note the lack of the second parameter for `tls-auth`. Save it as `example6-4-client.conf`
+    file.
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 注意到缺少 `tls-auth` 的第二个参数。将其保存为 `example6-4-client.conf` 文件。
+- en: 'Start the client:'
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：
+- en: '[PRE19]'
+  id: totrans-91
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'The client log will show no errors, but the connection will not be established
+    either. In the server log we''ll find the following:'
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 客户端日志将不会显示错误，但连接也不会建立。在服务器日志中，我们会看到以下内容：
+- en: '[PRE20]'
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: This shows that the client, `client1`, is connecting using the wrong `tls-auth`
+    parameter and the connection is refused.
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这表明客户端`client1`使用了错误的`tls-auth`参数，连接被拒绝。
+- en: How it works...
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: At the very first phase of the connection initialization, the client and the
+    server verify each other's HMAC keys. If an HMAC key is not configured correctly,
+    then the initialization is aborted and the connection will fail to establish.
+    As the OpenVPN server is not able to determine whether the client is simply misconfigured
+    or whether a malicious client is trying to overload the server, the connection
+    is simply dropped. This causes the client to keep listening for the traffic from
+    the server until it eventually times out.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在连接初始化的第一阶段，客户端和服务器会相互验证对方的 HMAC 密钥。如果 HMAC 密钥没有正确配置，则初始化会被中止，连接无法建立。由于 OpenVPN
+    服务器无法确定客户端是简单配置错误，还是恶意客户端试图过载服务器，因此连接会被直接中断。这导致客户端一直监听服务器的流量，直到最终超时。
+- en: 'In this recipe, the misconfiguration consisted of the missing parameter `1`
+    at the end of the configuration line:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个食谱中，配置错误是配置行末缺少了参数`1`：
+- en: '[PRE21]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'The second parameter to the `tls-auth` directive is the direction of the key.
+    Normally, the following convention is used:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tls-auth`指令的第二个参数是密钥的方向。通常，使用以下约定：'
+- en: '`0`: from server to client'
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0`：从服务器到客户端'
+- en: '`1`: from client to server'
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1`：从客户端到服务器'
+- en: This parameter causes OpenVPN to derive its HMAC keys from a different part
+    of the `ta.key` file. If the client and server disagree on which parts the HMAC
+    keys are derived from, the connection cannot be established. Similarly, when the
+    client and server are deriving the HMAC keys from different `ta.key` files, the
+    connection can also not be established.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个参数使 OpenVPN 从`ta.key`文件的不同部分派生 HMAC 密钥。如果客户端和服务器在 HMAC 密钥派生的部分上存在分歧，则连接无法建立。同样，如果客户端和服务器从不同的`ta.key`文件中派生
+    HMAC 密钥，也无法建立连接。
+- en: See also
+  id: totrans-103
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 参见
+- en: The *Multiple secret keys* recipe from [Chapter 1](part0015.xhtml#aid-E9OE1
+    "Chapter 1.  Point-to-Point Networks"), *Point-to-Point Networks*, in which the
+    format and usage of the OpenVPN secret keys is explained in detail
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第1章](part0015.xhtml#aid-E9OE1 "第1章. 点对点网络")中的*多个密钥*食谱，详细解释了 OpenVPN 密钥的格式和使用方法。'
+- en: Troubleshooting MTU and tun-mtu issues
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 故障排除 MTU 和 tun-mtu 问题
+- en: One of the more advanced features of OpenVPN is the ability to tune the network
+    parameters of both the TUN (or TAP) adapter and the parameters of the encrypted
+    link itself. This is a frequent cause of configuration mistakes, leading to low
+    performance or even the inability to successfully transfer data across the VPN
+    tunnel. This recipe will show what happens if there is an MTU (Maximum Transfer
+    Unit) mismatch between the client and the server and how this mismatch can cause
+    the VPN tunnel to fail only under certain circumstances.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 的一个高级特性是能够调整 TUN（或 TAP）适配器以及加密链路本身的网络参数。这是配置错误的一个常见原因，可能导致性能低下，甚至无法成功地通过
+    VPN 隧道传输数据。这个食谱将展示如果客户端和服务器之间存在 MTU（最大传输单元）不匹配时会发生什么，以及如何在某些情况下这种不匹配会导致 VPN 隧道失败。
+- en: Getting ready
+  id: totrans-107
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11, and the client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the client configuration file, `basic-udp-client.conf`, handy along with
+    the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe, from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file `basic-udp-client.conf`.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器 IP 仅网络")中的第一个食谱，*客户端-服务器 IP 仅网络*，来设置客户端和服务器证书。对于此食谱，服务器计算机运行
+    CentOS 6 Linux 和 OpenVPN 2.3.11，而客户端运行 Fedora 22 Linux 和 OpenVPN 2.3.11。请将客户端配置文件`basic-udp-client.conf`与来自*服务器端路由*食谱的配置文件`basic-udp-server.conf`一起保管好，这个食谱也在[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器 IP 仅网络")中，此外还需要保管好客户端配置文件`basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-109
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件`basic-udp-server.conf`启动服务器：
+- en: '[PRE22]'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Next, create the client configuration file by appending a line to the `basic-udp-client.conf`
+    file:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，通过向 `basic-udp-client.conf` 文件添加一行来创建客户端配置文件：
+- en: '[PRE23]'
+  id: totrans-113
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: Save it as `example6-5-client.conf`.
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example6-5-client.conf`。
+- en: 'Start the client and look at the client log:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端并查看客户端日志：
+- en: '[PRE24]'
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: There are a few warnings when the tunnel comes up, but the connection is initialized.
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 当隧道建立时会出现一些警告，但连接已初始化。
+- en: 'It is possible to send traffic over the link, which we can verify using the `ping`
+    command:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可以通过链路发送流量，我们可以使用 `ping` 命令来验证：
+- en: '[PRE25]'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'However, consider when sending larger packets, for example:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 但是，考虑到发送更大包时，例如：
+- en: '[PRE26]'
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'In such a case, the following messages appear in the client log file:'
+  id: totrans-122
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在这种情况下，客户端日志文件中会出现以下信息：
+- en: '[PRE27]'
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: The same thing will happen if the client tries to download a large file.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果客户端尝试下载大文件，也会发生同样的事情。
+- en: How it works...
+  id: totrans-125
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The MTU determines how large packets can be that are sent over the tunnel without
+    breaking up (fragmenting) the packet into multiple pieces. If the client and the
+    server disagree on this MTU size, then the server will send packets to the client
+    that are simply too large. This causes an HMAC failure (if `tls-auth` is used,
+    as in this recipe) or the part of the packet that is too large is thrown away.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MTU 决定了可以通过隧道发送的最大数据包大小，且不需要将数据包拆分（分片）成多个部分。如果客户端和服务器对 MTU 大小意见不一致，则服务器会向客户端发送过大的数据包。这会导致
+    HMAC 失败（如果使用 `tls-auth`，如本配方所示），或者超大的部分数据包会被丢弃。
+- en: There's more...
+  id: totrans-127
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: On the Windows platform, it is not easy to change the MTU setting for the Tap-Win32
+    adapter that OpenVPN uses. The `tun-mtu` directive can be specified but the Windows
+    version of OpenVPN cannot alter the actual MTU setting, as Windows did not support
+    this until Windows Vista. OpenVPN, however, does not yet have the capability of
+    altering the MTU size on Windows.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 平台上，修改 OpenVPN 使用的 Tap-Win32 适配器的 MTU 设置并不容易。可以指定 `tun-mtu` 指令，但 Windows
+    版本的 OpenVPN 无法更改实际的 MTU 设置，因为 Windows 直到 Vista 版本才支持这一功能。然而，OpenVPN 目前尚不具备在 Windows
+    上更改 MTU 大小的能力。
+- en: See also
+  id: totrans-129
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参见
+- en: '[Chapter 9](part0103.xhtml#aid-3279U1 "Chapter 9. OS Integration"), *Performance
+    Tuning*, which gives some hints and examples on how to optimize the `tun-mtu`
+    directive'
+  id: totrans-130
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第 9 章](part0103.xhtml#aid-3279U1 "第 9 章 操作系统集成")，*性能调优*，提供了一些关于如何优化 `tun-mtu`
+    指令的提示和示例'
+- en: Troubleshooting network connectivity
+  id: totrans-131
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 故障排除网络连接问题
+- en: This recipe will focus on the type of log messages that are typically seen when
+    the OpenVPN configurations are fine, but the network connectivity is not. In most
+    cases, this is due to a firewall blocking access to either the server or the client.
+    In this recipe, we explicitly block access to the server and then try to connect
+    to it.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方将重点介绍在 OpenVPN 配置正确时，但网络连接有问题时，通常会看到的日志消息。在大多数情况下，这是由于防火墙阻止了对服务器或客户端的访问。在本配方中，我们显式地阻止对服务器的访问，然后尝试连接它。
+- en: Getting ready
+  id: totrans-133
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11, and the client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the client configuration file, `basic-udp-client.conf`, handy along with
+    the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file, `basic-udp-client.conf`.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章 客户端-服务器仅 IP 网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器仅
+    IP 网络*。对于本配方，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN 2.3.11，客户端运行的是 Fedora 22 Linux
+    和 OpenVPN 2.3.11。保留客户端配置文件 `basic-udp-client.conf`，以及来自[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章 客户端-服务器仅 IP 网络")的 *服务器端路由* 配方中的配置文件 `basic-udp-server.conf`，同时保留客户端配置文件
+    `basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-135
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE28]'
+  id: totrans-137
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'On the server, explicitly block access to OpenVPN using `iptables`:'
+  id: totrans-138
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在服务器上，使用 `iptables` 显式阻止对 OpenVPN 的访问：
+- en: '[PRE29]'
+  id: totrans-139
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'Next, start the client using the configuration file, `basic-udp-client.conf`:'
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用配置文件 `basic-udp-client.conf` 启动客户端：
+- en: '[PRE30]'
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'The client will try to connect the server using the UDP protocol. After a while,
+    a timeout will occur because no traffic is getting through and the client will
+    restart:'
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 客户端将尝试使用UDP协议连接服务器。过了一段时间，由于没有流量通过，超时发生，客户端将重新启动：
+- en: '[PRE31]'
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: Abort the client and stop the server.
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 中止客户端并停止服务器。
+- en: How it works...
+  id: totrans-145
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: When OpenVPN is configured to use the default UDP protocol, the client will
+    wait for an answer from the server for 60 seconds. If no answer was received,
+    the connection is restarted. As we are explicitly blocking UDP traffic, the timeout
+    occurs and the client is never able to connect.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当OpenVPN被配置为使用默认的UDP协议时，客户端将等待来自服务器的答复60秒。如果没有收到答复，连接将重新启动。由于我们明确地阻止了UDP流量，超时会发生，客户端始终无法连接。
+- en: 'The amount of time for which the client waits for the connection to start is
+    controlled using the following directive:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端等待连接开始的时间由以下指令控制：
+- en: '[PRE32]'
+  id: totrans-148
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: Here, `N` is the number of seconds to wait for the initial handshake to complete.
+    The default value is 60 seconds.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，`N`是等待初始握手完成的秒数。默认值为60秒。
+- en: Of course, the connection can be repaired by removing the firewall rule.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，可以通过删除防火墙规则来修复连接。
+- en: There's more...
+  id: totrans-151
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'One of the major differences between the UDP protocol and the TCP protocol
+    is the way connections are established: every TCP connection is started using
+    a TCP handshake by both the client and the server. If the handshake fails, then
+    the connection is not established. There is no need to wait for traffic coming
+    back from the server, as the connection itself is dropped:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: UDP协议和TCP协议之间的主要区别之一是连接的建立方式：每个TCP连接都需要客户端和服务器通过TCP握手来启动。如果握手失败，则连接不会建立。无需等待来自服务器的流量返回，因为连接本身会被断开：
+- en: '[PRE33]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: Troubleshooting client-config-dir issues
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 排查客户端配置目录问题
+- en: In this recipe, we will demonstrate how to troubleshoot issues related to the
+    use of the `client-config-dir` directive. This directive can be used to specify
+    a directory for so-called CCD files. CCD files can contain OpenVPN directives
+    to assign a specific IP address to a client, based on the client's certificate.
+    Experience has shown that it is easy to misconfigure this directive. In this recipe,
+    we will make one of the common misconfigurations and then show how to troubleshoot
+    it.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个配方中，我们将演示如何排查与使用`client-config-dir`指令相关的问题。这个指令可以用来指定一个目录用于存放所谓的CCD文件。CCD文件可以包含OpenVPN指令，根据客户端的证书为客户端分配一个特定的IP地址。经验表明，这个指令容易被配置错误。在这个配方中，我们将故意进行一种常见的配置错误，然后展示如何排查该问题。
+- en: Getting ready
+  id: totrans-156
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11\. The client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the client configuration file, `basic-udp-client.conf`, handy along with
+    the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file, `basic-udp-client.conf`.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP-only网络")中的第一个配方，*客户端-服务器IP-only网络*，设置客户端和服务器证书。对于这个配方，服务器运行的是CentOS
+    6 Linux和OpenVPN 2.3.11，而客户端运行的是Fedora 22 Linux和OpenVPN 2.3.11。保持客户端配置文件`basic-udp-client.conf`和来自*服务器端路由*配方中的`basic-udp-server.conf`配置文件一同备用，这个配方也来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP-only网络")，*客户端-服务器IP-only网络*，同时还需要客户端配置文件`basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-158
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 操作方法...
+- en: 'Append the following lines to the configuration file, `basic-udp-server.conf`:'
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将以下行附加到配置文件`basic-udp-server.conf`：
+- en: '[PRE34]'
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Save it as `example6-7-server.conf`.
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将其保存为`example6-7-server.conf`。
+- en: 'Make sure that the `/etc/openvpn/cookbook/clients` directory is accessible
+    only to the root:'
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保`/etc/openvpn/cookbook/clients`目录只有root用户可访问：
+- en: '[PRE35]'
+  id: totrans-163
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Start the server:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE36]'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: 'Next, start the client using the configuration file, `basic-udp-client.conf`:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用配置文件`basic-udp-client.conf`启动客户端：
+- en: '[PRE37]'
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'Then, the client will fail to connect with the following message:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，客户端将以以下信息失败连接：
+- en: '[PRE38]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: 'The server log file is a bit confusing: first; it mentions that there was a
+    problem reading the CCD file, `client1`, but then it states that the client is
+    connected:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务器日志文件有点混乱：首先提到读取CCD文件`client1`时出现问题，但随后又说明客户端已连接：
+- en: '[PRE39]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: However, the VPN connection has not been properly initiated.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，VPN连接没有正确初始化。
+- en: How it works...
+  id: totrans-173
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: 'The following directives are used by the OpenVPN server to look in the  `/etc/openvpn/cookbook/clients`
+    directory for a CCD file with the name (CN) of the client certificate:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下指令被OpenVPN服务器用来在`/etc/openvpn/cookbook/clients`目录中查找客户端证书名称（CN）的CCD文件：
+- en: '[PRE40]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'The purpose of the second directive, `ccd-exclusive`, is to only allow clients
+    for which a CCD file is present. If a CCD file for a client is not present, the
+    client will be denied access. The name of the client certificate is listed in
+    the server log:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个指令`ccd-exclusive`的目的是仅允许那些存在CCD文件的客户端。如果某个客户端没有对应的CCD文件，则该客户端将被拒绝访问。客户端证书的名称会在服务器日志中列出：
+- en: '[PRE41]'
+  id: totrans-177
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'However, it can also be retrieved using the following:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，也可以通过以下方式获取：
+- en: '[PRE42]'
+  id: totrans-179
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: Look for the first part starting with `/CN=` and convert all spaces to underscores.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查找以`/CN=`开头的第一部分，并将所有空格转换为下划线。
+- en: The OpenVPN server process is running as user `nobody`. And because we have
+    set very restrictive permissions on the `/etc/openvpn/cookbook/clients` directory,
+    this user is not capable of reading any files in that directory. When the client
+    with the `client1` certificate connects, the OpenVPN server is not capable of
+    reading the CCD file (even though it might be there). Because of the `ccd-exclusive`
+    directive, the client is then denied access.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN服务器进程是以`nobody`用户身份运行的。由于我们对`/etc/openvpn/cookbook/clients`目录设置了非常严格的权限，因此该用户无法读取该目录中的任何文件。当带有`client1`证书的客户端连接时，OpenVPN服务器无法读取CCD文件（即使该文件可能存在）。由于`ccd-exclusive`指令的存在，客户端因此被拒绝访问。
+- en: There's more...
+  id: totrans-182
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多……
+- en: In this section, we will explain how to increase the logging verbosity and what
+    some of the most common `client-config-dir` mistakes are.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节将解释如何增加日志的详细程度以及一些最常见的`client-config-dir`错误。
+- en: More verbose logging
+  id: totrans-184
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 更详细的日志记录
+- en: 'Increasing the verbosity of logging is often helpful when troubleshooting `client-config-dir`
+    issues. With `verb 5` and the right permissions, you will see the following log
+    file entries in the OpenVPN server log:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 增加日志的详细程度通常在排查`client-config-dir`问题时非常有帮助。使用`verb 5`并具备正确权限时，你将在OpenVPN服务器日志中看到以下日志条目：
+- en: '[PRE43]'
+  id: totrans-186
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: If this message is not present in the server log, then it is safe to assume
+    that the CCD file has not been read.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果在服务器日志中没有看到此消息，那么可以安全地假设CCD文件没有被读取。
+- en: Other frequent client-config-dir mistakes
+  id: totrans-188
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 其他常见的`client-config-dir`错误
+- en: 'There are a few frequent `client-config-dir` mistakes:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一些常见的`client-config-dir`错误：
+- en: 'A non-absolute path is used to specify the `client-config-dir` directive, for
+    example:'
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用非绝对路径来指定`client-config-dir`指令，例如：
+- en: '[PRE44]'
+  id: totrans-191
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: This might work in some cases, but you have to be very careful when starting
+    the server or when combining this with directives such as `--chroot` or `--cd`.
+    Especially when the `--chroot` directive is used, all paths, including the absolute
+    path, will be relative to the `chroot` path.
+  id: totrans-192
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这在某些情况下可能有效，但在启动服务器时，或者与`--chroot`或`--cd`等指令结合使用时，必须非常小心。尤其是在使用`--chroot`指令时，所有路径，包括绝对路径，将相对于`chroot`路径。
+- en: The CCD file itself must be correctly named, without any extension. This typically
+    tends to confuse Windows users. Look in the server log to see what the OpenVPN
+    server thinks; the `/CN= name` is of the client certificate. Also, be aware that
+    OpenVPN rewrites some characters of the `/CN= name`, such as spaces. For the full
+    list of characters that will be remapped, refer to the manual page in the *String
+    types and remapping* section.
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CCD文件本身必须正确命名，且没有任何扩展名。这通常会让Windows用户感到困惑。请查看服务器日志，查看OpenVPN服务器认为客户端证书的`/CN=
+    name`是什么。此外，请注意，OpenVPN会重写某些字符，比如空格。有关将要重映射的字符的完整列表，请参考手册中的*字符串类型和重映射*部分。
+- en: The CCD file and the full path to it must be readable to the user under which
+    the OpenVPN server process is running (usually `nobody`).
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CCD文件及其完整路径必须对OpenVPN服务器进程运行的用户可读（通常是`nobody`）。
+- en: See also
+  id: totrans-195
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The *Using client-config-dir files* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    which explains the basic usage of client configuration files
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第二章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器仅IP网络")中的*使用client-config-dir文件*配方，*客户端-服务器仅IP网络*，解释了客户端配置文件的基本用法。'
+- en: Troubleshooting multiple remote issues
+  id: totrans-197
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 排查多个远程问题
+- en: In this recipe, we will demonstrate how to troubleshoot issues related to the
+    use of multiple `remote` directives. The ability to use multiple `remote` directives
+    is one of the lesser well-known features of OpenVPN that has been available since
+    version 2.2\. It allows a user to specify multiple connection profiles to different
+    hosts, different ports, and different protocols (for example, TCP versus UDP).
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本示例中，我们将演示如何排查使用多个`remote`指令时出现的问题。能够使用多个`remote`指令是OpenVPN 2.2版本以来的一项较少为人知的功能。它允许用户指定多个连接配置文件，以连接到不同的主机、不同的端口和不同的协议（例如，TCP与UDP）。
+- en: When using this directive, there is a pitfall to watch out for when specifying
+    extra directives elsewhere in the configuration files, or on the command line.
+    In this recipe, we will demonstrate what this pitfall is.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用此指令时，如果在配置文件的其他地方或在命令行中指定额外的指令时，存在一个需要注意的陷阱。在这个示例中，我们将展示这个陷阱是什么。
+- en: Getting ready
+  id: totrans-200
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 正在准备中
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11, and the client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the client configuration file, `basic-udp-client.conf`, handy along with
+    the configuration file, `basic-udp-server.conf`, from the *Server-side routing*
+    recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only
+    Networks"), *Client-server IP-only Networks*, as well as the client configuration
+    file, `basic-udp-client.conf`.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章 客户端-服务器 IP-only 网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器
+    IP-only 网络*。在这个配方中，服务器计算机运行的是CentOS 6 Linux和OpenVPN 2.3.11，客户端计算机运行的是Fedora 22
+    Linux和OpenVPN 2.3.11。请将客户端配置文件`basic-udp-client.conf`与`basic-udp-server.conf`（来自*服务器端路由*配方，第2章）一起保留，并使用客户端配置文件`basic-udp-client.conf`。
+- en: How to do it...
+  id: totrans-202
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-203
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件`basic-udp-server.conf`启动服务器：
+- en: '[PRE45]'
+  id: totrans-204
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: 'Next, create the client configuration:'
+  id: totrans-205
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置：
+- en: '[PRE46]'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: Note that we are specifying two connection profiles, one to the server using
+    the UDP protocol, `port 1195`, and one using the TCP protocol, `port 1196`. However,
+    we expect to overrule the port number using the line `port 1194`. Save this file
+    as `example6-8-client.conf` .
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，我们指定了两个连接配置，一个使用UDP协议连接到服务器，`端口 1195`，另一个使用TCP协议，`端口 1196`。然而，我们期望使用`port
+    1194`这一行覆盖端口号。将此文件保存为`example6-8-client.conf`。
+- en: 'Start the client:'
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：
+- en: '[PRE47]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'Then, the client will fail to connect with a message:'
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后，客户端会因以下错误信息而无法连接：
+- en: '[PRE48]'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: So, even though we explicitly stated `port 1194`, the client is still connecting
+    using protocol UDP, port `1195`.
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 所以，即使我们明确声明了`port 1194`，客户端仍然使用UDP协议，`端口 1195`进行连接。
+- en: How it works...
+  id: totrans-213
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'When you specify a remote connection entry using:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你使用以下方式指定远程连接条目时：
+- en: '[PRE49]'
+  id: totrans-215
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: OpenVPN transforms this internally into a connection profile. In general, connection
+    profiles inherit settings from the global configuration. Anything specified inside
+    a connection profile overrules whatever is specified globally, even if it is specified
+    later in the configuration file, or on the command line. Thus, the line `port
+    1194` does not have any effect and the client attempts to connect using the first
+    (default) `remote` connection profile, protocol UDP, and port `1195`.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN会将其内部转换为连接配置文件。通常，连接配置文件会继承全局配置中的设置。连接配置文件中的任何内容都会覆盖全局配置中指定的内容，即使它在配置文件中稍后指定，或在命令行中指定。因此，`port
+    1194`这一行没有任何效果，客户端尝试使用第一个（默认）`remote`连接配置文件、UDP协议和`端口 1195`进行连接。
+- en: To solve this issue, the port number needs to be modified in the `remote` line
+    in the configuration file.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要解决这个问题，需要在配置文件中的`remote`行修改端口号。
+- en: There's more...
+  id: totrans-218
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'An alternative way to specify the `remote openvpnserver.example.com 1195 udp`
+    is by using a connection block:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 指定`remote openvpnserver.example.com 1195 udp`的另一种方法是使用连接块：
+- en: '[PRE50]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: However, inside connection blocks, you can specify more directives, as we will
+    see in the *Using connection blocks* recipe in [Chapter 10](part0115.xhtml#aid-3DLGM1
+    "Chapter 10.  Advanced Configuration"), *Advanced Configuration*.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在连接块内部，您可以指定更多的指令，正如我们将在*使用连接块*这一配方中看到的那样，位于[第10章](part0115.xhtml#aid-3DLGM1
+    "第10章 高级配置")，*高级配置*。
+- en: See also
+  id: totrans-222
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参见
+- en: The *Using connection blocks* recipe in [Chapter 10](part0115.xhtml#aid-3DLGM1
+    "Chapter 10.  Advanced Configuration"), *Advanced Configuration*, which goes into
+    detail into the usage of connection blocks
+  id: totrans-223
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在[第10章](part0115.xhtml#aid-3DLGM1 "第10章. 高级配置")的*使用连接块*一节中，详细讲解了连接块的使用方法。
+- en: Troubleshooting bridging issues
+  id: totrans-224
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 故障排除桥接问题
+- en: In this recipe, we will demonstrate how to troubleshoot a common issue related
+    to bridging. OpenVPN bridging can be tricky to configure, as the warning and error
+    messages can be confusing. In this recipe, we will make one of the common misconfigurations
+    and then show how to troubleshoot it.
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将演示如何排除与桥接相关的常见问题。OpenVPN桥接配置可能很棘手，因为警告和错误信息可能令人困惑。在本节中，我们将故意制造一个常见的配置错误，并展示如何排除故障。
+- en: Getting ready
+  id: totrans-226
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the first recipe from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.11, and the client was running Fedora 22 Linux and OpenVPN 2.3.11\.
+    Keep the scripts, `example3-3-bridge-start` and `example3-3-bridge-stop`, from
+    the *Bridging - Linux *recipe from [Chapter 3](part0038.xhtml#aid-147LC1 "Chapter 3. Client-server
+    Ethernet-style Networks"), *Client-server Ethernet-style Networks*, handy along
+    with the client configuration file, `example-3-2-client2.ovpn`, from the *Enabling
+    client-to-client traffic* recipe, from [Chapter 3](part0038.xhtml#aid-147LC1 "Chapter 3. Client-server
+    Ethernet-style Networks"), *Client-server Ethernet-style Networks*.
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器仅IP网络")中的第一个食谱设置客户端和服务器证书，*客户端-服务器仅IP网络*。对于这个食谱，服务器运行的是CentOS
+    6 Linux和OpenVPN 2.3.11，客户端运行的是Fedora 22 Linux和OpenVPN 2.3.11。请保留来自*桥接 - Linux*食谱的脚本`example3-3-bridge-start`和`example3-3-bridge-stop`，以及来自*启用客户端到客户端流量*食谱中的客户端配置文件`example-3-2-client2.ovpn`，这些都来自[第3章](part0038.xhtml#aid-147LC1
+    "第3章. 客户端-服务器以太网风格网络")，*客户端-服务器以太网风格网络*。
+- en: How to do it...
+  id: totrans-228
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 操作方法...
+- en: 'Create the server configuration file:'
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE51]'
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: Note that we did not explicitly specify the adapter name (tap0). Save it as `example-6-9-server.conf`.
+  id: totrans-231
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，我们并未明确指定适配器名称（tap0）。将其保存为`example-6-9-server.conf`。
+- en: 'Create the network bridge and verify that it is working:'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建网络桥接并验证其工作状态：
+- en: '[PRE52]'
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: 'Start the OpenVPN server:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动OpenVPN服务器：
+- en: '[PRE53]'
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: Start the client:![How to do it...](img/image00379.jpeg)
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：![操作方法...](img/image00379.jpeg)
+- en: 'Now, try to reach the server:'
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，尝试连接到服务器：
+- en: '[PRE54]'
+  id: totrans-238
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: Even though the connection is established, the client will fail to reach the
+    server.
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 即使连接已经建立，客户端仍然无法连接到服务器。
+- en: Remember to shut down the Ethernet bridge after stopping the OpenVPN server
+    process.
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请记住，在停止OpenVPN服务器进程后，关闭以太网桥接。
+- en: How it works...
+  id: totrans-241
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: 'The connection failures in this example are due to the fact that the OpenVPN
+    server opened a new tap adapter at startup instead of connecting to the bridge.
+    A hint is given in the server log file:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本例中的连接失败是因为OpenVPN服务器在启动时打开了一个新的tap适配器，而不是连接到桥接。服务器日志文件中给出了提示：
+- en: '[PRE55]'
+  id: totrans-243
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'When checking the tap interfaces on the server, we see that there are now two
+    tap interfaces:'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查服务器上的tap接口时，我们看到现在有两个tap接口：
+- en: '[PRE56]'
+  id: totrans-245
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: The second tap interface, `tap1`, is the one in use by OpenVPN, and it does
+    not have an IP address assigned!
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个tap接口，`tap1`，是OpenVPN正在使用的接口，并且没有分配IP地址！
+- en: To solve this issue, the correct tap adapter needs to be specified in the server
+    configuration file.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了解决这个问题，需要在服务器配置文件中指定正确的tap适配器。
+- en: See also
+  id: totrans-248
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The *Linux - bridging* recipe, from [Chapter 3](part0038.xhtml#aid-147LC1 "Chapter 3. Client-server
+    Ethernet-style Networks"), *Client-server Ethernet-style Networks*, which explains
+    in detail how to set up bridging on Linux in detail
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第3章](part0038.xhtml#aid-147LC1 "第3章. 客户端-服务器以太网风格网络")中的*Linux - 桥接*一节，详细解释了如何在Linux上设置桥接。'
+- en: How to read the OpenVPN log files
+  id: totrans-250
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何读取OpenVPN日志文件
+- en: Troubleshooting an OpenVPN setup often comes down to reading and interpreting
+    the OpenVPN log file correctly. In this recipe, no new features of OpenVPN will
+    be introduced, but a detailed walk-through of an OpenVPN log file will be given.
+    The setup from the *Troubleshooting MTU and tun-mtu issues *recipe earlier in
+    this chapter will be used as a starting point.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 排除 OpenVPN 配置问题通常需要正确地阅读和解释 OpenVPN 日志文件。在这个指南中，将不会介绍 OpenVPN 的新特性，而是会详细讲解如何分析
+    OpenVPN 日志文件。将会使用本章前面 *排除 MTU 和 tun-mtu 问题* 这一节中的配置作为起始点。
+- en: Getting ready
+  id: totrans-252
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Use the same setup as in the *Troubleshooting MTU and tun-mtu issues* recipe
+    earlier in this chapter. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.11, and the client was running Fedora 22 Linux and OpenVPN
+    2.3.11\. Keep the configuration file, `basic-udp-server.conf`, from the *Server-side
+    routing* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For the client, keep the
+    configuration file, `example6-5-client.conf`, from the *Troubleshooting MTU and
+    tun-mtu issues* recipe at hand.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用与本章前面 *排除 MTU 和 tun-mtu 问题* 章节中的相同配置进行操作。本节中，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN
+    2.3.11，而客户端运行的是 Fedora 22 Linux 和 OpenVPN 2.3.11。保留从 [第二章](part0025.xhtml#aid-NQU21
+    "第二章 客户端-服务器 IP 网络") *服务器端路由* 这一节中获得的 `basic-udp-server.conf` 配置文件。对于客户端，保留从 *排除
+    MTU 和 tun-mtu 问题* 章节中获得的 `example6-5-client.conf` 配置文件。
+- en: How to do it...
+  id: totrans-254
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Start the server using the configuration file, `basic-udp-server.conf`:'
+  id: totrans-255
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用配置文件 `basic-udp-server.conf` 启动服务器：
+- en: '[PRE57]'
+  id: totrans-256
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: 'Next, start the client with an increased verbosity setting and without timestamps
+    in the log file:'
+  id: totrans-257
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用增加的详细日志设置启动客户端，并且日志文件中不包含时间戳：
+- en: '[PRE58]'
+  id: totrans-258
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: The connection will initiate, but it will not be possible to send large packets.
+  id: totrans-259
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 连接会启动，但无法发送大数据包。
+- en: 'Trigger an error by typing the following:'
+  id: totrans-260
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过输入以下内容来触发错误：
+- en: '[PRE59]'
+  id: totrans-261
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: Abort the client. The log file will have become large quite quickly.
+  id: totrans-262
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 中止客户端。日志文件会很快变得很大。
+- en: Open the log file using a text editor and browse through it. An explanation
+    of the general structure of the log file is given in the next section.
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用文本编辑器打开日志文件并浏览它。日志文件的一般结构将在下一部分中解释。
+- en: How it works...
+  id: totrans-264
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'The first part of the log file contains the configuration as specified in the
+    configuration file and from the command-line parameters. This is the section starting
+    with the following line:'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 日志文件的第一部分包含了配置文件和命令行参数中指定的配置信息。这一部分从以下一行开始：
+- en: '[PRE60]'
+  id: totrans-266
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: 'It ends with the following line:'
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它以以下这一行结束：
+- en: '[PRE61]'
+  id: totrans-268
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: This section is about 275 lines long depending on the configuration and it contains
+    what OpenVPN thinks is the configuration. Check this section carefully to make
+    sure that you agree.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一部分大约有 275 行，具体取决于配置，包含了 OpenVPN 所认为的配置内容。请仔细检查此部分，确保你与它的配置一致。
+- en: 'The next interesting section is as follows:'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的有趣部分如下：
+- en: '[PRE62]'
+  id: totrans-271
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: This part shows that a `tls-auth` key is read and used and that the two separate
+    HMAC keys are derived. The keys are actually printed in the log file, so you can
+    reference them with the output from the server log file. The server incoming key
+    should be the same as the client outgoing key and vice versa. The misconfiguration
+    from the *Key mismatches* recipe earlier in this chapter would have appeared here.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一部分显示了 `tls-auth` 密钥已被读取并使用，且两个单独的 HMAC 密钥已被派生。密钥实际上会打印在日志文件中，因此你可以通过服务器日志文件中的输出与之进行对照。服务器接收的密钥应与客户端发送的密钥相同，反之亦然。本章前面
+    *密钥不匹配* 这一节中的配置错误会出现在这里。
+- en: 'Right after this section is the warning that is the root cause of the misconfiguration
+    from the *Troubleshooting MTU and tun-mtu issues* recipe earlier in this chapter:'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 紧接在这一部分之后是警告，它是本章前面 *排除 MTU 和 tun-mtu 问题* 章节中配置错误的根本原因：
+- en: '[PRE63]'
+  id: totrans-274
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: Log file messages starting with `WARNING` should always be given special attention
+    to. In some cases, they can be ignored, but in this case, it was the root cause
+    of the VPN connection not working properly.
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以 `WARNING` 开头的日志信息应始终特别关注。在某些情况下，这些警告可以忽略，但在本例中，它是导致 VPN 连接无法正常工作的根本原因。
+- en: 'After this warning comes a whole range of messages of the following form:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个警告之后，会出现一系列如下形式的消息：
+- en: '[PRE64]'
+  id: totrans-277
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: 'These messages are all part of the initial handshake between the client and
+    the server to exchange configuration information, encryption keys, and other information
+    for setting up the VPN connection. Right after this is another hint about the
+    misconfiguration:'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些消息都是客户端与服务器之间初始握手的一部分，用于交换配置信息、加密密钥及其他建立 VPN 连接所需的信息。紧接着是另一个关于配置错误的提示：
+- en: '[PRE65]'
+  id: totrans-279
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: 'We skip forward over a lot of `TLS_prf` messages to come to the end of the
+    connection handshake:'
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们跳过了许多 `TLS_prf` 消息，继续到达连接握手的结束部分：
+- en: '[PRE66]'
+  id: totrans-281
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: 'At this point, the OpenVPN client has established the initial connection with
+    the server and it is now ready to process the configuration directives pushed
+    by the server, if any:'
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，OpenVPN 客户端已与服务器建立了初始连接，若有配置指令推送，客户端现在已准备好处理：
+- en: '[PRE67]'
+  id: totrans-283
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: This is another important line to check for, as it shows what the server has
+    actually pushed to the client. Verify that this actually matches what you thought
+    the server should push.
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个重要的检查项，它显示了服务器实际上推送给客户端的内容。确认这是否与你认为服务器应该推送的内容一致。
+- en: After this, the local TUN adapter is opened and initialized and the first packets
+    can begin to flow.
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，启动并初始化本地 TUN 适配器，第一批数据包开始流动。
+- en: 'The first `ping` command worked fine, as we can see from this part:'
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个 `ping` 命令运行正常，从以下部分可以看到：
+- en: '[PRE68]'
+  id: totrans-287
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: 'The `TUN READ` is the ping command being read from the TUN interface, followed
+    by a write over the encrypted channel to the remote server. Notice the difference
+    in packet size: the packet sent over the encrypted tunnel is 125 bytes, which
+    is 41- bytes larger than the original packet read from the TUN interface. This
+    exactly matches the difference between the `link-mtu` and `tun-mtu` options as
+    shown earlier in the log file.'
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`TUN READ` 是从 TUN 接口读取的 ping 命令，随后通过加密通道写入远程服务器。注意包大小的差异：通过加密隧道发送的包为 125 字节，比从
+    TUN 接口读取的原始包大 41 字节。这正好匹配了前面日志文件中所显示的 `link-mtu` 和 `tun-mtu` 选项之间的差异。'
+- en: 'Next comes the section where the `ping -s 1450` command breaks down. A `ping`
+    of 1450 bytes cannot be read in one piece if the MTU of the interface is set to
+    1400, hence two `TUN READS` are necessary to capture all data:'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是 `ping -s 1450` 命令出现问题的部分。如果接口的 MTU 设置为 1400，1450 字节的 `ping` 无法一次性读取，因此需要进行两次
+    `TUN READ` 才能捕获所有数据：
+- en: '[PRE69]'
+  id: totrans-290
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: Notice that the data is actually sent as two separate packets to the server.
+    This is perfectly normal behavior, as the packet needs to be fragmented. Calculation
+    of the packet sizes versus the MTU sizes breaks down in this case, as the second
+    packet is not a complete IP packet.
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，数据实际上是作为两个独立的数据包发送到服务器的。这是完全正常的行为，因为数据包需要进行分段。包的大小与 MTU 大小之间的计算在这种情况下失效，因为第二个数据包并不是一个完整的
+    IP 包。
+- en: 'The server receives the large `ping` command and sends an equally large reply.
+    As the server has an MTU setting of 1500, there is no need to fragment the data,
+    so it arrives at the client as a single packet:'
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务器接收到大的 `ping` 命令并发送了同样大的回复。由于服务器的 MTU 设置为 1500，因此无需对数据进行分段，数据作为一个完整的数据包到达客户端：
+- en: '[PRE70]'
+  id: totrans-293
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: The client, however, is expecting a packet with a maximum size of 1400 bytes.
+    It is not able to properly decode the larger packet and write out the `packet
+    HMAC authentication failed` message.
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，客户端期望接收到一个最大为 1400 字节的数据包。它无法正确解码较大的数据包，并输出 `packet HMAC authentication failed`
+    消息。
+- en: 'Finally, when we abort the client, we see an `interrupted system call` message
+    (in this case,  ***Ctrl*** +  ***C*** was used to abort the client, along with
+    a range of clean-up messages before the client actually stops):'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，当我们中止客户端时，会看到 `interrupted system call` 消息（在此情况下，使用了 ***Ctrl*** + ***C***
+    中止客户端，并且在客户端实际停止之前，还会出现一系列清理消息）：
+- en: '[PRE71]'
+  id: totrans-296
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: 'Consider that the client configuration had included this:'
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 考虑到客户端配置中包含了以下内容：
+- en: '[PRE72]'
+  id: totrans-298
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: 'Then, we would also have seen messages of this form:'
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们也应该会看到类似这样的消息：
+- en: '[PRE73]'
+  id: totrans-300
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: In this case, these are harmless.
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，这些是无害的。
+- en: There's more...
+  id: totrans-302
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: 'On UNIX-based operating systems, it is also possible to send the OpenVPN log
+    output via `syslog`. This allows a system administrator to effectively manage
+    a large set of computers using a single system logging interface. To send log
+    messages via `syslog`, replace the directive `log-append` with the following:'
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在基于 UNIX 的操作系统上，还可以通过 `syslog` 发送 OpenVPN 日志输出。这样可以让系统管理员通过单一的系统日志接口有效地管理大量计算机。要通过
+    `syslog` 发送日志消息，需将指令 `log-append` 替换为以下内容：
+- en: '[PRE74]'
+  id: totrans-304
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: Here, `name` is an optional parameter to specify the name of the OpenVPN instance
+    in the syslog log files. This is particularly useful if there are multiple instances
+    of OpenVPN running on a single host, and they are all using `syslog` to log their
+    output and error messages.
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，`name`是一个可选参数，用于指定syslog日志文件中OpenVPN实例的名称。如果在单个主机上运行多个OpenVPN实例，并且它们都使用`syslog`来记录输出和错误信息，那么这个参数特别有用。

@@ -1,0 +1,1619 @@
+- en: Parsing Outlook PST Containers
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析Outlook PST容器
+- en: '**Electronic mail** (**email**) continues to be one of the most common methods
+    of communication in the workplace, surviving the number of new communication services
+    present in today''s world. Emails can be sent from computers, websites, and the
+    phones that''re in so many pockets across the globe. This medium allows for the
+    transmission of information in the form of text, HTML, attachments, and more in
+    a reliable fashion. It''s no wonder, then, that emails can play a large part in
+    investigations, especially for cases involving the workplace. In this chapter,
+    we''re going to work with a common email format, **Personal Storage Table** (**PST**),
+    used by Microsoft Outlook to store email content in a single file.'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**电子邮件**（**email**）继续是工作场所中最常见的通信方式之一，在当今世界的新通信服务中生存下来。电子邮件可以从计算机、网站和遍布全球口袋的手机发送。这种媒介可以可靠地以文本、HTML、附件等形式传输信息。因此，毫不奇怪，电子邮件在特别是涉及工作场所的调查中扮演了重要角色。在本章中，我们将处理一种常见的电子邮件格式，**个人存储表**（**PST**），由Microsoft
+    Outlook用于将电子邮件内容存储在单个文件中。'
+- en: The script we'll develop in this chapter introduces us to a series of operations
+    available through the `libpff` library developed by Joachim Metz. This library
+    allows us to open PST file and explore its contents in a Pythonic manner. Additionally,
+    the code we build demonstrates how to create dynamic, HTML-based, graphics to
+    provide additional context to spreadsheet-based reports. For these reports, we'll
+    leverage the Jinja2 module, introduced in [Chapter 5](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml),
+    *Databases in Python*, and the D3.js framework to generate our dynamic HTML-based
+    charts.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在本章中开发的脚本介绍了一系列通过Joachim Metz开发的`libpff`库可用的操作。这个库允许我们以Pythonic方式打开PST文件并探索其内容。此外，我们构建的代码演示了如何创建动态的基于HTML的图形，以提供电子表格报告的附加背景。对于这些报告，我们将利用第5章中引入的Jinja2模块，*Python中的数据库*，以及D3.js框架来生成我们的动态基于HTML的图表。
+- en: The D3.js project is a JavaScript framework that allows us to design informative
+    and dynamic charts without much effort. The charts used in this chapter are open
+    source examples of the framework shared with the community at [https://github.com/d3/d3](https://github.com/d3/d3).
+    Since this book doesn't focus on JavaScript, nor does it introduce the language,
+    we won't cover the implementation details to create these charts. Instead, we'll
+    demonstrate how to add our Python results to a pre-existing template.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: D3.js项目是一个JavaScript框架，允许我们设计信息丰富且动态的图表而不需要太多努力。本章使用的图表是框架的开源示例，与社区共享在[https://github.com/d3/d3](https://github.com/d3/d3)。由于本书不专注于JavaScript，也不介绍该语言，因此我们不会详细介绍创建这些图表的实现细节。相反，我们将演示如何将我们的Python结果添加到预先存在的模板中。
+- en: Finally, we'll use a sample PST file, which has a large variety of data across
+    time, to test our script. As always, we recommend running any code against test
+    files before using it in casework to validate the logic and feature coverage.
+    The library used in this chapter is in active development and is labeled experimental
+    by the developer.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们将使用一个示例PST文件，该文件跨时间包含大量数据，用于测试我们的脚本。与往常一样，我们建议在案件中使用任何代码之前针对测试文件运行以验证逻辑和功能覆盖范围。本章使用的库处于活跃开发状态，并由开发者标记为实验性。
+- en: 'The following are the topics covered in this chapter:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章涵盖以下主题：
+- en: Understanding the background of PST files
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解PST文件的背景
+- en: Leveraging `libpff` and its Python bindings, `pypff`, to parse PST files
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 利用`libpff`及其Python绑定`pypff`来解析PST文件
+- en: Creating informative and professional charts using Jinja2 and D3.js
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 利用Jinja2和D3.js创建信息丰富且专业的图表
+- en: The code for this chapter is developed and tested using Python 2.7.15.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码是使用Python 2.7.15开发和测试的。
+- en: The PST file format
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: PST文件格式
+- en: 'The PST format is a type of **Personal File Format** (**PFF**). Two other types
+    of PFF file include the **Personal Address Book** (**PAB**) for storing contacts
+    and the **Offline Storage Table** (**OST**), which stores offline email, calendars,
+    and tasks. By default, Outlook stores cached email information in OST files, which
+    can be found at the locations specified in the following table. Items in Outlook
+    will be stored in a PST file if archived:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PST格式是一种**个人文件格式**（**PFF**）的类型。PFF文件的另外两种类型包括用于存储联系人的**个人通讯录**（**PAB**）和存储离线电子邮件、日历和任务的**脱机存储表**（**OST**）。默认情况下，Outlook将缓存的电子邮件信息存储在OST文件中，这些文件可以在下表中指定的位置找到。如果归档了Outlook中的项目，它们将存储在PST文件中：
+- en: '| **Windows version** | **Outlook version** | **OST location** |'
+  id: totrans-12
+  prefs: []
+  type: TYPE_TB
+  zh: '| **Windows版本** | **Outlook版本** | **OST位置** |'
+- en: '| Windows XP | Outlook 2000/2003/2007 | `C:\Documents and Settings\USERPROFILE%\Local
+    Settings\Application Data\Microsoft\Outlook` |'
+  id: totrans-13
+  prefs: []
+  type: TYPE_TB
+  zh: '| Windows XP | Outlook 2000/2003/2007 | `C:\Documents and Settings\USERPROFILE%\Local
+    Settings\Application Data\Microsoft\Outlook` |'
+- en: '| Windows Vista/7/8 | Outlook 2007 | `C:\Users\%USERPROFILE%\AppData\Local\Microsoft\Outlook`
+    |'
+  id: totrans-14
+  prefs: []
+  type: TYPE_TB
+  zh: '| Windows Vista/7/8 | Outlook 2007 | `C:\Users\%USERPROFILE%\AppData\Local\Microsoft\Outlook`
+    |'
+- en: '| Windows XP | Outlook 2010 | `C:Documents and Settings\%USERPROFILE%\My Documents\Outlook
+    Files` |'
+  id: totrans-15
+  prefs: []
+  type: TYPE_TB
+  zh: '| Windows XP | Outlook 2010 | `C:Documents and Settings\%USERPROFILE%\My Documents\Outlook
+    Files` |'
+- en: '| Windows Vista/7/8 | Outlook 2010/2013 | `C:\Users\%USERPROFILE%\Documents\Outlook
+    Files`  |'
+  id: totrans-16
+  prefs: []
+  type: TYPE_TB
+  zh: '| Windows Vista/7/8 | Outlook 2010/2013 | `C:\Users\%USERPROFILE%\Documents\Outlook
+    Files` |'
+- en: 'From: [https://forensicswiki.org/wiki/Personal_Folder_File_(PAB,_PST,_OST)](https://forensicswiki.org/wiki/Personal_Folder_File_(PAB,_PST,_OST)).
+    Location of OST files by default.'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '来自: [https://forensicswiki.org/wiki/Personal_Folder_File_(PAB,_PST,_OST)](https://forensicswiki.org/wiki/Personal_Folder_File_(PAB,_PST,_OST))。OST文件的默认位置。'
+- en: 'The `%USERPROFILE%` field is dynamic and replaced with the user account name
+    on the machine. PFF files can be identified through the hex file signature of
+    `0x2142444E` or `!BDN` in ASCII. After the file signature, the type of PFF file
+    is denoted by 2 bytes at offset 8:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`%USERPROFILE%`字段是动态的，会被计算机上的用户账户名称替换。PFF文件可以通过十六进制文件签名`0x2142444E`或ASCII中的`!BDN`来识别。在文件签名之后，PFF文件的类型由偏移量8处的2个字节表示：'
+- en: '| **Type** | **Hex signature** | **ASCII signature** |'
+  id: totrans-19
+  prefs: []
+  type: TYPE_TB
+  zh: '| **类型** | **十六进制签名** | **ASCII签名** |'
+- en: '| PST | 534D | SM |'
+  id: totrans-20
+  prefs: []
+  type: TYPE_TB
+  zh: '| PST | 534D | SM |'
+- en: '| OST | 534F | SO |'
+  id: totrans-21
+  prefs: []
+  type: TYPE_TB
+  zh: '| OST | 534F | SO |'
+- en: '| PAB | 4142 | AB |'
+  id: totrans-22
+  prefs: []
+  type: TYPE_TB
+  zh: '| PAB | 4142 | AB |'
+- en: From http://www.garykessler.net/library/file_sigs.html
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 来自 [http://www.garykessler.net/library/file_sigs.html](http://www.garykessler.net/library/file_sigs.html)
+- en: 'The content type (such as 32-bit or 64-bit) is defined at byte offset 10\.
+    The structure of the PFF file format has been described in detail by Joachim Metz
+    in several papers that document the technical structure and how to manually parse
+    these files on GitHub at the project''s code repository: [https://github.com/libyal/libpff](https://github.com/libyal/libpff).'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内容类型（例如32位或64位）在字节偏移量10处定义。PFF文件格式的结构已经由Joachim Metz在多个文献中详细描述，这些文献记录了技术结构以及如何在GitHub上的项目代码库中手动解析这些文件：[https://github.com/libyal/libpff](https://github.com/libyal/libpff)。
+- en: In this chapter, we'll work only with PST files and we can ignore the differences
+    in OST and PAB files. By default, PST archives have a root area containing a series
+    of folders and messages depending on how the archives were created. For example,
+    a user may archive all folders in their view or only a select few. All of the
+    items within the selected content will be exported into the PST file.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们只处理PST文件，可以忽略OST和PAB文件的差异。默认情况下，PST归档有一个根区域，包含一系列文件夹和消息，具体取决于归档时如何创建。例如，用户可能会将视图中的所有文件夹归档，或者只归档某些特定的文件夹。所有选定内容中的项目将导出到PST文件中。
+- en: 'In addition to users archiving content, Outlook has an automatic archiving
+    feature that will store items in the PST files after a set time as defined in
+    the following table. Once this expiration period has been reached, the items will
+    be included in the next archive created. The automatic archive stores PSTs by
+    default in `%USERPROFILE%\Documents\Outlook` in Windows 7, `%APPDATA%\Local\Microsoft\Outlook`
+    in Vista, and `%APPDATA%\Local Settings\Microsoft\Outlook` in XP. These defaults
+    could be set by the user or by group policy in a domain environment. This automatic
+    archive functionality provides examiners with a great history of communication
+    information that we can access and interpret in our investigations:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了用户手动归档内容，Outlook 还具有一个自动归档功能，它将在指定时间后将项目存储在PST文件中，具体时间根据以下表格定义。一旦达到这个过期时间，项目将会被包括在下一个创建的归档中。自动归档默认将PST文件存储在Windows
+    7中的`%USERPROFILE%\Documents\Outlook`、Vista中的`%APPDATA%\Local\Microsoft\Outlook`，以及XP中的`%APPDATA%\Local
+    Settings\Microsoft\Outlook`。这些默认位置可以由用户或在域环境中的组策略设置。这个自动归档功能为调查人员提供了大量的通讯信息，可以在我们的调查中访问和解读：
+- en: '| **Folder** | **Default aging period** |'
+  id: totrans-27
+  prefs: []
+  type: TYPE_TB
+  zh: '| **文件夹** | **默认老化周期** |'
+- en: '| Inbox and Drafts | 6 months |'
+  id: totrans-28
+  prefs: []
+  type: TYPE_TB
+  zh: '| 收件箱和草稿箱 | 6个月 |'
+- en: '| Sent Items and Deleted Items | 2 months |'
+  id: totrans-29
+  prefs: []
+  type: TYPE_TB
+  zh: '| 已发送项目和已删除项目 | 2个月 |'
+- en: '| Outbox | 3 months |'
+  id: totrans-30
+  prefs: []
+  type: TYPE_TB
+  zh: '| 发件箱 | 3个月 |'
+- en: '| Calendar | 6 months |'
+  id: totrans-31
+  prefs: []
+  type: TYPE_TB
+  zh: '| 日历 | 6个月 |'
+- en: '| Tasks | 6 months |'
+  id: totrans-32
+  prefs: []
+  type: TYPE_TB
+  zh: '| 任务 | 6个月 |'
+- en: '| Notes | 6 months |'
+  id: totrans-33
+  prefs: []
+  type: TYPE_TB
+  zh: '| 备注 | 6个月 |'
+- en: '| Journal | 6 months |'
+  id: totrans-34
+  prefs: []
+  type: TYPE_TB
+  zh: '| 日志 | 6个月 |'
+- en: 'Table 11.1: Default aging of Outlook items (https://support.office.com/en-us/article/Automatically-move-or-delete-older-items-with-AutoArchive-e5ce650b-d129-49c3-898f-9cd517d79f8e)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表11.1：Outlook项目的默认老化（https://support.office.com/en-us/article/Automatically-move-or-delete-older-items-with-AutoArchive-e5ce650b-d129-49c3-898f-9cd517d79f8e）
+- en: An introduction to libpff
+  id: totrans-36
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: libpff简介
+- en: The `libpff` library allows us to reference and navigate through PST objects
+    in a programmatic manner. The `root_folder()` function allows us to reference
+    `RootFolder`, which is the base of the PST file and the starting point for our
+    recursive analysis of email content. Within `RootFolder` are folders and messages.
+    The folders can contain other sub-folders or messages. Folders have properties
+    that include the name of the folder, the number of subfolders, and the number
+    of submessages. Messages are objects representing messages and have attributes,
+    including the subject line, the name of all participants, and several timestamps.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`libpff`库允许我们以编程方式引用和浏览PST对象。`root_folder()`函数允许我们引用`RootFolder`，它是PST文件的基础，也是我们递归分析电子邮件内容的起点。在`RootFolder`中包含文件夹和消息。文件夹可以包含其他子文件夹或消息。文件夹有一些属性，包括文件夹名称、子文件夹数量和子消息数量。消息是表示消息的对象，并具有包括主题行、所有参与者的名称以及若干时间戳等属性。'
+- en: How to install libpff and pypff
+  id: totrans-38
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何安装libpff和pypff
+- en: Installing some third-party libraries is more difficult than running `pip install
+    <library_name>`. In the case of `libpff` and the `pypff` bindings, we need to
+    take a few steps and follow the instructions outlined in the GitHub project repository.
+    The `libpff` wiki (located at [https://github.com/libyal/libpff/wiki/Building](https://github.com/libyal/libpff/wiki/Building))
+    describes the steps we need to take in order to build `libpff`.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装一些第三方库比运行`pip install <library_name>`更为复杂。在`libpff`和`pypff`绑定的情况下，我们需要采取一些步骤并遵循GitHub项目仓库中列出的指示。`libpff`的wiki（位于[https://github.com/libyal/libpff/wiki/Building](https://github.com/libyal/libpff/wiki/Building)）描述了我们需要采取的步骤来构建`libpff`。
+- en: 'We''ll briefly walk through how you would build this library on an Ubuntu 18.04
+    system. After downloading and installing Ubuntu 18.04 (preferably in a virtual
+    machine), you''ll want to install the dependencies by running the following:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将简要介绍如何在Ubuntu 18.04系统上构建这个库。在下载并安装Ubuntu 18.04（最好是在虚拟机中）后，你需要通过运行以下命令来安装依赖项：
+- en: '[PRE0]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'This will install the required packages for both our script and the `pypff`
+    bindings. We''ll then want to download our `libpff` code by running the following
+    command:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将安装我们脚本和`pypff`绑定所需的包。接下来，我们需要通过运行以下命令来下载`libpff`代码：
+- en: '[PRE1]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Once the `git clone` command completes, we''ll navigate into the new `libpff`
+    directory and run the following commands to download additional dependencies,
+    configure, and install the components we need for the library:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦`git clone`命令完成，我们将进入新的`libpff`目录，并运行以下命令来下载其他依赖项，配置并安装我们需要的库组件：
+- en: '[PRE2]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: Additional build options are described further on the `libpff` wiki page.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 额外的构建选项在`libpff`的wiki页面中有更详细的描述。
+- en: 'At this point, you should be able to run the following statements and get the
+    same output, though your version may vary:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到此为止，你应该能够运行以下语句并获得相同的输出，尽管你的版本可能会有所不同：
+- en: '[PRE3]'
+  id: totrans-48
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: To make this process easier for you, we've prebuilt the `pypff` bindings and
+    created a Dockerfile to run this entire setup for you. If you're unfamiliar with
+    Docker, it's a virtualization environment that allows us to run virtual machines
+    with minimal effort. While Docker is generally used to host applications, we'll
+    use it more as a traditional virtual machine. What makes this advantageous for
+    us is that we can distribute a configuration file that you can run on your system
+    and generate the same environment that we've tested.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了简化这个过程，我们已经预构建了`pypff`绑定，并创建了一个Dockerfile来为你运行整个设置。如果你不熟悉Docker，它是一个虚拟化环境，可以让我们以最小的努力运行虚拟机。虽然Docker通常用于托管应用程序，但我们将更多地将它作为传统的虚拟机使用。对我们来说，这种方式的优势在于，我们可以分发一个配置文件，你可以在系统上运行它，从而生成与我们测试的环境相同的环境。
+- en: 'To begin, please follow the instructions to install Docker on your system from [https://docs.docker.com/install/](https://docs.docker.com/install/).
+    Once installed and running, navigate to the `Chapter 11` code folder on your system
+    and run the `docker build` command. This command will generate a system following
+    a series of preconfigured steps:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，请按照[https://docs.docker.com/install/](https://docs.docker.com/install/)上的说明在你的系统上安装Docker。安装并运行后，导航到你系统上的`Chapter
+    11`代码文件夹，并运行`docker build`命令。该命令将根据一系列预配置的步骤生成一个系统：
+- en: '![](img/e560c17a-8832-4e57-bb38-a5163ddd3b28.png)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e560c17a-8832-4e57-bb38-a5163ddd3b28.png)'
+- en: 'This will create a new image named `lpff-ch11` with the version number 20181130\.
+    An image in Docker is what it sounds like: a base installation that you can use
+    to create running machines. This way you can have multiple machines all based
+    on the same image. Each machine is called a container, and to create a container
+    from this image, we''ll use the `docker run` statement:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将创建一个名为`lpff-ch11`、版本号为20181130的新镜像。在Docker中，镜像就是它的字面意思：一个基本安装，您可以用它来创建运行中的机器。这样，您可以拥有多个基于相同镜像的机器。每个机器称为容器，为了从这个镜像创建容器，我们将使用`docker
+    run`语句：
+- en: '![](img/1e6dc4dd-69ab-4de0-a5ba-00efa49927a3.png)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1e6dc4dd-69ab-4de0-a5ba-00efa49927a3.png)'
+- en: The `-it` flag in the `docker run` command asks Docker to connect to the bash
+    shell once the container is created. The `-P` parameter asks Docker to provide
+    us with networking to, in our case, the web server running on the container. Lastly,
+    the `--name` argument allows us to assign a familiar name to our container. We
+    then pass in the image name and version and run the command. As you can see, we're
+    provided with a root shell as soon as the Docker instance finishes.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`docker run`命令中的`-it`标志要求Docker在创建容器后连接到bash shell。`-P`参数要求Docker为我们提供网络连接，在我们的案例中，就是运行在容器中的Web服务器。最后，`--name`参数允许我们为容器指定一个熟悉的名称。然后，我们传入镜像名称和版本并运行该命令。如你所见，一旦Docker实例完成，我们就会获得一个root
+    shell。'
+- en: Regarding the previously mentioned web server, we've included `lighttpd` to
+    allow us to serve our HTML-generated report as a web page. This isn't necessary,
+    though we wanted to highlight how these reports could be made accessible on an
+    internal system.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于之前提到的Web服务器，我们已经包含了`lighttpd`，以便我们能够将HTML生成的报告作为网页提供。这不是必需的，不过我们希望强调如何使这些报告在内部系统上可访问。
+- en: Please don't run this Docker container on a public network as it'll allow anyone
+    with access to your machine's IP address to see your HTML reports.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请不要在公共网络上运行此Docker容器，因为它将允许任何能够访问您机器IP地址的人查看您的HTML报告。
+- en: In the preceding screenshot, we start this web server by running `server lighttpd
+    start` and then list the contents of our current directory. As you can see, we
+    have two files, our `pst_indexer.py` script that we're about to build and the
+    `stats_template.html` that we'll use to generate our sharp report. Let's build
+    our Python script.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们通过运行`server lighttpd start`启动了Web服务器，然后列出了当前目录的内容。如您所见，我们有两个文件，一个是我们即将构建的`pst_indexer.py`脚本，另一个是我们将用来生成报告的`stats_template.html`。现在让我们开始构建Python脚本。
+- en: Exploring PSTs – pst_indexer.py
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索PST文件 – pst_indexer.py
+- en: In this script, we'll harvest information about the PST file, taking note of
+    the messages in each folder and generating statistics for word usage, frequent
+    senders, and a heat map for all email activity. Using these metrics, we can go
+    beyond the initial collection and reporting of messages and explore trends in
+    the language used or communication patterns with certain individuals. The statistics
+    section highlights examples of how we can utilize the raw data and build informative
+    graphics to assist the examiner. We recommend tailoring the logic to your specific
+    investigation to provide the most informative report possible. For example, for
+    the word count, we'll only be looking at the top ten words that're alphanumeric
+    and longer than four characters, to help reduce common words and symbols. This
+    might not provide the correct information for your investigation and might require
+    tailoring to your specific situation.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个脚本中，我们将收集PST文件的信息，记录每个文件夹中的邮件，并生成关于词汇使用、频繁发送者以及所有邮件活动的热图统计数据。通过这些指标，我们可以超越初步的邮件收集和报告，探索使用的语言趋势或与特定人员的沟通模式。统计部分展示了如何利用原始数据并构建信息图表以帮助审查员。我们建议根据您的具体调查定制逻辑，以提供尽可能有用的报告。例如，对于词汇统计，我们只查看字母数字且长度大于四个字符的前十个词汇，以减少常见的词汇和符号。这可能不适用于您的调查，可能需要根据您的具体情况进行调整。
+- en: An overview
+  id: totrans-60
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概览
+- en: This chapter's script was built to work with Python 2.7.15 and requires the
+    third-party libraries described in the previous section. Please consider using
+    the Docker image alongside this script.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的脚本是为Python 2.7.15版本编写的，并且需要上一节中提到的第三方库。请考虑在使用此脚本时同时使用Docker镜像。
+- en: As with our other chapters, this script starts by importing libraries we use
+    at the top. In this chapter, we use two new libraries, one of which is third-party.
+    We've already introduced `pypff`, the Python bindings to the `libpff` library.
+    The `pypff` module specifies the Python bindings that allow us access to the compiled
+    code. On line 8, we introduce `unicodecsv`, a third-party library we've used previously
+    in [Chapter 5](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml), *Databases in Python*.
+    This library allows us to write Unicode characters to CSV files as the native
+    CSV library doesn't support Unicode characters as nicely.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与我们其他章节一样，本脚本通过导入我们在顶部使用的库开始。在本章中，我们使用了两个新的库，其中一个是第三方库。我们之前已经介绍过 `pypff`，它是
+    `libpff` 库的 Python 绑定。`pypff` 模块指定了允许我们访问已编译代码的 Python 绑定。在第8行，我们引入了 `unicodecsv`，这是一个我们在[第五章](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml)《Python中的数据库》中曾使用过的第三方库。这个库允许我们将
+    Unicode 字符写入 CSV 文件，因为原生的 CSV 库对 Unicode 字符的支持并不理想。
+- en: 'On line 6, we import a standard library called `collections` that provides
+    a series of useful interfaces including `Counter`. The `Counter` module allows
+    us to provide values to it and it handles the logic of counting and storing objects.
+    In addition to this, the collections library provides `OrderedDict`, which is
+    extremely useful when you need to create a dictionary with keys in a specified
+    order. The `OrderedDict` module isn''t leveraged in this book though it does have
+    its place in Python when you wish to use key-value pairs in an ordered list-like
+    fashion:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第6行，我们导入了一个名为 `collections` 的标准库，它提供了一系列有用的接口，包括 `Counter`。`Counter` 模块允许我们向其提供值，并处理计数和存储对象的逻辑。除此之外，collections
+    库还提供了 `OrderedDict`，当你需要按指定顺序创建键的字典时，它非常有用。尽管在本书中没有利用 `OrderedDict` 模块，但当你希望以有序的方式使用键值对时，它在
+    Python 中确实有其用武之地：
+- en: '[PRE4]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Following our license and script metadata, we''ll set up a few global variables.
+    These variables will help us decrease the number of variables we must pass into
+    functions. The first global variable is `output_directory`, defined on line 46,
+    which will store a string path set by the user. The `date_dictionary`, defined
+    on line 47, uses dictionary comprehension to create keys 1 through 24 and map
+    them to the integer 0\. We then use list comprehension on line 48 to append seven
+    instances of this dictionary to `date_list`. This list is leveraged to build a
+    heat map to show information about activity within the PST file split within seven
+    days'' worth of 24-hour columns:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在设定了许可和脚本元数据后，我们将设置一些全局变量。这些变量将帮助我们减少需要传递到函数中的变量数量。第一个全局变量是第46行定义的 `output_directory`，它将存储用户设置的字符串路径。第47行定义的
+    `date_dictionary` 使用字典推导式创建了键 1 到 24，并将它们映射到整数 0。然后，我们在第48行使用列表推导式将这个字典的七个实例附加到
+    `date_list`。这个列表被用来构建热图，显示在PST文件中按七天24小时列划分的活动信息：
+- en: '[PRE5]'
+  id: totrans-66
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: This heat map will establish baseline trends and help identify anomalous activity.
+    An example includes the ability to see a spike in activity at midnight on week
+    nights or excessive activity on Wednesdays before the business day starts. The
+    `date_list` has seven dictionaries, one for each day, each of which is identical
+    and contains a key-value pair for the hour of the day with the default value of
+    `0`.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个热图将建立基线趋势，并帮助识别异常活动。例如，它可以显示在工作日午夜时段活动的激增，或者在星期三业务日开始前的过度活动。`date_list` 包含七个字典，每个字典代表一天，它们是完全相同的，包含一个小时的键值对，默认值为
+    `0`。
+- en: The `date_dict.copy()` call on line 48 is required to ensure that we can update
+    the hours within a single date. If we omit the `copy()` method, every day will
+    be updated. This is because dictionaries are tied together by references to the
+    original object, and we're generating a list of objects without the `copy()` method.
+    When we do use this function, it allows us to create a copy of the values with
+    a new object, so we can create a list of different objects.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`date_dict.copy()` 在第48行的调用是必需的，以确保我们可以在单个日期内更新小时数。如果省略了 `copy()` 方法，所有的日期都会被更新。这是因为字典通过对原始对象的引用相互关联，而在没有使用
+    `copy()` 方法的情况下，我们生成的是对象的引用列表。当我们使用此函数时，它允许我们通过创建一个新对象来复制值，从而可以创建不同对象的列表。'
+- en: With these variables built, we can reference and update their values throughout
+    other functions without needing to pass them again. Global variables are read-only
+    by default and require a special global command in order to be modified by a function.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 构建了这些变量后，我们可以在其他函数中引用并更新它们的值，而不需要再次传递它们。全局变量默认是只读的，必须使用特殊的 `global` 命令才能在函数中进行修改。
+- en: 'The following functions outline our script''s operation. As usual, we have
+    our `main()` function to control behavior. The following is the `make_path()`
+    function, which is a utility to assist us in gathering full paths for our output
+    files. The `folder_traverse()` and `check_for_msgs()` functions are used to iterate
+    through the available items and start processing:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下函数概述了我们脚本的操作。像往常一样，我们有`main()`函数来控制行为。接下来是`make_path()`函数，这是一个帮助我们收集输出文件完整路径的工具。`folder_traverse()`和`check_for_msgs()`函数用于迭代可用项并开始处理：
+- en: '[PRE6]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Our remaining functions focus on processing and reporting data within PSTs.
+    The `process_message()` function reads the message and returns the required attributes
+    for our reports. The first reporting function is the `folder_report()` function.
+    This code creates a CSV output for each folder found within the PST and describes
+    the content found within each.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的其余函数专注于处理PST中的数据并生成报告。`process_message()`函数读取消息并返回报告所需的属性。第一个报告函数是`folder_report()`函数。此代码为PST中找到的每个文件夹创建CSV输出，并描述每个文件夹中的内容。
+- en: This function also processes data for the remaining reports by writing message
+    bodies to a single text file, stores each set of dates, and preserves a list of
+    the senders. By caching this information to a text file, the next function is
+    easily able to read the file without a major impact on memory.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数还通过将消息主体写入单一文本文件来处理其余报告的数据，存储每组日期，并保存发送者列表。通过将这些信息缓存到文本文件中，接下来的函数可以轻松读取文件，而不会对内存产生重大影响。
+- en: 'Our `word_stats()` function reads and ingests the information into a collection.
+    The `Counter()` object is used in our `word_report()` function. When generating
+    our word count report, we read the collection''s. `Counter()` object into a CSV
+    file, which  will be read by our JavaScript code. The `sender_report()` and `date_report()`
+    functions also flush data to delimited files for interpretation by JavaScript
+    in the report. Finally, our `html_report()` function opens our report template
+    and writes the custom report information into an HTML file in our output folder:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的`word_stats()`函数读取并将信息导入到一个集合中。`Counter()`对象在我们的`word_report()`函数中使用。当生成单词计数报告时，我们将集合的`Counter()`对象读取到CSV文件中，该文件将被我们的JavaScript代码读取。`sender_report()`和`date_report()`函数也将数据刷新到分隔文件中，供JavaScript在报告中进行解释。最后，我们的`html_report()`函数打开报告模板，并将自定义报告信息写入输出文件夹中的HTML文件：
+- en: '[PRE7]'
+  id: totrans-75
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'As with all of our scripts, we handle our arguments, logs, and the `main()`
+    function call under the `if __name__ == "__main__":` conditional statement on
+    line 302\. We define the required arguments, `PST_FILE` and `OUTPUT_DIR`, and
+    the user can specify optional arguments, `--title` and `-l`, for a custom report
+    title and log path:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与我们所有的脚本一样，我们在第302行的`if __name__ == "__main__":`条件语句下处理参数、日志和`main()`函数调用。我们定义了必需的参数`PST_FILE`和`OUTPUT_DIR`，用户可以指定可选参数`--title`和`-l`，用于自定义报告标题和日志路径：
+- en: '[PRE8]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'After defining our arguments, we begin processing them so that we can pass
+    them to the `main()` function in a standardized and safe manner. On line 319,
+    we convert the output location into an absolute path so that we can be sure about
+    accessing the correct location throughout the script. Notice how we''re calling
+    the `output_directory` global variable and assigning a new value to it. This is
+    only possible because we''re not within a function. If we were modifying the global
+    variable within a function, we would need to write `global output_directory` on
+    line 318:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在定义了我们的参数后，我们开始处理它们，以便以标准化和安全的方式将它们传递给`main()`函数。在第319行，我们将输出位置转换为绝对路径，以确保在脚本中访问正确的位置。注意，我们正在调用`output_directory`全局变量并为其分配一个新值。这只有在我们不在函数内时才可能。如果我们在函数内部修改全局变量，就需要在第318行写上`global
+    output_directory`：
+- en: '[PRE9]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'After we modify the `output_directory` variable, we make sure the path exists
+    (and create it if it doesn''t) to avoid errors later in the code. Once complete,
+    we then use our standard logging code snippet to configure logging for this script
+    on lines 331 through 339\. On lines 341 through 345, we log debug information
+    on the system executing the script prior to calling the `main()` function. On
+    line 346, we call the `main()` function and pass the `args.PST_FILE` and `args.title`
+    arguments. We don''t need to pass the `output_directory` value because we can
+    reference it globally. Once we pass the arguments and the `main()` function completes
+    execution, we log that the script has finished executing on line 347:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在修改 `output_directory` 变量后，我们确保路径存在（如果不存在，则创建），以避免后续代码出现错误。完成后，我们在第331到339行使用标准的日志记录代码片段来配置脚本的日志记录。在第341到345行，我们记录执行脚本的系统的调试信息，然后再调用
+    `main()` 函数。在第346行，我们调用 `main()` 函数，并传入 `args.PST_FILE` 和 `args.title` 参数。我们无需传递
+    `output_directory` 值，因为可以全局引用它。在传递参数并且 `main()` 函数执行完成后，我们在第347行记录脚本已完成执行。
+- en: '[PRE10]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: The following flowchart highlights how the functions interact with each other.
+    This flowchart might seem a little complicated but encapsulates the basic structure
+    of our script.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下流程图展示了各个函数之间的交互方式。这个流程图可能看起来有些复杂，但它概括了我们脚本的基本结构。
+- en: 'The `main()` function calls the recursive `folder_traverse()` function, which
+    in turn finds, processes, and summarizes messages and folders from the root folder.
+    After this, the `main()` function generates reports with the word, sender, and
+    date reports, which get displayed in one HTML report generated by the `html_report()`
+    function. As a note, the dashed lines represent functions that return a value,
+    while the solid lines represent a function that returns no value:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main()` 函数调用递归的 `folder_traverse()` 函数，该函数依次查找、处理并汇总根文件夹中的消息和文件夹。之后，`main()`
+    函数生成包含单词、发送者和日期的报告，并通过 `html_report()` 函数生成一个 HTML 报告进行显示。需要注意的是，虚线代表返回值的函数，而实线代表没有返回值的函数：'
+- en: '![](img/41b0ceae-68da-4acd-9cec-2fb60a9fd531.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/41b0ceae-68da-4acd-9cec-2fb60a9fd531.png)'
+- en: Developing the main() function
+  id: totrans-85
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发 `main()` 函数
+- en: The `main()` function controls the primary operations of the script, from opening
+    and initial processing of the file, traversing the PST, to generating our reports.
+    On line 62, we split the name of the PST file from its path using the `os.path`
+    module.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main()` 函数控制脚本的主要操作，从打开和初步处理文件、遍历 PST 文件，到生成报告。在第62行，我们使用 `os.path` 模块从路径中分离出
+    PST 文件名。'
+- en: 'We''ll use the `pst_name` variable if a custom title isn''t supplied by the
+    user. On the next line, we use the `pypff.open()` function to create a PST object.
+    We use the `get_root_folder()` method to get the PST root folder so we can begin
+    the iteration process and discover items within the folders:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果用户没有提供自定义标题，我们将使用 `pst_name` 变量。在下一行，我们使用 `pypff.open()` 函数创建一个 PST 对象。通过
+    `get_root_folder()` 方法获取 PST 的根文件夹，从而开始迭代过程，发现文件夹中的项：
+- en: '[PRE11]'
+  id: totrans-88
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'With the root folder extracted, we call the `folder_traverse()` function on
+    line 67 to begin traversing the directories within the PST container. We''ll cover
+    the nature of this function in the next section. After traversing the folders,
+    we start generating our reports with the `word_stats()`, `sender_report()`, and
+    `date_report()` functions. On line 74, we pass the name of the report, the PST
+    name, and lists containing the most frequent words and senders to provide statistical
+    data for our HTML dashboard, as follows:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提取根文件夹后，我们在第67行调用 `folder_traverse()` 函数，开始遍历 PST 容器中的目录。我们将在下一部分讨论该函数的具体内容。遍历文件夹后，我们开始使用
+    `word_stats()`、`sender_report()` 和 `date_report()` 函数生成报告。在第74行，我们传入报告名称、PST 名称以及包含最常见单词和发送者的列表，为
+    HTML 仪表板提供统计数据，如下所示：
+- en: '[PRE12]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Evaluating the make_path() helper function
+  id: totrans-91
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 评估 `make_path()` 辅助函数
+- en: To make life simpler, we've developed a helper function, `make_path()`, defined
+    on line 78\. Helper functions allow us to reuse code that we might normally write
+    out many times throughout our script in one function call. With this code, we
+    take an input string representing a file name and return the absolute path of
+    where the file should exist within the operating system based on the `output_directory`
+    value supplied by the user. On line 85, two operations take place; first, we join
+    the `file_name` to the `output_directory` value with the correct path delimiters
+    using the `os.path.join()` method.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了简化操作，我们开发了一个辅助函数`make_path()`，定义在第78行。辅助函数允许我们在脚本中重复利用通常需要多次编写的代码，只需一次函数调用即可。通过这段代码，我们接受一个表示文件名的输入字符串，并根据用户提供的`output_directory`值返回文件在操作系统中的绝对路径。在第85行，进行了两项操作；首先，我们使用`os.path.join()`方法将`file_name`与`output_directory`值按正确的路径分隔符连接起来。
+- en: 'Next, this value is processed by the `os.path.abspath()` method, which provides
+    the full file path within the operating system environment. We then return this
+    value to the function that originally called it. As we saw in the flow diagram,
+    many functions will make calls to the `make_path()` function:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，这个值将通过`os.path.abspath()`方法进行处理，该方法提供操作系统环境中的完整文件路径。然后我们将此值返回给最初调用它的函数。如我们在流程图中所见，许多函数会调用`make_path()`函数：
+- en: '[PRE13]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Iteration with the folder_traverse() function
+  id: totrans-95
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`folder_traverse()`函数进行迭代
+- en: 'This function recursively walks through folders to parse message items and
+    indirectly generates summary reports on the folder. This function, initially provided
+    the root directory, is generically developed to be capable of handling any folder
+    item passed to it. This allows us to reuse the function for each discovered subfolder.
+    On line 97, we use a `for` loop to recurse through the `sub_folders` iterator
+    generated from our `pypff.folder` object. On line 98, we check whether the folder
+    object has any additional subfolders and, if it does, call the `folder_traverse()`
+    function again before checking the current folder for any new messages. We only
+    check for messages in the event that there are no new subfolders:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数递归地遍历文件夹，以解析消息项，并间接地生成文件夹的摘要报告。该函数最初通过根目录提供，经过通用开发，可以处理传递给它的任何文件夹项。这使得我们可以在每次发现子文件夹时重用该函数。在第97行，我们使用`for`循环递归遍历从我们的`pypff.folder`对象生成的`sub_folders`迭代器。在第98行，我们检查文件夹对象是否有任何额外的子文件夹，如果有，则在检查当前文件夹中的新消息之前再次调用`folder_traverse()`函数。只有在没有新子文件夹的情况下，我们才会检查是否有新消息：
+- en: '[PRE14]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'This is a recursive function because we call the same function within itself
+    (a loop of sorts). This loop could potentially run indefinitely, so we must make
+    sure the data input will have an end to it. A PST should have a limited number
+    of folders and will therefore eventually exit the recursive loop. This is essentially
+    our PST specific `os.walk()` function, which iteratively walks through filesystem
+    directories. Since we''re working with folders and messages within a file container,
+    we have to create our own recursion. Recursion can be a tricky concept to understand;
+    to guide you through it, please reference the following diagram when reading our
+    explanation in the upcoming paragraphs:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个递归函数，因为我们在函数内部调用了相同的函数（某种形式的循环）。这个循环可能会无限运行，因此我们必须确保数据输入有一个结束点。PST应该有有限数量的文件夹，因此最终会退出递归循环。这基本上是我们PST特定的`os.walk()`函数，它遍历文件系统目录。由于我们处理的是文件容器中的文件夹和消息，我们必须自己实现递归。递归可能是一个难以理解的概念；为了帮助你理解，在阅读接下来的解释时，请参考以下图示：
+- en: '![](img/fdd3782c-1bd5-4025-a20d-94d7cefca744.png)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/fdd3782c-1bd5-4025-a20d-94d7cefca744.png)'
+- en: In the preceding diagram, there're five levels in this PST hierarchy, each containing
+    a mixture of blue folders and green messages. On level **1**, we have `Root Folder`,
+    which is the first iteration of the `folder_traverse()` loop. Since this folder
+    has a single subfolder, `Top of Personal Folders`, as you can see on level **2**,
+    we rerun the function before exploring the message contents. When we rerun the
+    function, we now evaluate the `Top of Personal Folders` folder and find that it
+    also has subfolders.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上面的图示中，PST层次结构中有五个级别，每个级别包含蓝色文件夹和绿色消息的混合。在**第1**级，我们有`根文件夹`，这是`folder_traverse()`循环的第一次迭代。由于此文件夹有一个子文件夹`个人文件夹顶部`，如**第2**级所示，我们在探索消息内容之前重新运行该函数。当我们重新运行该函数时，我们现在评估`个人文件夹顶部`文件夹，并发现它也有子文件夹。
+- en: Calling the `folder_traverse()` function again on each of the subfolders, we
+    first process the Deleted Items folder on level **3**. Inside the `Deleted Items`
+    folder on level 4, we find that we only have messages in this folder and call
+    the `check_for_msgs()` function for the first time.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在每个子文件夹上再次调用 `folder_traverse()` 函数时，我们首先处理第**3**级的 `Deleted Items` 文件夹。在第4级的
+    `Deleted Items` 文件夹中，我们发现这里只包含消息，并首次调用 `check_for_msgs()` 函数。
+- en: After the `check_for_msgs()` function returns, we go back to the previous call
+    of the `folder_traverse()` function on level 3 and evaluate the `Sent Items` folder.
+    Since the `Sent Items` folder also doesn't have any subfolders, we process its
+    messages before returning to level 3.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `check_for_msgs()` 函数返回后，我们回到第3级的 `folder_traverse()` 函数的上一调用，并评估 `Sent Items`
+    文件夹。由于 `Sent Items` 文件夹也没有子文件夹，我们在返回第3级之前处理它的消息。
+- en: We then reach the `Inbox` folder on level 3 and call the `folder_traverse()`
+    function on the `Completed Cases` subfolder on level 4\. Now that we're in level
+    5, we process the two messages inside the `Completed Cases` folder. With these
+    two messages processed, we step back to level 4 and process the two messages within
+    the `Inbox` folder. Once these messages are processed, we've completed all items
+    in levels 3, 4, and 5 and can finally move back to level 2\. Within `Root Folder`,
+    we can process the three message items there before the function execution concludes.
+    Our recursion, in this case, works from the bottom up.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们到达第3级的 `Inbox` 文件夹，并在第4级的 `Completed Cases` 子文件夹上调用 `folder_traverse()`
+    函数。现在我们进入第5级，处理 `Completed Cases` 文件夹中的两条消息。处理完这两条消息后，我们返回到第4级，处理 `Inbox` 文件夹中的两条消息。完成这些消息的处理后，我们就完成了第3、4和5级的所有项目，最终可以返回到第2级。在
+    `Root Folder` 中，我们可以处理那里的三条消息项，之后函数执行结束。我们的递归在这种情况下是自下而上的。
+- en: These four lines of code allow us to navigate through the entire PST and call
+    additional processing on every message in every folder. Though this is usually
+    provided to us through methods such as `os.walk()`, some libraries don't natively
+    support recursion and require the developer to do so using the existing functionality
+    within the library.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这四行代码允许我们遍历整个PST并对每个文件夹中的每条消息执行额外的处理。虽然这种功能通常通过 `os.walk()` 等方法提供，但有些库原生不支持递归，要求开发者使用库中的现有功能来实现。
+- en: Identifying messages with the check_for_msgs() function
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 `check_for_msgs()` 函数识别消息
+- en: This function is called for every discovered folder in the `folder_traverse()`
+    function and handles the processing of messages. On line 110, we log the name
+    of the folder to provide a record of what has been processed. Following this,
+    we create a list to append messages on line 111 and begin iterating through the
+    messages in the folder on line 112.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数会为每个发现的文件夹在 `folder_traverse()` 函数中调用，并处理消息。第110行，我们记录文件夹的名称，以提供已处理内容的记录。接下来，我们在第111行创建一个列表来附加消息，并在第112行开始迭代文件夹中的消息。
+- en: 'Within this loop, we call the `process_msg()` function to extract the relevant
+    fields into a dictionary. After each message dictionary has been appended to the
+    list, we call the `folder_report()` function, which will create a summary report
+    of all of the messages within the folder:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个循环中，我们调用 `process_msg()` 函数，将相关字段提取到字典中。在每个消息字典被附加到列表后，我们调用 `folder_report()`
+    函数，该函数将生成该文件夹内所有消息的汇总报告：
+- en: '[PRE15]'
+  id: totrans-108
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Processing messages in the process_msg() function
+  id: totrans-109
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在 `process_msg()` 函数中处理消息
+- en: This function is called the most as it runs for every discovered message. When
+    you're considering how to improve the efficiency of your code base, these are
+    the types of functions to look at. Even a minor efficiency improvement in function
+    that're called frequently can have a large effect on your script.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数是调用最频繁的函数，因为它会为每个发现的消息执行。当你考虑如何提高代码库的效率时，这些就是需要关注的函数。即使是对频繁调用的函数进行微小的效率优化，也能对脚本产生很大的影响。
+- en: In this case, the function is simple and exists mainly to remove clutter from
+    another function. Additionally, it compartmentalizes message processing within
+    a single function and will make it easier to troubleshoot bugs associated with
+    message processing.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，函数很简单，主要用于去除另一个函数中的杂乱内容。此外，它将消息处理封装在一个函数中，使得排查与消息处理相关的错误更加容易。
+- en: The return statement on line 126 passes a dictionary to the calling function.
+    This dictionary contains a key-value pair for each of the `pypff.message` object
+    attributes. Note that the `subject`, `sender`, `transport_headers`, and `plain_text_body`
+    attributes are strings. The `creation_time`, `client_submit_time`, and `delivery_time`
+    attributes are Python `datetime.datetime` objects and the `number_of_attachments`
+    attribute is an integer.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第126行的返回语句将一个字典传递给调用函数。该字典为每个`pypff.message`对象的属性提供一个键值对。请注意，`subject`、`sender`、`transport_headers`和`plain_text_body`属性是字符串类型。`creation_time`、`client_submit_time`和`delivery_time`属性是Python的`datetime.datetime`对象，而`number_of_attachments`属性是整数类型。
+- en: The subject attribute contains the subject line found within the message and
+    `sender_name` contains a single string of the name of the sender who sent the
+    message. The sender name might reflect an email address or the contact name depending
+    on whether the recipient resolved the name.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`subject`属性包含消息中的主题行，`sender_name`包含发送消息的发件人名称的单一字符串。发件人名称可能反映电子邮件地址或联系人名称，具体取决于接收者是否解析了该名称。'
+- en: The `transport_headers` contains the email header data transmitted with any
+    message. This data should be read from the bottom up, as new data is added to
+    the top of the header as a message moves between mail servers. We can use this
+    information to possibly track the movement of a message using hostnames and IP
+    addresses. The `plain_text_body` attribute returns the body as plain text, though
+    we could display the message in RTF or HTML format using the `rtf_body` and `html_body`
+    attributes, respectively.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`transport_headers`包含与任何消息一起传输的电子邮件头数据。由于新数据会被添加到头部的顶部，因此应该从底部向上读取这些数据，以便随着消息在邮件服务器之间的移动，我们能够追踪消息的路径。我们可以利用这些信息，通过主机名和IP地址可能追踪消息的流动。`plain_text_body`属性返回纯文本形式的正文，虽然我们也可以使用`rtf_body`和`html_body`属性分别以RTF或HTML格式显示消息。'
+- en: 'The `creation_times` and `delivery_times` are reflective of the creation of
+    the message and delivery of a received message to the PST being examined. The
+    `client_submit_time` value is the timestamp for when the message was sent. The
+    last attribute shown here is the `number_of_attachments` attribute, which finds
+    additional artifacts for extraction:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`creation_times`和`delivery_times`反映了消息的创建时间和接收到的消息被交付到正在检查的PST的时间。`client_submit_time`值是消息发送的时间戳。最后显示的属性是`number_of_attachments`属性，它用于查找要提取的额外数据。'
+- en: '[PRE16]'
+  id: totrans-116
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: At this time, the `pypff` module doesn't support interaction with attachments,
+    although the `libpff` library will extract artifacts using its `pffexport` and
+    `pffinfo` tools. To build these tools, we must include the `--enable-static-executables`
+    argument on the command line when running the `./configure` command while building.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，`pypff`模块不支持与附件的交互，尽管`libpff`库可以使用其`pffexport`和`pffinfo`工具提取相关数据。要构建这些工具，我们必须在构建时运行`./configure`命令时，在命令行中包含`--enable-static-executables`参数。
+- en: Once built with these options, we can run the tools mentioned earlier to export
+    the PST attachments in a structured directory. The developer has stated that he'll
+    include `pypff` support for attachments in a future release. If made available,
+    we'll be able to interface with message attachments and run additional processing
+    on discovered files. If this functionality is needed for analysis, we could add
+    support to call the `pffexport` tool via Python through the `os` or `subprocess`
+    libraries.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这些选项构建后，我们可以运行前面提到的工具，将PST附件导出到一个结构化的目录中。开发人员已表示将会在未来的版本中添加`pypff`对附件的支持。如果该功能发布，我们将能够与消息附件进行交互，并对发现的文件执行额外的处理。如果分析需要此功能，我们可以通过`os`或`subprocess`库在Python中调用`pffexport`工具来增加支持。
+- en: Summarizing data in the folder_report() function
+  id: totrans-119
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在`folder_report()`函数中汇总数据
+- en: At this point, we've collected a fair amount of information about messages and
+    folders. We use this code block to export that data into a simple report for review.
+    To create this report, we require the `message_list` and `folder_name` variables.
+    On line 146, we check whether there're any entries in the `message_list`; if not,
+    we log a warning and return the function to prevent any of the remaining code
+    from running.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到此为止，我们已经收集了大量关于消息和文件夹的信息。我们使用此代码块将数据导出为一个简单的报告以供审查。为了创建这个报告，我们需要`message_list`和`folder_name`变量。在146行，我们检查`message_list`中是否有条目；如果没有，我们记录一个警告并返回该函数，以防止剩余的代码继续执行。
+- en: If the `message_list` has content, we start to create a CSV report. We first
+    generate the filename in the output directory by passing our desired filename
+    into the `make_path()` function to get the absolute path of the file that we wish
+    to write to. Using this file path, we open the file in `wb` mode to write our
+    CSV file and to prevent a bug that would add an extra line between the rows of
+    our reports on line 152\. In the following line, we define the list of headers
+    for the output document.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果`message_list`中有内容，我们开始创建CSV报告。我们首先通过将所需的文件名传入`make_path()`函数来生成输出目录中的文件名，从而获取我们希望写入的文件的绝对路径。使用该文件路径，我们以`wb`模式打开文件，以便写入CSV文件，并防止在报告的行与行之间添加额外的空行（见第152行）。在接下来的行中，我们定义了输出文档的头部列表。
+- en: This list should reflect an ordered list of columns we wish to report. Feel
+    free to modify lines 153 and 154 to reflect a preferred order or additional rows.
+    All of the additional rows must be valid keys from all dictionaries within the
+    `message_list` variable.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此列表应反映我们希望报告的列的顺序列表。可以自由修改第153行和154行，以反映首选顺序或额外的行。所有附加的行必须是`message_list`变量中所有字典的有效键。
+- en: 'Following our headers, we initiate the `csv.DictWriter` class on line 155\.
+    If you recall from the start of our script, we imported the `unicodecsv` library
+    to handle Unicode characters when writing to a CSV. During this import, we used
+    the `as` keyword to rename the module from `unicodecsv` to `csv` within our script.
+    This module provides the same methods as the standard library, so we can continue
+    using the familiar function calls we have seen with the `csv` library. In this
+    initialization of `DictWriter()`, we pass along the open file object, the field
+    names, and an argument to tell the class what to do with unused information within
+    the `message_list` dictionaries. Since we''re not using all of the keys within
+    the dictionaries in the `message_list` list, we need to tell the `DictWriter()`
+    class that we would like to ignore these values, as follows:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在写入头部后，我们在第155行启动`csv.DictWriter`类。如果你记得我们脚本开始时导入了`unicodecsv`库，以处理在写入CSV时的Unicode字符。在这个导入过程中，我们使用`as`关键字将模块从`unicodecsv`重命名为`csv`，以便在脚本中使用。该模块提供与标准库相同的方法，因此我们可以继续使用我们在`csv`库中见过的熟悉的函数调用。在初始化`DictWriter()`时，我们传递了打开的文件对象、字段名称以及一个参数，告诉该类如何处理`message_list`字典中未使用的信息。由于我们并未使用`message_list`列表中字典的所有键，因此我们需要告诉`DictWriter()`类忽略这些值，如下所示：
+- en: '[PRE17]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: With the `csv_fout` variable initialized and configured, we can begin writing
+    our header data using the `writeheaders()` method call on line 157\. Next, we
+    write the dictionary fields of interest to the file using the `writerows()` method.
+    Upon writing all the rows, we close the `fout` file to write it to disk and release
+    the handle on the object as seen on line 159.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 初始化并配置好`csv_fout`变量后，我们可以开始使用第157行的`writeheaders()`方法调用来写入头部数据。接下来，我们使用`writerows()`方法将感兴趣的字典字段写入文件。写入所有行后，我们关闭`fout`文件，将其写入磁盘，并释放对象的句柄（见第159行）。
+- en: On lines 119 through 141, we prepare the dictionaries from the `message_list`
+    for use in generating HTML report statistics. We need to invoke the `global` statement
+    as seen on line 162 to allow us to edit the `date_list` global variable. We then
+    open two text files to record a raw list of all of the body content and sender
+    names. These files will be used in a later section to generate our statistics
+    and allow the collection of this data in a manner that doesn't consume large amounts
+    of memory. These two text files, seen on lines 163 and 164, are opened in the
+    `a` mode, which will create the file if it doesn't exist or append the data to
+    the end of the file if it exists.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第119行到第141行之间，我们准备了来自`message_list`的字典，用于生成HTML报告统计数据。我们需要调用第162行中的`global`语句，以便我们可以编辑`date_list`全局变量。然后我们打开两个文本文件，记录所有主体内容和发件人名称的原始列表。这些文件将在后续部分用于生成我们的统计数据，并以不会消耗大量内存的方式收集这些数据。这两个文本文件（见第163和第164行）以`a`模式打开，如果文件不存在则会创建该文件，如果文件存在，则会将数据追加到文件末尾。
+- en: 'On line 165, we start a `for` loop to iterate through each message, `m`, in
+    `message_list`. If the message body key has a value, then we write the value to
+    the output file with two line breaks to separate this content. Following this,
+    on lines 168 and 169, we perform a similar process on the sender key and its value.
+    In this instance, we''ll only use one line break so that we can iterate through
+    it easier in a later function:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第165行，我们启动一个`for`循环，遍历`message_list`中的每个消息`m`。如果消息体键有值，则将其值写入输出文件，并使用两个换行符分隔此内容。接着，在第168和169行，我们对发件人键及其值执行类似的过程。在这种情况下，我们只使用一个换行符，以便稍后在另一个函数中更方便地迭代：
+- en: '[PRE18]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: After collecting the message content and senders, we accumulate the date information.
+    To generate our heat map, we'll combine all three dates of activity into a single
+    count to form a single chart. After checking that a valid date value is available,
+    we gather the day of the week to determine which of the dictionaries within the
+    `date_list` list we wish to update.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在收集完消息内容和发件人信息后，我们开始收集日期信息。为了生成热力图，我们将所有三个活动日期合并为一个总计数，形成一个单一的图表。在确认有有效的日期值后，我们获取星期几的信息，以确定在`date_list`列表中的哪个字典需要更新。
+- en: The Python `datetime.datetime` library has a `weekday()` method and an `.hour`
+    attribute, which allows us to access the values as integers and handles the messy
+    conversions for us. The `weekday()` method returns an integer from 0 to 6, where
+    0 represents Monday and 6 represents Sunday. The `.hour` attribute returns an
+    integer between 0 and 23, representing time in a 24-hour fashion, though the JavaScript
+    we're using for the heat map requires an integer between 1 and 24 to process correctly.
+    Because of this, we add 1 to each of the hour values as seen on lines 175, 181,
+    and 187.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Python的`datetime.datetime`库有一个`weekday()`方法和一个`.hour`属性，它们允许我们以整数形式访问这些值，并处理繁琐的转换。`weekday()`方法返回一个从0到6的整数，其中0代表星期一，6代表星期天。`.hour`属性返回一个0到23之间的整数，表示24小时制的时间，尽管我们用于热力图的JavaScript要求一个1到24之间的整数才能正确处理。因此，我们在第175、181和187行中对每个小时值加1。
+- en: 'We now have the correct weekday and time of day keys we need to update the
+    value in the `date_list`. Upon completing the loop, we can close the two file
+    objects on lines 189 and 190:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们拥有了更新`date_list`中值所需的正确星期几和时间段键。在完成循环后，我们可以在第189和190行关闭两个文件对象：
+- en: '[PRE19]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: Understanding the word_stats() function
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解`word_stats()`函数
+- en: With the message content written to a file, we can now use it to calculate a
+    frequency of word usage. We use the `Counter` module we imported from the collections
+    library to generate a word count in an efficient manner.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在将消息内容写入文件后，我们现在可以使用它来计算单词使用频率。我们使用从collections库中导入的`Counter`模块，以高效的方式生成单词计数。
+- en: 'We initialize the `word_list` as a `Counter()` object, which allows us to call
+    it and assign new words while keeping track of the overall count per word. After
+    initialization, we start a `for` loop on line 200, open the file, and iterate
+    through each line with the `readlines()` method:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将`word_list`初始化为一个`Counter()`对象，这使得我们可以在调用时给它分配新单词，并跟踪每个单词的总体计数。在初始化后，我们在第200行启动一个`for`循环，打开文件，并使用`readlines()`方法逐行迭代：
+- en: '[PRE20]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: At this point, we need to `split()` the line into a list of individual words
+    in order to generate a proper count. By not passing an argument to `split()`,
+    we'll split on all whitespace characters, which, in this case, works to our advantage.
+    Following the split on line 201, we use a conditional statement to ensure only
+    a single word greater than four characters is included in our list, to eliminate
+    common filler words or symbols. This logic may be tailored based on your environment,
+    as you may, for example, wish to include words shorter than four letters or some
+    other filtering criteria.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，我们需要使用`split()`方法将行拆分成单个单词的列表，以生成正确的计数。通过不向`split()`传递参数，我们将按所有空白字符进行拆分，在这种情况下，这对我们有利。在第201行的拆分之后，我们使用条件语句确保只有长度大于四个字符的单词被包含在我们的列表中，以去除常见的填充词或符号。此逻辑可以根据您的环境进行调整，例如，您可能希望包括少于四个字母的单词或其他过滤标准。
+- en: 'If the conditional evaluates to true, we add the word to our counter. On line
+    204, we increment the value of the word in the list by one. After iterating through
+    every line and word of the `message_body.txt` file, we pass this word list to
+    the `word_report()` function:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果条件判断为真，我们将单词添加到计数器中。在第204行，我们将单词在列表中的值增加1。遍历完`message_body.txt`文件的每一行和每个单词后，我们将这个单词列表传递给`word_report()`函数：
+- en: '[PRE21]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: Creating the word_report() function
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建 `word_report()` 函数
+- en: 'Once `word_list` is passed from the `word_stats()` function, we can generate
+    our reports using the supplied data. In order to have more control over how our
+    data is presented, we''re going to write a CSV report without the help of the
+    `csv` module. First, on line 216, we need to ensure that `word_list` contains
+    values. If it doesn''t, the function logs a warning and returns. On line 220,
+    we open a new file object in `wb` mode to create our CSV report. On line 221,
+    we write our `Count` and `Word` headers onto the first row with a newline character
+    to ensure all other data is written in the rows below:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦 `word_list` 从 `word_stats()` 函数传递过来，我们就可以使用提供的数据生成报告。为了更好地控制数据的展示方式，我们将手动生成
+    CSV 报告，而不依赖 `csv` 模块。首先，在第 216 行，我们需要确保 `word_list` 中有值。如果没有，函数会记录一个警告并返回。在第 220
+    行，我们以 `wb` 模式打开一个新文件对象以创建 CSV 报告。在第 221 行，我们将 `Count` 和 `Word` 表头写入第一行，并使用换行符确保所有其他数据写入下面的行：
+- en: '[PRE22]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'We then use a `for` loop and the `most_common()` method to call out a tuple
+    containing each word and the assigned count value. If the length of the tuple
+    is greater than 1, we write the values into the CSV document in reverse order
+    to properly align the columns with the values, followed by a newline character.
+    After this loop completes, we close the file and flush the results to the disk
+    as seen on line 225:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们使用 `for` 循环和 `most_common()` 方法调用每个单词及其对应的计数值。如果元组的长度大于 1，我们就将这些值按相反的顺序写入
+    CSV 文档，以便正确对齐列与值，并加上换行符。在这个循环完成后，我们关闭文件并将结果刷新到磁盘，正如第 225 行所示：
+- en: '[PRE23]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'Following this loop, we then generate a list of the top 10 words. By passing
+    the integer 10 into the `most_common()` method, we select only the top 10 most
+    common entries in `Counter`. We append a dictionary of the results to a temporary
+    list, which is returned to the `word_stats()` function and later used in our HTML
+    report:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 紧接着这个循环，我们会生成前 10 个单词的列表。通过将整数 10 传递给 `most_common()` 方法，我们只选择 `Counter` 中最常见的前
+    10 项。我们将结果的字典追加到临时列表中，该列表返回给 `word_stats()` 函数，并随后用于我们的 HTML 报告：
+- en: '[PRE24]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Building the sender_report() function
+  id: totrans-147
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 构建 `sender_report()` 函数
+- en: The `sender_report()` functions similarly to `word_report()` and generates a
+    CSV and HTML report for individuals who sent emails. This function showcases another
+    method for reading values into the `Counter()` method. On line 242, we open and
+    read the lines of a file into the `Counter()` method.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`sender_report()` 函数类似于 `word_report()`，它为发送电子邮件的个人生成 CSV 和 HTML 报告。这个函数展示了另一种将值读取到
+    `Counter()` 方法中的方式。在第 242 行，我们打开并读取文件的行到 `Counter()` 方法中。'
+- en: We can implement it this way because each line of the input file represents
+    a single sender. Counting the data in this manner simplifies the code and, by
+    extension, saves us a few lines of writing.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以这样实现，因为输入文件的每一行代表一个单独的发件人。以这种方式统计数据简化了代码，并且通过简化写作，也为我们节省了几行代码。
+- en: 'This wasn''t a feasible option for the `word_stats()` function because we had
+    to break each line into a separate word and then perform additional logic operations
+    prior to counting the words. If we wanted to apply logic to the sender statistics,
+    we would need to create a similar loop to that in `word_stats()`. For example,
+    we might want to exclude all items from Gmail or that contain the word `noreply`
+    in the sender''s name or address:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`word_stats()` 函数并不适用这种方法，因为我们必须将每一行拆分成单独的单词，然后在计数之前执行额外的逻辑操作。如果我们想对发件人统计信息应用逻辑，我们需要创建一个类似于
+    `word_stats()` 中的循环。例如，我们可能想排除所有来自 Gmail 的项，或是发件人姓名或地址中包含 `noreply` 字样的项：'
+- en: '[PRE25]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: After generating the sender count, we can open the CSV report and write our
+    headers to it. At this point, we'll iterate through each of the most common in
+    a `for` loop as seen on line 247, and if the tuple contains more than one element,
+    we'll write it to the file.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在生成发件人计数之后，我们可以打开 CSV 报告并将表头写入其中。此时，我们将在第 247 行看到的 `for` 循环中迭代每一个最常见的项，如果元组包含多个元素，我们就将其写入文件。
+- en: 'This is another location where we could filter the values based on the sender''s
+    name. After writing, the file is closed and flushed to the disk. On line 252,
+    we generate statistics for the top five senders for the final report by generating
+    a list of dictionaries containing the tuple values. To access it in our HTML report
+    function, we return this list. See the following code:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是另一个可以根据发件人姓名过滤值的地方。写入后，文件被关闭并刷新到磁盘。在第 252 行，我们通过生成一个包含元组值的字典列表来为最终报告生成前五名发件人的统计数据。为了在
+    HTML 报告功能中访问它，我们返回这个列表。请参见以下代码：
+- en: '[PRE26]'
+  id: totrans-154
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Refining the heat map with the date_report() function
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 `date_report()` 函数完善热力图
+- en: This report provides data to generate the activity heat map. For it to operate
+    properly, it must have the same filename and path specified in the HTML template.
+    The default template for the file is named `heatmap.tsv` and is located in the
+    same directory as the output HTML report.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本报告提供了生成活动热力图的数据。为了确保其正常运行，文件名和路径必须与 HTML 模板中指定的相同。该文件的默认模板名为`heatmap.tsv`，并与输出的
+    HTML 报告位于同一目录下。
+- en: After opening this file with those defaults on line 267, we write the headers
+    with a tab character delimiting the day, hour, and value columns and ending with
+    a newline character. At this point, we can begin iterating through our list of
+    dictionaries by using two `for` loops to access each list containing dictionaries.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打开文件并加载第 267 行中的默认设置后，我们写入标题，使用制表符分隔日期、小时和值列，并以换行符结尾。此时，我们可以通过两个 `for` 循环开始遍历我们的字典列表，访问每个包含字典的列表。
+- en: 'In the first `for` loop, we use the `enumerate()` method to capture the loop
+    iteration number. This number conveniently corresponds to the date we''re processing,
+    allowing us to use this value to write the day value:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第一个 `for` 循环中，我们使用 `enumerate()` 方法捕获循环的迭代次数。这个数字恰好对应我们正在处理的日期，使我们能够使用该值写入日期值：
+- en: '[PRE27]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: In the second `for` loop, we iterate through each dictionary, gathering both
+    the hour and count values separately by using the `items()` method to extract
+    the key and value as a tuple. With these values, we can now assign the date, hour,
+    and count to a tab-separated string and write it to the file.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第二个 `for` 循环中，我们遍历每个字典，使用 `items()` 方法分别提取小时和计数值，返回的键值对作为元组。通过这些值，我们可以将日期、小时和计数赋值给制表符分隔的字符串，并写入文件。
+- en: On line 271, we add 1 to the date value as the heat map chart uses a 1 through
+    7 range, whereas our list uses an index of 0 through 6 to count days of the week.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 271 行，我们将日期值加 1，因为热力图图表使用的是 1 到 7 的范围，而我们的列表使用的是 0 到 6 的索引来表示一周的七天。
+- en: 'After iterating through the hours, we flush the data to the disk before moving
+    forward to the next dictionary of hours. Once we''ve iterated through all of the
+    seven days, we can close this document as it''s ready to be used with our heat
+    map chart in the `html_report()` function:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在遍历小时数据后，我们将数据刷新到磁盘，然后继续处理下一个小时的数据字典。完成七天的数据遍历后，我们可以关闭此文档，它已准备好与我们的热力图图表一起在
+    `html_report()` 函数中使用：
+- en: '[PRE28]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Writing the html_report() function
+  id: totrans-164
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 编写 `html_report()` 函数
+- en: 'The `html_report()` function is where we tie together all of the pieces of
+    information gathered from the PST into a final report, with much anticipation.
+    To generate this report, we require arguments specifying the report title, PST
+    name, and counts of the top words and senders:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`html_report()` 函数是将从 PST 中收集的所有信息组合成最终报告的地方，充满期待地生成此报告。为了生成该报告，我们需要传入指定报告标题、PST
+    名称以及最常见单词和发件人的计数等参数：'
+- en: '[PRE29]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: To begin with, we open the template file and read in the contents into a single
+    variable as a string. This value is then passed into our `jinja2.Template` engine
+    to be processed into a template object called `html_template` on line 290.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们打开模板文件，并将其内容读取到一个变量中，作为字符串传入我们的 `jinja2.Template` 引擎，处理成模板对象 `html_template`，该操作发生在第
+    290 行。
+- en: Next, we create a dictionary of values to pass into the template's placeholders and
+    use the `context` dictionary on line 292 to hold these values. With the dictionary
+    in place, we then render the template on line 295 and provide the `context` dictionary.
+    This rendered data is a string of HTML data, as you expect to see on a web page,
+    with all of our placeholder logic evaluated and turned into a static HTML page.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们创建一个字典，将值传入模板的占位符，并在第 292 行使用 `context` 字典保存这些值。字典创建完毕后，我们在第 295 行渲染模板并提供
+    `context` 字典。渲染后的数据是 HTML 数据字符串，正如你在网页中看到的一样，所有占位符逻辑都被评估并转化为静态 HTML 页面。
+- en: 'We write the rendered HTML data to an output file in the user-specified directory
+    as seen on lines 297 through 299\. With the HTML report written to the output
+    directory, the report is complete and ready to view in the output folder:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将渲染后的 HTML 数据写入用户指定目录中的输出文件，如第 297 到 299 行所示。HTML 报告写入输出目录后，报告完成，并可以在输出文件夹中查看：
+- en: '[PRE30]'
+  id: totrans-170
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: The HTML template
+  id: totrans-171
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: HTML 模板
+- en: This book focuses on the use of Python in forensics. Though Python provides
+    many great methods for manipulating and applying logic to data, we still need
+    to lean on other resources to support our scripts. In this chapter, we've built
+    an HTML dashboard to present statistical information about these PST files.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书重点介绍Python在法医学中的应用。尽管Python提供了许多很棒的方法来操作和应用逻辑于数据，但我们仍然需要依赖其他资源来支持我们的脚本。在本章中，我们构建了一个HTML仪表板来展示关于这些PST文件的统计信息。
+- en: In this section, we'll review sections of HTML, focusing on where our data is
+    inserted into the template versus the intricacies of HTML, JavaScript, and other
+    web languages. For more information in the use and implementation of HTML, JavaScript,
+    D3.js, and other web resources, visit [http://packtpub.com](http://packtpub.com)
+    for pertinent titles or [http://w3schools.com](http://w3schools.com) for introductory
+    tutorials. Since we'll not be delving deeply into HTML, CSS, or other web design aspects,
+    our focus will be primarily on the spaces where our Python script will interact.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将回顾HTML的各个部分，重点关注数据插入模板的部分，而不是HTML、JavaScript和其他Web语言的复杂细节。如需更多关于HTML、JavaScript、D3.js和其他Web资源的使用和实现的信息，请访问[http://packtpub.com](http://packtpub.com)查找相关书籍，或访问[http://w3schools.com](http://w3schools.com)查阅入门教程。由于我们不会深入探讨HTML、CSS或其他Web设计方面的问题，我们的重点将主要放在Python脚本与这些部分的交互上。
+- en: This template leverages a couple of common frameworks that allow the rapid design
+    of professional-looking web pages. The first is Bootstrap 3, a CSS styling framework
+    that organizes and styles HTML to look uniform and clean no matter the device
+    used to view the page. The second is the D3.js framework, which is a JavaScript
+    framework for graphic visualizations.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个模板利用了几个常见的框架，允许快速设计专业外观的网页。第一个是Bootstrap 3，它是一个CSS样式框架，能够将HTML组织和样式化，使其无论在哪种设备上查看页面，都能保持一致和整洁。第二个是D3.js框架，它是一个用于图形可视化的JavaScript框架。
+- en: 'As we''ve seen before, the template items into which we''ll insert our data
+    are contained within double braces, `{{ }}`. We''ll insert the report title for
+    our HTML dashboard on line 39 and 44\. Additionally, we''ll insert the name of
+    the PST file on lines 48, 55, and 62\. The `div id` tags on lines 51, 58, and
+    65 acts as a variable name for the charts that can be inserted by JavaScript in
+    the later section of the template once the code processes the input:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所示，我们将数据插入的模板项包含在双括号`{{ }}`中。我们将在第39行和第44行插入HTML仪表板的报告标题。此外，我们将在第48行、第55行和第62行插入PST文件的名称。第51行、第58行和第65行的`div
+    id`标签作为图表的变量名，可以在模板的后续部分通过JavaScript插入这些图表，一旦代码处理了输入：
+- en: '[PRE31]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'After the `div` placeholder elements are in place, the JavaScript on lines
+    69 through 305 processes the provided data into charts. The first location data
+    is placed on line 92, where the `{{ word_frequency }}` phrase is replaced with
+    the list of dictionaries. For example, this could be replaced with `[{''count'':
+    ''175'', ''word'': ''message''}, {''count'': ''17'', ''word'': ''iPhone''}]`.
+    This list of dictionaries is translated into chart values to form the vertical
+    bar chart of the HTML report:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '在`div`占位符元素就位后，第69行到305行的JavaScript将提供的数据处理为图表。第92行放置了第一个位置数据，在该行，`{{ word_frequency
+    }}`短语被字典列表替换。例如，可以替换为`[{''count'': ''175'', ''word'': ''message''}, {''count'':
+    ''17'', ''word'': ''iPhone''}]`。这个字典列表被转换为图表值，形成HTML报告中的垂直条形图：'
+- en: '[PRE32]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: 'On line 132, we insert the `percentage_by_sender` value from the context dictionary
+    into the JavaScript. This replacement will occur in a similar example to the `word_frequency`
+    insert. With this information, the donut chart generates on the HTML report:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第132行，我们将上下文字典中的`percentage_by_sender`值插入到JavaScript中。此替换将与`word_frequency`插入的例子类似。通过这些信息，甜甜圈图表将在HTML报告中生成：
+- en: '[PRE33]'
+  id: totrans-180
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: We'll use a new way to insert data for the heat map. By providing the filename
+    discussed in the previous section, we can prompt the code to look for a `heatmap.tsv`
+    file in the same directory as this HTML report. The upside to this is how we're
+    able to generate a report once and use the TSV in a program such as Excel and
+    within our dashboard, though the downside is that this file must travel with the
+    HTML report for it to display properly, as the chart will regenerate on reload.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用一种新的方式来插入热图数据。通过提供上一节中讨论的文件名，我们可以提示代码在与此HTML报告相同的目录中查找`heatmap.tsv`文件。这样做的好处是，我们能够一次生成报告，并在像Excel这样的程序中以及在仪表板中使用TSV文件，尽管缺点是该文件必须与HTML报告一起传输，以便正确显示，因为图表将在重新加载时重新生成。
+- en: 'This chart also has difficulty rendering on some browsers as JavaScript is
+    interpreted differently by each browser. Testing found that Chrome, Firefox, and
+    Safari were OK at viewing the graphic. Ensure that browser add-ons are not interfering
+    with the JavaScript and that your browser doesn''t block JavaScript from interacting
+    with local files. If your browser disallows this, consider running the script
+    in the Docker instance, starting the `lighttpd` service, and placing your output
+    in `/var/www/html`. When you visit the IP address of your Docker instance, you''ll
+    be able to navigate to the report as the server will provide access to the resources
+    for you:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个图表在某些浏览器上可能无法正常渲染，因为不同浏览器对 JavaScript 的解释方式不同。测试表明，Chrome、Firefox 和 Safari
+    都能正常查看该图形。请确保浏览器插件不会干扰 JavaScript，并且浏览器没有阻止 JavaScript 与本地文件的交互。如果您的浏览器不允许这样做，可以考虑在
+    Docker 实例中运行脚本，启动 `lighttpd` 服务，并将输出放置在 `/var/www/html` 中。当您访问 Docker 实例的 IP 地址时，您将能够浏览报告，因为服务器将为您提供对资源的访问：
+- en: '[PRE34]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: The remainder of the template is available in the code repository and can easily
+    be referenced and manipulated if web languages are your strong suit or worth further
+    exploration. The D3.js library allows us to create additional informative graphics
+    and adds another tool to our reporting toolbox that's relatively simple and portable.
+    The following graphics represent examples of data for each of the three charts
+    we've created.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 模板的其余部分可以在代码库中找到，如果 Web 编程语言是您的强项，或者值得进一步探索，它可以轻松地被引用和修改。D3.js 库使我们能够创建更多的信息图形，并为我们的报告工具箱添加了另一个相对简单且便于移植的工具。以下图形展示了我们创建的三个图表中每个图表的数据示例。
+- en: 'The first chart represents the most used words in the PST file. The frequency
+    is plotted on the *y* axis and the word on the *x* axis:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个图表表示 PST 文件中使用频率最高的单词。频率绘制在 *y* 轴上，单词则绘制在 *x* 轴上：
+- en: '![](img/ea070c05-142b-467e-bee8-10ebe5b799bd.png)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ea070c05-142b-467e-bee8-10ebe5b799bd.png)'
+- en: 'The following chart identifies the top five accounts that have sent an email
+    to the user. Notice how the circle graph helps to identify which participants
+    are most frequent in the dataset. In addition, the text labels provide the name
+    of the address and the number of emails received by that address:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图表显示了向用户发送电子邮件的前五个账户。请注意，圆形图表有助于识别数据集中最频繁的参与者。此外，文本标签提供了地址的名称和该地址接收到的电子邮件数量：
+- en: '![](img/84b19b6e-c27f-47f5-a634-d963ffb450d0.png)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/84b19b6e-c27f-47f5-a634-d963ffb450d0.png)'
+- en: Lastly, the following heat map aggregates all emails into hour-long cells for
+    each day. This is very useful in identifying trends in the dataset.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，以下热力图将所有电子邮件聚合为每小时的单元格，按天分组。这对于识别数据集中的趋势非常有用。
+- en: 'For example, in this case, we can quickly identify that most emails are sent
+    or received early in the morning and particularly at 6 AM on Tuesdays. The bar
+    at the bottom of the graphic indicates the number of emails. For example, the
+    color of the cell for 6 AM Tuesdays indicates that more than 1,896 emails were
+    sent or received during that time:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，在这种情况下，我们可以快速识别出大多数电子邮件是在清晨时分发送或接收的，特别是在每周二的早上 6 点。图形底部的条形图表示电子邮件的数量。例如，周二早上
+    6 点的单元格颜色表示在该时段内发送或接收了超过 1,896 封电子邮件：
+- en: '![](img/17140a11-ba74-4359-8322-064e7b07c3f4.png)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/17140a11-ba74-4359-8322-064e7b07c3f4.png)'
+- en: Running the script
+  id: totrans-192
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行脚本
+- en: With our code complete, both the script and the HTML template, we're ready to
+    execute the code! In our Ubuntu environment, we'll need to run the following command
+    and provide our PST for analysis. If your Ubuntu machine has a configured web
+    server, then the output could be placed in the web directory and served as a website
+    for other users to view when visiting the server.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码已经完成，包括脚本和 HTML 模板，我们准备好执行代码了！在我们的 Ubuntu 环境中，我们需要运行以下命令并提供 PST 进行分析。如果您的
+    Ubuntu 机器已配置了 Web 服务器，则可以将输出放置在 Web 目录中，并作为网站提供给其他用户浏览。
+- en: 'If you plan on using the Docker container method to run this code, you''ll
+    need to copy the PST file into your container using a command such as the one
+    shown in the following. Please note that the following syntax  is `docker cp src_file
+    container_name:/path/on/container` and additional functionality is described with
+    `docker cp --help`:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您打算使用 Docker 容器方法来运行此代码，则需要使用以下命令将 PST 文件复制到容器中。请注意，以下语法为 `docker cp src_file
+    container_name:/path/on/container`，更多功能请参见 `docker cp --help`：
+- en: '[PRE35]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Now that our PST is located within our container; we can run our script as
+    follows:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们的 PST 文件已位于容器中，我们可以按如下方式运行脚本：
+- en: '![](img/24182530-5859-41b7-a0f5-4ecf4ea41e9b.png)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/24182530-5859-41b7-a0f5-4ecf4ea41e9b.png)'
+- en: The preceding screenshot shows us using `/var/www/html` as our output directory.
+    This means that if we're running the `lighttpd` service on our Docker container,
+    we'll be able to browse to the container's IP address and view the content in
+    a browser on our system. You'll need to run `docker container ls pst_parser` to
+    get the correct port that the web server can be found at.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的截图显示我们使用`/var/www/html`作为输出目录。这意味着如果我们在Docker容器中运行`lighttpd`服务，我们将能够浏览到容器的IP地址，并在系统的浏览器中查看内容。你需要运行`docker
+    container ls pst_parser`来获取Web服务器所在的正确端口。
+- en: Additional challenges
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 额外的挑战
+- en: For this project, we invite you to implement some improvements that will make
+    our script more versatile. As mentioned earlier in the chapter, `pypff` currently
+    doesn't natively support the extraction or direct interaction with attachments.
+    We can, however, call the `pffexport` and `pffinfo` tools within our Python script
+    to do so. We recommend looking at the subprocess module to accomplish this. To
+    extend this further, how can we connect this with the code covered in previous
+    chapter ? What type of data might become available once we have access to attachments?
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个项目，我们邀请你实现一些改进，使我们的脚本更加多功能。如本章前面提到的，`pypff`目前并不原生支持提取或直接与附件交互。然而，我们可以在Python脚本中调用`pffexport`和`pffinfo`工具来实现这一功能。我们建议查看`subprocess`模块以实现这一目标。进一步扩展这个问题，我们如何将其与上一章中介绍的代码连接起来？一旦我们访问了附件，可能会有哪些数据可用？
+- en: Consider methods that would allow a user to provide filtering options to collect
+    specific messages of interest rather than the entire PST. A library that may assist
+    in providing additional configuration options to the user is `ConfigParser` and
+    can be installed with `pip`.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 考虑一些方法，允许用户提供过滤选项，以便收集感兴趣的特定邮件，而不是整个PST文件。一个可能帮助用户提供更多配置选项的库是`ConfigParser`，可以通过`pip`安装。
+- en: Finally, another challenge would be seeing improvements in the HTML report by
+    adding additional charts and graphs. One example might be to parse `transit_headers`
+    and extract the IP addresses. Using these IP addresses, you could geolocate them
+    and plot them on a map with the D3.js library. This kind of information can increase
+    the usefulness of our reports by squeezing out as much information as possible
+    from all potential data points.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，另一个挑战是通过添加更多的图表和图形来改进HTML报告。一个例子是解析`transit_headers`并提取IP地址。通过这些IP地址，你可以进行地理定位，并使用D3.js库将其绘制在地图上。这种信息可以通过从所有潜在数据点提取尽可能多的信息，提升报告的实用性。
+- en: Summary
+  id: totrans-203
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Email files contain a large amount of valuable information, allowing forensic
+    examiners to gain greater insight into communications and the activity of users
+    over time. Using open source libraries, we're able to explore PST files and extract
+    information about the messages and folders within. We also examined the content
+    and metadata of messages to gather additional information about frequent contacts,
+    common words, and abnormal hot spots of activity. Through this automated process,
+    we can gather a better understanding of the data we review and begin to identify
+    hidden trends. The code for this project can be downloaded from GitHub or Packt,
+    as described in the *Preface*.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 电子邮件文件包含大量有价值的信息，使得法医检查员能够更深入地了解通讯内容以及用户随时间变化的活动。利用开源库，我们能够探索PST文件并提取其中关于邮件和文件夹的信息。我们还检查了邮件的内容和元数据，以收集关于频繁联系人、常用词汇和活动的异常热点的额外信息。通过这一自动化过程，我们可以更好地理解我们审查的数据，并开始识别隐藏的趋势。该项目的代码可以从GitHub或Packt下载，具体请参见*前言*。
+- en: Identifying hidden information is very important in all investigations and is
+    one of the many reasons that data recovery is an important cornerstone in the
+    forensic investigation process.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 识别隐藏信息在所有调查中都非常重要，这是数据恢复成为法医调查过程重要基石的众多原因之一。
+- en: In the next chapter, we'll cover how to recover data from a difficult source,
+    databases. Using several Python libraries, we'll be able to recover data that
+    might otherwise be lost and gain valuable insights into records that're no longer
+    tracked by the database.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将介绍如何从一个难以处理的来源——数据库中恢复数据。通过使用多个Python库，我们将能够恢复本来可能丢失的数据，并获得有关那些数据库不再跟踪的记录的宝贵见解。

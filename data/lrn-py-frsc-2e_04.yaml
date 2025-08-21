@@ -1,0 +1,1508 @@
+- en: Working with Serialized Data Structures
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 处理序列化数据结构
+- en: In this chapter, we'll develop greater skills while working with nested lists
+    and dictionaries by manipulating **JavaScript Object Notation** (**JSON**) structured
+    data. Our artifact of interest is raw Bitcoin account data that contains, among
+    other things, a list of all sent and received transactions. We'll access this
+    dataset using a web **Application Programming Interface** (**API**) and parse
+    it in a manner conducive to analysis.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将通过操作**JavaScript 对象表示法**（**JSON**）结构化数据，进一步提高处理嵌套列表和字典的技能。我们的研究对象是原始比特币账户数据，其中包含发送和接收的所有交易列表等信息。我们将使用网页**应用程序接口**（**API**）访问此数据集，并以有利于分析的方式进行解析。
+- en: APIs are created for software products and allow programmers to interface with
+    the software in defined ways. Publicly accessible APIs aren't always available
+    for the given software. When available, they expedite code development by offering
+    methods to interact with the software, as the APIs will handle lower-level implementation
+    details. Developers implement APIs to encourage others to build supporting programs
+    and, additionally, control the manner in which other developers' code interacts
+    with their software. By creating an API, developers are giving other programmers
+    a controlled manner of interfacing with their program.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: API 是为软件产品创建的，允许程序员以定义的方式与软件进行交互。并非所有给定软件的公共 API 都是可用的。当可用时，API 通过提供与软件交互的方法，加速了代码开发，因为
+    API 将处理低级的实现细节。开发人员实现 API 旨在鼓励他人构建支持程序，并进一步控制其他开发人员的代码如何与他们的软件交互。通过创建 API，开发人员为其他程序员提供了与他们的程序进行受控交互的方式。
+- en: In this chapter, we'll use the web API from [https://www.blockchain.info](https://www.blockchain.info)
+    to query and receive Bitcoin account information for a given Bitcoin address.
+    The JSON data that this API generates can be converted into Python objects using
+    the JSON module from the standard library. Instructions and examples of their
+    API can be found at [https://www.blockchain.info/api/blockchain_api](https://www.blockchain.info/api/blockchain_api).
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将使用来自[https://www.blockchain.info](https://www.blockchain.info)的网页 API
+    来查询并接收给定比特币地址的比特币账户信息。该 API 生成的 JSON 数据可以使用标准库中的 JSON 模块转换为 Python 对象。有关其 API
+    的说明和示例，可以在[https://www.blockchain.info/api/blockchain_api](https://www.blockchain.info/api/blockchain_api)找到。
+- en: 'In this chapter, we''ll cover the following:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下内容：
+- en: Discussing and manipulating serialized structures including **Extensible Markup
+    Language** (**XML**) and JSON data
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 讨论和操作包括**可扩展标记语言**（**XML**）和 JSON 数据在内的序列化结构
+- en: Creating logs with Python
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Python 创建日志
+- en: Reporting results in a CSV output format
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以 CSV 输出格式报告结果
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1\. The `bitcoin_address_lookup.v1.py` and `bitcoin_address_lookup.v2.py`
+    scripts were developed to work with Python 3.7.1 and not Python 2.7.15.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码是使用 Python 2.7.15 和 Python 3.7.1 开发和测试的。`bitcoin_address_lookup.v1.py`
+    和 `bitcoin_address_lookup.v2.py` 脚本是为了与 Python 3.7.1 而非 Python 2.7.15 一起使用而开发的。
+- en: Serialized data structures
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 序列化数据结构
+- en: Serialization is a process whereby data objects are preserved during storage
+    on a computer system. Serializing data preserves the original type of the object.
+    That's to say, we can serialize dictionaries, lists, integers, or strings into
+    a file. Sometime later, when we deserialize this file, those objects will still
+    maintain their original data type. Serialization is great because if, for example,
+    we stored script objects to a text file, we wouldn't be able to feasibly reconstruct
+    those objects into their appropriate data types as easily. As we know, reading
+    a text file reads in data as a string.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 序列化是一个过程，通过该过程，数据对象在计算机系统的存储过程中被保留。序列化数据保留了对象的原始类型。也就是说，我们可以将字典、列表、整数或字符串序列化到一个文件中。稍后，当我们反序列化这个文件时，这些对象将仍然保持它们的原始数据类型。序列化非常好，因为如果我们将脚本对象存储到文本文件中，我们就无法轻松地将这些对象恢复到适当的数据类型。如我们所知，读取文本文件时，读取的数据是字符串。
+- en: XML and JSON are the two common examples of plain text-encoded serialization
+    formats. You may already be accustomed to analyzing these files in forensic investigations.
+    Analysts familiar with mobile device forensics will likely recognize application-specific
+    XML files containing account or configuration details. Let's look at how we can
+    leverage Python to parse XML and JSON files.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XML和JSON是两种常见的纯文本编码序列化格式。你可能已经习惯于在法医调查中分析这些文件。熟悉移动设备取证的分析师可能会识别包含帐户或配置详细信息的特定应用程序XML文件。让我们看看如何利用Python解析XML和JSON文件。
+- en: 'We can use the `xml` module to parse any markup language that includes XML
+    and HTML data. The following `book.xml` file in the text contains the details
+    about this book. If you''ve never seen XML data before, the first thing you may
+    note is that it''s similar in structure to HTML, another markup language, where
+    contents are surrounded by opening and closing tags, as follows:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用`xml`模块解析任何包括XML和HTML数据的标记语言。以下`book.xml`文件包含关于这本书的详细信息。如果你之前从未见过XML数据，第一件你可能会注意到的是它与HTML结构相似，HTML是另一种标记语言，其中内容被打开和关闭标签包围，如下所示：
+- en: '[PRE0]'
+  id: totrans-13
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: For analysts, XML and JSON files are easy to read because they're in plain text.
+    However, a manual review becomes impractical when working with files containing
+    thousands of lines. Fortunately, these files are highly structured, and even better,
+    they're meant to be used by programs.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于分析师来说，XML和JSON文件很容易阅读，因为它们是纯文本格式。然而，当文件包含数千行时，手动审核变得不切实际。幸运的是，这些文件具有高度的结构化，更棒的是，它们是为程序使用而设计的。
+- en: 'To explore XML, we need to use the `ElementTree` class from the `xml` module,
+    which will parse the data and allow us to iterate through the children of the
+    root node. In order to parse the data, we must specify the file being parsed.
+    In this case, our `book.xml` file is located in the same working directory as
+    the Python interactive prompt. If this weren''t the case, we would need to specify
+    the file path in addition to the filename. If you''re using Python 2, please make
+    sure to import `print_function` from `__future__ `. We use the `getroot()` function
+    to access the root-level node, as follows:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要探索XML，我们需要使用`xml`模块中的`ElementTree`类，它将解析数据并允许我们遍历根节点的子节点。为了解析数据，我们必须指定正在解析的文件。在这个例子中，我们的`book.xml`文件位于与Python交互式提示符相同的工作目录中。如果情况不是这样，我们需要在文件名外指定文件路径。如果你使用的是Python
+    2，请确保从`__future__`导入`print_function`。我们使用`getroot()`函数访问根级节点，如下所示：
+- en: '[PRE1]'
+  id: totrans-16
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'With the root element, let''s use the `find()` function to search for the first
+    instance of the `authors` tag in the XML file. Each element has different properties,
+    such as `tag`, `attrib`, and `text`. The `tag` element is a string that describes
+    the data, which in this case is `authors`. An attribute(s) or `attrib` are stored
+    in a dictionary if present. Attributes are values assigned within a tag. For example,
+    we could have created a `chapter` tag:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过根元素，让我们使用`find()`函数在XML文件中搜索第一个`authors`标签实例。每个元素都有不同的属性，如`tag`、`attrib`和`text`。`tag`元素是一个描述数据的字符串，在这个例子中是`authors`。如果存在，属性（`attrib`）会存储在字典中。属性是赋值给标签内的值。例如，我们可以创建一个`chapter`标签：
+- en: '[PRE2]'
+  id: totrans-18
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The attributes for this object would be a dictionary with the keys number, title,
+    and count and their respective values. To access the content between the tags
+    (for example, `chapterNumber`), we would need to use the `text` attribute.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该对象的属性将是一个字典，包含键`number`、`title`和`count`及其各自的值。要访问标签之间的内容（例如`chapterNumber`），我们需要使用`text`属性。
+- en: 'We can use the `findall()` function to find all occurrences of a specified
+    child tag. In the following example, we''re looking for every instance of `chapters/element` found
+    in the dataset. Once found, we can use list indices to access specific tags within
+    the `element` parent tag. In this case, we only want to access the chapter number
+    and title in the first two positions of the element. Look at the following example:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用`findall()`函数查找指定子标签的所有出现实例。在以下示例中，我们正在查找数据集中所有出现的`chapters/element`。一旦找到，我们可以使用列表索引访问`element`父标签中的特定标签。在这种情况下，我们只想访问`element`中前两个位置的章节号和标题。请看以下示例：
+- en: '[PRE3]'
+  id: totrans-21
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: There are a number of other methods we can use to process markup language files
+    using the `xml` module. For the full documentation, please see [https://docs.python.org/3/library/xml.etree.elementtree.html](https://docs.python.org/3/library/xml.etree.elementtree.html)[.](https://docs.python.org/3/library/xml.etree.elementtree.html)
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用许多其他方法来处理标记语言文件，利用 `xml` 模块。完整的文档，请参考 [https://docs.python.org/3/library/xml.etree.elementtree.html](https://docs.python.org/3/library/xml.etree.elementtree.html)[.](https://docs.python.org/3/library/xml.etree.elementtree.html)
+- en: 'With XML covered, let''s look at that same example stored as JSON data and,
+    more importantly, how we use Python to interpret that data. Later, we''re going
+    to create a JSON file named `book.json`; note the use of keys, such as title,
+    authors, publisher, and their associated values are separated by a colon. This
+    is similar to how a dictionary is structured in Python. In addition, note the
+    use of the square brackets for the `chapters` key and then how the embedded dictionary-like
+    structures are separated by commas. In Python, this `chapters` structure is interpreted
+    as a list containing dictionaries once it''s loaded with the `json` module:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在介绍完 XML 后，让我们来看一下将相同示例存储为 JSON 数据，并且更重要的是，我们如何使用 Python 来解释这些数据。稍后，我们将创建一个名为
+    `book.json` 的 JSON 文件；请注意使用的键，例如 title、authors、publisher，它们的关联值通过冒号分隔。这与 Python
+    中字典的结构类似。此外，注意 `chapters` 键使用了方括号，然后如何通过逗号分隔嵌套的类似字典的结构。在 Python 中，加载后，这个 `chapters`
+    结构会被解释为一个包含字典的列表，前提是使用 `json` 模块：
+- en: '[PRE4]'
+  id: totrans-24
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'To parse this data structure using the `json` module, we use the `loads()`
+    function. Unlike our XML example, we need to first open a file object before we
+    can use `loads()` to convert the data. In the next code block, the `book.json`
+    file, which is located in the same working directory as the interactive prompt,
+    is opened and its contents are read into the `loads()` method. As an aside, we
+    can use the `dump()` function to perform the reverse operation and convert Python
+    objects into the JSON format for storage. As with the XML code block, if you''re
+    using Python 2, please import `print_function` from `__future__`:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了使用 `json` 模块解析该数据结构，我们使用 `loads()` 函数。与 XML 示例不同，我们需要首先打开一个文件对象，然后才能使用 `loads()`
+    将数据转换。在下一个代码块中，`book.json` 文件被打开，它与交互式提示位于同一工作目录，并将其内容读取到 `loads()` 方法中。顺便说一下，我们可以使用
+    `dump()` 函数执行反向操作，将 Python 对象转换为 JSON 格式进行存储。与 XML 代码块类似，如果你使用的是 Python 2，请从 `__future__`
+    导入 `print_function`：
+- en: '[PRE5]'
+  id: totrans-26
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The module's `loads()` method reads the JSON file's string content and rebuilds
+    the data into Python objects. As you can see in the preceding code, the overall
+    structure is stored in a dictionary with key and value pairs. JSON is capable
+    of storing the original data type of the objects. For example, `pageCount` is
+    deserialized as an integer and `title` as a string object.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该模块的 `loads()` 方法读取 JSON 文件的字符串内容，并将数据重构为 Python 对象。如前面的代码所示，整个结构被存储在一个包含键值对的字典中。JSON
+    能够存储对象的原始数据类型。例如，`pageCount` 被反序列化为整数，`title` 被反序列化为字符串对象。
+- en: 'Not all the data is stored in the form of dictionaries. The `chapters` key
+    is rebuilt as a list. We can use a `for` loop to iterate through `chapters` and
+    print out any pertinent details:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并非所有数据都以字典的形式存储。`chapters` 键被重构为一个列表。我们可以使用 `for` 循环遍历 `chapters` 并打印出任何相关的细节：
+- en: '[PRE6]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: To be clear, the `chapters` key was stored as a list in the JSON file and contained
+    nested dictionaries for each `chapter` element. When iterating through the list
+    of dictionaries, we stored and then printed values associated with the dictionary
+    keys to the user. We'll be using this exact technique on a larger scale to parse
+    our Bitcoin JSON data. More details regarding the `json` module can be found at
+    [https://docs.python.org/3/library/json.html](https://docs.python.org/3/library/json.html).
+    Both the XML and JSON example files used in this section are available in the
+    code bundle for this chapter. Other modules exist, such as `pickle` and `shelve`,
+    which can be used for data serialization. However, they won't be covered in this
+    book.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了明确，`chapters` 键在 JSON 文件中被存储为一个列表，并包含每个 `chapter` 元素的嵌套字典。当遍历这些字典列表时，我们存储并打印与字典键相关的值。我们将使用这个技术在更大规模的
+    Bitcoin JSON 数据解析中。有关 `json` 模块的更多细节，请参阅 [https://docs.python.org/3/library/json.html](https://docs.python.org/3/library/json.html)。本节中使用的
+    XML 和 JSON 示例文件可以在本章的代码包中找到。还有其他模块，如 `pickle` 和 `shelve`，可以用于数据序列化，但它们不在本书范围内。
+- en: A simple Bitcoin web API
+  id: totrans-31
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 一个简单的 Bitcoin 网络 API
+- en: Bitcoin has caught the world by storm and is making headlines; it's the most
+    successful and famous—or infamous, depending on whom you speak to—decentralized
+    cryptocurrency. Bitcoin is regarded as an "anonymous" online cash substitute.
+    SilkRoad, an illegal marketplace on the Tor network, which has been shut down,
+    accepted Bitcoin as payment for illicit goods or services. Since gaining popularity,
+    some websites and brick and mortar stores accept Bitcoins for payment. It has
+    also gained vast public attention for climbing to unforeseen heights as its value
+    rose well above everyone's expectations.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 比特币已经席卷全球，并成为新闻头条；它是最成功、最著名的——或者说是臭名昭著的——去中心化加密货币。比特币被视为一种“匿名”的在线现金替代品。曾经已经关闭的Tor网络上的非法市场SilkRoad接受比特币作为支付手段，用于非法商品或服务的交易。自从比特币获得广泛关注以来，一些网站和实体商店也开始接受比特币支付。它也因其价值远超预期而获得了广泛的公众关注。
+- en: Bitcoin assigns individuals addresses to store their Bitcoins. These users can
+    send or receive Bitcoins by specifying the address they would like to use. In
+    Bitcoin, addresses are represented as 34 case-sensitive alphanumeric characters.
+    Fortunately, all transactions are stored publicly on the blockchain. The blockchain
+    keeps track of the time, input, output, and values for each transaction. In addition,
+    each transaction is assigned a unique transaction hash.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 比特币为个人分配地址以存储他们的比特币。这些用户可以通过指定他们想使用的地址来发送或接收比特币。在比特币中，地址由34个区分大小写的字母数字字符表示。幸运的是，所有交易都公开存储在区块链上。区块链记录了每笔交易的时间、输入、输出和金额。此外，每笔交易都被分配了一个唯一的交易哈希。
+- en: Blockchain explorers are programs that allow an individual to search the blockchain.
+    For example, we can search for a particular address or transaction of interest.
+    One such blockchain explorer is at [https://www.blockchain.com/explorer](https://www.blockchain.com/explorer) and
+    is what we'll use to generate our dataset. Let's take a look at some of the data
+    we'll need to parse.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 区块链浏览器是允许个人搜索区块链的程序。例如，我们可以搜索特定的地址或交易。一个这样的区块链浏览器位于[https://www.blockchain.com/explorer](https://www.blockchain.com/explorer)，我们将使用它来生成我们的数据集。让我们看看一些需要解析的数据。
+- en: 'Our script will ingest the JSON-structured transaction data, process it, and
+    output this information to examiners in an analysis-ready state. After the user
+    inputs the address of interest, we''ll use the `blockchain.info` API to query
+    the blockchain and pull down the relevant account data, including all associated
+    transactions, as follows:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的脚本将处理JSON结构的交易数据，处理后将这些信息以分析准备好的状态输出给审查人员。在用户输入感兴趣的地址后，我们将使用`blockchain.info`
+    API查询区块链，并拉取相关账户数据，包括所有关联的交易，具体如下：
+- en: '[PRE7]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'We''ll query the preceding URL by replacing `%btc_address%` with the actual
+    address of interest. For this exercise, we''ll be investigating the `125riCXE2MtxHbNZkRtExPGAfbv7LsY3Wa`
+    address. If you open a web browser and replace `%btc_address%` with the address
+    of interest, we can see the raw JSON data that our script will be responsible
+    for parsing:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将通过替换`%btc_address%`为实际的感兴趣地址来查询前述URL。在本次练习中，我们将调查`125riCXE2MtxHbNZkRtExPGAfbv7LsY3Wa`地址。如果你打开浏览器并将`%btc_address%`替换为感兴趣的地址，我们可以看到我们的脚本负责解析的原始JSON数据：
+- en: '[PRE8]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: This is a more complicated version of our previous JSON example; however, the
+    same rules apply. Starting with `hash160`, there's general account information,
+    such as the address, number of transactions, balance, and total sent and received.
+    Following that is the transaction array, denoted by the square brackets, that
+    contains each transaction the address was involved in.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们之前JSON示例的一个更复杂版本；然而，适用的规则相同。从`hash160`开始，包含一般账户信息，如地址、交易数量、余额、已发送和已接收的总额。接下来是交易数组，用方括号表示，包含该地址涉及的每一笔交易。
+- en: 'Looking at an individual transaction, a few keys stand out, such as the `addr`
+    value from the input and output lists, time, and hash. When we iterate through
+    the `txs` list, these keys will be used to reconstruct each transaction and display
+    that information to the examiner. We have the following transaction:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看一笔单独的交易，有几个键值很突出，比如输入和输出列表中的`addr`值、时间和哈希。当我们遍历`txs`列表时，这些键值将被用来重建每笔交易，并向审查员展示这些信息。我们有如下的交易：
+- en: '[PRE9]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: As with the previous chapter, we'll approach this task in a modular way by iteratively
+    building our script. Besides working with serialized data structures, we're also
+    going to introduce the concepts of creating logs and writing data to CSV files.
+    Like `argparse`, the `logging` and `csv` modules will feature regularly in our
+    forensic scripts.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和前一章一样，我们将以模块化的方式进行这项任务，通过迭代构建我们的脚本。除了处理序列化数据结构外，我们还将引入创建日志和将数据写入CSV文件的概念。像`argparse`一样，`logging`和`csv`模块将在我们的取证脚本中频繁出现。
+- en: Our first iteration – bitcoin_address_lookup.v1.py
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我们的第一次迭代 – bitcoin_address_lookup.v1.py
+- en: The first iteration of our script will focus primarily on ingesting and processing
+    the data appropriately. In this script, we'll print out transaction summaries
+    for the account to the console. In later iterations, we'll add logging and outputting
+    data to a CSV file. This script has been written and tested specifically for Python
+    3.7.1\. The usage of the `urllib` library, a library we use to make HTTP requests,
+    is structured differently in Python 2 and 3\. In the final iteration of this script,
+    we'll demonstrate the necessary code to make this script Python 2 and 3 compatible.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们脚本的第一次迭代将主要集中在适当地获取和处理数据。在这个脚本中，我们将把账户的交易摘要打印到控制台。在后续的迭代中，我们将添加日志记录并输出数据到CSV文件。此脚本已专门为Python
+    3.7.1编写和测试。`urllib`库（我们用来发起HTTP请求的库）在Python 2和3中结构不同。在此脚本的最终版本中，我们将展示必要的代码，使该脚本兼容Python
+    2和3。
+- en: 'We''ll use five modules in the initial version of the script. The `argparse`, `json`, `urllib`,
+    and `sys` modules are all part of the standard library. The `unix_converter` module
+    is the mostly unmodified script that we wrote in [Chapter 2](b09a5e87-9ada-41cb-ba04-bd61c744bf99.xhtml), *Python
+    Fundamentals*, and is used here to convert Unix timestamps into the Bitcoin transaction
+    data. The specific version of this module is available in the provided code for
+    this chapter. Both `argparse` and `urllib` have been used previously for user
+    input and web requests, respectively. The `json` module is responsible for loading
+    our transaction data into Python objects that we can manipulate:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在脚本的初始版本中，我们将使用五个模块。`argparse`、`json`、`urllib`和`sys`模块都是标准库的一部分。`unix_converter`模块是我们在[第2章](b09a5e87-9ada-41cb-ba04-bd61c744bf99.xhtml)《Python基础》中编写的几乎未修改的脚本，用于将Unix时间戳转换为比特币交易数据。本章提供的代码中包含了该模块的具体版本。`argparse`和`urllib`分别在之前用于用户输入和网页请求。`json`模块负责将我们的交易数据加载到Python对象中，以便我们进行处理：
+- en: '[PRE10]'
+  id: totrans-46
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Our script's logic is handled by five functions. The `main()` function, defined
+    on line 42, serves as the coordinator between the other four functions. First,
+    we pass the address supplied by the user to the `get_address()` function. This
+    function is responsible for calling the `blockchain.info` API using `urllib` and
+    returning the JSON data containing the transactions for that address.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们脚本的逻辑由五个函数处理。`main()`函数定义在第42行，作为其他四个函数之间的协调者。首先，我们将用户提供的地址传递给`get_address()`函数。该函数负责使用`urllib`调用`blockchain.info`
+    API，并返回包含该地址交易的JSON数据。
+- en: 'Afterward, `print_transactions()` is called to traverse the nested dictionaries
+    and lists and print out transaction details. In `print_transactions()`, function
+    calls are made to `print_header()` and `get_inputs()`. The `print_header()` function
+    is responsible for printing out non-transaction data, such as the number of transactions,
+    current balance, and total sent and received values:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，调用`print_transactions()`遍历嵌套的字典和列表，打印出交易详情。在`print_transactions()`中，调用了`print_header()`和`get_inputs()`。`print_header()`函数负责打印非交易数据，如交易数量、当前余额、总发送和接收值：
+- en: '[PRE11]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'As seen before, we use `argparse` to create an `ArgumentParser` object and
+    add the appropriate argument. Our only argument, `ADDR`, is a positional argument
+    representing the Bitcoin address of interest. We call the `main()` function on
+    line 145 and pass the `ADDR` argument:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所见，我们使用`argparse`创建一个`ArgumentParser`对象，并添加相应的参数。我们唯一的参数`ADDR`是一个位置参数，代表感兴趣的比特币地址。我们在第145行调用`main()`函数并传递`ADDR`参数：
+- en: '[PRE12]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'A flow diagram of our script can be seen as follows:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们脚本的流程图如下所示：
+- en: '![](img/fe65d8a5-f688-45fc-964f-29f78b22e0d4.png)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/fe65d8a5-f688-45fc-964f-29f78b22e0d4.png)'
+- en: Exploring the main() function
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索main()函数
+- en: 'The `main()` function is relatively simple. First, on line 48 we call the `get_address()`
+    function and store the result in a variable named `raw_account`. This variable
+    contains our JSON-formatted transaction data. In order to manipulate this data,
+    we use the `json.loads()` function to deserialize the JSON data and store it in
+    the account variable. At this point, our account variable is a series of dictionaries
+    and lists that we can begin to traverse, which is exactly what we do in the `print_transactions()`
+    function called on line 50:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main()`函数相对简单。首先，在第48行，我们调用`get_address()`函数并将结果存储在一个名为`raw_account`的变量中。该变量包含我们的JSON格式的交易数据。为了操作这些数据，我们使用`json.loads()`函数将JSON数据反序列化并存储在account变量中。此时，我们的account变量是一个字典和列表的系列，可以开始遍历，正如我们在第50行调用的`print_transactions()`函数所做的那样：'
+- en: '[PRE13]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Understanding the get_address() function
+  id: totrans-57
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解`get_address()`函数
+- en: 'This is an integral, though a potentially error-prone, component of our script
+    because it relies on the user correctly supplying data. The code itself is just
+    a simple data request. However, when working with user supplied arguments, it
+    isn''t safe to assume that the user gave the script the correct data. Considering
+    the length and somewhat random-looking sequence of a Bitcoin address, it''s entirely
+    possible that the user might supply an incorrect address. We''ll catch any instance
+    of `URLError` from the `urllib.error` module to handle a malformed input. `URLError`
+    isn''t part of the built-in exceptions we''ve talked about before and is a custom
+    exception defined by the `urrlib` module:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们脚本中的一个重要组成部分，尽管它可能容易出错，因为它依赖于用户正确提供数据。代码本身只是一个简单的数据请求。然而，在处理用户提供的参数时，我们不能假设用户给了脚本正确的数据。考虑到比特币地址的长度和看似随机的序列，用户可能会提供一个不正确的地址。我们将捕获来自`urllib.error`模块的任何`URLError`实例，以处理格式错误的输入。`URLError`不是我们之前提到的内置异常，而是`urllib`模块定义的自定义异常：
+- en: '[PRE14]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'On line 62, we insert the user-supplied address into the `blockchain.info`
+    API call using the string `format()` method. Then, we try to return the data requested
+    using the `urllib.request.urlopen()` function. If the user supplies an invalid
+    address or if the user doesn''t have an internet connection, `URLError` will be
+    caught. Once the error has been caught, we notify the user and exit the script,
+    calling `sys.exit(1)` on line 67:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第62行，我们使用字符串`format()`方法将用户提供的地址插入到`blockchain.info` API调用中。然后，我们尝试使用`urllib.request.urlopen()`函数返回请求的数据。如果用户提供了无效的地址，或者用户没有互联网连接，则会捕获到`URLError`。一旦捕获到错误，我们会通知用户并退出脚本，在第67行调用`sys.exit(1)`：
+- en: '[PRE15]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Working with the print_transactions() function
+  id: totrans-62
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`print_transactions()`函数
+- en: This function handles the bulk of the processing logic in our code. This function
+    traverses the transactions, or `txs`, list of embedded dictionaries from the loaded
+    JSON data.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数处理我们代码中大部分的处理逻辑。这个函数遍历从加载的JSON数据中嵌入的字典组成的交易列表，或称`txs`列表。
+- en: For each transaction, we'll print out its relative transaction number, the transaction
+    hash, and the time of the transaction. Both the hash and time keys are easy to
+    access as their values are stored in the outermost dictionary. The input and output
+    details of the transaction are stored in an inner dictionary mapped to the input
+    and output keys.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个交易，我们将打印出其相对交易编号、交易哈希和交易时间。哈希和时间键容易访问，因为它们的值存储在最外层的字典中。交易的输入和输出细节存储在一个内嵌字典中，该字典映射到输入和输出键。
+- en: As is often the case, the time value is stored in Unix time. Luckily, in [Chapter
+    2](b09a5e87-9ada-41cb-ba04-bd61c744bf99.xhtml), *Python Fundamentals*, we wrote
+    a script to handle such conversions, and once more we'll reuse this script by
+    calling the `unix_converter()` method. The only change made to this function was
+    removing the UTC label as these time values are stored in local time.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如常见情况一样，时间值是以Unix时间存储的。幸运的是，在[第2章](b09a5e87-9ada-41cb-ba04-bd61c744bf99.xhtml)，*Python基础知识*中，我们编写了一个脚本来处理这种转换，再次我们将通过调用`unix_converter()`方法重用这个脚本。对这个函数做的唯一更改是移除了UTC标签，因为这些时间值存储的是本地时间。
+- en: Because we imported `unix_converter` as `unix`, we must refer to the module
+    as `unix`.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因为我们将`unix_converter`模块导入为`unix`，所以我们必须使用`unix`来引用该模块。
+- en: Let's take a quick look at the data structure we're dealing with. Imagine if
+    we could pause the code during execution and inspect contents of variables, such
+    as our account variable. At this point in this book, we'll just show you the contents
+    of the `account` variable at this stage of execution. Later on in this book, we'll
+    more formally discuss debugging in Python using the `pdb` module.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们快速看一下我们正在处理的数据结构。想象一下，如果我们能够在执行过程中暂停代码并检查变量的内容，例如我们的账户变量。在本书的这一部分，我们将仅展示执行阶段`account`变量的内容。稍后在本书中，我们将更正式地讨论如何使用`pdb`模块进行Python调试。
+- en: More information on the Python Debugger (`pdb`) is available in the documentation
+    at [https://docs.python.org/3/library/pdb.html](https://docs.python.org/3/library/pdb.html).
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于Python调试器（`pdb`）的更多信息可以在文档中找到：[https://docs.python.org/3/library/pdb.html](https://docs.python.org/3/library/pdb.html)。
+- en: 'In the following example, we can see the keys mapped to the first transaction
+    in the `txs` list within the `account` dictionary. The `hash` and `time` keys
+    are mapped to string and integer objects, respectively, which we can preserve
+    as variables in our script:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的示例中，我们可以看到`account`字典中第一个交易的键映射到`txs`列表中的内容。`hash`和`time`键分别映射到字符串和整数对象，我们可以将它们保留为脚本中的变量：
+- en: '[PRE16]'
+  id: totrans-70
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Next, we need to access the input and output details for the transaction. Let''s
+    take a look at the `out` dictionary. By looking at the keys, we can immediately
+    identify the address, `addr`, and `value` sent as being valuable information.
+    With an understanding of the layout and what data we want to present to the user,
+    let''s take a look at how we process each transaction in the `txs` list:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要访问交易的输入和输出细节。让我们查看`out`字典。通过查看键，我们可以立即识别出地址`addr`和作为重要信息的`value`。了解了布局和我们希望向用户呈现的数据后，让我们来看一下如何处理`txs`列表中的每一笔交易：
+- en: '[PRE17]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Before printing details of each transaction, we call and print basic account
+    information parsed by the `print_header()` helper function to the console on line
+    77\. On line 79, we begin to iterate through each transaction in the `txs` list.
+    We''ve wrapped the list with the `enumerate()` function to update our counter,
+    and the first variable in the `for` loop, `i`, to keep track of which transaction
+    we''re processing:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在打印每个交易的详细信息之前，我们通过第77行的`print_header()`辅助函数调用并打印基本账户信息到控制台。在第79行，我们开始遍历`txs`列表中的每一笔交易。我们使用`enumerate()`函数来包装列表，以更新我们的计数器，并在`for`循环中的第一个变量`i`中跟踪我们正在处理的交易：
+- en: '[PRE18]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'For each transaction, we print the relative transaction number, `hash`, and
+    `time`. As we saw earlier, we can access `hash` or `time` by supplying the appropriate
+    key. Remember that we do need to convert the Unix timestamp stored in the `time`
+    key. We accomplish this by passing the value to the `unix_converter()` function:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个交易，我们打印相对的交易编号、`hash`和`time`。正如我们之前看到的，我们可以通过提供适当的键来访问`hash`或`time`。记住，我们确实需要转换存储在`time`键中的Unix时间戳。我们通过将该值传递给`unix_converter()`函数来完成这个任务：
+- en: '[PRE19]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'On line 84, we begin to traverse the output list in the outside dictionary.
+    This list is made up of multiple dictionaries with each representing an output
+    for a given transaction. The keys we''re interested in these dictionaries are
+    the `addr` and `value` keys:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第84行，我们开始遍历外部字典中的输出列表。这个列表由多个字典组成，每个字典表示一个给定交易的输出。我们感兴趣的键是这些字典中的`addr`和`value`键：
+- en: '[PRE20]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'Be aware that the `value` value (not a typo) is stored as a whole number rather
+    than a float and so a transaction of 0.025 BTC is stored as 2,500,000\. We need
+    to multiply this value by 10^(-8) to accurately reflect the value of the transaction.
+    Let''s call our helper function, `get_inputs()`, on line 85\. This function will
+    parse the input for the transaction separately and return the data in a list:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，`value`值（这不是错别字）以整数而非浮点数形式存储，因此一个0.025 BTC的交易会存储为2,500,000。我们需要将此值乘以10^(-8)，以准确反映交易的价值。让我们在第85行调用我们的辅助函数`get_inputs()`。此函数将单独解析交易的输入，并以列表形式返回数据：
+- en: '[PRE21]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: On line 86, we check to see whether there's more than one input address. That
+    conditional will dictate what our print statement looks like. Essentially, if
+    there's more than one input address, each address will be joined with an ampersand
+    to clearly indicate the additional addresses.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第86行，我们检查是否有多个输入地址。这个条件将决定我们打印语句的样子。基本上，如果有多个输入地址，每个地址将通过与号连接，以清楚地表示额外的地址。
+- en: 'The `print` statements on lines 87 and 91 use the string formatting method
+    to appropriately display our processed data in the console. In these strings,
+    we use the curly braces to denote three different variables. We use the `join()`
+    function to convert a list into a string by joining on some delimiter. The second
+    and third variables are the output `addr` and `value` keys, respectively:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第87行和91行的`print`语句使用字符串格式化方法，在控制台中适当显示我们处理过的数据。在这些字符串中，我们使用花括号来表示三个不同的变量。我们使用`join()`函数通过某个分隔符将列表转换为字符串。第二和第三个变量分别是输出的`addr`和`value`键：
+- en: '[PRE22]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: Note how the designation for the value object is different from the rest. Because
+    our value is a float, we can use string formatting to properly display the data
+    to the correct precision. In the format descriptor, `{:.8f}`, the `8` represents
+    the number of decimal places we want to allow. If there are more than eight decimal
+    places, the value is rounded to the nearest number. `f` lets the `format()` method
+    know that the input is expected to be of the float type. This function, while
+    responsible for printing out the results to the user, uses two helper functions
+    to perform its job.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意值对象的表示方式与其他不同。由于我们的值是浮动的，我们可以使用字符串格式化来正确显示数据的精确度。在格式说明符`{:.8f}`中，`8`表示我们希望允许的十进制位数。如果超过八位小数，则值会四舍五入到最接近的数字。`f`让`format()`方法知道输入的数据类型是浮动类型。这个函数虽然负责将结果打印给用户，但它使用了两个辅助函数来完成其任务。
+- en: The print_header() helper function
+  id: totrans-85
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '`print_header()` 辅助函数'
+- en: 'The `print_header()` helper function prints the account information to the
+    console before transactions are printed. Specifically, the address, number of
+    transactions, current balance, and total Bitcoins sent and received are displayed
+    to the user. Take a look at the following code:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`print_header()` 辅助函数在打印交易信息之前，将账户信息打印到控制台。具体来说，会显示地址、交易数量、当前余额，以及发送和接收的比特币总量。请查看以下代码：'
+- en: '[PRE23]'
+  id: totrans-87
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'On lines 105 through 113, we print our values of interest using the string
+    formatting method. During our program design, we chose to create this as a separate
+    function in order to improve our code readability. Functionally, this code could
+    have easily been, and originally was, in the `print_transactions()` function.
+    It was separated to compartmentalize the different phases of execution. The purpose
+    of the print statement on line 113 is to create a line of 22 left-aligned equal
+    signs to visually separate the account information from the transactions in the
+    console:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第105到113行之间，我们使用字符串格式化方法打印出我们感兴趣的值。在程序设计过程中，我们选择将其作为一个独立函数，以提高代码的可读性。从功能上讲，这段代码本可以很容易地，且最初确实是在`print_transactions()`函数中实现。它被分离出来是为了将执行的不同阶段进行模块化。第113行的打印语句的目的是创建一行22个左对齐的等号，用来在控制台中将账户信息与交易信息分开：
+- en: '[PRE24]'
+  id: totrans-89
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: The get_inputs() helper function
+  id: totrans-90
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '`get_inputs()` 辅助函数'
+- en: 'This helper function is responsible for obtaining the addresses responsible
+    for sending the transaction. This information is found within multiple nested
+    dictionaries. As there could be more than one input, we must iterate through one
+    or more elements in the input list. As we find input addresses, we add them to
+    an input list that''s instantiated on line 123, as shown in the following code:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个辅助函数负责获取发送交易的地址信息。此信息位于多个嵌套字典中。由于可能有多个输入，我们必须遍历输入列表中的一个或多个元素。当我们找到输入地址时，会将其添加到一个在第123行实例化的输入列表中，如以下代码所示：
+- en: '[PRE25]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'For each input, there''s a dictionary key, `prev_out`, the value of which is
+    another dictionary. The information we''re looking for is mapped to the `addr`
+    key within this inner dictionary. We append these addresses to our input list,
+    which we return on line 126 after the `for` loop execution ends:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个输入，都有一个字典键`prev_out`，它的值是另一个字典。我们需要的信息被映射到该内层字典中的`addr`键。我们将这些地址附加到输入列表中，并在`for`循环执行结束后在第126行返回该列表：
+- en: '[PRE26]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Running the script
+  id: totrans-95
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行脚本
+- en: 'Now, let''s run our script and see the fruits of our labor. In the output mentioned
+    later in the text, we can see that first the header information is printed to
+    the user, followed by a number of transactions. The value objects are properly
+    represented with the appropriate precision. For this particular example, there
+    are four input values. Using the `'' & ''.join(inputs)` statement allows us to
+    more clearly separate the different input values from each other:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们运行脚本，看看我们的劳动成果。在后面提到的输出中，我们可以看到首先是打印给用户的头部信息，接着是若干交易。数值对象已正确表示，并具有适当的精度。对于这个特定的例子，有四个输入值。使用`'
+    & '.join(inputs)`语句可以更清晰地将不同的输入值分开：
+- en: '![](img/46aaf00a-753d-4210-a081-15ba98cecdc6.png)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/46aaf00a-753d-4210-a081-15ba98cecdc6.png)'
+- en: With our proof-of-concept complete, we can now iterate through and resolve some
+    inherent issues in our current build. One problem is that we're not recording
+    any data about the execution of our script. For example, an examiner's notes should
+    contain the time, any errors or issues, and results of forensic processes. In
+    the second iteration, we'll tackle this issue with the logging module. This module
+    will store a log of our program's execution so the analyst has notes of when the
+    program started, stopped, and any other relevant data regarding the process.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着概念验证的完成，我们现在可以遍历并解决当前版本中的一些固有问题。一个问题是我们没有记录任何关于脚本执行的数据。例如，审查员的笔记应包括时间、任何错误或问题以及取证过程的结果。在第二次迭代中，我们将使用日志模块解决这个问题。此模块将存储我们程序执行的日志，以便分析人员记录程序开始、停止的时间，以及与该过程相关的任何其他数据。
+- en: Our second iteration – bitcoin_address_lookup.v2.py
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我们的第二次迭代 – bitcoin_address_lookup.v2.py
+- en: This iteration fixes one issue of our script by recording the details of execution.
+    Really, we're using a log to create a chain of custody for the script. Our chain
+    of custody will inform another party what our script did at various points in
+    time and any errors encountered. Did we mention the traditional purpose of logging
+    is for debugging? Nevertheless, our forensically commandeered log will be suitable
+    in either scenario. This will serve as a brief tutorial on the basics of the logging
+    module by using it in a real example. For more examples and references, please
+    refer to the documentation at [https://docs.python.org/3/library/logging.html](https://docs.python.org/3/library/logging.html).
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次迭代通过记录执行的详细信息解决了脚本中的一个问题。实际上，我们使用日志来创建脚本的“证据链”。我们的证据链将告诉其他方我们的脚本在不同时间点做了什么，以及遇到的任何错误。我们提到过，传统的日志记录目的是用于调试吗？然而，我们经过取证的日志在任何情况下都适用。这将通过一个实际示例简要介绍日志模块的基本用法。有关更多示例和参考，请参见[https://docs.python.org/3/library/logging.html](https://docs.python.org/3/library/logging.html)文档。
+- en: 'We''ve added two modules to our imports: `os` and `logging`. If the user supplies
+    the log file directory, we''ll use the `os` module to append that directory and
+    update the path of our log. In order to write a log, we''ll use the `logging`
+    module. Both of these modules are part of the standard library. See the following
+    code:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已将两个模块添加到导入中：`os`和`logging`。如果用户提供了日志文件目录，我们将使用`os`模块附加该目录并更新日志的路径。为了写入日志，我们将使用`logging`模块。这两个模块都是标准库的一部分。请参阅以下代码：
+- en: '[PRE27]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Due to the additional code, our functions are defined later on in the script.
+    However, their flow and purpose remain the same as before:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于新增的代码，我们的函数定义在脚本后面。然而，它们的流程和目的与之前相同：
+- en: '[PRE28]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'We''ve added a new optional argument, `-l`, on line 155\. This optional argument
+    can be used to specify the desired directory to write the log to. If it isn''t
+    supplied, the log is created in the current working directory:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在第155行添加了一个新的可选参数`-l`。此可选参数可用于指定要将日志写入的目录。如果未提供，则日志将在当前工作目录中创建：
+- en: '[PRE29]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'On line 159, we check whether the optional argument, `-l`, was supplied by
+    the user. If it is, we use the `os.path.join()` function to append our desired
+    log filename to the supplied directory and store it in a variable named `log_path`.
+    If the optional argument isn''t supplied, our `log_path` variable is just the
+    filename of the log:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第159行，我们检查用户是否提供了可选参数`-l`。如果提供了，我们使用`os.path.join()`函数将所需的日志文件名附加到提供的目录，并将其存储在名为`log_path`的变量中。如果没有提供可选参数，我们的`log_path`变量将只是日志文件的文件名：
+- en: '[PRE30]'
+  id: totrans-108
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'The logging object is created on line 165 using the `logging.basicConfig()`
+    method. This method accepts a variety of keyword arguments. The `filename` keyword
+    argument is the file path and the name of our log file that we stored in the `log_path`
+    variable. The `level` keyword sets the level of the log. There are five different
+    logging levels, in the default order of lowest to highest urgency:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 日志对象是在第165行通过`logging.basicConfig()`方法创建的。该方法接受多种关键字参数。`filename`关键字参数指定了我们的日志文件的路径和名称，该路径存储在`log_path`变量中。`level`关键字设置日志的级别。日志有五个不同的级别，按从最低到最高的紧急程度顺序排列：
+- en: '`DEBUG`'
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`DEBUG`'
+- en: '`INFO`'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`INFO`'
+- en: '`WARN` (default level)'
+  id: totrans-112
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`WARN`（默认级别）'
+- en: '`ERROR`'
+  id: totrans-113
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ERROR`'
+- en: '`CRITICAL`'
+  id: totrans-114
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CRITICAL`'
+- en: 'If the level isn''t supplied, the log defaults to `WARN`. The level of the
+    log ends up being very important. A log will only record an entry if the message
+    is at the same level or higher than the log level. By setting the log to the `DEBUG`
+    level, the lowest level, we can write messages of any level to the log:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有提供级别，日志默认使用`WARN`级别。日志的级别非常重要。只有当消息的级别与日志级别相同或更高时，日志才会记录该条目。通过将日志设置为`DEBUG`级别，即最低级别，我们可以将任何级别的消息写入日志：
+- en: '[PRE31]'
+  id: totrans-116
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: Each level has a different significance and should be used appropriately. The
+    `DEBUG` level should be used when logging technical details about program execution.
+    The `INFO` level can be used to record the program start, stop, and success of
+    various phases of execution. The remaining levels can be used when detecting potentially
+    anomalous execution, when an error is generated, or at critical failures.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个级别都有不同的意义，应该根据情况正确使用。`DEBUG`级别应在记录程序执行的技术细节时使用。`INFO`级别可用于记录程序的启动、停止以及各个执行阶段的成功情况。其余级别可用于检测潜在的异常执行、生成错误时，或在关键失败时使用。
+- en: 'The `format` keyword specifies how we want to structure the log itself. Our
+    log will have the following format:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`format` 关键字指定我们希望如何构建日志本身。我们的日志将采用以下格式：'
+- en: '[PRE32]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: 'For example, this format will create a log file with the local time when the
+    entry is added, the appropriate level, and any message, all separated by pipes.
+    To create an entry in the log, we can call the `debug()`, `info()`, `warn()`,
+    `error()`, or `critical()` methods on our logging object and pass in the message
+    as a string. For example, based on the following code, we would expect to see
+    the following entry generated in our log:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，这种格式会创建一个日志文件，其中包含添加条目时的本地时间、适当的级别以及任何消息，所有信息之间用管道符号分隔。要在日志中创建条目，我们可以调用日志对象的`debug()`、`info()`、`warn()`、`error()`或`critical()`方法，并将消息作为字符串传入。例如，基于以下代码，我们预计会在日志中生成如下条目：
+- en: '[PRE33]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: 'The following is the log:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是日志记录：
+- en: '[PRE34]'
+  id: totrans-123
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Finally, the `filemode='w'` argument is used to overwrite previous entries in
+    the log every time the script is executed. This means that only entries from the
+    most recent execution will be stored in the log. If we wanted to append each execution
+    cycle to the end of the log, we would omit this keyword argument. When omitted,
+    the default file mode is a which, as you learned in [Chapter 1](8764f55f-76ef-4890-afbd-2fd1b6d39210.xhtml),
+    *Now for Something Complete**l**y Different*, allows us to append to the bottom
+    of a pre-existing file.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，`filemode='w'`参数用于在每次脚本执行时覆盖日志中的先前条目。这意味着日志中只会保存最近一次执行的条目。如果我们希望将每次执行周期追加到日志的末尾，可以省略此关键字参数。省略时，默认的文件模式为`a`，正如你在[第一章](8764f55f-76ef-4890-afbd-2fd1b6d39210.xhtml)《*完全不同的东西*》中学到的那样，它允许我们追加到现有文件的底部。
+- en: 'We can begin writing information to the log after it has been configured. On
+    lines 172 and 173, we record details of the user''s system before program execution.
+    We write this to the log at the `DEBUG` level due to the technically low-level
+    nature of the content:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 配置完成后，我们可以开始向日志中写入信息。在第172行和173行，我们记录了程序执行前用户系统的详细信息。由于内容的技术性较低，我们将此信息写入`DEBUG`级别的日志：
+- en: '[PRE35]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: This version of our script is largely the same and follows the same flow schematic
+    as seen previously.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的脚本版本基本相同，遵循与之前相同的流程示意图。
+- en: Modifying the main() function
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 修改`main()`函数
+- en: 'The `main()` function, defined on line 44, is largely untouched. We''ve added
+    two `INFO` level messages to the log regarding the script''s execution on lines
+    50 and 52\. The remainder of the method follows as seen in the first iteration:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第44行定义的`main()`函数大体未做更改。我们在第50行和第52行添加了两个`INFO`级别的日志消息，关于脚本执行的情况。其余部分与第一次迭代中的方法一致：
+- en: '[PRE36]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: Improving the get_address() function
+  id: totrans-131
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 改进`get_address()`函数
+- en: 'With the `get_address()` method, we''ve continued adding logging messages to
+    our script. This time, when catching `URLError`, we stored the `Exception` object
+    as `e` to extract additional information from it for debugging:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`get_address()`方法时，我们继续向脚本中添加日志信息。这次，当捕获到`URLError`时，我们将`Exception`对象存储为`e`，以便提取更多调试信息：
+- en: '[PRE37]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'For `URLError`, we''ll want to log the `code`, `headers`, and `reason` attributes.
+    These attributes contain information, such as the HTML error code—for example,
+    `404` for a web page that isn''t found—and a description of the reason for the
+    error code. We''ll store this data to preserve the context surrounding the error:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于`URLError`，我们希望记录`code`、`headers`和`reason`属性。这些属性包含信息，例如HTML错误代码——例如，`404`表示页面未找到——以及错误代码的描述。我们将存储这些数据，以便保留错误发生时的上下文：
+- en: '[PRE38]'
+  id: totrans-135
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: Elaborating on the print_transactions() function
+  id: totrans-136
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 详细说明print_transactions()函数
+- en: 'We define the `print_transaction()` function on line 81\. We''ve made a few
+    alterations to the function, starting on line 88 where we added an entry to log
+    the current execution phase. Take a look at the following function:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在第81行定义了`print_transaction()`函数。我们对该函数进行了些许修改，从第88行开始，添加了一条记录当前执行阶段的日志。请看以下函数：
+- en: '[PRE39]'
+  id: totrans-138
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: 'For the conditional statement starting on line 99, we add different cases using
+    `if`, `elif`, and `else` statements to handle when the number of input values
+    is greater than, equal to, or other than one. While rare, the first ever Bitcoin
+    transaction, for example, had no input address. When an input address is absent,
+    it''s ideal to write a warning in the log that there are no detected inputs and
+    print this information for the user, as follows:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于第99行开始的条件语句，我们使用`if`、`elif`和`else`语句添加了不同的情况来处理输入值大于、等于或其他情况。虽然很少见，但例如第一个比特币交易就没有输入地址。当缺少输入地址时，理想的做法是记录日志，提示没有检测到输入，并将此信息打印给用户，具体如下：
+- en: '[PRE40]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: Running the script
+  id: totrans-141
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行脚本
+- en: The remaining functions, `print_header()` and `get_inputs()`, weren't changed
+    from the previous iteration. The entire code won't require modifications between
+    iterations. By building a strong output module, we were able to avoid any adjustments
+    to the reporting.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 剩余的函数`print_header()`和`get_inputs()`与之前的版本没有变化。不同版本之间的整个代码不需要修改。通过构建一个强大的输出模块，我们避免了对报告进行任何调整。
+- en: 'While results are still displayed in the console, we now have a written log
+    of the program execution. Running the script with a specified `-l` switch will
+    allow us to store the log in a specific directory. Otherwise, the current working
+    directory is used. The following are the contents of the log after the script
+    completed:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然结果仍然显示在控制台中，但我们现在有了程序执行的书面日志。通过指定`-l`选项运行脚本，可以将日志存储在指定目录中。否则，默认使用当前工作目录。以下是脚本完成后日志的内容：
+- en: '![](img/f33ac7b6-4ef6-44fd-a3d4-6bf235db5d4d.png)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f33ac7b6-4ef6-44fd-a3d4-6bf235db5d4d.png)'
+- en: With logging accomplished, we've identified yet another area of enhancement
+    for our code. For this particular address, we have a manageable number of transactions
+    that get printed to the console. Imagine a case where there are hundreds of transactions
+    for a single address. Navigating that output and being able to identify a specific
+    transaction of interest isn't that straightforward.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成日志记录后，我们又找到了代码可以改进的地方。对于这个特定地址，我们有一定数量的交易会打印到控制台。试想一下，如果一个地址有成百上千的交易，浏览这些输出并找到一个特定的感兴趣交易就不那么简单了。
+- en: Mastering our final iteration – bitcoin_address_lookup.py
+  id: totrans-146
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 掌握我们的最终版本 —— bitcoin_address_lookup.py
+- en: In the final iteration, we'll write the output of our script to a CSV file rather
+    than the console. This allows examiners to quickly filter and sort data in a manner
+    conducive to analysis.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在最终版本中，我们将把脚本的输出写入CSV文件，而不是打印到控制台。这使得检查人员能够快速筛选和排序数据，便于分析。
+- en: On line 4, we've imported the `csv` module that's a part of the standard library.
+    Writing to a CSV file is fairly simple compared with other output formats, and
+    most examiners are very comfortable with manipulating spreadsheets.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第4行，我们导入了标准库中的`csv`模块。与其他输出格式相比，写入CSV文件相对简单，而且大多数检查人员非常熟悉操作电子表格。
+- en: 'As mentioned previously in this chapter, in this final iteration of our script,
+    we''ve added the necessary logic to detect whether Python 2 or Python 3 is being
+    used to call the script. Depending on the version of Python, the appropriate `urllib`
+    or `urllib2` functions are imported into this script. Note that we directly import
+    the function, `urlopen()`, and `URLError`, which we plan to use so that we may
+    call them directly in the script. This allows us to avoid using additional conditional
+    statements later on to identify whether we should call `urllib` or `urllib2`:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如本章前面提到的，在脚本的最终版本中，我们添加了必要的逻辑来检测是使用 Python 2 还是 Python 3 来调用脚本。根据 Python 版本，适当的
+    `urllib` 或 `urllib2` 函数会被导入到脚本中。请注意，我们直接导入了我们计划在脚本中直接调用的函数 `urlopen()` 和 `URLError`。这样，我们可以避免后续使用额外的条件语句来判断是否调用
+    `urllib` 或 `urllib2`：
+- en: '[PRE41]'
+  id: totrans-150
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: The main focus of this final iteration is the addition of the new function,
+    `csv_writer()`. This function is responsible for writing the data returned by
+    `parse_transactions()` to a CSV file. We'll need to modify the current version
+    of `print_transactions()` to return the parsed data rather than printing it to
+    the console. While this won't be an in-depth tutorial on the `csv` module, we'll
+    discuss the basics of using this module in the current context. We'll use the
+    `csv` module extensively and explore additional features throughout this book.
+    Documentation for the `csv` module can be found at [http://docs.python.org/3/library/csv.html](http://docs.python.org/3/library/csv.html).
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本次迭代的重点是新增的 `csv_writer()` 函数。该函数负责将 `parse_transactions()` 返回的数据写入 CSV 文件。我们需要修改当前版本的
+    `print_transactions()`，使其返回解析后的数据，而不是将其打印到控制台。虽然这不是 `csv` 模块的深入教程，但我们将讨论在当前上下文中使用该模块的基本内容。在本书的后续章节中，我们将广泛使用
+    `csv` 模块，并探索其附加功能。有关 `csv` 模块的文档可以在[http://docs.python.org/3/library/csv.html](http://docs.python.org/3/library/csv.html)找到。
+- en: 'Let''s first open an interactive prompt to practice creating and writing to
+    a CSV file. First, let''s import the `csv` module that will allow us to create
+    our CSV file. Next, we create a list named `headers`, which will store the column
+    headers of our CSV file:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们打开一个交互式提示符来练习创建和写入 CSV 文件。首先，让我们导入 `csv` 模块，它将允许我们创建 CSV 文件。接下来，我们创建一个名为
+    `headers` 的列表，用于存储 CSV 文件的列头：
+- en: '[PRE42]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: Next, we'll open a file object using the built-in `open()` method with the appropriate
+    file mode. In Python 2, a CSV file object should be opened in the `rb` or `wb`
+    modes for reading and writing, respectively. In this case, we'll be writing to
+    a CSV file so let's open the file in the `wb` mode. The `w` stands for write,
+    and the `b` stands for binary mode.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将使用内置的`open()`方法以适当的文件模式打开一个文件对象。在 Python 2 中，CSV 文件对象应以 `rb` 或 `wb` 模式分别用于读取和写入。在这种情况下，我们将写入
+    CSV 文件，因此我们将以 `wb` 模式打开文件。`w` 代表写入，`b` 代表二进制模式。
+- en: In Python 3, a CSV file should be opened in the `w` mode with a newline character
+    specified, as demonstrated here: `open('test.csv', 'w', newline='')`.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Python 3 中，CSV 文件应以 `w` 模式打开，并指定换行符，如下所示：`open('test.csv', 'w', newline='')`。
+- en: 'With our connection to the file object, `csvfile`, we now need to create a
+    writer or reader (depending on our desired goal) and pass in the file object.
+    There are two options—the `csv.writer()` or `csv.reader()` methods; both expect
+    a file object as their input and accept various keyword arguments. The list object
+    meshes well with the `csv` module, requiring little code to write the data to
+    a CSV file. It isn''t difficult to write a dictionary and other objects to a CSV
+    file, but is out of scope here and will be covered in later chapters:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过我们与文件对象 `csvfile` 的连接，我们现在需要创建一个写入器或读取器（取决于我们的目标），并将文件对象传入。有两个选项——`csv.writer()`
+    或 `csv.reader()` 方法；它们都需要文件对象作为输入，并接受各种关键字参数。列表对象与 `csv` 模块非常契合，写入数据到 CSV 文件的代码量非常少。写入字典和其他对象到
+    CSV 文件并不困难，但超出了本章的范围，将在后续章节中讲解：
+- en: '[PRE43]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: 'The `writer.writerow()` method will write one row using the supplied list.
+    Each element in the list will be placed in sequential columns on the same row.
+    If, for example, the `writerow()` function is called again with another list input,
+    the data will now be written one row below the previous write operation:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`writer.writerow()` 方法将使用提供的列表写入一行。列表中的每个元素将依次放置在同一行的不同列中。例如，如果再次调用 `writerow()`
+    函数并传入另一个列表输入，那么数据将写入到上一行下面：'
+- en: '[PRE44]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: In practical situations, we've found that using nested lists is one of the simplest
+    ways of iterating through and writing each row. In our final iteration, we'll
+    store the transaction details in a list and append them within another list. We
+    can then iterate through each transaction while writing the details to the CSV
+    as we go along.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实际操作中，我们发现使用嵌套列表是遍历和写入每一行最简单的方法之一。在最后一次迭代中，我们将交易详细信息存储在一个列表中，并将其追加到另一个列表中。然后，我们可以在遍历每个交易时，将其详细信息逐行写入CSV文件。
+- en: 'As with any file object, be sure to flush any data that''s in a buffer to the
+    file and then close the file. Forgetting these steps aren''t the end of the world
+    as Python will mostly handle this automatically, but they''re highly recommended.
+    After executing these last lines of code, a file called `test.csv` will be created
+    in your working directory with the `Date`, `Name`, and `Description` headers as
+    the first row. This same code will also work with the `csv` module in Python 3,
+    with the exception of modifying the initial `open()` function as demonstrated
+    previously:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与任何文件对象一样，务必将缓冲区中的数据刷新到文件中，然后再关闭文件。忘记这些步骤并不会导致灾难，因为Python通常会自动处理，但我们强烈建议执行这些步骤。执行完这些代码行后，一个名为`test.csv`的文件将在你的工作目录中创建，文件的第一行将包含`Date`、`Name`和`Description`三个标题。相同的代码也适用于Python
+    3中的`csv`模块，唯一需要修改的是之前展示的`open()`函数：
+- en: '[PRE45]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: 'We''ve renamed the `print_transactions()` function to `parse_transactions()`
+    to more accurately reflect its purpose. In addition, on line 159 we''ve added
+    a `csv_writer()` function to write our transaction results to a CSV file. All
+    other functions are similar to the previous iteration:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将`print_transactions()`函数重命名为`parse_transactions()`，以更准确地反映其功能。此外，在第159行，我们添加了一个`csv_writer()`函数，用于将交易结果写入CSV文件。其他所有函数与之前的版本类似：
+- en: '[PRE46]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: 'Finally, we''ve added a new positional argument named `OUTPUT`. This argument
+    represents the name and/or path for the CSV output. On line 230, we pass this
+    output argument to the `main()` function:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们添加了一个名为`OUTPUT`的新位置参数。这个参数表示CSV输出的名称和/或路径。在第230行，我们将这个输出参数传递给`main()`函数：
+- en: '[PRE47]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'The following flow diagram exemplifies the differences between the first two
+    iterations and our final version:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下流程图展示了前两次迭代与最终版本之间的区别：
+- en: '![](img/48a314b5-c2b7-42f8-bb5a-462973d76d21.png)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/48a314b5-c2b7-42f8-bb5a-462973d76d21.png)'
+- en: Enhancing the parse_transactions() function
+  id: totrans-169
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 增强`parse_transactions()`函数
+- en: 'This function, which was previously named `print_transactions()`, is used to
+    process the transaction data so it can be ingested by our `csv_writer()`. Please
+    note that the `print_header()` function call has now been moved into the `main()`
+    function. We''re also now passing an output argument to `parse_transactions()`:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个之前名为`print_transactions()`的函数用于处理交易数据，以便能被我们的`csv_writer()`函数接收。请注意，`print_header()`函数的调用现在已被移到`main()`函数中。我们现在也将输出参数传递给`parse_transactions()`：
+- en: '[PRE48]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'As we''ve seen previously, we must first iterate through the `transactions`
+    list. As we traverse the data, we''ll append it to a transaction list, which is
+    created on line 104\. This list represents a given transaction and its data. After
+    we''re finished appending transaction data, we append this list to the `transactions` list
+    that serves as a container for all of the transactions:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前所见，我们必须首先遍历`transactions`列表。在遍历数据时，我们将其追加到一个在第104行创建的交易列表中。该列表表示一个给定的交易及其数据。完成追加交易数据后，我们将此列表追加到作为所有交易容器的`transactions`列表中：
+- en: '[PRE49]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: 'In order to match an output address with its value, we create an `outputs`
+    dictionary on line 107\. On line 114, we create a key representing the address
+    and value sent to it. Note that we use the newline character, `\n`, on lines 115
+    through 117 when combining multiple output addresses and their values so they''re
+    visually separate within one cell. We''ve also performed the same action in the
+    `get_inputs()` function to handle multiple input values. This was a design choice
+    we made because we''ve seen that there can be multiple output addresses. Rather
+    than placing these in their own columns, we''ve opted to place them all in one
+    column:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了将输出地址与其值匹配，我们在第107行创建了一个`outputs`字典。在第114行，我们创建了一个表示地址和其接收值的键。请注意，在第115行至第117行时，我们使用了换行符`\n`，将多个输出地址及其值合并在一起，以便它们在一个单元格内视觉上分开。我们在`get_inputs()`函数中也进行了相同的操作，以处理多个输入值。这是我们做出的设计选择，因为我们发现可能存在多个输出地址。与其将这些地址放在各自的列中，我们选择将它们全部放在一列中：
+- en: '[PRE50]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'On line 118, we created a new value using the `sum()` built-in function, to
+    sum the output values together. The `sum()` function is quite handy and accepts
+    a list of `int` or `float` types as input and returns the sum:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第118行，我们使用内置的`sum()`函数创建了一个新值，将输出值加起来。`sum()`函数非常方便，接受一个`int`或`float`类型的列表作为输入并返回总和：
+- en: '[PRE51]'
+  id: totrans-177
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: 'Now, we have all of our desired transaction details in the `transaction` list.
+    We append the transaction to the `transactions` list on line 119\. Once all transactions
+    have been added to the `transactions` list, we call the `csv_writer()` method
+    and pass in our `transactions` list and `output` directory:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们在`transaction`列表中有了所有期望的交易详细信息。我们将交易添加到第119行的`transactions`列表中。当所有交易都添加到`transactions`列表后，我们调用`csv_writer()`方法，并传入`transactions`列表和`output`目录：
+- en: '[PRE52]'
+  id: totrans-179
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: Once again, we've made no modifications to the `print_header()` or `get_address()`
+    functions.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次提醒，我们没有对`print_header()`或`get_address()`函数做任何修改。
+- en: Developing the csv_writer() function
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发`csv_writer()`函数
+- en: 'On line 159, we define our `csv_writer()` function. Before writing our transaction
+    data to a CSV file, we log our current execution phase and create a `headers`
+    variable. This `headers` list represents the columns in our spreadsheet and will
+    be the first row written to the file, as follows:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第159行，我们定义了`csv_writer()`函数。在将交易数据写入CSV文件之前，我们记录当前的执行阶段并创建一个`headers`变量。这个`headers`列表代表了电子表格中的列，将是写入文件的第一行，如下所示：
+- en: '[PRE53]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: As with any user-supplied data, we must account for the possibility that the
+    supplied data could be incorrect or generate an exception. For example, the user
+    could specify a non-existent directory in the output path argument. On lines 173
+    and 175, we open the `csvfile` in the appropriate manner, depending on the version
+    of Python being used, and write our CSV data under one `try` and `except` clause.
+    If there's an issue with the user-supplied output, we'll receive an `IOError`
+    exception.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与任何用户提供的数据一样，我们必须考虑到提供的数据可能不正确或会引发异常。例如，用户可能会在输出路径参数中指定一个不存在的目录。在第173行和第175行，我们根据所使用的Python版本以适当的方式打开`csvfile`，并在一个`try`和`except`语句块下写入我们的CSV数据。如果用户提供的输出存在问题，我们将收到`IOError`异常。
+- en: 'We create our writer object on line 177 and write our `headers`, before iterating
+    through our transactions list. Every transaction within the transactions list
+    is written on its own row. Finally, on lines 181 and 182, we flush and close the
+    CSV file:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在第177行创建了写入对象，并在迭代交易列表之前写入`headers`。交易列表中的每个交易都会单独写入一行。最后，在第181行和第182行，我们刷新并关闭了CSV文件：
+- en: '[PRE54]'
+  id: totrans-186
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: 'If `IOError` is generated, we write the error message and contextual information
+    to the log before exiting with an error (any nonzero exit). If there are no errors
+    generated, we log the completion of the script and exit without errors (also known
+    as a zero exit), as seen on line 191 through 193:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果生成了`IOError`，我们会将错误消息和相关信息写入日志，然后以错误（任何非零退出）退出。如果没有错误，我们会记录脚本完成的情况，并在没有错误的情况下退出（也称为零退出），如第191至193行所示：
+- en: '[PRE55]'
+  id: totrans-188
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: Running the script
+  id: totrans-189
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行脚本
+- en: This iteration finally addresses the remaining issue we identified, which is
+    a means of processing the data into an examination-ready state. Now if an address
+    had hundreds or thousands of transactions, the examiner can analyze that data
+    more efficiently than if it were displayed in a console.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一版本最终解决了我们识别出的剩余问题，即如何将数据处理到一个准备好供检查的状态。现在，如果一个地址有数百或数千个交易，检查员可以比在控制台中显示时更高效地分析这些数据。
+- en: This being said, as with most things, there's always room for improvement. For
+    example, the way in which we've handled multiple input and output values means
+    that it will have more than one address in a specific cell. This can be annoying
+    when trying to filter for a specific address. The point here is that a script
+    is never truly finished being developed and is always an ongoing process.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 话虽如此，和大多数事情一样，总有改进的空间。例如，我们处理多个输入和输出值的方式意味着一个特定的单元格中会有多个地址。这在试图筛选特定地址时可能会很麻烦。这里的要点是，脚本从来不会真正完成开发，它总是一个不断发展的过程。
+- en: 'To run the script, we now must supply two arguments: the Bitcoin address and
+    desired output. The following is an example of usage and output printed to the
+    console when running our script:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要运行脚本，我们现在必须提供两个参数：比特币地址和期望的输出。以下是运行脚本时使用的示例及输出结果：
+- en: '![](img/719183b2-b791-4dcb-a05c-8d7391c5adda.png)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/719183b2-b791-4dcb-a05c-8d7391c5adda.png)'
+- en: 'The `transactions.csv` file will be written to the current working directory
+    as specified. The following screenshot captures what this spreadsheet might look
+    like:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`transactions.csv` 文件将按照指定的路径写入当前工作目录。以下截图展示了该电子表格可能的样子：'
+- en: '![](img/135e3159-d3f2-4399-9ee6-37117663dfd9.png)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/135e3159-d3f2-4399-9ee6-37117663dfd9.png)'
+- en: Challenge
+  id: totrans-196
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 挑战
+- en: For an additional challenge, modify the script so that each output and input
+    address has its own cell. We recommend approaching this by determining the maximum
+    number of input values or output addresses in a list of transactions. Knowing
+    these values, you could build a conditional statement to modify the header so
+    that it has the appropriate number of columns. In addition, you would need to
+    write logic to skip those columns when you don't have multiple input or output
+    values in order to preserve the correct spacing of data.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于额外的挑战，修改脚本，使得每个输出和输入地址都有自己独立的单元格。我们建议通过确定交易列表中输入值或输出地址的最大数量来解决这一问题。了解这些值后，你可以构建一个条件语句来修改表头，使其具有适当的列数。此外，当没有多个输入或输出值时，你还需要编写逻辑跳过这些列，以确保数据的正确间距。
+- en: While specific to Bitcoin, examples in the wild may require similar logic when
+    there exists a dynamic relationship between two or more data points. Tackling
+    this challenge will help develop a logical and practical methodology that can
+    be applied in future scenarios.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这些例子特定于比特币，但在实际情况中，当两个或多个数据点之间存在动态关系时，可能需要类似的逻辑。解决这一挑战将帮助我们培养一种逻辑且实用的方法论，这种方法可以应用于未来的场景。
+- en: Summary
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we gained greater familiarity with common serialized structures,
+    Bitcoin, and CSV and with working with nested lists and dictionaries. Being able
+    to manipulate lists and dictionaries is a vital skill, as data is often stored
+    in mixed nested structures. Remember to always use the `type()` method to determine
+    what type of data you're working with.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一章中，我们更加熟悉了常见的序列化结构、比特币和 CSV 文件格式，并学习了如何处理嵌套列表和字典。能够操作列表和字典是一个重要的技能，因为数据通常存储在混合的嵌套结构中。记住，始终使用`type()`方法来确定你正在处理的数据类型。
+- en: For this script, we (the authors) played around with the JSON data structure
+    in the Python interactive prompt before writing the script. This allowed us to
+    understand how to traverse the data structure correctly and the best manner to
+    do so before writing any logic. The Python interactive prompt is an excellent
+    sandbox to implement new features or to test new code. The code for this project
+    can be downloaded from GitHub or Packt, as described in the *Preface*.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个脚本，我们（作者）在编写脚本之前，先在 Python 交互式提示符中尝试了 JSON 数据结构。这让我们在编写任何逻辑之前，能够正确理解如何遍历数据结构以及最佳的实现方式。Python
+    交互式提示符是一个非常好的沙盒，用于实现新特性或测试新代码。该项目的代码可以从 GitHub 或 Packt 下载，具体信息请参见*前言*。
+- en: In the next chapter, we'll discuss a different method to store structured data.
+    While learning how to integrate databases into our scripts, we'll create an active
+    file listing script that stores all of its data in an SQLite3 format. Doing this
+    will allow us to become more comfortable with storing and retrieving data from
+    databases in Python using two different modules.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将讨论存储结构化数据的另一种方法。在学习如何将数据库集成到我们的脚本中时，我们将创建一个活动文件列表脚本，该脚本将所有数据以 SQLite3
+    格式存储。这样做将帮助我们更熟悉使用两种不同模块从数据库中存储和检索数据。

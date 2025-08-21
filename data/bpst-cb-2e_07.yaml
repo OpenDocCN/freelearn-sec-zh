@@ -1,0 +1,1499 @@
+- en: '7'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '7'
+- en: Assessing Business Logic
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 评估业务逻辑
+- en: This chapter covers the basics of **business logic testing**, including an explanation
+    of some of the more common tests performed in this area. Web penetration testing
+    involves key assessments of business logic to determine how well the design of
+    an application performs integrity checks, especially within sequential application
+    function steps, and we will be learning how to use Burp Suite to perform such
+    tests.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章涵盖了**业务逻辑测试**的基础知识，包括解释该领域中常见的一些测试。Web 渗透测试涉及对业务逻辑的关键评估，以确定应用程序设计如何在应用程序功能的顺序步骤中执行完整性检查，尤其是在涉及顺序操作时，我们将学习如何使用
+    Burp Suite 执行这些测试。
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍以下练习：
+- en: Testing business logic data validation
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试业务逻辑数据验证
+- en: Unrestricted file upload—bypassing weak validation
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无限制文件上传—绕过弱验证
+- en: Performing process-timing attacks
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 执行过程时序攻击
+- en: Testing for the circumvention of workflows
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试绕过工作流
+- en: Uploading malicious files—polyglots
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 上传恶意文件—多重格式文件
+- en: Technical requirements
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete the recipes in this chapter, you will need the following:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了完成本章中的练习，您需要以下内容：
+- en: OWASP **Broken Web Applications** (**BWA**)
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP **破损的 Web 应用程序**（**BWA**）
+- en: OWASP Mutillidae link
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP Mutillidae 链接
+- en: OWASP WebGoat link
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP WebGoat 链接
+- en: OWASP **Damn Vulnerable Web Application** (**DVWA**) link
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP **Damn Vulnerable Web Application**（**DVWA**）链接
+- en: Burp Proxy Community or Professional ([https://portswigger.net/burp/](https://portswigger.net/burp/))
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Burp Proxy Community 或 Professional ([https://portswigger.net/burp/](https://portswigger.net/burp/))
+- en: Firefox browser using FoxyProxy add-on or Burp Suite browser
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Firefox 浏览器，配合 FoxyProxy 插件或 Burp Suite 浏览器
+- en: Testing business logic data validation
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试业务逻辑数据验证
+- en: Business logic data validation errors occur due to a lack of server-side checks,
+    especially in a sequence of events such as shopping cart checkouts. If design
+    flaws such as thread issues are present, those flaws may allow an attacker to
+    modify or change their shopping cart contents or prices prior to purchasing them,
+    to lower the price paid.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于缺少服务器端检查，特别是在购物车结账等一系列事件中，可能会发生业务逻辑数据验证错误。如果存在设计缺陷，例如线程问题，这些缺陷可能允许攻击者在购买前修改或更改购物车中的内容或价格，从而降低支付价格。
+- en: Getting ready
+  id: totrans-19
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using the **OWASP WebGoat** application and Burp, we will exploit a business
+    logic design flaw to purchase many large ticket items for a very cheap price.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 **OWASP WebGoat** 应用程序和 Burp，我们将利用业务逻辑设计缺陷，以非常低的价格购买许多大宗商品。
+- en: How to do it...
+  id: totrans-21
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何进行……
+- en: 'Ensure the **owaspbwa** VM is running. Select the **OWASP WebGoat** application
+    from the initial landing page of the VM. The landing page will be configured to
+    an IP address specific to your machine:'
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保 **owaspbwa** 虚拟机正在运行。从虚拟机的初始登录页面选择 **OWASP WebGoat** 应用程序。登录页面将配置为特定于您的机器的
+    IP 地址：
+- en: '![Figure 7.1 – VM landing page](image/B21173_07_001.jpg)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.1 – 虚拟机登录页面](image/B21173_07_001.jpg)'
+- en: Figure 7.1 – VM landing page
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.1 – 虚拟机登录页面
+- en: 'After you’ve clicked the **OWASP WebGoat** link, you will be prompted for some
+    login credentials. Use these credentials—username: **guest**; password: **guest**.'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **OWASP WebGoat** 链接后，系统将提示输入登录凭证。使用以下凭证—用户名：**guest**；密码：**guest**。
+- en: 'After authentication, click the **Start WebGoat** button to access the application
+    exercises:'
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 认证后，点击 **Start WebGoat** 按钮以访问应用程序练习：
+- en: '![Figure 7.2 – Starting the WebGoat application](image/B21173_07_002.jpg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.2 – 启动 WebGoat 应用程序](image/B21173_07_002.jpg)'
+- en: Figure 7.2 – Starting the WebGoat application
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.2 – 启动 WebGoat 应用程序
+- en: 'Note the WebGoat application seems to work better in Firefox with FoxyProxy
+    set to send traffic to Burp Suite instead of using the Burp Suite browser. Click
+    **Concurrency** | **Shopping Cart Concurrency Flaw** from the left-hand menu:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，WebGoat 应用程序在 Firefox 中配合 FoxyProxy 使用，设置为将流量发送到 Burp Suite，而不是使用 Burp Suite
+    浏览器时似乎效果更好。点击左侧菜单中的 **Concurrency** | **购物车并发缺陷**：
+- en: '![Figure 7.3 – Shopping Cart Concurrency Flaw](image/B21173_07_003.jpg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.3 – 购物车并发缺陷](image/B21173_07_003.jpg)'
+- en: Figure 7.3 – Shopping Cart Concurrency Flaw
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.3 – 购物车并发缺陷
+- en: The exercise explains there is a thread issue in the design of the shopping
+    cart that will allow us to purchase items at a lower price. Let’s exploit the
+    design flaw!
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该练习解释了购物车设计中的线程问题，这将允许我们以更低的价格购买商品。让我们来利用这个设计缺陷！
+- en: 'Add **1** to the **Quantity** box for the **Sony - Vaio with Intel Centrino**
+    item. Click the **Update** **Cart** button:'
+  id: totrans-33
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将 **1** 添加到 **Sony - Vaio with Intel Centrino** 项目的 **Quantity** 框中。点击 **Update**
+    **Cart** 按钮：
+- en: '![Figure 7.4 – Adding one Sony Vaio to the cart](image/B21173_07_004.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.4 – 将一台 Sony Vaio 添加到购物车](image/B21173_07_004.jpg)'
+- en: Figure 7.4 – Adding one Sony Vaio to the cart
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.4 – 将一台 Sony Vaio 添加到购物车
+- en: 'Switch to Burp Suite’s **Proxy** | **HTTP history** tabs. Find the cart request,
+    right-click, and click **Send** **to Repeater**:'
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 Burp Suite 的 **Proxy** | **HTTP history** 标签。找到购物车请求，右键点击，并选择 **Send to
+    Repeater**：
+- en: '![Figure 7.5 – Send to Repeater](image/B21173_07_005.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.5 – 发送到 Repeater](image/B21173_07_005.jpg)'
+- en: Figure 7.5 – Send to Repeater
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.5 – 发送到 Repeater
+- en: 'Inside Burp Suite’s **Repeater** tab, change the **QTY3** parameter from **1**
+    to **10**:'
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Burp Suite 的 **Repeater** 标签中，将 **QTY3** 参数从 **1** 改为 **10**：
+- en: '![Figure 7.6 – Increasing the quantity to three](image/B21173_07_006.jpg)'
+  id: totrans-40
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.6 – 将数量增加到三](image/B21173_07_006.jpg)'
+- en: Figure 7.6 – Increasing the quantity to three
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.6 – 将数量增加到三
+- en: 'Stay in Burp Suite’s **Repeater** tab and, in the request pane, right-click
+    and select **Request in browser** | **In current** **browser session**:'
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 保持在 Burp Suite 的 **Repeater** 标签页中，在请求窗格中右键点击并选择 **Request in browser** | **In
+    current browser session**：
+- en: '![Figure 7.7 – Viewing the request in the current browser session](image/B21173_07_007.jpg)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.7 – 在当前浏览器会话中查看请求](image/B21173_07_007.jpg)'
+- en: Figure 7.7 – Viewing the request in the current browser session
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.7 – 在当前浏览器会话中查看请求
+- en: 'A popup displays the modified request. Click the **Copy** button:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 弹出窗口显示已修改的请求。点击 **Copy** 按钮：
+- en: '![Figure 7.8 – Copying the link](image/B21173_07_008.jpg)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.8 – 复制链接](image/B21173_07_008.jpg)'
+- en: Figure 7.8 – Copying the link
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.8 – 复制链接
+- en: 'Using the same Firefox browser containing the shopping cart, open a new tab
+    and paste in the URL that you copied into the clipboard in the previous step:'
+  id: totrans-48
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用包含购物车的同一 Firefox 浏览器，打开一个新标签页并粘贴前一步复制到剪贴板的 URL：
+- en: '![Figure 7.9 – Pasting the link into a new browser tab](image/B21173_07_009.jpg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.9 – 将链接粘贴到新的浏览器标签中](image/B21173_07_009.jpg)'
+- en: Figure 7.9 – Pasting the link into a new browser tab
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.9 – 将链接粘贴到新的浏览器标签中
+- en: 'Press the *Enter* key to see the request resubmitted with a modified quantity
+    of **10**:'
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按下 *Enter* 键以查看请求重新提交，并且修改后的数量为 **10**：
+- en: '![Figure 7.10 – Seeing the updated quantity](image/B21173_07_010.jpg)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.10 – 查看更新后的数量](image/B21173_07_010.jpg)'
+- en: Figure 7.10 – Seeing the updated quantity
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.10 – 查看更新后的数量
+- en: 'Switch to the original tab containing your shopping cart (the cart with the
+    original quantity of **1**). Click the **Purchase** button:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 切换到包含原购物车（数量为 **1**）的原始标签页。点击 **Purchase** 按钮：
+- en: '![Figure 7.11 – Purchasing the item on the original tab](image/B21173_07_011.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.11 – 在原标签页上购买该商品](image/B21173_07_011.jpg)'
+- en: Figure 7.11 – Purchasing the item on the original tab
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.11 – 在原标签页上购买该商品
+- en: 'At the next screen, before clicking the **Confirm** button, switch to the second
+    tab and update the cart again, but this time with our new quantity of **10**,
+    and click on **Update Cart**:'
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下一个屏幕上，在点击 **Confirm** 按钮之前，切换到第二个标签页并再次更新购物车，这次使用我们新的数量 **10**，并点击 **Update
+    Cart**：
+- en: '![Figure 7.12 – Updating the cart on the second tab](image/B21173_07_012.jpg)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.12 – 在第二个标签页更新购物车](image/B21173_07_012.jpg)'
+- en: Figure 7.12 – Updating the cart on the second tab
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.12 – 在第二个标签页更新购物车
+- en: 'Return to the first tab, and click the **Confirm** button:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回第一个标签页，点击 **Confirm** 按钮：
+- en: '![Figure 7.13 – Confirming the purchase on the first tab](image/B21173_07_013.jpg)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.13 – 在第一个标签页确认购买](image/B21173_07_013.jpg)'
+- en: Figure 7.13 – Confirming the purchase on the first tab
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.13 – 在第一个标签页确认购买
+- en: Notice we were able to purchase 10 Sony Vaio laptops for the price of 1!
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，我们能够以 1 台 Sony Vaio 笔记本的价格购买 10 台！
+- en: '![Figure 7.14 – All items in the cart were purchased at a lower price](image/B21173_07_014.jpg)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.14 – 购物车中的所有商品都以较低的价格购买](image/B21173_07_014.jpg)'
+- en: Figure 7.14 – All items in the cart were purchased at a lower price
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.14 – 购物车中的所有商品都以较低的价格购买
+- en: How it works...
+  id: totrans-66
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: Thread safety issues can produce unintended results. For many languages, the
+    developer’s knowledge of how to declare variables and methods as thread-safe is
+    imperative. Threads that are not isolated, such as the cart contents shown in
+    this recipe, can result in users gaining unintended discounts on products.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 线程安全问题可能会产生意外的结果。对于许多编程语言，开发者了解如何声明变量和方法为线程安全至关重要。没有隔离的线程，例如本教程中展示的购物车内容，可能导致用户在商品上获得意外的折扣。
+- en: Unrestricted file upload – bypassing weak validation
+  id: totrans-68
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 不受限制的文件上传 – 绕过弱验证
+- en: Many applications allow for files to be uploaded for various reasons. Business
+    logic on the server side must include checking for acceptable files; this is known
+    as **whitelisting**. If such checks are weak or only address one aspect of file
+    attributes (for example, file extensions only), attackers can exploit these weaknesses
+    and upload unexpected file types that may be executable on the server.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多应用程序允许上传文件以满足不同需求。服务器端的业务逻辑必须包含对可接受文件的检查；这被称为**白名单**。如果这些检查薄弱或仅关注文件属性的一个方面（例如，仅检查文件扩展名），攻击者可以利用这些漏洞上传可能在服务器上执行的意外文件类型。
+- en: Getting ready
+  id: totrans-70
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备开始
+- en: Using the DVWA application and Burp, we will exploit a business logic design
+    flaw in the file upload page.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用DVWA应用程序和Burp，我们将利用文件上传页面中的业务逻辑设计缺陷。
+- en: How to do it...
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: Ensure the **owaspbwa** VM is running. Select **DVWA** from the initial landing
+    page of the VM. The landing page will be configured to an IP address specific
+    to your machine.
+  id: totrans-73
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保**owaspbwa**虚拟机正在运行。选择虚拟机初始登陆页面上的**DVWA**。登陆页面将配置为特定于你机器的IP地址。
+- en: 'On the login page, use these credentials—username: **user**; password: **user**.'
+  id: totrans-74
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在登录页面，使用以下凭证—用户名：**user**；密码：**user**。
+- en: 'Select the **DVWA Security** option from the menu on the left. Change the default
+    setting of **low** to **medium** and then click **Submit**:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从左侧菜单中选择**DVWA安全性**选项。将默认设置**低**更改为**中**，然后点击**提交**：
+- en: '![Figure 7.15 – Setting security to medium](image/B21173_07_015.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.15 – 设置安全性为中等](image/B21173_07_015.jpg)'
+- en: Figure 7.15 – Setting security to medium
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.15 – 设置安全性为中等
+- en: 'Select the **Upload** page from the menu on the left:'
+  id: totrans-78
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从左侧菜单中选择**上传**页面：
+- en: '![Figure 7.16 – Going to the Upload page](image/B21173_07_016.jpg)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.16 – 进入上传页面](image/B21173_07_016.jpg)'
+- en: Figure 7.16 – Going to the Upload page
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.16 – 进入上传页面
+- en: 'Note the page instructs users to only upload images. If we try another type
+    of file other than a JPG image, we receive an error message in the upper left-hand
+    corner:'
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 注意页面指示用户仅上传图片。如果我们尝试上传除JPG图片以外的其他类型文件，页面左上角会显示错误信息：
+- en: '![Figure 7.17 – Only images are allowed](image/B21173_07_017.jpg)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.17 – 仅允许上传图片](image/B21173_07_017.jpg)'
+- en: Figure 7.17 – Only images are allowed
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.17 – 仅允许上传图片
+- en: On your local machine, create a file of any type, other than JPG. For example,
+    create a Microsoft Excel file called **malicious_spreadsheet.xlsx**. It does not
+    need to have any content for the purpose of this recipe.
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在本地计算机上创建一个除了JPG以外的任意类型文件。例如，创建一个名为**malicious_spreadsheet.xlsx**的Microsoft
+    Excel文件。为了本教程目的，文件内容不需要填写。
+- en: Switch to Burp Suite’s **Proxy** | **Intercept** tab. Turn the interceptor on
+    with the **Intercept is** **on** button.
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到Burp Suite的**代理** | **拦截**标签页。点击**拦截开启**按钮开启拦截器。
+- en: 'Return to Firefox, use the **Browse** button to find the **malicious_spreadsheet.xlsx**
+    file on your system, and click the **Upload** button:'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回Firefox，使用**浏览**按钮找到你系统中的**malicious_spreadsheet.xlsx**文件，并点击**上传**按钮：
+- en: '![Figure 7.18 – Attempting to upload an Excel spreadsheet](image/B21173_07_018.jpg)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.18 – 尝试上传Excel表格](image/B21173_07_018.jpg)'
+- en: Figure 7.18 – Attempting to upload an Excel spreadsheet
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.18 – 尝试上传Excel表格
+- en: With the request paused in Burp Suite’s **Proxy** | **Intercept** tab, change
+    the **Content-Type** value from **application/vnd.openxmlformats-officedocument.spreadsheetml.sheet**
+    to **image/jpeg** instead.
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Burp Suite的**代理** | **拦截**标签页中暂停请求后，将**Content-Type**值从**application/vnd.openxmlformats-officedocument.spreadsheetml.sheet**更改为**image/jpeg**。
+- en: 'Here is the original:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是原始版本：
+- en: '![Figure 7.19 – Original Content-Type value](image/B21173_07_019.jpg)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.19 – 原始Content-Type值](image/B21173_07_019.jpg)'
+- en: Figure 7.19 – Original Content-Type value
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.19 – 原始Content-Type值
+- en: 'Here is the modified version:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是修改后的版本：
+- en: '![Figure 7.20 – Modified Content-Type value](image/B21173_07_020.jpg)'
+  id: totrans-94
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.20 – 修改后的Content-Type值](image/B21173_07_020.jpg)'
+- en: Figure 7.20 – Modified Content-Type value
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.20 – 修改后的Content-Type值
+- en: Click the **Forward** button. Now, turn the interceptor off by clicking the
+    toggle button to **Intercept** **is off**.
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**转发**按钮。现在，通过点击切换按钮将拦截器关闭为**拦截关闭**。
+- en: 'Note the file was uploaded successfully! We were able to bypass the weak data
+    validation checks and upload a file other than an image:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 注意文件已成功上传！我们成功绕过了数据验证检查，并上传了非图片文件：
+- en: '![Figure 7.21 – Spreadsheet is successfully uploaded](image/B21173_07_021.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.21 – 表格成功上传](image/B21173_07_021.jpg)'
+- en: Figure 7.21 – Spreadsheet is successfully uploaded
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.21 – 表格成功上传
+- en: How it works...
+  id: totrans-100
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Due to weak server-side checks, we can easily circumvent the image-only restriction
+    and upload a file type of our choice. The application code only checks for content
+    types matching **image/jpeg**, which is easily modified with an intercepting proxy
+    such as Burp. Developers need to simultaneously whitelist both content-type as
+    well as file extensions in the application code to prevent this type of exploit
+    from occurring.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于服务器端检查较弱，我们可以轻松绕过仅限图像的限制，上传我们选择的文件类型。应用程序代码只检查与**image/jpeg**匹配的内容类型，而这可以通过像
+    Burp 这样的拦截代理轻松修改。开发人员需要同时在应用程序代码中对白名单进行内容类型和文件扩展名的检查，以防止此类漏洞的发生。
+- en: Performing process-timing attacks
+  id: totrans-102
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 执行过程计时攻击
+- en: By monitoring the time an application takes to complete a task, it is possible
+    for attackers to gather or infer information about how an application is coded.
+    For example, a login process using a valid username receives a response quicker
+    than the same login process given an invalid username. This delay in response
+    time leaks information related to system processes. An attacker could use a response
+    time to perform account enumeration and determine valid usernames based on the
+    timing of the response.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过监控应用程序完成任务所需的时间，攻击者可以收集或推测应用程序的编码方式。例如，使用有效用户名的登录过程响应速度比使用无效用户名的登录过程要快。这种响应时间的延迟泄露了与系统过程相关的信息。攻击者可以利用响应时间进行账户枚举，并根据响应的时间确定有效的用户名。
+- en: Getting ready
+  id: totrans-104
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备中
+- en: 'For this recipe, you will need the **common_pass.txt** wordlist from **wfuzz**,
+    available here:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于此操作，您需要从**wfuzz**获取**common_pass.txt**字典，下载地址如下：
+- en: '[https://github.com/xmendez/wfuzz](https://github.com/xmendez/wfuzz)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://github.com/xmendez/wfuzz](https://github.com/xmendez/wfuzz)'
+- en: 'Here’s the path to this:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是路径：
+- en: '**wordlist** | **others** | **common_pass.txt**'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**字典** | **其他** | **common_pass.txt**'
+- en: Using OWASP Mutillidae II, we will determine whether the application provides
+    information leakage based on the response time from forced logins.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OWASP Mutillidae II，我们将确定应用程序是否基于强制登录的响应时间泄露信息。
+- en: Ensure Burp Suite is running, and also ensure that the **owaspbwa** VM is running
+    and that Burp Suite is configured in the Firefox browser used to view **owaspbwa**
+    applications.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 Burp Suite 正在运行，并且确保**owaspbwa**虚拟机正在运行，且 Burp Suite 已在用于查看**owaspbwa**应用程序的
+    Firefox 浏览器中配置。
+- en: How to do it...
+  id: totrans-111
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: From the **owaspbwa** landing page, click the link to the OWASP Mutillidae II
+    application.
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从**owaspbwa**登录页面，点击 OWASP Mutillidae II 应用程序的链接。
+- en: 'Open Firefox browser to the home of OWASP Mutillidae II (URL: **http://<your_VM_assigned_IP_address>/mutillidae/**).'
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开 Firefox 浏览器，访问 OWASP Mutillidae II 的主页（网址：**http://<your_VM_assigned_IP_address>/mutillidae/**）。
+- en: Go to the login page and log in using the username **ed** and the password **pentest**.
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 访问登录页面，使用用户名**ed**和密码**pentest**登录。
+- en: 'Switch to Burp Suite’s **Proxy** | **HTTP history** tab, find the login you
+    just performed, right-click, and select **Send** **to Intruder**:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 Burp Suite 的**代理** | **HTTP 历史**标签，找到刚才执行的登录操作，右键点击并选择**发送** **到 Intruder**：
+- en: '![Figure 7.22 – Sending a POST request of the login to Repeater](image/B21173_07_022.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.22 – 将登录的 POST 请求发送到 Repeater](image/B21173_07_022.jpg)'
+- en: Figure 7.22 – Sending a POST request of the login to Repeater
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.22 – 将登录的 POST 请求发送到 Repeater
+- en: 'Go to the **Intruder** | **Positions** tab and clear all the payload markers,
+    using the **Clear §** button on the right-hand side:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入**Intruder** | **Positions**标签，使用右侧的**清除 §**按钮清除所有有效载荷标记：
+- en: '![Figure 7.23 – Clearing any suggested positions](image/B21173_07_023.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.23 – 清除任何建议的位置](image/B21173_07_023.jpg)'
+- en: Figure 7.23 – Clearing any suggested positions
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.23 – 清除任何建议的位置
+- en: 'As shown in the following screenshot, select the username field and click the
+    **Add §** button to wrap a payload marker around that field. Also, replace the
+    valid password with an invalid password instead—for example, **xx**:'
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如下图所示，选择用户名字段并点击**添加 §**按钮，将有效载荷标记添加到该字段周围。同时，将有效密码替换为无效密码，例如**xx**：
+- en: '![Figure 7.24 – Adding substitution markers around the username value](image/B21173_07_024.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.24 – 在用户名值周围添加替换标记](image/B21173_07_024.jpg)'
+- en: Figure 7.24 – Adding substitution markers around the username value
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.24 – 在用户名值周围添加替换标记
+- en: 'Also, remove the **PHPSESSID** token. Delete the value present in this token
+    (the content following the equals sign) and leave it blank. This step is very
+    important because if you happen to leave this token in the requests, you will
+    be unable to see the difference in the timings since the application will think
+    you are already logged in:'
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 同时，移除**PHPSESSID**令牌。删除该令牌中的值（即等号后面的内容），并将其留空。此步骤非常重要，因为如果你不小心将此令牌保留在请求中，应用程序会认为你已经登录，从而无法看到时间差异：
+- en: '![Figure 7.25 – Removing the PHPSESSID cookie value](image/B21173_07_025.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.25 – 移除PHPSESSID cookie值](image/B21173_07_025.jpg)'
+- en: Figure 7.25 – Removing the PHPSESSID cookie value
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.25 – 移除PHPSESSID cookie值
+- en: 'Go to the **Intruder** | **Payloads** tab. Within the **Payload Options [Simple
+    list]** section, we will add some invalid values by using a wordlist from **wfuzz**
+    containing common passwords (**wfuzz/wordlists/others/common_pass.txt**):'
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到**Intruder** | **Payloads**标签。在**Payload Options [Simple list]**部分，我们将使用来自**wfuzz**的词汇表（包含常见密码：**wfuzz/wordlists/others/common_pass.txt**）添加一些无效值：
+- en: '![Figure 7.26 – Loading the wordlist](image/B21173_07_026.jpg)'
+  id: totrans-128
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.26 – 加载词汇表](image/B21173_07_026.jpg)'
+- en: Figure 7.26 – Loading the wordlist
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.26 – 加载词汇表
+- en: 'Scroll to the bottom and uncheck the checkbox in the **Payload** **encoding**
+    section:'
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 滚动到页面底部并取消勾选**有效载荷**编码部分的复选框：
+- en: '![Figure 7.27 – Unchecking the box in the Payload encoding section](image/B21173_07_027.jpg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.27 – 取消勾选有效载荷编码部分的复选框](image/B21173_07_027.jpg)'
+- en: Figure 7.27 – Unchecking the box in the Payload encoding section
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.27 – 取消勾选有效载荷编码部分的复选框
+- en: 'Click the **Start attack** button. An attack results table appears. Let the
+    attacks complete. From the attack results table, select **Columns** and check
+    **Response received**. Check **Response completed** to add these columns to the
+    attack results table:'
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**开始攻击**按钮。攻击结果表将会出现。等待攻击完成。在攻击结果表中，选择**列**并勾选**收到响应**。勾选**响应完成**以将这些列添加到攻击结果表中：
+- en: '![Figure 7.28 – Adding two extra columns to the attack results table](image/B21173_07_028.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.28 – 向攻击结果表中添加两列额外的列](image/B21173_07_028.jpg)'
+- en: Figure 7.28 – Adding two extra columns to the attack results table
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.28 – 向攻击结果表中添加两列额外的列
+- en: Analyze the results provided. According to OWASP ([https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/04-Test_for_Process_Timing](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/04-Test_for_Process_Timing)),
+    the steps to perform this test include providing a valid username (that is, **ed**)
+    with an invalid password and looking at the amount of time for the response to
+    return from the server. Then, perform the test again using an invalid username
+    and an invalid password. You are looking for a difference in response time (faster
+    or slower) when the server reaches a valid username versus an invalid username.
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 分析提供的结果。根据OWASP（[https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/04-Test_for_Process_Timing](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/04-Test_for_Process_Timing)），执行此测试的步骤包括提供一个有效的用户名（即**ed**）和一个无效的密码，并查看从服务器返回的响应时间。然后，再次使用无效的用户名和无效的密码执行测试。你需要观察当服务器遇到有效用户名与无效用户名时，响应时间是否有差异（更快或更慢）。
+- en: 'From the results of our test, we see the fastest response is when the server
+    is provided a valid username with an invalid password:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从我们的测试结果来看，最快的响应是当服务器提供一个有效的用户名和无效的密码时：
+- en: '![Figure 7.29 – Analyzing the results](image/B21173_07_029.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.29 – 分析结果](image/B21173_07_029.jpg)'
+- en: Figure 7.29 – Analyzing the results
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.29 – 分析结果
+- en: How it works...
+  id: totrans-140
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: Information leakage can occur when processing error messages or through invalid
+    coding paths that take longer than valid code paths. Developers must ensure the
+    business logic does not give away such clues to attackers.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 信息泄露可能发生在处理错误信息时，或者通过处理比有效代码路径花费更长时间的无效代码路径。开发者必须确保业务逻辑不会向攻击者泄露此类线索。
+- en: There’s more...
+  id: totrans-142
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多……
+- en: We can use a Burp Suite extension called **Timeinator** that can help us identify
+    process timing attacks but with more requests for a better sample size.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用一个名为**Timeinator**的Burp Suite扩展，它可以帮助我们识别处理时间攻击，但通过更多的请求来获取更好的样本量。
+- en: 'Download the Burp Suite extension from the **BApp Store** subtab. Click the
+    **Install** button:'
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从**BApp Store**子标签页下载Burp Suite扩展。点击**安装**按钮：
+- en: '![Figure 7.30 – Installing the Timeinator extension](image/B21173_07_030.jpg)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.30 – 安装 Timeinator 扩展](image/B21173_07_030.jpg)'
+- en: Figure 7.30 – Installing the Timeinator extension
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.30 – 安装 Timeinator 扩展
+- en: 'Right-click the request we used in **Intruder** and send the same to the **Timeinator**
+    plugin:'
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键单击我们在 **Intruder** 中使用的请求，并将其发送到 **Timeinator** 插件：
+- en: '![Figure 7.31 – Sending the Intruder request to Timeinator](image/B21173_07_031.jpg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.31 – 将 Intruder 请求发送到 Timeinator](image/B21173_07_031.jpg)'
+- en: Figure 7.31 – Sending the Intruder request to Timeinator
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.31 – 将 Intruder 请求发送到 Timeinator
+- en: 'Inside **Timeinator**, add a substitution marker around **username**. Type
+    three names (**tom**, **xx**, **ed**) in the text area to be replaced in the substitution
+    position:'
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **Timeinator** 中，在 **username** 周围添加替代标记。在文本区域中输入三个名称（**tom**、**xx**、**ed**），这些名称将替代为替代位置：
+- en: '![Figure 7.32 – Adding a substitution marker and payloads](image/B21173_07_032.jpg)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.32 – 添加替代标记和有效载荷](image/B21173_07_032.jpg)'
+- en: Figure 7.32 – Adding a substitution marker and payloads
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.32 – 添加替代标记和有效载荷
+- en: 'Click **Start Attack** at the top. Once done, switch over to the **Results**
+    tab of **Timeinator** to read the heat map produced. Notice the valid username
+    with an invalid password has a much larger standard deviation than the other login
+    attempts using invalid usernames. Due to the larger sampling size and additional
+    math computations, you may feel more confident about your process timing attack
+    finding:'
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击顶部的 **开始攻击**。完成后，切换到 **Timeinator** 的 **结果** 标签，查看生成的热图。注意，使用无效密码的有效用户名的标准偏差明显大于其他使用无效用户名的登录尝试。由于样本量更大以及额外的数学计算，您可能会对您的过程定时攻击结果更加有信心：
+- en: '![Figure 7.33 – Starting the attack and analyzing the results](image/B21173_07_033.jpg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.33 – 开始攻击并分析结果](image/B21173_07_033.jpg)'
+- en: Figure 7.33 – Starting the attack and analyzing the results
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.33 – 开始攻击并分析结果
+- en: Testing for the circumvention of workflows
+  id: totrans-156
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 流程绕过测试
+- en: Shopping cart to payment gateway interactions must be tested by web application
+    penetration testers to ensure the workflow cannot be performed out of sequence.
+    A payment should never be made unless verification of the cart contents is checked
+    on the server side first. In the event this check is missing, an attacker can
+    change the price, quantity, or both, prior to the actual purchase.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 购物车与支付网关的交互必须由 Web 应用程序渗透测试人员进行测试，以确保工作流不能按错误顺序执行。除非首先在服务器端验证购物车内容，否则不应进行付款。如果缺少此检查，攻击者可以在实际购买前更改价格、数量或两者。
+- en: Getting ready
+  id: totrans-158
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using the OWASP WebGoat application and Burp, we will exploit a business logic
+    design flaw in which there is no server-side validation prior to a purchase.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OWASP WebGoat 应用程序和 Burp，我们将利用一个业务逻辑设计缺陷，该缺陷在购买前没有进行服务器端验证。
+- en: How to do it...
+  id: totrans-160
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: Ensure the **owaspbwa** VM is running. Select the OWASP WebGoat application
+    from the initial landing page of the VM. The landing page will be configured to
+    an IP address specific to your machine.
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保 **owaspbwa** 虚拟机正在运行。从虚拟机的初始登录页面选择 OWASP WebGoat 应用程序。该登录页面将配置为与您计算机特定的 IP
+    地址相对应。
+- en: 'After you’ve clicked the **OWASP WebGoat** link, you will be prompted for login
+    credentials. Use these credentials—username: **guest**; password: **guest**.'
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **OWASP WebGoat** 链接后，系统会提示您输入登录凭证。使用以下凭证——用户名：**guest**；密码：**guest**。
+- en: After authentication, click the **Start WebGoat** button to access the application
+    exercises.
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 经过身份验证后，点击 **开始 WebGoat** 按钮以访问应用程序练习。
+- en: 'Click **AJAX Security** | **Insecure Client Storage** from the left-hand menu.
+    You are presented with a shopping cart:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击左侧菜单中的 **AJAX 安全性** | **不安全的客户端存储**。您将看到一个购物车：
+- en: '![Figure 7.34 – Insecure Client Storage lesson](image/B21173_07_034.jpg)'
+  id: totrans-165
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.34 – 不安全的客户端存储课程](image/B21173_07_034.jpg)'
+- en: Figure 7.34 – Insecure Client Storage lesson
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.34 – 不安全的客户端存储课程
+- en: 'Switch to Burp Suite’s **Proxy** | **HTTP history** tab, click the **Filter**
+    button, and ensure your **Filter by MIME type** section includes **Script**. If
+    **Script** is not checked, be sure to check it now:'
+  id: totrans-167
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 Burp Suite 的 **代理** | **HTTP 历史** 标签，点击 **过滤器** 按钮，并确保您的 **按 MIME 类型过滤**
+    部分包含 **脚本**。如果 **脚本** 未勾选，请务必勾选：
+- en: '![Figure 7.35 – Including Script in the traffic history](image/B21173_07_035.jpg)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.35 – 在流量历史中包含脚本](image/B21173_07_035.jpg)'
+- en: Figure 7.35 – Including Script in the traffic history
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.35 – 在流量历史中包含脚本
+- en: 'Return to the Firefox browser with WebGoat and specify a quantity of **2**
+    for the **Hewlett-Packard – Pavilion Notebook with Intel®** **Centrino™** item:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 回到使用WebGoat的Firefox浏览器，并为**惠普 - Pavilion笔记本电脑，配备Intel®** **Centrino™**项目指定数量为**2**：
+- en: '![Figure 7.36 – Updating the cart with two Hewlett-Packard notebooks](image/B21173_07_036.jpg)'
+  id: totrans-171
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.36 – 更新购物车，添加两台惠普笔记本电脑](image/B21173_07_036.jpg)'
+- en: Figure 7.36 – Updating the cart with two Hewlett-Packard notebooks
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.36 – 更新购物车，添加两台惠普笔记本电脑
+- en: 'Switch back to Burp Suite’s **Proxy** | **HTTP history** tab and notice the
+    JavaScript (***.js**) files associated with the change you made to the quantity.
+    Note a script called **clientSideValidation.js**. Make sure the status code is
+    **200** and not **304** (not modified). Only the **200** status code will show
+    you the source code of the script:'
+  id: totrans-173
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换回Burp Suite的**代理** | **HTTP历史记录**选项卡，并注意与您更改的数量相关联的JavaScript（***.js）**文件。注意名为**clientSideValidation.js**的脚本。确保状态码为**200**，而不是**304**（未修改）。只有**200**状态码将显示脚本的源代码：
+- en: '![Figure 7.37 – Source code of clientSideValidation.js script](image/B21173_07_037.jpg)'
+  id: totrans-174
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.37 – clientSideValidation.js脚本的源代码](image/B21173_07_037.jpg)'
+- en: Figure 7.37 – Source code of clientSideValidation.js script
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.37 – clientSideValidation.js脚本的源代码
+- en: Select the **clientSideValidation.js** file and view its source code in the
+    **Response** tab.
+  id: totrans-176
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择**clientSideValidation.js**文件，并在**响应**选项卡中查看其源代码。
+- en: 'Note that coupon codes are hardcoded within the JavaScript file. However, used
+    literally as they are, they will not work:'
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，优惠券代码硬编码在JavaScript文件中。但是，如果按原样使用，它们将无法工作：
+- en: '![Figure 7.38 – Hardcoded coupon codes](image/B21173_07_038.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.38 – 硬编码的优惠券代码](image/B21173_07_038.jpg)'
+- en: Figure 7.38 – Hardcoded coupon codes
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.38 – 硬编码的优惠券代码
+- en: 'Keep looking at the source code—notice there is a **decrypt** function found
+    in the JavaScript file. We can test one of the coupon codes by sending it through
+    this function. Let’s try this test back in the Firefox browser:'
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续查看源代码 - 注意JavaScript文件中找到了**解密**函数。我们可以通过此函数测试其中一个优惠券代码。让我们尝试在Firefox浏览器中进行此测试：
+- en: '![Figure 7.39 – Decrypting the JavaScript function](image/B21173_07_039.jpg)'
+  id: totrans-181
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.39 – 解密JavaScript函数](image/B21173_07_039.jpg)'
+- en: Figure 7.39 – Decrypting the JavaScript function
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.39 – 解密JavaScript函数
+- en: 'In the browser, bring up the developer tools (*F12*) and go to the **Console**
+    tab. Paste into the console (look for the **>>** prompt) the following command:'
+  id: totrans-183
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在浏览器中，打开开发者工具（*F12*）并转到**控制台**选项卡。粘贴以下命令到控制台（查找**>>**提示）：
+- en: '[PRE0]'
+  id: totrans-184
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'You may use this command to call the **decrypt** function on any of the coupon
+    codes declared within the array:'
+  id: totrans-185
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 您可以使用此命令调用数组中声明的任何优惠券代码上的**解密**函数：
+- en: '![Figure 7.40 – Calling the decrypt function on coupon codes](image/B21173_07_040.jpg)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.40 – 调用优惠券代码上的解密函数](image/B21173_07_040.jpg)'
+- en: Figure 7.40 – Calling the decrypt function on coupon codes
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.40 – 调用优惠券代码上的解密函数
+- en: 'After pressing *Enter*, you will see the coupon code is decrypted to the word
+    **GOLD**:'
+  id: totrans-188
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按下*Enter*键后，您将看到优惠码解密为**GOLD**一词：
+- en: '![Figure 7.41 – Revealing the coupon code](image/B21173_07_041.jpg)'
+  id: totrans-189
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.41 – 显示优惠券代码](image/B21173_07_041.jpg)'
+- en: Figure 7.41 – Revealing the coupon code
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.41 – 显示优惠券代码
+- en: 'Place the word **GOLD** within the **Enter your coupon code** box. Notice the
+    amount is now much less. Next, click the **Purchase** button:'
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**输入您的优惠码**框中输入**GOLD**一词。请注意，金额现在大大减少。接下来，点击**购买**按钮：
+- en: '![Figure 7.42 – Placing GOLD in the textbox to apply to the purchase](image/B21173_07_042.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.42 – 在文本框中放置GOLD以应用于购买](image/B21173_07_042.jpg)'
+- en: Figure 7.42 – Placing GOLD in the textbox to apply to the purchase
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.42 – 在文本框中放置GOLD以应用于购买
+- en: 'We receive confirmation regarding stage 1 completion. Let’s now try to get
+    the purchase for free:'
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们收到关于第1阶段完成的确认。现在让我们尝试免费获得购买：
+- en: '![Figure 7.43 – Stage 1 completed](image/B21173_07_043.jpg)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图7.43 – 第1阶段已完成](image/B21173_07_043.jpg)'
+- en: Figure 7.43 – Stage 1 completed
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7.43 – 第1阶段已完成
+- en: Switch to Burp Suite’s **Proxy** | **Intercept** tab and turn the interceptor
+    ON with the **Intercept is** **on** button.
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到Burp Suite的**代理** | **拦截**选项卡，并使用**拦截开启**按钮将拦截器打开。
+- en: 'Return to Firefox and press the **Purchase** button. While the request is paused,
+    modify the $1,599.99 amount to $0.00\. Look for the **GRANDTOT** parameter to
+    help you find the grand total to change. Use the **Inspector** section on the
+    right-hand side to help you change the amount by highlighting the value after
+    the **GRANDTOT=**, as shown in the following screenshot. Click **Apply changes**
+    when you''re ready to apply the manipulation:'
+  id: totrans-198
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回 Firefox 并按下 **Purchase**（购买）按钮。请求暂停时，修改 $1,599.99 的金额为 $0.00。查找 **GRANDTOT**
+    参数以帮助您找到需要更改的总金额。使用右侧的 **Inspector**（检查器）部分，帮助您通过高亮显示 **GRANDTOT=** 后的值来修改金额，如下截图所示。当您准备好应用更改时，点击
+    **Apply changes**（应用更改）：
+- en: '![Figure 7.44 – Modifying the grand total](image/B21173_07_044.jpg)'
+  id: totrans-199
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.44 – 修改总金额](image/B21173_07_044.jpg)'
+- en: Figure 7.44 – Modifying the grand total
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.44 – 修改总金额
+- en: Click the **Forward** button. Now, turn the interceptor off by clicking the
+    toggle button to **Intercept** **is off**.
+  id: totrans-201
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **Forward** 按钮。现在，通过点击切换按钮将拦截器关闭，确保 **Intercept is off**。
+- en: 'Return to the browser and click **Purchase**. You should receive a congratulatory
+    message. Note the total charged is now $0.00:'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回浏览器并点击 **Purchase**（购买）。您应该会收到一条恭喜消息。请注意，总金额现在为 $0.00：
+- en: '![Figure 7.45 – Congratulatory message](image/B21173_07_045.jpg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.45 – 恭喜消息](image/B21173_07_045.jpg)'
+- en: Figure 7.45 – Congratulatory message
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.45 – 恭喜消息
+- en: How it works...
+  id: totrans-205
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Due to a lack of server-side checking for both the coupon code and the grand
+    total amount prior to charging the credit card, we can circumvent the prices assigned
+    and set our own prices instead.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于在收费之前缺乏对优惠券代码和总金额的服务器端检查，我们可以绕过已分配的价格并设置我们自己的价格。
+- en: Uploading malicious files – polyglots
+  id: totrans-207
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 上传恶意文件 – polyglots
+- en: '**Polyglot** is a term defined as something that uses several languages. If
+    we carry this concept into hacking, it means the creation of an attack vector
+    by using different languages as execution points. For example, attackers can construct
+    valid images and embed JavaScript. The placement of the JavaScript payload is
+    usually in the comments section of an image. Once the image is loaded in a browser,
+    the XSS content may execute, depending upon the strictness of the content type
+    declared by the web server and the interpretation of the content type by the browser.
+    In this recipe, we will use a polyglot to upload a webshell disguised as an image.'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Polyglot** 是一个定义为使用多种语言的术语。如果我们将这一概念应用于黑客攻击，它意味着通过使用不同的语言作为执行点来创建攻击向量。例如，攻击者可以构造有效的图片并嵌入
+    JavaScript。JavaScript 负载通常被放置在图片的评论部分。一旦图片被浏览器加载，XSS 内容可能会执行，具体取决于 Web 服务器声明的内容类型的严格程度以及浏览器对内容类型的解析。在本节中，我们将使用
+    polyglot 上传伪装成图片的 Webshell。'
+- en: Getting ready
+  id: totrans-209
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using the OWASP WebGoat file upload functionality, we will write a small **Java
+    Server Pages** (**JSP**) webshell and upload it to the application, disguised
+    as an image.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OWASP WebGoat 文件上传功能，我们将编写一个小的 **Java Server Pages** (**JSP**) Webshell 并将其伪装成图片上传到应用程序。
+- en: We will use some popular source code for the JSP webshell and save it in a file
+    called **poly.jsp**.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用一些流行的源代码来创建 JSP Webshell，并将其保存在名为 **poly.jsp** 的文件中。
+- en: Ensure the **owaspbwa** VM is running. Select the OWASP WebGoat application
+    from the initial landing page of the VM. The landing page will be configured to
+    an IP address specific to your machine.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 **owaspbwa** 虚拟机正在运行。从虚拟机的初始登录页面选择 OWASP WebGoat 应用程序。登录页面将配置为特定于您机器的 IP
+    地址。
+- en: How to do it...
+  id: totrans-213
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'After you’ve clicked the **OWASP WebGoat** link, you will be prompted for login
+    credentials. Use these credentials—username: **guest**; password: **guest**.'
+  id: totrans-214
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **OWASP WebGoat** 链接后，系统会提示您输入登录凭据。请使用以下凭据：用户名：**guest**；密码：**guest**。
+- en: After authentication, click the **Start WebGoat** button to access the application
+    exercises.
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 身份验证后，点击 **Start WebGoat**（开始 WebGoat）按钮以访问应用程序的练习。
+- en: 'Click **Malicious Execution** | **Malicious File Execution** from the left-hand
+    menu. You are presented with a file upload functionality page. The instructions
+    state that only images are allowed for upload:'
+  id: totrans-216
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从左侧菜单中点击 **Malicious Execution** | **Malicious File Execution**。您将看到一个文件上传功能页面。说明中写明只允许上传图片：
+- en: '![Figure 7.46 – Malicious File Execution lesson](image/B21173_07_046.jpg)'
+  id: totrans-217
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.46 – 恶意文件执行课程](image/B21173_07_046.jpg)'
+- en: Figure 7.46 – Malicious File Execution lesson
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.46 – 恶意文件执行课程
+- en: 'Using Notepad or your favorite text editor, create a new file called **poly.jsp**
+    and write the following code within the file:'
+  id: totrans-219
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用记事本或你喜欢的文本编辑器，创建一个名为 **poly.jsp** 的新文件，并在文件中编写以下代码：
+- en: '[PRE1]'
+  id: totrans-220
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Return to the **Malicious File Execution** page and browse to the **poly.jsp**
+    file you created on your local system, and then click the **Start** **Upload**
+    button:'
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回到 **恶意文件执行** 页面，浏览到你在本地系统上创建的 **poly.jsp** 文件，然后点击 **开始** **上传** 按钮：
+- en: '![Figure 7.47 – Uploading your webshell](image/B21173_07_047.jpg)'
+  id: totrans-222
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.47 – 上传你的 Webshell](image/B21173_07_047.jpg)'
+- en: Figure 7.47 – Uploading your webshell
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.47 – 上传你的 Webshell
+- en: The location of each upload can be determined by right-clicking the broken image
+    displayed (that is, **Your current image**) on the page in the browser and selecting
+    **Copy image link**. Then, open a new tab, pasting the link from your clipboard
+    into the new tab.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个上传的位置可以通过右键点击页面中显示的损坏图像（即 **你当前的图像**），然后选择 **复制图像链接** 来确定。接着，打开一个新标签页，将剪贴板中的链接粘贴到新标签页中。
+- en: '**poly.jsp** is a JSP file that is executable on this web server. You can play
+    with your brand new shiny webshell by opening a new tab and navigating to the
+    following URL: **http://<YOUR_VM_IP>/WebGoat/uploads/poly.jsp?cmd=ls**.'
+  id: totrans-225
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**poly.jsp** 是一个可以在该 Web 服务器上执行的 JSP 文件。你可以通过打开一个新标签页并导航到以下 URL 来玩弄你全新的 Webshell：**http://<YOUR_VM_IP>/WebGoat/uploads/poly.jsp?cmd=ls**。'
+- en: 'Notice how the **ls** command gives a listing of the directory contents. Let’s
+    use this webshell to help us solve the lab:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意 **ls** 命令如何列出目录内容。让我们利用这个 Webshell 帮助我们解决实验：
+- en: '![Figure 7.48 – Opening a new tab to execute your webshell](image/B21173_07_048.jpg)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.48 – 打开新标签页执行你的 Webshell](image/B21173_07_048.jpg)'
+- en: Figure 7.48 – Opening a new tab to execute your webshell
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.48 – 打开新标签页执行你的 Webshell
+- en: 'To solve the lab, we need to follow the instructions and create a **guest.txt**
+    file in the path provided (**/var/lib/tomcat6/webapps/WebGoat/mfe_target/**):'
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要解决这个实验，我们需要按照指示在提供的路径 (**/var/lib/tomcat6/webapps/WebGoat/mfe_target/**) 中创建一个
+    **guest.txt** 文件：
+- en: '![Figure 7.49 – Instructions for solving the lab](image/B21173_07_049.jpg)'
+  id: totrans-230
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.49 – 解决实验的指示](image/B21173_07_049.jpg)'
+- en: Figure 7.49 – Instructions for solving the lab
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.49 – 解决实验的指示
+- en: 'Return to the tab with your webshell and give the following command for the
+    **cmd** parameter:'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回到你的 Webshell 标签页，并为 **cmd** 参数输入以下命令：
+- en: '[PRE2]'
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Return to the first tab of the lesson and reload the page. A success message
+    should appear:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回到课程的第一个标签页并重新加载页面。成功消息应该会出现：
+- en: '![Figure 7.50 – Congratulatory message](image/B21173_07_050.jpg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 7.50 – 祝贺消息](image/B21173_07_050.jpg)'
+- en: Figure 7.50 – Congratulatory message
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 7.50 – 祝贺消息
+- en: How it works...
+  id: totrans-237
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Due to unrestricted file upload vulnerability, we can upload a malicious file
+    such as a polyglot without detection from the web server. Many sites allow images
+    to be uploaded, so developers must ensure such images do not carry malicious payloads
+    within them. Protection in this area can be in the form of magic number checks
+    or special proxy servers screening all uploads against anti-virus engines, and
+    so on.
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于文件上传漏洞，我们可以上传像 polyglot 这样的恶意文件，而不被 Web 服务器检测到。许多网站允许上传图像，因此开发者必须确保这些图像内部不含有恶意负载。对此类攻击的防护可以采用魔数检查或特殊的代理服务器筛查所有上传的文件与反病毒引擎的匹配等方式。
+- en: There’s more...
+  id: totrans-239
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'To read more about polyglots, please refer to the following *PortSwigger* blog:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要了解更多关于 polyglot 的信息，请参考以下 *PortSwigger* 博客：
+- en: '[https://portswigger.net/blog/bypassing-csp-using-polyglot-jpegs](https://portswigger.net/blog/bypassing-csp-using-polyglot-jpegs)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://portswigger.net/blog/bypassing-csp-using-polyglot-jpegs](https://portswigger.net/blog/bypassing-csp-using-polyglot-jpegs)'

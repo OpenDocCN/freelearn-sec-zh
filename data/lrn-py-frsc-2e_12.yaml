@@ -1,0 +1,2056 @@
+- en: Recovering Transient Database Records
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恢复临时数据库记录
+- en: In this chapter, we will revisit SQLite databases and examine a type of journaling
+    file called a **Write Ahead Log** (**WAL**). Due to the complexity of the underlying
+    structure, parsing a WAL file is a more difficult task than our previous work
+    with SQLite databases. There are no existing modules that we can leverage to directly
+    interact with the WAL file in the same way we used `sqlite3` or `peewee` with
+    SQLite databases. Instead, we'll rely on the struct library and our ability to
+    understand binary files.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将重新审视 SQLite 数据库，并检查一种叫做 **预写日志** (**WAL**) 的日志文件类型。由于其底层结构的复杂性，解析 WAL
+    文件比我们之前处理 SQLite 数据库时的任务要更具挑战性。没有现成的模块可以像我们使用 `sqlite3` 或 `peewee` 与 SQLite 数据库那样直接与
+    WAL 文件交互。相反，我们将依赖 `struct` 库以及理解二进制文件的能力。
+- en: Once we've successfully parsed the WAL file, we will leverage the regular expression
+    library, `re`, in Python to identify potentially relevant forensic artifacts.
+    Lastly, we briefly introduce another method of creating progress bars using the
+    third-party `tqdm` library. With a few lines of code, we'll have a functioning
+    progress bar that can provide feedback of program execution to the user.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦成功解析 WAL 文件，我们将利用 Python 中的正则表达式库 `re` 来识别潜在的相关取证数据。最后，我们将简要介绍使用第三方 `tqdm`
+    库创建进度条的另一种方法。通过几行代码，我们将实现一个功能齐全的进度条，能够向用户反馈程序执行情况。
+- en: The WAL file can contain data that's no longer present or not yet been added
+    to the SQLite database. It can also contain previous copies of altered records
+    and give a forensic investigator an idea of how the database changed over time.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL 文件可以包含已不再存在或尚未添加到 SQLite 数据库中的数据。它还可能包含修改记录的前一个副本，并为取证调查员提供有关数据库如何随时间变化的线索。
+- en: 'We will explore the following topics in this chapter:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们将探讨以下主题：
+- en: Parsing complex binary files
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解析复杂的二进制文件
+- en: Learning about and utilizing regular expressions to locate specified patterns
+    of data
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 学习并利用正则表达式来定位指定的数据模式
+- en: Creating a simple progress bar in a few lines of code
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过几行代码创建一个简单的进度条
+- en: Using the built-in Python debugger, `pdb`, to troubleshoot code quickly
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用内建的 Python 调试器 `pdb` 快速排除代码故障
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码在 Python 2.7.15 和 Python 3.7.1 中开发和测试。
+- en: SQLite WAL files
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SQLite WAL 文件
+- en: 'When analyzing SQLite databases, the examiner might come across additional
+    temporary files. There are nine types of temporary SQLite files:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析 SQLite 数据库时，检查员可能会遇到额外的临时文件。SQLite 有九种类型的临时文件：
+- en: Rollback journals
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 回滚日志
+- en: Master journals
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 主日志
+- en: Statement journals
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 语句日志
+- en: WAL
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: WAL
+- en: Shared-memory files
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 共享内存文件
+- en: TEMP databases
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: TEMP 数据库
+- en: Views and subqueries materializations
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 视图和子查询物化
+- en: Transient indices
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 临时索引
+- en: Transient databases
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 临时数据库
+- en: 'For more details on these files, refer to [https://www.sqlite.org/tempfiles.html](https://www.sqlite.org/tempfiles.html),
+    which describes these files in greater detail. The WAL is one of these temporary
+    files and is involved in the atomic commit and rollback scenarios. Only databases
+    that have set their journaling mode to WAL will use the write ahead log method.
+    The following SQLite command is required to configure a database to use WAL journaling:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更多关于这些文件的详细信息，请参考 [https://www.sqlite.org/tempfiles.html](https://www.sqlite.org/tempfiles.html)，该页面对这些文件进行了更详细的描述。WAL
+    是这些临时文件之一，并且参与原子提交和回滚场景。只有设置了 WAL 日志模式的数据库才会使用预写日志方法。配置数据库使用 WAL 日志模式的 SQLite
+    命令如下：
+- en: '[PRE0]'
+  id: totrans-22
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The WAL file is created in the same directory as the SQLite database with `-wal`
+    appended to the original SQLite database filename. When a connection is made to
+    the SQLite database, a WAL file is temporarily created. This WAL file will contain
+    any changes made to the database while leaving the original SQLite database unaffected.
+    Advantages of using WAL files include concurrent and speedier read/write operations.
+    Specifics on the WAL file can be read at [https://www.sqlite.org/wal.html](https://www.sqlite.org/wal.html):'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL 文件与 SQLite 数据库位于同一目录中，并且文件名会在原始 SQLite 数据库文件名后附加 `-wal`。当连接到 SQLite 数据库时，会临时创建一个
+    WAL 文件。此 WAL 文件将包含对数据库所做的任何更改，而不会影响原始的 SQLite 数据库。使用 WAL 文件的优点包括并发和更快速的读/写操作。有关
+    WAL 文件的具体信息，请参见 [https://www.sqlite.org/wal.html](https://www.sqlite.org/wal.html)：
+- en: '![](img/17d1071f-ec60-467d-9b87-c01cba6889b8.png)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/17d1071f-ec60-467d-9b87-c01cba6889b8.png)'
+- en: By default, records within the WAL file are committed to the original database
+    when either the WAL file reaches 1,000 pages or the last connection to the database
+    closes.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，当 WAL 文件达到 1000 个页面或最后一个连接关闭时，WAL 文件中的记录会被提交到原始数据库。
+- en: 'WAL files are forensically relevant for two reasons:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL 文件在取证中具有相关性，原因有二：
+- en: Reviewing database activity overtime
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 审查数据库活动的时间线
+- en: Recovering deleted or altered records
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恢复删除或更改的记录
+- en: The creators of Epilog, an advanced SQLite carving tool, have a well-written
+    article detailing the specific forensic implications of WAL files at [https://digitalinvestigation.wordpress.com/2012/05/04/the-forensic-implications-of-sqlites-write-ahead-log/](https://digitalinvestigation.wordpress.com/2012/05/04/the-forensic-implications-of-sqlites-write-ahead-log/).
+    With an understanding of what makes WAL files important, why they are used, and
+    their forensic relevance, let's examine their underlying structure.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Epilog 的创建者们写了一篇详细的文章，讲解了 WAL 文件在取证中的具体意义，文章可以在 [https://digitalinvestigation.wordpress.com/2012/05/04/the-forensic-implications-of-sqlites-write-ahead-log/](https://digitalinvestigation.wordpress.com/2012/05/04/the-forensic-implications-of-sqlites-write-ahead-log/)
+    阅读。通过了解 WAL 文件的重要性、为什么使用它们以及它们在取证中的相关性，让我们一起来分析其底层结构。
+- en: WAL format and technical specifications
+  id: totrans-30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WAL 格式和技术规格
+- en: A WAL file is a collection of frames with embedded B-tree pages that correspond
+    to pages in the actual database. We aren't going to get into the nitty-gritty
+    of how B-trees work. Instead, let's focus on some of the important byte offsets
+    of various structures of interest, so that we can have a better understanding
+    of the code and, in doing so, we'll further exemplify the forensic relevance of
+    WAL files.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL 文件是由包含嵌入式 B 树页面的帧组成，这些 B 树页面对应于实际数据库中的页面。我们不会深入讨论 B 树的工作原理。相反，我们将关注一些重要字节偏移量，以便更好地理解代码，并进一步展示
+    WAL 文件的取证相关性。
+- en: 'The main components of a WAL file include the following:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL 文件的主要组件包括以下内容：
+- en: WAL header (32 bytes)
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: WAL 头部（32 字节）
+- en: WAL frames (page size)
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: WAL 帧（页面大小）
+- en: Frame header (24 bytes)
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 帧头部（24 字节）
+- en: Page header (8 bytes)
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 页面头部（8 字节）
+- en: WAL cells (variable length)
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: WAL 单元格（可变长度）
+- en: Note that the WAL frame size is dictated by the page size, which can be extracted
+    from the WAL header.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，WAL 帧的大小由页面大小决定，该页面大小可以从 WAL 头部提取。
+- en: 'The following diagram shows the structure of a WAL file at a high level:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图表展示了 WAL 文件的高层次结构：
+- en: '![](img/70061399-9032-4bf2-a136-272924866f94.png)'
+  id: totrans-40
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/70061399-9032-4bf2-a136-272924866f94.png)'
+- en: Let's take a look at each of the high-level categories of the WAL file. Some
+    of these structures are described at [https://www.sqlite.org/fileformat2.html](https://www.sqlite.org/fileformat2.html).
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看 WAL 文件的每个高层次类别。一些结构的描述可以参考 [https://www.sqlite.org/fileformat2.html](https://www.sqlite.org/fileformat2.html)。
+- en: The WAL header
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WAL 头部
+- en: 'The 32-byte WAL header contains properties such as the page size, number of
+    checkpoints, size of the WAL file, and indirectly, number of frames in the WAL
+    file. The following table details the byte offset and description of the 8 big-endian
+    32-bit integers stored in the header:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 32 字节的 WAL 头部包含诸如页面大小、检查点数量、WAL 文件大小，以及间接地，WAL 文件中帧的数量等属性。以下表格详细列出了头部中存储的 8
+    个大端 32 位整数的字节偏移量和描述：
+- en: '| **Byte offset** | **Value** | **Description** |'
+  id: totrans-44
+  prefs: []
+  type: TYPE_TB
+  zh: '| **字节偏移量** | **值** | **描述** |'
+- en: '| 0-3 | File signature | This is either `0x377F0682` or `0x377F0683`. |'
+  id: totrans-45
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0-3 | 文件签名 | 这是 `0x377F0682` 或 `0x377F0683`。 |'
+- en: '| 4-7 | File version | This is the WAL format version, which is currently 3007000.
+    |'
+  id: totrans-46
+  prefs: []
+  type: TYPE_TB
+  zh: '| 4-7 | 文件版本 | 这是 WAL 格式的版本，当前版本为 3007000。 |'
+- en: '| 8-11 | Database page size | This is the size of the page within the database,
+    which is usually 1024 or 4096. |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| 8-11 | 数据库页面大小 | 这是数据库中页面的大小，通常为 1024 或 4096。 |'
+- en: '| 12-15 | Checkpoint number | This is the number of commits that have occurred.
+    |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| 12-15 | 检查点编号 | 这是已发生的提交数量。 |'
+- en: '| 16-19 | Salt-1 | This is a random integer that is incremented by one with
+    each commit. |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| 16-19 | 盐值-1 | 这是一个随每次提交递增的随机整数。 |'
+- en: '| 20-23 | Salt-2 | This is a random integer that changes with each commit.
+    |'
+  id: totrans-50
+  prefs: []
+  type: TYPE_TB
+  zh: '| 20-23 | 盐值-2 | 这是一个随每次提交而变化的随机整数。 |'
+- en: '| 24-27 | Checksum-1 | This is the first part of the header checksum. |'
+  id: totrans-51
+  prefs: []
+  type: TYPE_TB
+  zh: '| 24-27 | 校验和-1 | 这是头部校验和的第一部分。 |'
+- en: '| 28-31 | Checksum-2 | This is the second part of header checksum. |'
+  id: totrans-52
+  prefs: []
+  type: TYPE_TB
+  zh: '| 28-31 | 校验和-2 | 这是头部校验和的第二部分。 |'
+- en: 'The file signature should always be either `0x377F0682` or `0x377F0683`. The
+    database page size is a very important value as this allows us to calculate how
+    many frames are present in the WAL file. For example, there are 5 frames in a
+    20,632 byte WAL file using 4,096 byte pages. To calculate the number of frames
+    properly, we need to account for the 32 byte WAL header and the 24-byte WAL frame
+    header in the following equation:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件签名应该始终是 `0x377F0682` 或 `0x377F0683`。数据库页面大小是一个非常重要的值，因为它允许我们计算 WAL 文件中有多少个帧。例如，在使用
+    4,096 字节页面的 20,632 字节 WAL 文件中，有 5 个帧。为了正确计算帧的数量，我们需要在以下公式中考虑 32 字节的 WAL 头部和 24
+    字节的 WAL 帧头部：
+- en: '[PRE1]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: The checkpoint number indicates how many commits have been triggered, either
+    automatically, or manually by executing PRAGMA `wal_checkpoint`. Now, let's focus
+    on the Salt-1 value. When it comes to creating a timeline of database activity,
+    this is the most important value in the header. The Salt-1 value increments with
+    each commit. In addition to that, each frame stores the current salt values in
+    its own header at the time of the commit. If a record was modified and recommitted,
+    the newer record would have a larger Salt-1 value than the previous version of
+    the record. Therefore, we might have multiple snapshots of a given record in time
+    within the WAL file.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查点编号表示触发了多少次提交，可能是自动触发的，也可能是通过执行 PRAGMA `wal_checkpoint` 手动触发的。现在，让我们关注 Salt-1
+    值。在创建数据库活动时间线时，这是头部中最重要的值。Salt-1 值会随着每次提交而增加。除此之外，每个帧在提交时会在自己的头部存储当前的盐值。如果记录被修改并重新提交，较新的记录会有比前一个版本更大的
+    Salt-1 值。因此，我们可能会在 WAL 文件中看到某个记录在不同时间点的多个快照。
+- en: 'Let''s pretend we have a database containing one table, storing data related
+    to employee names, positions, salaries, and so on. Early on, we have an entry
+    for Peter Parker, a 23-year old freelance photographer making $45,000\. A few
+    commits later, Parker''s salary changes to $150,000 and within the same commit
+    Parker''s name is updated to Spiderman:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们有一个包含一个表的数据库，存储与员工姓名、职位、薪水等相关的数据。早期，我们有一个记录，记载了 23 岁的自由职业摄影师彼得·帕克，薪水为 45,000
+    美元。几次提交后，帕克的薪水变为 150,000 美元，而且在同一次提交中，帕克的名字更新为蜘蛛侠：
+- en: '| **Frame** | **Salt-1** | **Row ID** | **Employee name** | **Position** |
+    **Salary** |'
+  id: totrans-57
+  prefs: []
+  type: TYPE_TB
+  zh: '| **帧** | **Salt-1** | **行 ID** | **员工姓名** | **职位** | **薪水** |'
+- en: '| 0 | -977652151 | 123 | Spiderman? | Freelance | 150,000 |'
+  id: totrans-58
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | -977652151 | 123 | 蜘蛛侠？ | 自由职业 | 150,000 |'
+- en: '| 1 | -977652151 | 123 | Peter Parker | Freelance | 150,000 |'
+  id: totrans-59
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1 | -977652151 | 123 | 彼得·帕克 | 自由职业 | 150,000 |'
+- en: '| 2 | -977652150 | 123 | Peter Parker | Freelance | 45,000 |'
+  id: totrans-60
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2 | -977652150 | 123 | 彼得·帕克 | 自由职业 | 45,000 |'
+- en: Because these entries share the same **Row ID**, we know that we're dealing
+    with three different versions of record 123 in the main table. To identify the
+    most recent version of this record, we need to examine the Salt-1 value. Based
+    on our discussion earlier and the Salt-1 values of the records, we know that the
+    records in Frame 0 and 1 are the most recent records and that there have been
+    two commits since the record was first added to the database.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因为这些条目共享相同的**行 ID**，我们知道这是在主表中记录 123 的三个不同版本。为了识别该记录的最新版本，我们需要检查 Salt-1 值。根据之前的讨论和记录的
+    Salt-1 值，我们知道帧 0 和 1 中的记录是最新的记录，并且自从该记录第一次添加到数据库后，已经进行了两次提交。
+- en: How do we know which of the records in Frames 0 and 1 is the most recent? Dealing
+    with the scenario where we have two records in the same commit, the one in an
+    earlier frame is regarded as the most recent. This is because the WAL file adds
+    new frames to the beginning of the file rather than the end. Therefore, the record
+    in Frame 0 is the most recent and the record in Frame 2 is the oldest.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们如何知道帧 0 和帧 1 中哪个记录是最新的？如果我们处理的是同一次提交中有两个记录的情况，较早的帧中的记录被认为是最新的。这是因为 WAL 文件会将新帧添加到文件的开头，而不是结尾。因此，帧
+    0 中的记录是最新的，而帧 2 中的记录是最旧的。
+- en: Note that you can have more than one record per frame. Newer records are found
+    at the beginning of the frame.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，每个帧中可以有多个记录。较新的记录位于帧的开头。
+- en: In the database, we'll only see the most recent version of the record, but in
+    the WAL file, we can see previous versions. As long as the WAL file exists, we
+    would still see this information, even if the record with Row ID of 123 is deleted
+    from the main database.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数据库中，我们只会看到该记录的最新版本，但在 WAL 文件中，我们可以看到之前的版本。只要 WAL 文件存在，我们仍然可以看到这些信息，即使带有行 ID
+    123 的记录已经从主数据库中删除。
+- en: The WAL frame
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WAL帧
+- en: 'The WAL frame is essentially a B-tree structured page with a frame header.
+    The frame header contains 6 big-endian 32-bit integers:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAL帧本质上是一个B树结构的页面，包含一个帧头。帧头包含6个大端32位整数：
+- en: '| **Byte offset** | **Value** | **Description** |'
+  id: totrans-67
+  prefs: []
+  type: TYPE_TB
+  zh: '| **字节偏移量** | **值** | **描述** |'
+- en: '| 0-3 | Page number | This is the frame or page number in the WAL file. |'
+  id: totrans-68
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0-3 | 页面编号 | 这是WAL文件中的帧或页面编号。 |'
+- en: '| 4-7 | Database Size | This is the size of the database in pages for commit
+    records. |'
+  id: totrans-69
+  prefs: []
+  type: TYPE_TB
+  zh: '| 4-7 | 数据库大小 | 这是提交记录中数据库的页面数大小。 |'
+- en: '| 8-11 | Salt-1 | This is copied from the WAL header at the time of writing
+    the frame. |'
+  id: totrans-70
+  prefs: []
+  type: TYPE_TB
+  zh: '| 8-11 | Salt-1 | 这是从WAL头部在写入帧时复制过来的。 |'
+- en: '| 12-15 | Salt-2 | This is copied from the WAL header at the time of writing
+    the frame. |'
+  id: totrans-71
+  prefs: []
+  type: TYPE_TB
+  zh: '| 12-15 | Salt-2 | 这是从WAL头部在写入帧时复制过来的。 |'
+- en: '| 16-19 | Checksum-1 | This is the cumulative checksum including this frame.
+    |'
+  id: totrans-72
+  prefs: []
+  type: TYPE_TB
+  zh: '| 16-19 | 校验和-1 | 这是包括此帧在内的累计校验和。 |'
+- en: '| 20-23 | Checksum-2 | This is the second part of the checksum. |'
+  id: totrans-73
+  prefs: []
+  type: TYPE_TB
+  zh: '| 20-23 | 校验和-2 | 这是校验和的第二部分。 |'
+- en: The Salt-1 value is simply the Salt-1 value in the WAL header at the time of
+    creating the frame. We used this value stored in the frame to determine the time
+    of events in the previous example. The page number is an integer starting at zero,
+    where zero is the first frame in the WAL file.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Salt-1值只是创建帧时从WAL头部复制的Salt-1值。我们使用存储在帧中的这个值来确定前一个示例中的事件时间。页面编号是从零开始的整数，其中零是WAL文件中的第一个帧。
+- en: 'Following the frame header are the contents of a single page in the database,
+    starting with the page header. The page header consists of two 8-bit and three
+    16-bit big-endian integers:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在帧头之后是数据库中单个页面的内容，从页面头部开始。页面头部由两个8位和三个16位的大端整数组成：
+- en: '| **Byte offset** | **Value** | **Description** |'
+  id: totrans-76
+  prefs: []
+  type: TYPE_TB
+  zh: '| **字节偏移量** | **值** | **描述** |'
+- en: '| 0 | B-Tree flag | This is the type of B-tree node |'
+  id: totrans-77
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | B-树标志 | 这是B树节点的类型 |'
+- en: '| 1-2 | Freeblocks | This is the number of freeblocks in the page. |'
+  id: totrans-78
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1-2 | 自由块 | 这是页面中的自由块数量。 |'
+- en: '| 3-4 | Cell count | This is the number of cells in the page. |'
+  id: totrans-79
+  prefs: []
+  type: TYPE_TB
+  zh: '| 3-4 | 单元格数量 | 这是页面中的单元格数量。 |'
+- en: '| 5-6 | Cell offset | This is the byte offset to the first cell relative to
+    the start of this header. |'
+  id: totrans-80
+  prefs: []
+  type: TYPE_TB
+  zh: '| 5-6 | 单元格偏移量 | 这是相对于该头部开始位置的第一个单元格的字节偏移量。 |'
+- en: '| 7 | Fragments | These are the number of fragmented freeblocks in the page.
+    |'
+  id: totrans-81
+  prefs: []
+  type: TYPE_TB
+  zh: '| 7 | 碎片 | 这些是页面中碎片化的自由块数量。 |'
+- en: With this information, we now know how many cells we're dealing with and the
+    offset to the first cell. Following this header are *N* big-endian 16-bit integers
+    specifying the offset for each of the cells. The cell offsets are relative to
+    the start of the page header.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有了这些信息，我们现在知道了我们处理的单元格数量和第一个单元格的偏移量。在该头部之后，是*N*个大端16位整数，指定每个单元格的偏移量。单元格的偏移量是相对于页面头部的开始位置的。
+- en: The WAL cell and varints
+  id: totrans-83
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WAL单元格和varints
+- en: 'Each cell is made up of the following components:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个单元格由以下组件组成：
+- en: Payload length (varint)
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 负载长度（varint）
+- en: Row ID (varint)
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 行ID（varint）
+- en: 'Payload header:'
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 负载头部：
+- en: Payload header length (varint)
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 负载头部长度（varint）
+- en: Array of serial types (varints)
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 序列类型数组（varints）
+- en: Payload
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 负载
+- en: The payload length describes the overall length of the cell. The Row ID is the
+    unique key in the actual database corresponding to this record. The serial types
+    array in the payload header contains the length and type of data in the payload.
+    We can subtract the payload length by the payload header length to determine how
+    many bytes of the cell is actually recorded data.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 负载长度描述了单元格的总体长度。行ID是实际数据库中对应该记录的唯一键。负载头部中的序列类型数组包含负载中数据的长度和类型。我们可以通过减去负载头部长度来确定单元格中实际记录的数据的字节数。
+- en: Notice that most of these values are varints, or variable length integers. Varints
+    in SQLite are integers that can be anywhere from 1 to 9 bytes in size based on
+    the first bit of each byte. If the first bit is set, that is, a value of 1, then
+    the next byte is a part of the varint. This continues until you have a 9 byte
+    varint or the first bit of a byte isn't set. The first bit isn't set for all 8-bit
+    integers less than 128\. This allows large numbers to be stored flexibly within
+    this file format. More details on varints is available at [https://www.sqlite.org/src4/doc/trunk/www/varint.wiki](https://www.sqlite.org/src4/doc/trunk/www/varint.wiki).
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这些值大多数是变长整数（varints），即可变长度整数。SQLite中的变长整数是一种根据每个字节的第一个位大小变化，范围从1到9字节不等的整数。如果第一个位被设置为1，则下一个字节是变长整数的一部分。这个过程会持续，直到你得到一个9字节的变长整数，或者字节的第一个位没有被设置。对于所有小于128的8位整数，第一个位没有被设置。这使得在这种文件格式中，较大的数字能够灵活地存储。关于变长整数的更多细节可以参考[https://www.sqlite.org/src4/doc/trunk/www/varint.wiki](https://www.sqlite.org/src4/doc/trunk/www/varint.wiki)。
+- en: For example, if the first byte that's processed is `0x03` or `0b00000011`, we
+    know the varint is just one-byte long and has the value of 3\. If the first byte
+    that's processed is `0x9A` or `0b10011010`, then the first bit is set and the
+    varint is at least two-bytes long depending on the next byte, using the same decision
+    making process. For our purposes, we will only support varints up to 2 bytes in
+    length. A detailed tutorial on parsing a WAL file can be read at [http://www.forensicsfromthesausagefactory.blogspot.com/2011/05/analysis-of-record-structure-within.html](http://www.forensicsfromthesausagefactory.blogspot.com/2011/05/analysis-of-record-structure-within.html).
+    It's highly recommended to use a hex editor and parse a page by hand before attempting
+    to develop the code. Handling varints can be a lot easier through examination
+    in a hex editor and helps cement your understanding of the database structure.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，如果处理的第一个字节是`0x03`或`0b00000011`，我们知道变长整数仅为一个字节，值为3。如果处理的第一个字节是`0x9A`或`0b10011010`，则第一个位被设置，变长整数至少为两个字节长，具体取决于下一个字节，使用相同的决策过程。对于我们的用途，我们只支持长度为2字节的变长整数。关于如何解析WAL文件的详细教程可以阅读[http://www.forensicsfromthesausagefactory.blogspot.com/2011/05/analysis-of-record-structure-within.html](http://www.forensicsfromthesausagefactory.blogspot.com/2011/05/analysis-of-record-structure-within.html)。强烈建议在尝试开发代码之前，使用十六进制编辑器手动解析页面。通过在十六进制编辑器中检查变长整数，能更轻松地理解数据库结构，并帮助巩固你的理解。
+- en: 'Most of the varints are found in the serial types array. This array immediately
+    follows the payload header length and has a value of 1\. The resulting table of
+    varint values dictate the size and data type of the cells:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数变长整数（varint）都可以在序列类型数组中找到。该数组紧接在有效负载头长度之后，值为1。变长整数值的表格决定了单元格的大小和数据类型：
+- en: '| **Varint value** | **Size (bytes)** | **Data type** |'
+  id: totrans-95
+  prefs: []
+  type: TYPE_TB
+  zh: '| **变长整数值** | **大小（字节）** | **数据类型** |'
+- en: '| 0 | 0 | Null |'
+  id: totrans-96
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | 0 | Null |'
+- en: '| 1 | 1 | 8-bit integer |'
+  id: totrans-97
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1 | 1 | 8位整数 |'
+- en: '| 2 | 2 | Big-endian 16-bit integer |'
+  id: totrans-98
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2 | 2 | 大端16位整数 |'
+- en: '| 3 | 3 | Big-endian 24-bit integer |'
+  id: totrans-99
+  prefs: []
+  type: TYPE_TB
+  zh: '| 3 | 3 | 大端24位整数 |'
+- en: '| 4 | 4 | Big-endian 32-bit integer |'
+  id: totrans-100
+  prefs: []
+  type: TYPE_TB
+  zh: '| 4 | 4 | 大端32位整数 |'
+- en: '| 5 | 6 | Big-endian 48-bit integer |'
+  id: totrans-101
+  prefs: []
+  type: TYPE_TB
+  zh: '| 5 | 6 | 大端48位整数 |'
+- en: '| 6 | 8 | Big-endian 64-bit integer |'
+  id: totrans-102
+  prefs: []
+  type: TYPE_TB
+  zh: '| 6 | 8 | 大端64位整数 |'
+- en: '| 7 | 8 | Big-endian 64-bit float |'
+  id: totrans-103
+  prefs: []
+  type: TYPE_TB
+  zh: '| 7 | 8 | 大端64位浮点数 |'
+- en: '| 8 | 0 | Integer constant: 0 |'
+  id: totrans-104
+  prefs: []
+  type: TYPE_TB
+  zh: '| 8 | 0 | 整数常量：0 |'
+- en: '| 9 | 0 | Integer constant: 1 |'
+  id: totrans-105
+  prefs: []
+  type: TYPE_TB
+  zh: '| 9 | 0 | 整数常量：1 |'
+- en: '| 10, 11 |  | Not used |'
+  id: totrans-106
+  prefs: []
+  type: TYPE_TB
+  zh: '| 10, 11 |  | 未使用 |'
+- en: '| X >= 12 and even | (X-12)/2 | BLOB of length (X-12)/2 |'
+  id: totrans-107
+  prefs: []
+  type: TYPE_TB
+  zh: '| X >= 12 且为偶数 | (X-12)/2 | 长度为(X-12)/2的BLOB |'
+- en: '| X >= 13 and odd | (X-13)/2 | String of length (X-13)/2 |'
+  id: totrans-108
+  prefs: []
+  type: TYPE_TB
+  zh: '| X >= 13 且为奇数 | (X-13)/2 | 长度为(X-13)/2的字符串 |'
+- en: 'The payload begins immediately following the final serial type. Let''s look
+    at how we can use varints to properly parse the contents of the payload properly.
+    For example, if given the following serial types: 0, 2, 6, 8, and 25, we would
+    expect a 16-byte payload containing a `Null` value, a 2-byte 16-bit integer, an
+    8-byte 64-bit integer, a constant 0, and a 6-byte string. The size of the string
+    is calculated by the equation (25-13) / 2\. The following pseudocode highlights
+    this process:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有效负载紧接着最后一个序列类型开始。我们来看一下如何使用变长整数正确地解析有效负载的内容。例如，假设给定以下序列类型：0、2、6、8和25，我们期望得到一个16字节的有效负载，包含一个`Null`值、一个2字节的16位整数、一个8字节的64位整数、一个常量0和一个6字节的字符串。字符串的大小是通过公式(25-13)/2计算的。以下伪代码演示了这个过程：
+- en: '[PRE2]'
+  id: totrans-110
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The preceding example illustrates how the 16-byte payload would be decoded using
+    the known serial types. We will employ this same approach when developing our
+    program. Notice that serial types 0, 8, and 9 don't require any space in the payload
+    as their values are static.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述示例说明了如何使用已知的序列类型解码16字节的有效载荷。我们将在开发程序时采用相同的方法。注意，序列类型0、8和9不需要在有效载荷中占用空间，因为它们的值是静态的。
+- en: Manipulating large objects in Python
+  id: totrans-112
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在Python中操作大型对象
+- en: Before developing any script, especially one that deals with a large and complicated
+    structure, it's vital to choose the appropriate data type to work with. For our
+    solution, we will use dictionaries and ordered dictionaries. The difference between
+    a dictionary and an ordered dictionary is that ordered dictionaries preserve the
+    order in which items are added. This feature isn't essential for our script and
+    is merely used as a convenience.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开发任何脚本之前，尤其是处理大型复杂结构的脚本时，选择合适的数据类型至关重要。对于我们的解决方案，我们将使用字典和有序字典。字典和有序字典的区别在于，有序字典会保留添加项的顺序。这个功能对于我们的脚本并不重要，只是作为一种方便的功能使用。
+- en: A dictionary allows us to map the structures of the WAL file as key-value pairs.
+    In the end, we'll create a large nested dictionary object, which could easily
+    be saved as a JSON file for use with other programs. Another benefit of this data
+    type is that we can navigate through multiple dictionaries by descriptive keys.
+    This can be used to compartmentalize between different sections of the WAL file
+    and will help keep processed data organized. This covers all of the high-level
+    details we need to know about to write our WAL file parsing script. Before doing
+    so, let's briefly introduce regular expressions and the `tqdm` progress bar module.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 字典允许我们将WAL文件的结构映射为键值对。最终，我们将创建一个大的嵌套字典对象，它可以轻松保存为JSON文件，供其他程序使用。这个数据类型的另一个优点是，我们可以通过描述性键来遍历多个字典。这可以用来在WAL文件的不同部分之间进行分区，并帮助保持处理过的数据有序。这涵盖了我们编写WAL文件解析脚本所需了解的所有高级细节。在此之前，让我们简要介绍正则表达式和`TQDM`进度条模块。
+- en: Regular expressions in Python
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Python中的正则表达式
+- en: Regular expressions allow us to identify patterns of data by using generic search
+    patterns. For example, searching for all possible phone numbers of the `XXX-XXX-XXXX`
+    type appearing in a document can be easily accomplished by one regular expression.
+    We're going to create a regular expression module that will run a set of default
+    expressions or a user-supplied expression against the processed WAL data. The
+    purpose of the default expressions will be to identify relevant forensic information
+    such as URLs or **Personally Identifiable Information** (**PII**).
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正则表达式允许我们通过使用通用的搜索模式来识别数据模式。例如，查找文档中所有可能的`XXX-XXX-XXXX`类型的电话号码，可以通过一个正则表达式轻松完成。我们将创建一个正则表达式模块，它将对处理过的WAL数据运行一组默认的表达式或用户提供的表达式。默认表达式的目的是识别相关的取证信息，如URL或**个人身份信息**（**PII**）。
+- en: 'While this section is not a primer on regular expression by any means, we''ll
+    briefly touch on the basics so that we can understand its advantages and the regular
+    expressions used in the code. In Python, we use the `re` module to run regular
+    expressions against strings. First, we must compile the regular expression and
+    then check whether there are any matches in the string:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然本节并不是正则表达式的入门教程，但我们将简要介绍其基础知识，以便理解其优势和代码中使用的正则表达式。在Python中，我们使用`re`模块对字符串进行正则表达式匹配。首先，我们必须编译正则表达式，然后检查字符串中是否有匹配项：
+- en: '[PRE3]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Using the identical string as our expression results in a positive match. However,
+    this would not capture other phone numbers. Regular expressions can use a variety
+    of special characters that either represent a subgroup of characters or how the
+    preceding elements are interpreted. We use these special characters to refer to
+    multiple sets of characters and create a generic search pattern.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用相同的字符串作为我们的表达式会得到一个正匹配。然而，这样做并不能捕获其他电话号码。正则表达式可以使用各种特殊字符，这些字符要么表示一组字符，要么定义前面的元素如何解释。我们使用这些特殊字符来引用多个字符集，并创建一个通用的搜索模式。
+- en: 'Square brackets, `[]`, are used to indicate a range of characters such as `0`
+    through `9` or `a` through `z`. Using curly braces, `{n}`, after a regular expression
+    requires that `n` copies of the preceding regular expression must be matched to
+    be considered valid. Using these two special characters, we can create a much
+    more generic search pattern:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 方括号`[]`用于表示字符范围，例如`0`到`9`或`a`到`z`。在正则表达式后使用大括号`{n}`表示必须匹配前面正则表达式的n个副本，才能认为是有效的。通过这两个特殊字符，我们可以创建一个更通用的搜索模式：
+- en: '[PRE4]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: This regular expression matches anything of the `XXX-XXX-XXXX` pattern containing
+    only integers 0 through 9\. This wouldn't match phone numbers such as `+1 800.234.5555`.
+    We can build more complicated expressions to include those types of patterns.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个正则表达式匹配任何符合`XXX-XXX-XXXX`模式的内容，且仅包含0到9之间的整数。它不会匹配像`+1 800.234.5555`这样的电话号码。我们可以构建更复杂的表达式来包括这些类型的模式。
+- en: 'Another example we''ll take a look at is matching credit card numbers. Fortunately,
+    there exist standard regular expressions for some of the major cards such as Visa,
+    MasterCard, American Express, and so on. The following is the expression we could
+    use for identifying any Visa card. The variable, `expression_1`, matches any number
+    starting with four followed by any 15 digits (0-9). The second expression, `expression_2`,
+    matches any number starting with 4 followed by any 15 digits (0-9) that are optionally
+    separated by a space or dash:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个我们要看的例子是匹配信用卡号码。幸运的是，已经存在一些主要卡片（如Visa、万事达卡、美国运通卡等）的标准正则表达式。以下是我们可以用来识别任何Visa卡的表达式。变量`expression_1`匹配以四开始，后跟任何15个数字（0-9）的数字。第二个表达式`expression_2`匹配以4开始，后跟任何15个数字（0-9），这些数字可选地由空格或破折号分隔：
+- en: '[PRE5]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'For the first expression, we''ve introduced three new special characters: `^`,
+    `d`, and `$`. The caret (`^`) asserts that the starting position of the string
+    is at the beginning. Likewise, `$` requires that the end position of the pattern
+    is the end of the string or line. Together, this pattern would only match if our
+    credit card is the only element on the line. The `d` character is an alias for
+    [0-9]. This expression could capture a credit card number such as 4111111111111111\.
+    Note that, with regular expressions, we use the `r` prefix to create a raw string
+    which ignores backslashes as Python escape characters. Because regular expressions
+    use backslashes as an escape character, we would have to use double backslashes
+    wherever one is present so Python doesn''t interpret it as an escape character
+    for itself.'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于第一个表达式，我们引入了三个新的特殊字符：`^`、`d`和`$`。插入符号（`^`）表示字符串的起始位置位于开头。同样，`$`要求模式的结束位置位于字符串或行的末尾。结合起来，这个模式只有在我们的信用卡是该行中唯一的元素时才会匹配。`d`字符是[0-9]的别名。这个表达式可以捕获像4111111111111111这样的信用卡号码。请注意，在正则表达式中，我们使用`r`前缀来创建一个原始字符串，这样反斜杠就不会被当作Python的转义字符来处理。由于正则表达式使用反斜杠作为转义字符，我们必须在每个反斜杠出现的地方使用双反斜杠，以避免Python将其解释为自己的转义字符。
+- en: In the second expression, we use parentheses and square brackets to optionally
+    match a space or dash between quartets. Notice the backslash, which acts as an
+    escape for the space, and dash, which are themselves special characters in regular
+    expressions. If we didn't use the backslash here, the interpreter wouldn't realize
+    we meant to use the literal space and dash rather than their special meaning in
+    regular expressions. We can use 1 after we define our pattern in parentheses rather
+    than rewriting it each time. Again, because of `^` and `$`, this pattern will
+    only match if it's the only element on the line or entire string. This expression
+    would capture Visa cards such as 4111-1111-1111-1111 and capture anything `expression_1`
+    would match.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第二个表达式中，我们使用圆括号和方括号来可选地匹配四位数字之间的空格或破折号。注意反斜杠，它作为空格和破折号的转义字符，而空格和破折号本身是正则表达式中的特殊字符。如果我们没有在这里使用反斜杠，解释器将无法理解我们是想使用字面意义上的空格和破折号，而不是它们在正则表达式中的特殊含义。在定义了圆括号中的模式后，我们可以使用1，而不是每次都重新编写它。同样，由于`^`和`$`，这个模式只有在它是行或整个字符串中唯一的元素时才会匹配。这个表达式将匹配诸如4111-1111-1111-1111的Visa卡，并捕获`expression_1`会匹配的任何内容。
+- en: Mastering regular expressions allow a user to create very thorough and comprehensive
+    patterns. For the purpose of this chapter, we'll stick to fairly simple expressions
+    to accomplish our tasks. As with any pattern matching, there's the possibility
+    of generating false positives as a result of throwing large datasets at the pattern.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 掌握正则表达式可以让用户创建非常彻底和全面的模式。为了本章的目的，我们将坚持使用相对简单的表达式来完成我们的任务。与任何模式匹配一样，将大量数据集应用于模式可能会生成误报。
+- en: TQDM – a simpler progress bar
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: TQDM – 一个更简单的进度条
+- en: 'The  `tqdm` module (version 4.23.2) can create a progress bar with any Python
+    iterator:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tqdm`模块（版本4.23.2）可以为任何Python迭代器创建进度条：'
+- en: '![](img/38c6a780-ab98-4dce-b92f-d052e91611c5.png)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/38c6a780-ab98-4dce-b92f-d052e91611c5.png)'
+- en: In the preceding example, we wrapped an iterator that was created by `range(100)`
+    around `tqdm`. That alone creates the progress bar that's displayed in the image.
+    An alternative method, using the `trange()` function, makes our task even simpler.
+    We'll use this module to create a progress bar for processing each WAL frame.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的例子中，我们将由`range(100)`创建的迭代器包装在`tqdm`中。仅此就能创建显示在图片中的进度条。另一种方法是使用`trange()`函数，它使我们的任务更加简单。我们将使用该模块为处理每个WAL帧创建进度条。
+- en: 'The following code creates the same progress bar, as shown in the previous
+    screenshot. `trange()` is an alias for `tqdm(xrange())` and makes creating a progress
+    bar even simpler:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码创建了与前面截图中相同的进度条。`trange()`是` tqdm(xrange())`的别名，使得创建进度条更加简单：
+- en: '[PRE6]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Parsing WAL files – wal_crawler.py
+  id: totrans-134
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析WAL文件 – wal_crawler.py
+- en: Now that we understand how a WAL file is structured and what data type we'll
+    use to store data, we can begin planning the script. As we're working with a large
+    binary object, we'll make great use of the `struct` library. We first introduced
+    `struct` in [Chapter 6](59414e87-5820-4942-bd47-aba762dd9f14.xhtml), *Extracting
+    Artifacts from Binary Files*, and have used it whenever dealing with binary files.
+    Therefore, we won't repeat the basics of `struct` in this chapter.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们理解了WAL文件的结构以及用于存储数据的数据类型，我们可以开始规划脚本。由于我们处理的是一个大型二进制对象，我们将大力使用`struct`库。我们在[第6章](59414e87-5820-4942-bd47-aba762dd9f14.xhtml)《从二进制文件提取数据》中首次介绍了`struct`，并且在处理二进制文件时多次使用它。因此，我们不会在本章重复`struct`的基础内容。
+- en: 'The goal of our `wal_crawler.py` script is to parse the content of the WAL
+    file, extract and write the cell content to a CSV file, and, optionally, run regular
+    expression modules against the extracted data. This script is considered more
+    advanced due to the complexity of the underlying object we''re parsing. However,
+    all we''re doing here is applying what we''ve learned in the previous chapters
+    at a larger scale:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的`wal_crawler.py`脚本的目标是解析WAL文件的内容，提取并将单元格内容写入CSV文件，并可选择性地对提取的数据运行正则表达式模块。由于我们正在解析的底层对象的复杂性，这个脚本被认为是更高级的。然而，我们在这里所做的，只是将之前章节中学到的知识应用于更大规模的任务：
+- en: '[PRE7]'
+  id: totrans-137
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'As with any script we''ve developed, in lines 1-11 we import all modules we''ll
+    use for this script. Most of these modules we''ve encountered before in the previous
+    chapters and are used in the same context. We''ll use the following modules:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与我们开发的任何脚本一样，在第1-11行我们导入了脚本中将使用的所有模块。我们在前几章中已经遇到过大部分这些模块，并且在相同的上下文中使用它们。我们将使用以下模块：
+- en: '`binascii`: This is used to convert data that''s read from the WAL file into
+    hexadecimal format'
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`binascii`：用于将从WAL文件读取的数据转换为十六进制格式'
+- en: '`tqdm`: This is used to create a simple progress bar'
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tqdm`：用于创建一个简单的进度条'
+- en: '`namedtuple`: This data structure from the collections module will simply be
+    the process of creating multiple dictionary keys and values when using the `struct.unpack()`
+    function'
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`namedtuple`：这个来自collections模块的数据结构，将在使用`struct.unpack()`函数时简化创建多个字典键和值的过程。'
+- en: 'The `main()` function will validate the WAL file input, parse the WAL file
+    header, and then iterate through each frame and process it with the `frame_parser()`
+    function. After all of the frames have been processed, the `main()` function optionally
+    runs the regular expression `regular_search()` function and writes the processed
+    data to a CSV file with the `csv_writer()` function:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main()`函数将验证WAL文件输入，解析WAL文件头部，然后遍历每一帧并使用`frame_parser()`函数处理它。所有帧处理完毕后，`main()`函数可选择运行正则表达式`regular_search()`函数，并通过`csv_writer()`函数将处理后的数据写入CSV文件：'
+- en: '[PRE8]'
+  id: totrans-143
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'The `frame_parser()` function parses each frame and executes further validation
+    by identifying the type of B-trees. There are four types of B-trees in a database:
+    `0x0D`, `0x05`, `0x0A`, and `0x02`. In this script, we''re only interested in
+    0x0D type frames and will not process the others. This is because `0x0D` B-trees
+    contain both the Row ID and payload, whereas other tree types contain one or the
+    other. After validating the frame, the `frame_parser()` function processes each
+    cell with the `cell_parser()` function.'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`frame_parser()` 函数解析每个帧，并通过识别 B-tree 类型执行进一步的验证。在数据库中有四种类型的 B-tree：`0x0D`、`0x05`、`0x0A`
+    和 `0x02`。在这个脚本中，我们只关注 0x0D 类型的帧，其他类型的帧将不进行处理。因为 `0x0D` 类型的 B-tree 同时包含行 ID 和负载，而其他类型的
+    B-tree 只包含其中之一。验证完帧后，`frame_parser()` 函数会通过 `cell_parser()` 函数处理每个单元格。'
+- en: The `cell_parser()` function is responsible for processing each cell and all
+    of its components, including the payload length, Row ID, payload header, and payload.
+    Both the `frame_parser()` and `cell_parser()` functions rely on various helper
+    functions to perform their tasks.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`cell_parser()` 函数负责处理每个单元格及其所有组件，包括负载长度、行 ID、负载头和负载。`frame_parser()` 和 `cell_parser()`
+    函数都依赖于各种辅助函数来完成它们的任务。'
+- en: 'The `dict_helper()` helper function returns `OrderedDictionary` from a tuple.
+    This function allows us to process and store struct results in a database on one
+    line. The `single_varint()` and `multi_varint()` functions are used to process
+    single and multiple varints, respectively. Finally, the `type_helper()` function
+    processes the serial type array and interprets the raw data into the appropriate
+    data types:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dict_helper()` 辅助函数从元组返回 `OrderedDictionary`。这个函数允许我们在一行中处理和存储结构结果到数据库中。`single_varint()`
+    和 `multi_varint()` 函数分别用于处理单个和多个 varint。最后，`type_helper()` 函数处理序列类型数组并将原始数据解释为适当的数据类型：'
+- en: '[PRE9]'
+  id: totrans-147
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'On line 483, we create our argument parser, specifying the required input values,
+    the WAL file and output directory, and optional input values, executing pre-built
+    or custom regular expressions and log output path. On lines 496 through 508, we
+    perform the same log setup that we used in the previous chapters:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 483 行，我们创建了参数解析器，指定了必需的输入值，包括 WAL 文件和输出目录，以及可选的输入值，执行预构建的或自定义的正则表达式和日志输出路径。在第
+    496 到 508 行，我们执行了与前几章相同的日志设置：
+- en: '[PRE10]'
+  id: totrans-149
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Before executing the `main()` function, we perform some sanity checks and validate
+    the supplied input. On line 510, we check and, optionally, create the output directory
+    if it doesn''t exist. Before executing the `main()` function, we validate the
+    input file by checking whether the input actually exists and whether it''s a file
+    by using the `os.path.exists()` and `os.path.isfile()` functions. Otherwise, we
+    write an error message to the console and log before exiting the program. Within
+    the `main()` function, we''ll further validate the WAL file:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在执行 `main()` 函数之前，我们进行一些基本检查并验证输入。第 510 行，我们检查并（可选）创建输出目录，如果它不存在的话。在执行 `main()`
+    函数之前，我们通过使用 `os.path.exists()` 和 `os.path.isfile()` 函数来验证输入文件，检查文件是否存在且是否为文件。否则，我们在退出程序之前，将错误信息写入控制台和日志中。在
+    `main()` 函数中，我们将进一步验证 WAL 文件：
+- en: '[PRE11]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'The following flow diagram highlights the interactions between the different
+    functions and illustrates how our code processes the WAL file:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下流程图突出显示了不同函数之间的交互，并展示了我们的代码如何处理 WAL 文件：
+- en: '![](img/1cfbf3b9-85d3-40b3-9327-d19012ae5730.png)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1cfbf3b9-85d3-40b3-9327-d19012ae5730.png)'
+- en: Understanding the main() function
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 `main()` 函数
+- en: 'This function is more complicated than our typical `main()` function and starts
+    to parse the WAL file rather than act as a controller for the script. In this
+    function, we will perform file validation, parse the WAL file header, identify
+    the number of frames in the file, and call the function to process those frames:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数比我们通常的 `main()` 函数复杂，它开始解析 WAL 文件，而不是作为脚本的控制器。在这个函数中，我们将执行文件验证，解析 WAL 文件头，识别文件中的帧数量，并调用函数处理这些帧：
+- en: '[PRE12]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'On line 70, we create the `wal_attributes` dictionary, which is the dictionary
+    that we''ll expand as we parse the WAL file. Initially, it stores the file size,
+    and two empty dictionaries for the file header and the frames. Next, we open the
+    input file in `rb` mode, or read binary mode, and read the first 32 bytes as the
+    file header. On line 79, we try to parse the header and add all of the keys and
+    their values to the header dictionary. This performs another sanity check as struct
+    will throw an error if the file is less than 32 bytes long. We use `>4s7i` as
+    our string to unpack the values pulling out a 4 byte string and seven 32-bit big-endian
+    integers (the endianness is specified by `>` in the format string):'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第70行，我们创建了`wal_attributes`字典，它是我们在解析WAL文件时会扩展的字典。初始时，它存储了文件大小，以及两个空字典分别用于文件头和帧。接下来，我们以`rb`模式（即二进制读取模式）打开输入文件，并读取前32个字节作为文件头。在第79行，我们尝试解析文件头，并将所有键及其值添加到文件头字典中。此操作执行了另一个有效性检查，因为如果文件小于32字节，struct会抛出错误。我们使用`>4s7i`作为我们的格式字符串，解析出一个4字节的字符串和七个32位大端整数（`>`在格式字符串中指定了字节序）：
+- en: '[PRE13]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Notice the use of the `dict_helper()` function. We'll explain how exactly this
+    function works in a later section, however, it allows us to parse the data read
+    from the WAL file with struct and return `OrderedDict`, which contain the key-value
+    pairs. This significantly cuts down the amount of code necessary to otherwise
+    add each value in the returned struct tuple to the dictionary.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意`dict_helper()`函数的使用。我们将在后续章节中解释这个函数的具体工作原理，但它允许我们使用struct解析从WAL文件中读取的数据，并返回包含键值对的`OrderedDict`。这大大减少了必须将返回的struct元组中的每个值添加到字典中的代码量。
+- en: 'After parsing the WAL header, we can compare the file magic, or signature,
+    against the known values. We use `binascii.hexlify` to convert the raw data into
+    hex. On line 92, we use an `if` statement to compare the `magic_hex` value. If
+    they don''t match, we stop program execution. If they do match, we note it in
+    the log and continue processing the WAL file:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在解析完WAL头后，我们可以将文件魔数或签名与已知值进行比较。我们使用`binascii.hexlify`将原始数据转换为十六进制。在第92行，我们使用`if`语句来比较`magic_hex`值。如果它们不匹配，我们停止程序执行。如果匹配，我们会在日志中记录，并继续处理WAL文件：
+- en: '[PRE14]'
+  id: totrans-161
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Using the file size, we can calculate the number of frames on line 103\. Note
+    that we need to account for the 32 byte WAL header and the 24-byte frame header
+    in addition to the page size within each frame:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用文件大小，我们可以在第103行计算帧的数量。请注意，我们需要考虑32字节的WAL头和24字节的帧头，以及每个帧内的页面大小：
+- en: '[PRE15]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'On line 111, we create our progress bar using `trange` from `tqdm` and begin
+    processing each frame. We first create an index key, represented by `x`, and an
+    empty dictionary for our frame on line 114\. This index will ultimately point
+    to the processed data for the frame. Next, we read the 24-byte frame header. On
+    line 116, we parse the six 32-bit big-endian integers from the header and add
+    the appropriate key-value pairs to the dictionary by calling our `dict_helper()`
+    function:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第111行，我们使用来自`tqdm`的`trange`创建进度条，并开始处理每一帧。我们首先在第114行创建一个索引键，表示为`x`，并为我们的帧创建一个空字典。这个索引最终会指向处理过的帧数据。接下来，我们读取24字节的帧头。在第116行，我们解析从帧头读取的六个32位大端整数，并通过调用我们的`dict_helper()`函数将适当的键值对添加到字典中：
+- en: '[PRE16]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'After parsing the frame header, we read the entire frame from our WAL file
+    on line 122\. We then pass this frame to the `frame_parser()` function, along
+    with the `wal_attributes` dictionary and `x`, which represents the index of the
+    current frame:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在解析完帧头之后，我们在第122行读取WAL文件中的整个帧。然后，我们将这个帧传递给`frame_parser()`函数，同时传入`wal_attributes`字典和`x`，后者表示当前帧的索引：
+- en: '[PRE17]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'The `frame_parser()` function calls other functions within it, rather than
+    return data and have `main()` call the next function. Once the parsing of the
+    WAL file has completed parsed, the main function calls the `regular_search()`
+    function if the user supplied the `m` or `r` switch and  calls the `csv_writer()`
+    function to write the parsed data out to a CSV file for review:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`frame_parser()`函数调用内部的其他函数，而不是返回数据并让`main()`调用下一个函数。一旦WAL文件的解析完成，主函数会在用户提供`m`或`r`开关的情况下调用`regular_search()`函数，并调用`csv_writer()`函数将解析后的数据写入CSV文件以供审查：'
+- en: '[PRE18]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Developing the frame_parser() function
+  id: totrans-170
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发`frame_parser()`函数
+- en: 'The `frame_parser()` function is an intermediate function that continues parsing
+    the frame, identifies the number of cells within the frame, and calls the `cell_parser()` function
+    to finish the job:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`frame_parser()`函数是一个中间函数，它继续解析帧，识别帧内的单元格数量，并调用`cell_parser()`函数完成解析工作：'
+- en: '[PRE19]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'As we described previously, the WAL page header is the first 8 bytes after
+    the frame header. The page header contains two 8-bit and three 16-bit big-endian
+    integers. In the struct string, `>b3hb`, `b` will parse the 8-bit integer and
+    `h` parses 16-bit integers. With this header parsed, we now know how many cells
+    are within the page:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，WAL页面头是帧头之后的前8个字节。页面头包含两个8位和三个16位的大端整数。在struct字符串中，`>b3hb`，`b`解析8位整数，`h`解析16位整数。解析了这个头之后，我们现在知道页面内有多少个单元格：
+- en: '[PRE20]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'On line 150, we check whether the type of the frame is `0x0D` (which, when
+    interpreted as a 16-bit integer, will have the value of 13). If the frame isn''t
+    of the appropriate type, we log this information and `pop()` the frame from the
+    dictionary before returning the function. We return the function so that it doesn''t
+    continue attempting to process a frame we have no interest in:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第150行，我们检查帧的类型是否为`0x0D`（该值在解释为16位整数时等于13）。如果帧不是适当类型，我们记录此信息，并在返回函数之前使用`pop()`从字典中移除该帧。我们返回函数，以防止继续处理我们不感兴趣的帧：
+- en: '[PRE21]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'Regardless, on line 156, we create a new nested dictionary called cells and
+    use it to keep track of our cells in the exact way we did with our frames. We
+    also print the number of identified cells per frame to provide feedback to the
+    user:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论如何，在第156行，我们创建了一个新的嵌套字典，名为cells，并用它来跟踪单元格，方式与我们跟踪帧的方式完全相同。我们还打印每个帧中识别到的单元格数量，以便向用户提供反馈：
+- en: '[PRE22]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Lastly, on line 161, we iterate over each cell and parse their offsets before
+    adding it to the dictionary. We know that *N* 2 byte cell offsets begin immediately
+    following the 8-byte page header. We use the start variable, calculated on line
+    162 for every cell, to identify the starting offset of the cell offset values:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在第161行，我们遍历每个单元格并解析它们的偏移量，然后将其添加到字典中。我们知道*N* 2字节单元格偏移量紧跟在8字节的页面头之后。我们使用第162行计算出的start变量来识别每个单元格的偏移量起始位置：
+- en: '[PRE23]'
+  id: totrans-180
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'On line 163, we create an index key and empty dictionary for our cell. We then
+    parse the cell offset with the `dict_helper()` function and store the contents
+    in the specific cell dictionary. Once the offset is identified, we call the `cell_parser()`
+    function to process the cell and its contents. We pass along the `wal_attributes`
+    dictionary, the `frame` and cell index, `x` and `y`, respectively, and the frame
+    data:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第163行，我们创建一个索引键和一个空字典来存储单元格。然后，我们使用`dict_helper()`函数解析单元格偏移量，并将内容存储到特定的单元格字典中。一旦偏移量被识别，我们调用`cell_parser()`函数来处理单元格及其内容。我们将`wal_attributes`字典、frame和单元格索引`x`和`y`，以及frame数据传递给它：
+- en: '[PRE24]'
+  id: totrans-182
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Processing cells with the cell_parser() function
+  id: totrans-183
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`cell_parser()`函数处理单元格
+- en: 'The `cell_parser()` function is the heart of our program. It''s responsible
+    for actually extracting the data stored within the cells. As we''ll see, varints
+    add another wrinkle to the code; however, for the most part, we''re still ultimately
+    parsing binary structures using struct and making decisions based on those values:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`cell_parser()`函数是我们程序的核心。它负责实际提取存储在单元格中的数据。正如我们将看到的，varints给代码增加了额外的复杂性；然而，大部分情况下，我们仍然是在使用struct解析二进制结构，并根据这些值做出决策：'
+- en: '[PRE25]'
+  id: totrans-185
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'Before we begin to parse the cells, we instantiate a few variables. The index
+    variable, which we created on line 183, is used to keep track of our current location
+    within the cell. Remember that we''re no longer dealing with the entire file itself
+    but a subset of it representing a cell. The frame variable is the page size amount
+    of data read from the database itself. For example, if the page size is 1,024,
+    then the frame variable is 1,024 bytes of data, which correspond to a page in
+    the database. The struct module requires that the data parsed is exactly the length
+    of the data types specified in the struct string. Because of these two facts,
+    we need to use string slicing to provide only the data we want to parse with struct:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始解析单元格之前，我们实例化几个变量。我们在第183行创建的index变量用于跟踪当前单元格的位置。请记住，我们不再处理整个文件，而是处理表示单元格的文件子集。frame变量是从数据库中读取的与页面大小相对应的数据量。例如，如果页面大小为1,024，那么frame变量就是1,024字节的数据，对应于数据库中的一个页面。struct模块要求解析的数据长度必须与struct字符串中指定的数据类型长度完全一致。基于这两个事实，我们需要使用字符串切片来提供仅我们想要解析的数据：
+- en: '[PRE26]'
+  id: totrans-187
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'On line 186, we create `cell_root`, which is essentially a shortcut to the
+    nested cell dictionary within the `wal_attributes` dictionary. This isn''t just
+    about being lazy; this helps with code readability and reduce the overall clutter
+    by referring to a variable that points to a nested dictionary rather than typing
+    it out each time. For the same reason, we create the `cell_offset` variable on
+    line 187:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 186 行，我们创建了 `cell_root`，它本质上是指向 `wal_attributes` 字典中嵌套单元字典的快捷方式。这不仅仅是为了懒惰；它有助于提高代码可读性，并通过引用指向嵌套字典的变量，减少每次都要打出完整路径的冗余。出于同样的原因，我们在第
+    187 行创建了 `cell_offset` 变量：
+- en: '[PRE27]'
+  id: totrans-189
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Starting on line 191, we encounter our first varint in the cell payload length.
+    This varint will dictate the overall size of the cell. To extract the varint,
+    we call the `single_varint()` helper function supplying it a 9 byte slice of data.
+    This function, which we will explain later, will check whether the first byte
+    is greater than or equal to 128; if so, it processes the second byte. In addition
+    to the varint, the `single_varint()` helper function also returns a count of how
+    many bytes the varint was made up of. This allows us to keep track of our current
+    position in the frame data. We use that returned index to parse the row ID varint
+    in a similar fashion:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从第 191 行开始，我们遇到了单元有效载荷长度中的第一个 varint。这个 varint 将决定单元的整体大小。为了提取这个 varint，我们调用
+    `single_varint()` 辅助函数，传入 9 字节的数据切片。这个函数，稍后我们将解释，会检查第一个字节是否大于或等于 128；如果是，它会处理第二个字节。除了
+    varint 外，`single_varint()` 辅助函数还会返回 varint 占用的字节数。这样，我们就可以跟踪当前在帧数据中的位置。我们使用返回的索引以类似的方式解析行
+    ID 的 varint：
+- en: '[PRE28]'
+  id: totrans-191
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'After processing the first two varints, we add the key-value pair to the `wal_attributes`
+    dictionary. On line 204, we update our index variable to maintain our current
+    position in the frame data. Next, we manually extract the 8-bit payload header
+    length value without the `dict_helper()` function. We do this for two reasons:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理完前两个 varint 后，我们将键值对添加到 `wal_attributes` 字典中。在第 204 行，我们更新了索引变量，以保持当前在帧数据中的位置。接下来，我们手动提取
+    8 位有效载荷头长度值，而不使用 `dict_helper()` 函数。我们这样做有两个原因：
+- en: We're only processing one value
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们只处理一个值
+- en: Setting `cell_root` equal to the output of `dict_helper()` was found to erase
+    all other keys in the individual cell nested dictionary described by `cell_root`,
+    which, admittedly, isn't ideal
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将 `cell_root` 设置为 `dict_helper()` 输出的结果，发现它会清除 `cell_root` 所描述的单元嵌套字典中的所有其他键，这显然不是理想的做法。
+- en: 'The following code block shows this functionality:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码块展示了此功能：
+- en: '[PRE29]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'After parsing the payload length, row ID, and payload header length, we can
+    now parse the serial types array. As a reminder, the serial types array contains
+    *N* varints that is headerlength, 1 bytes long. On line 210, we update the index
+    by 1 to account for the 1 byte header we parsed on line 205\. We then extract
+    all of the varints within the appropriate range by calling the `multi_varint()`
+    function. This function returns a tuple containing the list of serial types and
+    the current index. On lines 218 and 219, we update the `wal_attributes` and `index`
+    objects, respectively:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解析了有效载荷长度、行 ID 和有效载荷头长度后，我们现在可以解析序列类型数组。提醒一下，序列类型数组包含 *N* 个 varint，长度为 1 字节的
+    headerlength。在第 210 行，我们通过加 1 更新索引，以考虑在第 205 行解析的 1 字节头。接下来，我们通过调用 `multi_varint()`
+    函数提取位于适当范围内的所有 varint。该函数返回一个元组，包含序列类型列表和当前索引。在第 218 行和第 219 行，我们分别更新 `wal_attributes`
+    和 `index` 对象：
+- en: '[PRE30]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Once the serial types array has been parsed, we can begin to extract the actual
+    data stored in the cell. Recall that the cell payload is the difference between
+    the payload length and payload header length. This value calculated on line 224
+    is used to pass the remaining contents of the cell to the `type_helper()` helper
+    function, which is responsible for parsing the data:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦序列类型数组解析完毕，我们就可以开始提取单元中存储的实际数据。回想一下，单元有效载荷是有效载荷长度与有效载荷头长度之间的差值。第 224 行计算出的这个值用于将单元的其余内容传递给
+    `type_helper()` 辅助函数，后者负责解析数据：
+- en: '[PRE31]'
+  id: totrans-200
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: Writing the dict_helper() function
+  id: totrans-201
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 编写 `dict_helper()` 函数
+- en: 'The `dict_helper()` function is a one-line function, and is less than six lines
+    of documentation. It utilizes the `named_tuple` data structure, which is passed
+    in as the `keys` variable and calls the `_make()` and `_asdict()` functions to
+    create our ordered dictionary after struct parses the values:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dict_helper()` 函数是一个单行函数，且文档少于六行。它利用了 `named_tuple` 数据结构，`keys` 变量传入其中，并调用
+    `_make()` 和 `_asdict()` 函数，在结构体解析值后创建我们的有序字典：'
+- en: '[PRE32]'
+  id: totrans-203
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: As with most compact one-liners, it's possible to lose the meaning of the function
+    as readability starts to decrease when more functions are called in a single line.
+    We're going to introduce and use the built-in Python debugger to take a look at
+    what is going on.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与大多数紧凑的单行代码一样，当在一行中调用更多函数时，代码的可读性会降低，从而可能使函数的含义变得模糊。我们将在这里引入并使用内置的Python调试器，以便查看发生了什么。
+- en: The Python debugger – pdb
+  id: totrans-205
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Python调试器 – pdb
+- en: Python is great for a multitude of reasons, which we don't need to rehash now.
+    One excellent feature is a built-in debugging module called `pdb`. This module
+    is simple yet incredibly useful for identifying troublesome bugs or to simply
+    look at variables during execution. If you're using an IDE (highly recommended)
+    to develop your scripts, then chances are that there is already built-in debugging
+    support. However, if you develop your code in a simple text editor, have no fear;
+    you can always use `pdb` to debug your code.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Python有很多优点，我们现在不需要再赘述其中的细节。其中一个非常优秀的功能是内置的调试模块`pdb`。这个模块虽然简单，但在识别麻烦的bug或在执行过程中查看变量时非常有用。如果你使用的是集成开发环境（强烈推荐）来开发脚本，那么很可能已经内置了调试支持。然而，如果你在简单的文本编辑器中编写代码，不用担心；你依然可以使用`pdb`来调试你的代码。
+- en: In this instance, we're going to examine each component of `dict_helper()` to
+    fully understand the function. We aren't going to cover all of the uses and commands
+    of `pdb`. Instead, we'll illustrate through example, and for additional information,
+    you can refer to [https://docs.python.org/3/library/pdb.html](https://docs.python.org/3/library/pdb.html).
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们将检查`dict_helper()`的每个组件，以便充分理解这个函数。我们不会覆盖`pdb`的所有用法和命令，而是通过示例进行说明，若需要更多信息，可以参考[https://docs.python.org/3/library/pdb.html](https://docs.python.org/3/library/pdb.html)。
+- en: 'First, we need to modify the existing code and create a debug point in the
+    code that we want to examine. On line 240, we import `pdb` and call `pdb.set_trace()`
+    in one line:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要修改现有代码，并在希望检查的代码处创建一个调试点。在第240行，我们导入`pdb`并在同一行调用`pdb.set_trace()`：
+- en: '[PRE33]'
+  id: totrans-209
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: Using the semicolon allows us to separate multiple statements on a single line.
+    Normally, we wouldn't use this as it impacts readability. However, this is just
+    for testing and will be removed from the final code.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用分号可以让我们在一行中分隔多个语句。通常我们不会这样做，因为这会影响可读性。然而，这只是为了测试，最终代码中会去除这一部分。
+- en: 'Now, when we execute the code, we see the `pdb` prompt, as displayed in the
+    following screenshot. The `pdb` prompt is similar to the Python interpreter. We
+    can access current variables within scope, for example, `data`, `format`, and
+    `keys`. We can also create our own variables and execute simple expressions:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，当我们执行代码时，会看到`pdb`提示符，下面的截图显示了这一点。`pdb`提示符类似于Python解释器。我们可以访问当前作用域中的变量，例如`data`、`format`和`keys`。我们也可以创建自己的变量并执行简单的表达式：
+- en: '![](img/895f96de-2718-4051-975b-44a8046d6961.png)'
+  id: totrans-212
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/895f96de-2718-4051-975b-44a8046d6961.png)'
+- en: The first line of the `pdb` prompt contains the location of the file, the current
+    line within the file, and the current function being executed. The second line
+    is the next line of code that's about to be executed. The `Pdb` prompt has the
+    same significance as the `>>>` prompt in the Python interpreter, and is where
+    we can enter our own input.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pdb`提示符的第一行包含文件的位置、当前文件中的行号和正在执行的当前函数。第二行是即将执行的下一行代码。`Pdb`提示符与Python解释器中的`>>>`提示符具有相同的意义，是我们可以输入自己命令的地方。'
+- en: 'In this example, we''re parsing the file header as it''s the first time that
+    `dict_helper()` is called. If you recall, the struct string we used was `>4s7i`.
+    As we can see in the following example, `unpack()` returns a tuple of results.
+    However, we want to return a dictionary matching all of the values with their
+    associated keys so that we don''t have to perform this task manually:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们正在解析文件头，因为这是第一次调用`dict_helper()`。回忆一下，我们使用的结构字符串是`>4s7i`。正如我们在下面的示例中看到的，`unpack()`返回的是一个元组结果。然而，我们希望返回一个字典，将所有值与其相关的键匹配，以便不必手动执行此任务：
+- en: '[PRE34]'
+  id: totrans-215
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: 'Notice that `keys._make` creates an object with the appropriate field names
+    set for each value. It does this by associating the field names that were supplied
+    when we created the `keys` variable on line 41 to each value in the struct tuple:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，`keys._make`会创建一个对象，其中为每个值设置了适当的字段名称。它通过将我们在第41行创建`keys`变量时提供的字段名称与结构元组中的每个值相关联来实现这一点：
+- en: '[PRE35]'
+  id: totrans-217
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Finally, we can use `pdb` to verify that the `keys._asdict()` function converts
+    our `namedtuple` into an `OrderedDict`, which is what we return:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们可以使用`pdb`验证`keys._asdict()`函数是否将我们的`namedtuple`转换为`OrderedDict`，这也是我们返回的内容：
+- en: '[PRE36]'
+  id: totrans-219
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: Using `pdb` in this manner allows us to visualize the current state of variables
+    and execute functions individually. This is incredibly useful when your program
+    encounters an error on a particular function as you can execute line by line and
+    function by function until you identify the issue. We recommend you become familiar
+    with `pdb` as it expedites the debugging process and is much more effective than
+    using print statements for troubleshooting. Press q and *Enter* to exit `pdb`
+    and make sure always to remove debug lines from your final code.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以这种方式使用`pdb`可以帮助我们查看当前变量的状态，并逐个执行函数。当程序在某个特定函数中遇到错误时，这非常有用，因为你可以逐行和逐函数地执行，直到找到问题所在。我们建议你熟悉`pdb`，因为它能加速调试过程，并且比使用打印语句进行故障排除更有效。按下q和*Enter*退出`pdb`，并确保始终从最终代码中移除调试语句。
+- en: Processing varints with the single_varint() function
+  id: totrans-221
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用single_varint()函数处理varint
+- en: 'The `single_varint` function finds the first varint within the supplied data
+    and uses an index to keep track of its current position. When it finds the varint,
+    it returns the value along with the index. This tells the calling function how
+    many bytes the varint was and is used to update its own index:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`single_varint`函数在提供的数据中找到第一个varint，并使用索引跟踪其当前位置。当它找到varint时，它会返回该值以及索引。这告诉调用函数varint的字节数，并用于更新它自己的索引：'
+- en: '[PRE37]'
+  id: totrans-223
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'For this script, we''ve made a simplifying assumption that varints will never
+    be greater than 2 bytes. This is a simplifying assumption and won''t be appropriate
+    in all situations. This leaves two possible scenarios:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于此脚本，我们做了一个简化假设，即varint永远不会超过2个字节。这个假设是简化的，并不适用于所有情况。这有两个可能的情形：
+- en: The first byte has a decimal value less than 128
+  id: totrans-225
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个字节的十进制值小于128
+- en: The first byte is greater than or equal to 128
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个字节大于或等于128
+- en: 'Based on the outcome, one of the following two things will happen. If the byte
+    is greater than or equal to 128, the varint is 2 bytes long. Otherwise, it''s
+    only 1 byte in length. On line 256, we use the `ord()` function to convert the
+    value of the byte into an integer:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据结果，将会发生以下两种情况之一。如果字节大于或等于128，则varint长度为2字节。否则，长度为1字节。在第256行，我们使用`ord()`函数将字节的值转换为整数：
+- en: '[PRE38]'
+  id: totrans-228
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: 'If the value is greater than 128, we know that the second byte is also required
+    and must apply the following generic formula, where `x` is the first byte and
+    `y` is the second byte:'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果值大于128，我们知道第二个字节也是必需的，并且必须应用以下通用公式，其中`x`是第一个字节，`y`是第二个字节：
+- en: '[PRE39]'
+  id: totrans-230
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: 'We return this value after incrementing the index by 2:'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在将索引加2后返回这个值：
+- en: '[PRE40]'
+  id: totrans-232
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'If the first byte is less than 128, all we must do is return the byte''s integer
+    value and increment the index by 1:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果第一个字节小于128，我们只需返回该字节的整数值并将索引加1：
+- en: '[PRE41]'
+  id: totrans-234
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: Processing varints with the multi_varint() function
+  id: totrans-235
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用multi_varint()函数处理varint
+- en: 'The `multi_varint()` function is a looping function that repeatedly calls `single_varint()`
+    until there are no more varints in the supplied data. It returns a list of varints
+    and an index to the parent function. On lines 282 and 283, we initialize the list
+    of varints and set our local index variable to zero:'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`multi_varint()`函数是一个循环函数，它会重复调用`single_varint()`，直到提供的数据中没有更多的varint。它返回一个varint的列表和一个指向父函数的索引。在第282和283行，我们初始化了varint的列表，并将本地索引变量设置为零：'
+- en: '[PRE42]'
+  id: totrans-237
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: 'We use a `while` loop to execute until the length of data is equal to 0\. In
+    each loop, we call `single_varint()`, append the resulting varint to the list,
+    update the index, and shorten the data using string slicing. By executing line
+    293 with the size of the varint returned from the `single_varint()` function,
+    we can progressively shorten data until it has a length of 0\. Upon reaching this
+    point, we can be assured that we''ve extracted all varints in the string:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用`while`循环直到数据的长度为0。在每次循环中，我们调用`single_varint()`，将得到的varint附加到列表中，更新索引，并使用字符串切片缩短数据。通过执行第293行，使用`single_varint()`函数返回的varint大小，我们可以逐渐缩短数据，直到长度为0。到达这一点时，我们可以确认已经提取了字符串中的所有varint：
+- en: '[PRE43]'
+  id: totrans-239
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: Converting serial types with the type_helper() function
+  id: totrans-240
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用type_helper()函数转换序列类型
+- en: 'The `type_helper()` function is responsible for extracting the payload based
+    on the types of values in the data. While consisting of many lines of code, it''s
+    really no more than a series of conditional statements that, if one is `True`,
+    dictates how the data is processed:'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`type_helper()`函数负责根据数据中值的类型提取有效负载。尽管它由许多行代码组成，但实际上不过是一系列条件语句，如果某一条语句为`True`，则决定数据如何处理：'
+- en: '[PRE44]'
+  id: totrans-242
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'On lines 307 and 308, we create the list that will store the extracted payload
+    data and the index. The index is used to denote the current position within the
+    data. On line 313, we begin iterating over each serial type to check how each
+    should be processed:'
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第307行和308行，我们创建了一个列表，用来存储提取的有效负载数据和索引。索引用于表示数据中的当前位置。在第313行，我们开始遍历每种序列类型，检查每种类型应该如何处理：
+- en: '[PRE45]'
+  id: totrans-244
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: 'The first ten types are fairly straightforward. We''re using the serial types
+    table to identify the type of data and then using struct to unpack it. Some of
+    the types, such as 0, 8, and 9 are static and don''t require us to parse the data
+    or update our index value. Types 3 and 5 are data types that are not supported
+    by struct and require a different method of extraction. Let''s take a look at
+    both struct supported and unsupported types to ensure we understand what''s happening:'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前十种类型相对简单。我们使用序列类型表来识别数据类型，然后使用`struct`进行解包。某些类型，如0、8和9是静态的，不需要我们解析数据或更新索引值。类型3和5是`struct`不支持的数据类型，需要使用其他方法提取。让我们看一下支持和不支持的类型，确保我们理解发生了什么：
+- en: '[PRE46]'
+  id: totrans-246
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: We know from the serial types table that type 6 (on line 339) is a 64-bit big-endian
+    integer. The `q` character in struct parses 64-bit integers making our job relatively
+    simple. We must make sure to supply struct only with the data that makes up the
+    64-bit integer. We can do this by string slicing with the current index and stopping
+    after 8 bytes. Afterwards, we need to increment the index by 8, so the next type
+    is at the correct starting point.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从序列类型表中我们知道，类型6（第339行）是一个64位大端整数。`struct`中的`q`字符用于解析64位整数，这使得我们的工作相对简单。我们必须确保只将组成64位整数的数据传递给`struct`。我们可以通过使用当前索引的字符串切片，截取前8个字节来实现。之后，我们需要将索引递增8，以便下一个类型能够从正确的位置开始：
+- en: 'If struct doesn''t support the type of variable, such as is the case for type
+    3, a 24-bit integer, we need to extract the data in a more round-about fashion.
+    This requires us to use the `binascii.hexlify()` function to convert our data
+    string into hex. We then simply wrap the `int()` object constructor around the
+    hex to convert to its integer value. Notice that we need to specifically tell
+    the `int` function the base of the value being converted, which in this case is
+    base 16 as the value is in hexadecimal:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果`struct`不支持某个变量类型，比如类型3（一个24位整数），我们需要以更迂回的方式提取数据。这需要我们使用`binascii.hexlify()`函数将数据字符串转换为十六进制。然后，我们简单地将`int()`对象构造函数包裹在十六进制值上，将其转换为整数值。请注意，我们需要明确告诉`int`函数值转换的进制，在本例中是16进制，因为该值是十六进制的。
+- en: '[PRE47]'
+  id: totrans-249
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'For types 12 and 13, we must first identify the actual length of the value
+    by applying the appropriate equation. Next, we can simply append the extracted
+    string right into the `cell_data` list. We also need to increment the index by
+    the size of the calculated string:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于类型12和13，我们必须首先通过应用适当的公式来确定值的实际长度。接下来，我们可以将提取的字符串直接追加到`cell_data`列表中。我们还需要根据计算出的字符串大小递增索引：
+- en: '[PRE48]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'On line 363, we create an else case to catch any unexpected serial types and
+    print and log the error. After all types are processed, the `cell_data` list is
+    returned on line 368:'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第363行，我们创建了一个`else`分支来捕获任何意外的序列类型，并打印和记录错误。所有类型处理完毕后，`cell_data`列表会在第368行返回：
+- en: '[PRE49]'
+  id: totrans-253
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: Writing output with the csv_writer() function
+  id: totrans-254
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`csv_writer()`函数写入输出
+- en: 'The `csv_writer()` function is similar to most of our previous CSV writers.
+    A few special considerations need to be made due to the complexity of the data
+    being written to the file. Additionally, we''re only writing some of the data
+    out to a file and discarding everything else. Dumping the data out to a serialized
+    data structure, such as JSON, is left to the reader as a challenge. As with any
+    `csv_writer`, we create a list of our headers, open `csvfile`, create our writer
+    object, and write the headers to the first row:'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`csv_writer()`函数与我们之前的许多CSV写入器类似。由于写入文件的数据比较复杂，因此需要做一些特殊处理。此外，我们只将部分数据写入文件，其他数据会被丢弃。将数据转储到一个序列化的数据结构（如JSON）中留给读者作为挑战。像任何`csv_writer`一样，我们首先创建一个包含标题的列表，打开`csvfile`，创建写入对象，然后将标题写入第一行：'
+- en: '[PRE50]'
+  id: totrans-256
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'Because of our nested structure, we need to create two `for` loops to iterate
+    through the structure. On line 399, we check to see whether the cell actually
+    contained any data. We noticed during development that sometimes empty cells would
+    be generated and are discarded in the output. However, it might be relevant in
+    a particular investigation to include empty cells, in which case we''d remove
+    the conditional statements:'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们的结构是嵌套的，我们需要创建两个`for`循环来遍历该结构。在第399行，我们检查单元格是否实际包含任何数据。在开发过程中我们注意到，有时会生成空单元格并且它们会被丢弃在输出中。然而，在某些特定的调查中，可能需要包括空单元格，在这种情况下，我们将删除条件语句：
+- en: '[PRE51]'
+  id: totrans-258
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: If there is data, we calculate the `frame_offset` and `cell_offset` relative
+    to the beginning of the file. The offsets we parsed before were relative to the
+    current position within the file. This relative value wouldn't be very helpful
+    to an examiner who would have to backtrack to find where the relative offset position
+    starts.
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果有数据，我们计算相对于文件开头的`frame_offset`和`cell_offset`。我们之前解析的偏移量是相对于文件中当前位置的。这种相对值对于需要回溯以查找相对偏移位置的检查人员来说不会很有帮助。
+- en: 'For our frame offset, we need to add the file header size (32 bytes), the total
+    page size (frames * page size), and the total frame header size (frames * 24 bytes).
+    The cell offset is a little simpler and is the frame offset plus the frame header
+    size, and the parsed cell offset from the `wal_attributes` dictionary:'
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们的帧偏移，我们需要加上文件头大小（32字节）、总页大小（帧数 * 页大小）和总帧头大小（帧数 * 24字节）。单元格偏移则稍微简单些，是帧偏移加上帧头大小，再加上从`wal_attributes`字典中解析出的单元格偏移：
+- en: '[PRE52]'
+  id: totrans-261
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: 'Next, we create a list, `cell_identifiers`, on line 411, which will store the
+    row data to write. This list contains the frame number, `salt-1`, `salt-2`, `frame
+    offset`, cell number, `cell offset`, and the row ID:'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们在第411行创建一个列表`cell_identifiers`，用于存储要写入的行数据。该列表包含帧编号、`salt-1`、`salt-2`、`帧偏移`、单元格编号、`单元格偏移`和行ID：
+- en: '[PRE53]'
+  id: totrans-263
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'Finally, on line 418, we write the row along with the payload data to CSV file
+    writer:'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在第418行，我们将行数据和负载数据一起写入CSV文件：
+- en: '[PRE54]'
+  id: totrans-265
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: 'If the cell had no payload, then the continue block is executed and we proceed
+    to the next cell. Once the outer for loop finishes executing, that is, all frames
+    are written to the CSV, we flush any remaining buffered content to the CSV and
+    close the handle on the file:'
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果单元格没有负载，则执行继续块并进入下一个单元格。一旦外层的`for`循环执行完成，也就是所有的帧已写入CSV文件，我们将刷新所有剩余的缓冲内容到CSV，并关闭文件句柄：
+- en: '[PRE55]'
+  id: totrans-267
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'An example of the CSV output that might be generated from a WAL file is captured
+    in the following screenshot:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从WAL文件生成的CSV输出示例在下图中可以看到：
+- en: '![](img/2d0ccd6f-5e13-4dda-b226-5dfba4669ac0.png)'
+  id: totrans-269
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2d0ccd6f-5e13-4dda-b226-5dfba4669ac0.png)'
+- en: Using regular expression in the regular_search() function
+  id: totrans-270
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在`regular_search()`函数中使用正则表达式
+- en: 'The `regular_search()` function is an optional function. If the user supplies
+    the `-m` or `-r` switches, the function is executed. This function uses regular
+    expressions to identify relevant information within the WAL file and, if identified,
+    print the data to the Terminal:'
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`regular_search()`函数是一个可选函数。如果用户提供了`-m`或`-r`开关，则会执行该函数。该函数使用正则表达式在WAL文件中识别相关信息，并且如果识别到，则将数据打印到终端：'
+- en: '[PRE56]'
+  id: totrans-272
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: We'll use a dictionary that contains the regular expression patterns to run.
+    This will make it easy to identify what category of expression, that is, URL or
+    phone number, had a match and print that with the data to provide context.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用一个包含正则表达式模式的字典来运行。这将使得识别哪个类别的表达式（例如URL或电话号码）与数据匹配并打印出来提供上下文变得更加容易。
+- en: 'First, we must identify which switches were specified by the user. If only
+    `args.r` was specified, then we only need to create the regexp dictionary with
+    the supplied custom regular expression. Because either `args.r` or `args.m` were
+    supplied to even reach this function, we know that if the first `if` is `False`,
+    then at least `args.m` must have been supplied:'
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们必须识别用户指定的开关。如果仅指定了`args.r`，那么我们只需要使用提供的自定义正则表达式创建正则字典。因为`args.r`或`args.m`至少有一个是提供的才能进入此函数，所以如果第一个`if`为`False`，那么至少`args.m`必须已被提供：
+- en: '[PRE57]'
+  id: totrans-275
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: 'If that''s the case, we need to build our regexp dictionary containing our
+    regular expression patterns. By default, we have included our credit card and
+    phone number examples from before, along with the patterns for SSNs, URLs, and
+    IP addresses. Additionally, on line 452, we need to check for the scenario where
+    both `args.r` and `args.m` were passed. If they were, we add the custom expression
+    to our dictionary, which already contains the `args.m` expressions:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果是这种情况，我们需要构建包含正则表达式模式的正则表达式字典。默认情况下，我们已经包括了之前的信用卡和电话号码示例，以及 SSN、URL 和 IP 地址的模式。此外，在第
+    452 行，我们需要检查是否同时传递了`args.r`和`args.m`。如果传递了，我们将自定义表达式添加到我们的字典中，该字典已经包含了`args.m`表达式：
+- en: '[PRE58]'
+  id: totrans-277
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: 'For each expression in our dictionary, we need to compile it before we can
+    use the match function. As we compile each expression, we use several more loops
+    to walk through the `wal_attributes` dictionary and check each cell for any matches:'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的字典中，对于每个表达式，我们需要在使用匹配函数之前进行编译。当我们编译每个表达式时，我们会使用更多的循环来遍历`wal_attributes`字典，并检查每个单元格是否存在匹配项：
+- en: '[PRE59]'
+  id: totrans-279
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: Starting with lines 457, we create a triple `for` loop to get at each individual
+    piece of data. In `csv_writer()`, we only used two `for` loops because we didn't
+    need to interact with each data point. However, in this case, we need to do this
+    to successfully identify matches using regular expressions.
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从第 457 行开始，我们创建了一个三重`for`循环来获取每个数据点。在`csv_writer()`中，我们只使用了两个`for`循环，因为我们不需要与每个数据点交互。然而，在这种情况下，我们需要这样做才能成功地使用正则表达式识别匹配项。
+- en: 'Notice the try and except wrapped around the match function. The match function
+    expects a string or buffer. It will error out if it tries to match the expression
+    to an integer. So, we decided to catch the error and, if encountered, skip to
+    the next piece of data. We could have also solved the issue by casting the datum
+    as a string using the `str()` function:'
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，match 函数周围的 try 和 except。match 函数期望一个字符串或缓冲区。如果它尝试将表达式匹配到一个整数时，它会出错。因此，我们决定捕获这个错误，并在遇到错误时跳到下一个数据点。我们也可以通过使用`str()`函数将数据转换为字符串来解决这个问题：
+- en: '[PRE60]'
+  id: totrans-282
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: Executing wal_crawler.py
+  id: totrans-283
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 执行 wal_crawler.py
+- en: 'Now that we''ve written the script, it''s time to actually run it. The simplest
+    way of doing so is to supply the input WAL file and output directory:'
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经编写了脚本，接下来是实际运行它。最简单的方式是提供输入 WAL 文件和输出目录：
+- en: '![](img/c332e006-70b9-4b05-8499-dc3475e4481e.png)'
+  id: totrans-285
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c332e006-70b9-4b05-8499-dc3475e4481e.png)'
+- en: 'Optionally, we can use the `-m` or `-r` switches to engage the regular expression
+    module. The following screenshot shows an example of what the regular expression
+    output looks like:'
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可选地，我们可以使用`-m`或`-r`开关来启用正则表达式模块。以下截图显示了正则表达式输出的示例：
+- en: '![](img/90a83c10-f0ab-42df-ad96-3b74ac7b7889.png)'
+  id: totrans-287
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/90a83c10-f0ab-42df-ad96-3b74ac7b7889.png)'
+- en: Note that, when supplying a custom regular expression to run with the `-r` switch,
+    surround the expression with double quotes. If you fail to do so, you might encounter
+    an error due to havoc that was wreaked by the special characters in the regular
+    expression.
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在通过`-r`开关提供自定义正则表达式时，请用双引号将表达式括起来。如果没有这样做，由于正则表达式中的特殊字符引发的混乱，可能会遇到错误。
+- en: Challenge
+  id: totrans-289
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 挑战
+- en: There are a few directions in which we could take this script. As we've already
+    mentioned, there's a great deal of potentially useful data that we aren't writing
+    out to a file. It might be useful to store the entire dictionary structure in
+    a JSON file so that others can easily import and manipulate the data. This would
+    allow us to utilize the parsed structure in a separate program and create additional
+    reports from it.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本有几个可能的发展方向。正如我们之前提到的，有大量潜在有用的数据我们并没有写入文件。将整个字典结构存储到一个 JSON 文件中可能会很有用，这样其他人可以轻松导入并操作数据。这将允许我们在一个单独的程序中利用解析后的结构，并从中创建额外的报告。
+- en: Another useful feature we could develop is a timeline report or graphic for
+    the user. This report would list the current contents of each record and then
+    show a progression from the current contents of the records to their older versions
+    or even non-existing records. A tree-diagram or flowchart might be a good means
+    of visualizing change for a particular database record.
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以开发的另一个有用功能是为用户提供时间线报告或图形。该报告会列出每个记录的当前内容，然后显示从当前记录内容到其旧版本甚至不存在的记录的演变过程。树形图或流程图可能是可视化特定数据库记录变化的一个好方法。
+- en: Finally, add in a function that supports processing of varint that can be greater
+    than 2 bytes. In our script, we made a simplifying assumption that we were unlikely
+    to encounter a varint greater than 2 bytes. However, it isn't impossible to encounter
+    a larger varint and so it may be worthwhile adding in this functionality.
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，添加一个支持处理大于2字节的变长整数（varint）的功能。在我们的脚本中，我们做出了一个简化假设，认为不太可能遇到大于2字节的变长整数。然而，遇到更大变长整数并非不可能，因此可能值得添加这个功能。
+- en: Summary
+  id: totrans-293
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we learned the forensic significance of a WAL file and how
+    to parse it. We also briefly touched on how to use regular expressions in Python
+    with the `re` module to create generic search patterns. Lastly, we utilized the
+    `tqdm` module to create a progress bar in one line of code. The code for this
+    project can be downloaded from GitHub or Packt, as described in the *Preface*.
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们学习了WAL文件的取证意义以及如何解析它。我们还简要介绍了如何在Python中使用`re`模块通过正则表达式创建通用的搜索模式。最后，我们利用`tqdm`模块通过一行代码创建了一个进度条。该项目的代码可以从GitHub或Packt下载，如*前言*所述。
+- en: In the next chapter, we'll be combining our knowledge from this entire book
+    into a single framework. We'll design a framework that allows for basic pre-processing
+    of common artifacts that we've covered. We'll demonstrate the framework design
+    and development process and reveal the framework you've been secretly building
+    throughout this book.
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将把本书中所学的所有知识结合成一个框架。我们将设计一个框架，用于对我们已经涵盖的常见数据进行基本的预处理。我们将展示框架设计和开发过程，并揭示你在本书中默默构建的框架。

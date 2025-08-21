@@ -1,0 +1,1142 @@
+- en: Macro Instructions
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 宏指令
+- en: Using Assembly language for the implementation of your ideas is fun (I surely
+    have said that already and, probably, even more than once). However, it may become
+    quite annoying when it comes to certain operations, which have to be re-implemented
+    in different parts of your program. One possible solution may be implementing
+    those operations in the form of a procedure and calling it when needed. However,
+    this may quickly become a nuisance as well, once you have a procedure; which receives
+    more than zero parameters. While in high-level languages you simply "pass" the
+    parameters to a function, in Assembly, you have to actually pass them to a procedure
+    in accordance with the calling convention of your choice, which, in turn, may
+    imply additional headache with management of registers (if parameters are passed
+    via certain registers) or accessing the stack. Sometimes, this complication is
+    worth it, but that is not always the case, especially when it comes to a short
+    set of recurring instructions. This is exactly the case where macro instructions
+    may save us from a lot of headaches and redundant efforts, not to mention the
+    amount of CPU time spent on calls (parameter preparations and procedure prolog
+    and epilog), tiny fractions of a millisecond which may, at the end, aggregate
+    into quite substantial delays.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用汇编语言实现你的思想很有趣（我肯定已经说过这个了，而且可能还不止一次）。然而，当涉及到某些操作时，它可能变得相当烦人，因为这些操作必须在程序的不同部分重新实现。一种可能的解决方法是将这些操作实现为一个过程，并在需要时调用它。然而，一旦你有了一个过程，并且它接收超过零个参数，这个方法也可能很快变得令人烦恼。在高级语言中，你只需"传递"参数给一个函数，而在汇编中，你必须根据所选择的调用约定实际将它们传递给一个过程，这反过来可能带来更多的麻烦，尤其是在寄存器管理（如果参数通过特定寄存器传递）或访问栈的过程中。有时候，这种复杂性是值得的，但并非总是如此，尤其是当涉及到一组简短的重复指令时。这正是宏指令可以帮助我们避免许多麻烦和冗余工作的地方，更不用说调用时消耗的
+    CPU 时间（参数准备、过程的序言和尾声），这些微小的毫秒分数，最终可能会累计成相当可观的延迟。
+- en: 'In this chapter, we will cover the following:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们将覆盖以下内容：
+- en: Macro instructions and the mechanisms behind them
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 宏指令及其背后的机制
+- en: How macro instructions may be parameterized
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 宏指令如何参数化
+- en: Learning variadic macro instructions and power thereof
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 学习可变宏指令及其威力
+- en: Getting acquainted with common calling conventions
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 了解常见的调用约定
+- en: Examining additional assembler directives and conditional assembly
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 审视额外的汇编指令和条件汇编
+- en: All of this is essential for our future work with this book, as the methods
+    and algorithms we will explore would be too cumbersome otherwise.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有这些对于我们未来与本书的工作至关重要，因为我们将要探讨的方法和算法如果不使用这些方法，将会变得非常繁琐。
+- en: What are macro instructions?
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 什么是宏指令？
+- en: First of all, before we submerge into the world of macro instructions, we have
+    to understand what they actually are. Putting it the simplest way, macro instructions
+    are aliases for sequences of instructions. You may be familiar with the term from
+    high-level languages ( we say "may be" because not all high-level languages implement
+    this feature), but we'll still explain it here. Remember the following sequence
+    from the previous chapter?
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，在我们深入宏指令的世界之前，我们必须了解它们到底是什么。简单来说，宏指令是指令序列的别名。你可能熟悉这个术语，它在高级语言中出现过（我们说"可能"是因为并不是所有高级语言都实现了这一特性），但我们还是会在这里解释一下。记得上一章中的以下序列吗？
+- en: '[PRE0]'
+  id: totrans-11
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'This sequence loads all four singles of an XMM register (in this specific case,
+    it was XMM3) with a single precision floating point value from memory pointed
+    by `dpy`. We used such sequences several times in our code, so it would be natural
+    to try and replace it with a single macro instruction. Thus, defining the following
+    macro would make our code look more elegant and readable:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个序列将一个 XMM 寄存器的所有四个单精度浮点数值（在这个特定情况下是 XMM3）从 `dpy` 指向的内存中加载。我们在代码中多次使用了这种序列，因此，将其替换为一个宏指令是非常自然的。这样，定义以下宏将使我们的代码看起来更加优雅和可读：
+- en: '[PRE1]'
+  id: totrans-13
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'We use it in our code like this:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在代码中像这样使用它：
+- en: '[PRE2]'
+  id: totrans-15
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: This would make the code look more elegant and much more readable.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样会使代码看起来更优雅，也更具可读性。
+- en: 'Parentheses are a great feature of FASM and are present neither in MASM nor
+    in GAS. Instead, you would write the following code for MASM:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 括号是 FASM 的一个很棒的特性，而在 MASM 和 GAS 中则没有这个特性。相反，在 MASM 中，你将写出如下代码：
+- en: '`MACRO macro_name`'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`MACRO macro_name`'
+- en: '`; macro body`'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`; 宏体`'
+- en: '`ENDM`'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`ENDM`'
+- en: 'And the following code for GAS:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以及下面这段 GAS 代码：
+- en: '`.macro macro_name`'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`.macro macro_name`'
+- en: '`; macro_body`'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`; 宏体`'
+- en: '`` `.endm` ``'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`` `.endm` ``'
+- en: How it works
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的
+- en: The logic behind macro instructions is quite simple. The preprocessor parses
+    the code for the definitions of macro instructions and stores them, simply speaking,
+    in the form of a dictionary, where the name of the macro instruction is the key
+    and its content is the value. Of course, in reality, it is more complicated, as
+    macro instructions may have (and most of the time, they do have) parameters, not
+    to mention the fact that they may also be variadic (have an undefined number of
+    parameters).
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 宏指令的逻辑相当简单。预处理器解析代码中的宏指令定义，并将其存储，简而言之，就像一个字典，其中宏指令的名称是键，它的内容是值。当然，实际上更为复杂，因为宏指令可能有（而且大多数情况下都有）参数，更不用说它们可能还是可变的（即具有未定义数量的参数）。
+- en: 'When the assembler processes the code and encounters unknown instructions,
+    it checks this dictionary for a macro instruction with the corresponding name.
+    Once such an entry is found, the assembler replaces the macro instruction with
+    its value--expands macro. Consider that the assembler sees the following:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当汇编器处理代码并遇到未知的指令时，它会检查这个字典，以查找具有相应名称的宏指令。一旦找到这样的条目，汇编器就会用其值替换宏指令——即扩展宏。考虑到汇编器看到如下内容：
+- en: '[PRE3]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Then, it refers to the collected macro instruction definitions and replaces
+    this line with the actual code:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，它会参考收集到的宏指令定义，并将这一行替换为实际的代码：
+- en: '[PRE4]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: If the assembler finds no relevant macro definition, we are notified of this
+    via the error reporting mechanism.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果汇编器找不到相关的宏定义，错误报告机制会通知我们。
+- en: Macro instructions with parameters
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 带参数的宏指令
+- en: 'Although you definitely can define a macro instruction that receives no parameters
+    at all, you would rarely need to do this. Most of the time, you would define macro
+    instructions that need at least one parameter. Let us take, for example, a macro
+    instruction that implements the procedure prolog:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然你完全可以定义一个不接收任何参数的宏指令，但你很少需要这样做。大多数情况下，你会定义需要至少一个参数的宏指令。以实现过程前言的宏指令为例：
+- en: '[PRE5]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'The `frameSize` property in the preceding macro instruction is a macro parameter
+    which, in this case, is used to specify the size of the stack frame in bytes.
+    The usage of such a macro instruction would be as follows:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述宏指令中的 `frameSize` 属性是一个宏参数，在此示例中，用于指定栈帧的大小（以字节为单位）。使用此类宏指令的方法如下：
+- en: '[PRE6]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The preceding code is logically equivalent to (and is expanded by the preprocessor
+    into) the following:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码在逻辑上等价于（并且会被预处理器展开为）以下内容：
+- en: '[PRE7]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'In addition, we may define the `return` macro, which would implement the destruction
+    of the stack frame and return from the procedure:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还可以定义 `return` 宏，它实现栈帧的销毁并从过程返回：
+- en: '[PRE8]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'This would make our procedure even shorter:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将使我们的过程更加简短：
+- en: '[PRE9]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Here, the `return` macro is also a good example of parameterless macro instruction.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，`return` 宏也是一个很好的无参数宏指令示例。
+- en: Variadic macro instructions
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 可变宏指令
+- en: In certain cases, we do not know how many parameters would be passed to the
+    same macro instruction used in different places in our code, and FASM provides
+    a great and easy solution for such a problem--support for variadic macro instructions.
+    The term *variadic* means that an operator, a procedure, or a macro can take a
+    varying number of operands/parameters.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，我们不知道同一个宏指令在不同地方被调用时会传递多少个参数，而 FASM 为这样的问题提供了一个非常好且简单的解决方案——支持可变宏指令。术语*可变*意味着一个操作符、过程或宏可以接受不同数量的操作数/参数。
+- en: 'Syntactically, variadic macro instructions are very simple. We begin with the
+    macro keyword, then the name of the macro followed by a comma-separated list of
+    parameters, if any. The variadic portion of the list of parameters is enclosed
+    in square brackets. For example, should we have a macro instruction that expands
+    to the `printf()` function or invokes it, and we want it to have a similar declaration,
+    then the macro declaration would start like this:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从语法上看，可变宏指令非常简单。我们以宏关键字开始，然后是宏的名称，后跟一个逗号分隔的参数列表（如果有的话）。参数列表中的可变部分用方括号括起来。例如，如果我们有一个宏指令，它扩展为
+    `printf()` 函数或调用它，并且我们希望它具有类似的声明，那么宏声明会像这样开始：
+- en: '[PRE10]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Here, `fmt` stands for the format argument of the `printf()` function and `args`
+    represents all optional parameters.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，`fmt` 代表 `printf()` 函数的格式参数，`args` 表示所有可选的参数。
+- en: 'Let''s consider a very simple example of the reworked `prolog` macro, which,
+    in addition to the size of a stack frame, receives the list of registers that
+    need to be stored on the stack as they would be altered in the body of a procedure:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑一个非常简单的`prolog`宏重构例子，除了堆栈帧的大小，它还接收一个寄存器列表，这些寄存器需要在过程体内被修改，因此需要保存在栈上：
+- en: '[PRE11]'
+  id: totrans-50
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: Here, you've definitely noticed the `common` and `forward` keywords, which are
+    essential for the correctness of the expansion of this macro instruction. The
+    interesting feature of variadic macro instructions is that the content thereof
+    is expanded for each and every variadic parameter (parameters specified in square
+    brackets). As the creation of the stack frame after each and every register (specified
+    by the `regs` parameter) is pushed onto stack would look weird, we have to instruct
+    the preprocessor to expand a specific portion of the macro instruction only once,
+    and this is what the `common` keyword does.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，你一定注意到了`common`和`forward`关键字，它们对于宏指令展开的正确性至关重要。变参宏指令的一个有趣特点是，它的内容会针对每一个变参（用方括号指定的参数）展开。由于在每次将寄存器（由`regs`参数指定）压入栈之后创建堆栈帧会显得很奇怪，因此我们必须指示预处理器只展开宏指令的特定部分一次，这正是`common`关键字的作用。
+- en: 'The `forward` keyword (and its counterpart, the `reverse` keyword) instructs
+    the preprocessor about the order the variadic parameters should be processed in.
+    The line `push regs` expands into the `push` instruction for each parameter specified
+    in `regs` and the preceding `forward` keyword instructs the preprocessor to process
+    parameters in exactly the order they were written in. For example, consider the
+    following code:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`forward`关键字（及其对应的`reverse`关键字）指示预处理器应该按照何种顺序处理变参。`push regs`这一行会展开为`push`指令，针对`regs`中指定的每个参数，前置的`forward`关键字指示预处理器按它们写入的顺序处理参数。例如，考虑以下代码：'
+- en: '[PRE12]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'This piece of code would expand to the following:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码会展开为以下内容：
+- en: '[PRE13]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Let''s apply proper fixes to the `return` macro instruction for the sake of
+    completeness:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了完整性，让我们对`return`宏指令进行适当的修复：
+- en: '[PRE14]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Here, for the sake of an example, we use the `reverse` keyword, as we specify
+    registers that should be retrieved from stack in exactly the same order in which
+    they were passed to the `prolog` macro instruction. The procedure would then look
+    like this:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，为了举例，我们使用`reverse`关键字，因为我们指定了应该从栈中以完全相同的顺序恢复寄存器，这些寄存器在传递给`prolog`宏指令时的顺序。然后，过程会像这样：
+- en: '[PRE15]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: An introduction to calling conventions
+  id: totrans-60
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调用约定简介
+- en: When writing code in Assembly language, it's preferable to stick to certain
+    calling conventions (the way parameters are passed to procedures) when invoking
+    procedures because, first of all, this minimizes the occurrence of annoying and
+    hard to find errors and, of course, help you link your Assembly modules to high-level
+    languages. There are quite a few calling conventions for Intel Architecture, but
+    we will only consider some of them, which we will use later in this book.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编写汇编语言代码时，调用过程时最好遵循一定的调用约定（参数传递给过程的方式），因为首先，这样可以最小化烦人的且难以查找的错误的发生，当然，也能帮助你将汇编模块与高级语言链接起来。对于Intel架构来说，有很多种调用约定，但我们只会考虑其中一些，稍后将在本书中使用。
+- en: We already know about procedures and we have even mentioned the term "calling
+    convention" in the previous chapter, so you may wonder why it is now that we cover
+    the mechanism itself. The answer is quite simple--invocation of a procedure is
+    a process that requires certain preparations, and, as such preparations would
+    logically be the same with every procedure call, it is obvious to implement these
+    preparations in the form of macro instruction.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经了解了过程，并且在上一章中提到过“调用约定”这一术语，因此你可能会想，为什么现在才介绍这一机制。答案很简单——调用过程是一个需要某些准备的过程，而这些准备在每次过程调用时都应该是相同的，因此显然可以将这些准备以宏指令的形式实现。
+- en: 'First, let''s see the calling conventions that we will cover in this part of
+    the chapter:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，让我们看看本章中我们将涵盖的调用约定：
+- en: '![](img/ecf71298-a12a-4430-a2ad-7667c82a00a0.png)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ecf71298-a12a-4430-a2ad-7667c82a00a0.png)'
+- en: cdecl (32-bit)
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: cdecl（32位）
+- en: The `cdecl` calling convention is the standard convention in C and C++ high-level
+    languages. Parameters are stored on a stack with the rightmost parameter pushed
+    onto stack first and the leftmost parameter pushed onto stack last. It is the
+    caller's responsibility to restore the stack once it regains control.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`cdecl` 调用约定是C和C++高级语言中的标准约定。参数存储在栈上，最右边的参数首先压入栈中，最左边的参数最后压入栈中。恢复栈是调用者的责任，调用者在控制权返回时需要恢复栈。'
+- en: 'The simplest macro that emulates the `cdecl` procedure invocation would be
+    as follows:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 模拟 `cdecl` 调用过程的最简单宏如下：
+- en: '[PRE16]'
+  id: totrans-68
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: The `if` clauses here are self-explanatory; however, you may simply ignore them
+    for now as they will be covered a bit later in this chapter.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的 `if` 语句是自解释的；不过，你可以暂时忽略它们，因为它们将在本章稍后部分进行讲解。
+- en: stdcall (32-bit)
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: stdcall（32位）
+- en: 'The `stdcall` calling convention is almost identical to `cdecl` in that parameters
+    are passed on to the stack in the same manner--the rightmost is pushed first and
+    leftmost is pushed last. The only difference is that the caller does not have
+    to take care of stack cleanup:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`stdcall` 调用约定几乎与 `cdecl` 相同，参数以相同的方式传递到栈中——最右边的参数最先被压入栈中，最左边的参数最后被压入栈中。唯一的区别是调用者无需处理栈的清理：'
+- en: '[PRE17]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Let''s consider a simple example that uses both the calling conventions:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑一个同时使用两种调用约定的简单示例：
+- en: '[PRE18]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'While all is clear with the `cdecl_proc` and `stdcall_proc` procedures, let''s
+    take a closer look at what the `main` procedure expands to:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 `cdecl_proc` 和 `stdcall_proc` 过程都很清楚，但让我们更仔细地看一下 `main` 过程展开后的情况：
+- en: '[PRE19]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'In the preceding example, the `stdcall` macro invocation also illustrates what
+    happens when there is more than one parameter--the rightmost parameter is pushed
+    first. Such mechanisms allow easier and more intuitive addressing of parameters
+    within the function. Given the nature of a stack frame, we could access them as
+    follows:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，`stdcall` 宏调用还展示了当有多个参数时发生的情况——最右边的参数最先被压入栈中。这种机制使得在函数内部更容易、更直观地访问参数。鉴于栈帧的性质，我们可以这样访问它们：
+- en: '[PRE20]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'We are using an EBP register as the base pointer. The first (leftmost) parameter
+    is located at offset `8` from the value stored in EBP, as the procedure''s return
+    address and the previously pushed value of EBP register occupy exactly 8 bytes.
+    The following table shows the content of the stack after the creation of the stack
+    frame:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用EBP寄存器作为基指针。第一个（最左边的）参数位于EBP存储值偏移量`8`的位置，因为过程的返回地址和先前压入的EBP寄存器值正好占用了8个字节。下表展示了栈帧创建后的栈内容：
+- en: '| **Offset from EBP** | **Content** |'
+  id: totrans-80
+  prefs: []
+  type: TYPE_TB
+  zh: '| **从EBP偏移量** | **内容** |'
+- en: '| +12 | rightmost parameter (32) |'
+  id: totrans-81
+  prefs: []
+  type: TYPE_TB
+  zh: '| +12 | 最右边的参数（32） |'
+- en: '| +8 | leftmost parameter (128) |'
+  id: totrans-82
+  prefs: []
+  type: TYPE_TB
+  zh: '| +8 | 最左边的参数（128） |'
+- en: '| +4 | procedure return address |'
+  id: totrans-83
+  prefs: []
+  type: TYPE_TB
+  zh: '| +4 | 过程返回地址 |'
+- en: '| EBP points here | previous value of EBP |'
+  id: totrans-84
+  prefs: []
+  type: TYPE_TB
+  zh: '| EBP指向此处 | EBP的上一个值 |'
+- en: '| -4 | first stack frame variable |'
+  id: totrans-85
+  prefs: []
+  type: TYPE_TB
+  zh: '| -4 | 第一个栈帧变量 |'
+- en: '| .... | other stack frame variables |'
+  id: totrans-86
+  prefs: []
+  type: TYPE_TB
+  zh: '| .... | 其他栈帧变量 |'
+- en: '| .... | saved registers |'
+  id: totrans-87
+  prefs: []
+  type: TYPE_TB
+  zh: '| .... | 保存的寄存器 |'
+- en: '| ESP points here | current stack position |'
+  id: totrans-88
+  prefs: []
+  type: TYPE_TB
+  zh: '| ESP指向此处 | 当前栈位置 |'
+- en: Microsoft x64 (64-bit)
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Microsoft x64（64位）
+- en: 'Microsoft uses its own calling convention in the 64-bit mode (long mode) using
+    a mixed register/stack paradigm for passing procedure parameters. This means that
+    only the first four parameters may be passed via registers and the rest (if any)
+    should be pushed onto the stack. The following table illustrates which registers
+    are used and in what manner:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Microsoft在64位模式（长模式）下使用自己的调用约定，通过混合寄存器/栈的方式传递过程参数。这意味着只有前四个参数可以通过寄存器传递，其余的（如果有的话）应该压入栈中。以下表格展示了哪些寄存器被使用以及如何使用：
+- en: '| **Parameter index** **(zero based)** | **Integer/pointer** | **Floating point**
+    |'
+  id: totrans-91
+  prefs: []
+  type: TYPE_TB
+  zh: '| **参数索引** **（从零开始）** | **整数/指针** | **浮点数** |'
+- en: '| 0 | RCX | XMM0 |'
+  id: totrans-92
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | RCX | XMM0 |'
+- en: '| 1 | RDX | XMM1 |'
+  id: totrans-93
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1 | RDX | XMM1 |'
+- en: '| 2 | R8 | XMM2 |'
+  id: totrans-94
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2 | R8 | XMM2 |'
+- en: '| 3 | R9 | XMM3 |'
+  id: totrans-95
+  prefs: []
+  type: TYPE_TB
+  zh: '| 3 | R9 | XMM3 |'
+- en: 'All of this looks quite clear, yet there are two things that we need to pay
+    special attention to:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有这些看起来很清楚，但我们需要特别注意两点：
+- en: The stack must be aligned on a 16-bytes boundary
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 栈必须在16字节边界上对齐
+- en: A 32-bytes shadow space on the stack is required--32 bytes between the last
+    pushed stack parameter (if any) and the return address
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 栈上需要32字节的影像空间——32字节用于存放最后压入栈的参数（如果有的话）和返回地址之间的空间
+- en: 'The following macro instruction (`ms64_call`) is simplistic; it is a primitive
+    implementation of this calling convention. This specific macro does not support
+    stack parameters:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下宏指令（`ms64_call`）是简化版的实现，它是这一调用约定的原始实现。此特定宏不支持堆栈参数：
+- en: '[PRE21]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'Consider an example of calling the procedure labeled `my_proc` in the 64-bit
+    code, using Microsoft x64 calling convention:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 考虑一个调用 64 位代码中标记为 `my_proc` 的过程的示例，使用 Microsoft x64 调用约定：
+- en: '[PRE22]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Such a macro instruction would be expanded to the following:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样的宏指令将被扩展为以下内容：
+- en: '[PRE23]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: AMD64 (64-bit)
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: AMD64（64 位）
+- en: 'The AMD64 calling convention is used on 64-bit Unix-like systems by default.
+    The idea is very similar except that a different set of registers is used and
+    there is no shadow space requirement. Another difference is that the AMD64 calling
+    convention allows up to 6 integer parameters and up to 8 floating point values
+    to be passed via registers:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，64 位类 Unix 系统使用 AMD64 调用约定。它的理念非常相似，只是使用了不同的寄存器集合，并且没有阴影空间的要求。另一个区别是，AMD64
+    调用约定允许通过寄存器传递最多 6 个整数参数和最多 8 个浮点值：
+- en: '| **Parameter index** **(zero based)** | **Integer/pointer** | **Floating point**
+    |'
+  id: totrans-107
+  prefs: []
+  type: TYPE_TB
+  zh: '| **参数索引** **（从零开始）** | **整数/指针** | **浮点数** |'
+- en: '| 0 | RDI | XMM0 |'
+  id: totrans-108
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | RDI | XMM0 |'
+- en: '| 1 | RSI | XMM1 |'
+  id: totrans-109
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1 | RSI | XMM1 |'
+- en: '| 2 | RDX | XMM2 |'
+  id: totrans-110
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2 | RDX | XMM2 |'
+- en: '| 3 | RCX | XMM3 |'
+  id: totrans-111
+  prefs: []
+  type: TYPE_TB
+  zh: '| 3 | RCX | XMM3 |'
+- en: '| 4 | R8 | XMM4 |'
+  id: totrans-112
+  prefs: []
+  type: TYPE_TB
+  zh: '| 4 | R8 | XMM4 |'
+- en: '| 5 | R9 | XMM5 |'
+  id: totrans-113
+  prefs: []
+  type: TYPE_TB
+  zh: '| 5 | R9 | XMM5 |'
+- en: '| 6 | on stack | XMM6 |'
+  id: totrans-114
+  prefs: []
+  type: TYPE_TB
+  zh: '| 6 | 在堆栈上 | XMM6 |'
+- en: '| 7 | on stack | XMM7 |'
+  id: totrans-115
+  prefs: []
+  type: TYPE_TB
+  zh: '| 7 | 在堆栈上 | XMM7 |'
+- en: 'The following macro instruction is a primitive implementation of such a mechanism.
+    Just as in the case of the Microsoft x64 example, this one does not handle stack
+    parameters:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下宏指令是这种机制的原始实现。就像在微软 x64 示例中一样，这个实现也不处理堆栈参数：
+- en: '[PRE24]'
+  id: totrans-117
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'Using such a macro in 64-bit code intended to run on a Unix-like system for
+    calling the procedure `my_proc` like this:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这样的宏，在面向类 Unix 系统的 64 位代码中调用过程 `my_proc`，例如：
+- en: '[PRE25]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'Would expand it into:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将其扩展为：
+- en: '[PRE26]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: A note on Flat Assembler's macro capabilities
+  id: totrans-122
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 关于 Flat Assembler 宏功能的说明
+- en: 'One of the huge advantages of Flat Assemblers over other assemblers for the
+    Intel platform is its macro engine. In addition to being able to perform its original
+    task--substituting macro instructions with their definitions--it is able to perform
+    relatively complex computations, and I would dare to call it an additional programming
+    language. The preceding examples only utilize a tiny fraction of what FASM''s
+    macro processor is capable of. While we only used a set of `if` clauses and a
+    variable, we may, in necessary cases, use loops (with `while` or `repeat` statements).
+    For example, imagine a string of characters that you want to keep encrypted:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat Assembler 相对于其他汇编器在英特尔平台上的一个巨大优势是其宏引擎。除了能够执行其原始任务——用宏指令的定义替换宏指令——它还能够执行相对复杂的计算，我敢称之为一种额外的编程语言。前面的示例仅仅展示了
+    FASM 宏处理器能力的极小一部分。虽然我们只用了 `if` 条件语句和一个变量，但在必要情况下，我们可以使用循环（`while` 或 `repeat` 语句）。例如，假设你有一串字符需要保持加密状态：
+- en: '[PRE27]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: Here, `my_string_len` is the length of the string.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，`my_string_len` 是字符串的长度。
+- en: '`$` is a special symbol denoting the current address. Thus, `$-my_string` means
+    the current address minus the address of `my_string`, which is the length of the
+    string.'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`$` 是一个特殊符号，表示当前地址。因此，`$-my_string` 表示当前地址减去 `my_string` 的地址，这就是字符串的长度。'
+- en: 'A simplistic XOR encryption may be applied with just a four-line macro:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过一个简单的四行宏实现简化的 XOR 加密：
+- en: '[PRE28]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: The `%` symbol here denotes the current iteration and the `-1` value is needed
+    because the count of iterations starts at 1.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的 `%` 符号表示当前的迭代，而 `-1` 的值是必需的，因为迭代计数从 1 开始。
+- en: This is just a short and primitive example of what the macro engine of FASM
+    is able to do, and there is a lot more. However, this book, though it uses FASM
+    as a primary assembler, is dedicated to Intel Assembly language rather than to
+    specific dialect, so this additional information goes beyond its scope. I strongly
+    recommend that you refer to the FASM documentation available at [http://flatassembler.net](http://flatassembler.net).
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是 FASM 宏引擎能够执行的一个简短且原始的示例，实际上它的功能远不止此。然而，尽管本书主要使用 FASM 作为汇编语言，但它专注于英特尔汇编语言，而非特定方言，因此这些额外的信息超出了本书的范围。我强烈建议您参考[FASM
+    文档](http://flatassembler.net)。
+- en: Macro instructions in MASM and GAS
+  id: totrans-131
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: MASM 和 GAS 中的宏指令
+- en: Although the core idea behind the macro instruction mechanism is the same across
+    all assemblers, the syntax of macro instructions and the capabilities of the engine
+    vary. The following are two examples of simple macros for MASM and GAS.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管宏指令机制背后的核心思想在所有汇编器中都是相同的，但宏指令的语法和引擎的功能有所不同。以下是MASM和GAS的两个简单宏示例。
+- en: Microsoft Macro Assembler
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Microsoft Macro Assembler
+- en: Remember our test program for MASM in [Chapter 2](cb7ac242-8ebb-4d6a-946a-220133f96674.xhtml),
+    *Setting Up a Development
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记得我们在[第2章](cb7ac242-8ebb-4d6a-946a-220133f96674.xhtml)中的测试程序，*设置开发
+- en: 'Environment*? We can replace the code that invokes the `show_message` procedure
+    with the following macro instruction:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 环境*? 我们可以用以下宏指令替换调用`show_message`过程的代码：
+- en: '[PRE29]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'This may make the code a bit more readable as we may then call the `show_message`
+    procedure this way:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可能使代码更具可读性，因为我们可以通过以下方式调用`show_message`过程：
+- en: '[PRE30]'
+  id: totrans-138
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: The GNU Assembler
+  id: totrans-139
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: GNU汇编器
+- en: The macro engine of the GNU Assembler is quite similar to that of Microsoft's
+    MASM, yet there are a few syntactic differences (not taking into account the overall
+    syntax difference) that we have to pay attention to. Let us take the `output_message`
+    procedure from the Linux test program in [Chapter 2](https://cdp.packtpub.com/mastering_assembly_programming/wp-admin/post.php?post=221&action=edit#post_52),
+    *Setting Up a Development
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: GNU汇编器的宏引擎与微软MASM的宏引擎非常相似，但有一些语法差异（不考虑整体语法差异）是我们需要注意的。我们以[第2章](https://cdp.packtpub.com/mastering_assembly_programming/wp-admin/post.php?post=221&action=edit#post_52)中的Linux测试程序中的`output_message`过程为例，*设置开发
+- en: Environment*, and replace the call to `printf()` with a simple macro for demonstration
+    purposes.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 环境*，并将`printf()`调用替换为一个简单的宏来演示。
+- en: '[PRE31]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: Other assembler directives (FASM Specific)
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 其他汇编指令（FASM 特定）
+- en: 'Up until now, we mostly considered macro instructions to be some sort of replacement
+    for procedure calls, although I believe it would be correct to refer to them as
+    convenience instruments for simplifying the writing and maintenance of the code.
+    In this part of the chapter, we will see some so to say built-in macro instructions--assembler
+    directives--which may virtually be divided into three categories:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们大多认为宏指令是一种替代过程调用的方式，尽管我认为更准确的说法是它们是简化代码编写和维护的便捷工具。在本章的这一部分，我们将看到一些所谓的内置宏指令——汇编指令——它们大致可以分为三类：
+- en: Conditional assembly
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 条件汇编
+- en: Repeat directives
+  id: totrans-146
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 重复指令
+- en: Inclusion directives
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 包含指令
+- en: Additional categories may be present depending on assembler implementation.
+    You should refer to the documentation of the assembler you are using for more
+    information.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据汇编器的实现，可能还会有其他类别。你应该参考你正在使用的汇编器的文档，获取更多信息。
+- en: The conditional assembly
+  id: totrans-149
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 条件汇编
+- en: 'Sometimes we may want a macro instruction or a code fragment to be assembled
+    differently depending on certain conditions. Both MASM and GAS provide this functionality
+    too, but let''s get back to FASM (as the most convenient one) and consider the
+    following macro instruction:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时我们可能希望宏指令或代码片段根据特定条件进行不同的汇编。MASM和GAS也提供了这一功能，但让我们回到FASM（作为最方便的选择），考虑以下宏指令：
+- en: '[PRE32]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: It may appear a bit complicated at first, but the purpose of the macro is rather
+    simple. We extend an XOR instruction so that we may specify two memory locations
+    as operands, which cannot be done with the original instruction. For simplicity,
+    we only operate on double word values.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 起初看起来可能有点复杂，但宏的目的其实很简单。我们扩展了一个XOR指令，以便可以指定两个内存位置作为操作数，这是原始指令无法做到的。为了简化，我们只对双字值进行操作。
+- en: In the beginning, we check whether both parameters are labels of memory locations
+    and if they are, we load the value from one of them to a register and perform
+    a XOR operation, as we would when the first operand is a memory location and the
+    second operand is a register.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 开始时，我们检查两个参数是否都是内存位置的标签，如果是，我们从其中一个加载值到寄存器，并执行XOR操作，就像第一个操作数是内存位置，第二个操作数是寄存器时一样。
+- en: If this condition is not true, we move to the second part of the macro instruction,
+    where we perform a XOR operation appropriately depending on whether the first
+    operand is a memory location or the second one, or whether they are both general
+    purpose registers.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果此条件不为真，我们将进入宏指令的第二部分，根据第一个操作数是内存位置还是第二个操作数，或者它们是否都是通用寄存器，执行适当的XOR操作。
+- en: 'As an example, let''s take two variables named `my_var1` and `my_var2` containing
+    values `0xCAFECAFE` and `0x02010201`, respectively, and swap them with XOR:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为一个例子，假设我们有两个变量，分别为`my_var1`和`my_var2`，它们的值分别是`0xCAFECAFE`和`0x02010201`，并通过异或交换它们：
+- en: '[PRE33]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: 'Once processed, the preceding code would expand to this:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦处理完成，上述代码将扩展为：
+- en: '[PRE34]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: As we see, the `exordd` macro instruction is expanded differently depending
+    on its parameters.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，`exordd`宏指令的展开方式取决于它的参数。
+- en: Repeat directives
+  id: totrans-160
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 重复指令
+- en: 'There may be a need to repeat the same portion of code with minor differences
+    or even without them. Assemblers have directives (sometimes referred to as built-in
+    macro instructions) that allow us exactly this. There are three such statements
+    common to all three assemblers--FASM, MASM and GAS:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时可能需要重复相同的代码块，可能只会有些微的差异，甚至没有任何差异。汇编器有一些指令（有时称为内建宏指令），可以精确实现这一点。所有三种汇编器——FASM、MASM和GAS——都有三种常见的此类指令：
+- en: '`rept count`: The `rept` directive followed by the `count` parameter simply
+    makes `count` copies of the code defined in the block. In case of Flat Assembler,
+    we may declare the second parameter, which will equal the number of the current
+    iteration (1 based). For example, the following code:'
+  id: totrans-162
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rept count`：`rept`指令后跟`count`参数，简单地复制`count`次代码块中的内容。对于Flat Assembler，我们可以声明第二个参数，它将等于当前迭代次数（从1开始）。例如，以下代码：'
+- en: '[PRE35]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'This would generate an array of hexadecimal characters named `hex_chars`, and
+    is equivalent to:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将生成一个名为`hex_chars`的十六进制字符数组，等同于：
+- en: '[PRE36]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '`irp arg, a, b, c, ...`: The `irp` directive is followed by an argument and
+    a list of parameters. The argument (here `arg`) represents a single parameter
+    during each iteration. For example, this code:'
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`irp arg, a, b, c, ...`：`irp`指令后跟一个参数和一系列参数列表。参数（此处为`arg`）在每次迭代时代表一个单独的参数。例如，以下代码：'
+- en: '[PRE37]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: Sequentially increments registers EAX, EBX then ECX.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按顺序递增寄存器EAX、EBX，然后是ECX。
+- en: '`**irps arg, a b c ...**`: The `irps` directive is the same as `irp`, except
+    that parameters in the list are not separated with commas.'
+  id: totrans-169
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`**irps arg, a b c ...**`：`irps`指令与`irp`相同，区别在于参数列表中不使用逗号分隔。'
+- en: Inclusion directives
+  id: totrans-170
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 包含指令
+- en: 'There are two directives that we have hardly touched upon in previous chapters,
+    which appear to be very useful. These directives are:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前几章中，我们几乎没有触及的两条指令，看起来非常有用。这些指令是：
+- en: '`include ''filename''`'
+  id: totrans-172
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`include ''filename''`'
+- en: '`file ''filename''`'
+  id: totrans-173
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`file ''filename''`'
+- en: The include directive
+  id: totrans-174
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 包含指令
+- en: The syntax of the `include` directive is very simple. It is the directive itself
+    followed by a quoted name of a source file we want to include. Logically, the
+    operation is the same as of `#include` keyword in C or C++. Programming in Assembly
+    is not always simple and it is a very good idea to split your code into several
+    source files (for example, put all your definitions of macro instructions in a
+    separate file), then combine them all by including them in the main source.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`include`指令的语法非常简单。它由指令本身后跟一个带引号的源文件名，表示我们要包含的文件。从逻辑上讲，它的操作类似于C或C++中的`#include`关键字。在汇编编程中，事情并不总是那么简单，分割代码到多个源文件是一个很好的主意（例如，将所有宏指令定义放到一个单独的文件中），然后通过包含将它们组合到主源代码中。'
+- en: File directive
+  id: totrans-176
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 文件指令
+- en: While syntactically `include` and `file` directives are similar and both cause
+    a file to be included in source processing, logically they are very different.
+    Unlike the `include` directive, the `file` directive does not cause any processing
+    of a file being included. This allows inclusion of binary data into the data section
+    or into any place you need.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管在语法上，`include`和`file`指令是相似的，且都可以将一个文件包含到源代码处理当中，但在逻辑上它们非常不同。与`include`指令不同，`file`指令不会对被包含的文件进行任何处理。这使得将二进制数据包含到数据段或其他需要的地方成为可能。
+- en: Summary
+  id: totrans-178
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概要
+- en: In this chapter, we have very briefly covered the numerous abilities of the
+    macro instructions in Assembly language programming. Unfortunately, it may require
+    an entire book to mention everything that may be done with macro instructions,
+    especially when it comes to the Flat Assembler, which has an exceptional preprocessor.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们简要介绍了汇编语言编程中宏指令的众多功能。不幸的是，可能需要一本完整的书籍来讨论宏指令的所有应用，尤其是当涉及到Flat Assembler时，它具有一个非常强大的预处理器。
+- en: 'An example from my own practice: I once had to implement a heavily obfuscated
+    version of the AES128 decryption algorithm, which took 2175 lines in total, having
+    only a few procedures, and almost half of that (1064 lines) was occupied by the
+    definition of different macro instructions. As you may safely assume, about 30%
+    to 60% of each procedure contained the invocation thereof.'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个来自我自身实践的例子：我曾经需要实现一个经过高度混淆的AES128解密算法版本，总共写了2175行，只有少数几个程序，而其中几乎一半（1064行）被不同宏指令的定义所占据。正如你可以合理推测的那样，约30%到60%的每个程序都包含了宏指令的调用。
+- en: In the next chapter, we will continue to dive deeper into the preprocessor and
+    deal with different data structures, and the creation and management thereof.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章，我们将继续深入探讨预处理器，并处理不同的数据结构，以及其创建和管理方法。

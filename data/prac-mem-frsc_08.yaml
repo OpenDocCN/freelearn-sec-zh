@@ -1,0 +1,1916 @@
+- en: 'Chapter 6: Alternative Sources of Volatile Memory'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第6章：易失性内存的替代来源
+- en: In previous chapters, we have talked about the importance of memory dumps as
+    a source of useful data for forensic investigations. We've looked at many different
+    tools for analysis, discussed techniques for user activity examination, and discussed
+    techniques for detecting traces of malicious software. However, the subject of
+    Windows operating system memory forensics is not over yet.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前几章中，我们讨论了内存转储作为法医调查中有用数据来源的重要性。我们查看了许多不同的分析工具，讨论了用户活动检查的技巧，并讨论了检测恶意软件痕迹的技术。然而，关于Windows操作系统内存取证的内容还没有结束。
+- en: 'We mentioned at the very beginning that there are alternative sources of memory
+    that might contain similar information in addition to the main memory itself.
+    If for some reason you were unable to create a full memory dump or its analysis
+    failed, you can always turn to these sources: hibernation file, pagefile, swapfile,
+    and crash dumps. This is what we will talk about in this chapter.'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们一开始就提到过，除了主内存本身外，还有其他可能包含相似信息的内存来源。如果由于某些原因，你无法创建完整的内存转储或其分析失败，你总是可以转向这些来源：休眠文件、页面文件、交换文件和崩溃转储。这正是我们将在本章中讨论的内容。
+- en: The chapter will explain how to access alternative sources of volatile data,
+    which tools to use to analyze it, and, of course, which techniques to use to retrieve
+    certain information.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将解释如何访问其他易失性数据来源，使用哪些工具进行分析，当然，还会讲解使用哪些技术来检索特定的信息。
+- en: 'The following topics will be covered in this chapter:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Investigating hibernation files
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调查休眠文件
+- en: Examining pagefiles and swapfiles
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检查页面文件和交换文件
+- en: Analyzing crash dumps
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析崩溃转储
+- en: Investigating hibernation files
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查休眠文件
+- en: The first alternative source we will look at is a hibernation file. There is
+    a reason we are starting here, as a hibernation file is a compressed copy of `hiberfil.sys`
+    file before powering off. This is the main difference between sleep mode and hibernation
+    mode because the power supply is completely cut off when hibernation is used.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将首先查看的替代来源是休眠文件。我们之所以从这里开始，是因为休眠文件是关闭电源前`hiberfil.sys`文件的压缩副本。这是睡眠模式和休眠模式之间的主要区别，因为休眠模式下电源完全切断。
+- en: Because a hibernation file is a copy of RAM at the time the computer goes into
+    power-saving mode, it can contain files that the user was working with, even if
+    those files are no longer present on disk at the time when the hibernation file
+    is taken for analysis. This source may therefore play an important role in forensic
+    investigation, so how do we obtain this file?
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于休眠文件是计算机进入节能模式时RAM的副本，它可以包含用户正在处理的文件，即使这些文件在休眠文件进行分析时已经不再存在于磁盘上。因此，这个来源可能在法医调查中起着重要作用，那么我们该如何获取这个文件呢？
+- en: Acquiring a hibernation file
+  id: totrans-11
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 获取休眠文件
+- en: A completed hibernation file is usually located under the root directory; however,
+    this file is protected by the system and is hidden by default. If you are working
+    with a live machine and a hibernation file has already been created, you can use
+    imaging tools and copy the file to removable media.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完整的休眠文件通常位于根目录下；然而，该文件受系统保护，默认情况下是隐藏的。如果你正在处理一台运行中的计算机，并且休眠文件已经创建，你可以使用成像工具将文件复制到可移动媒体上。
+- en: 'You can use the well-known **Forensic Toolkit Imager** (**FTK Imager**) for
+    this purpose. Run it on the target host and click **File** -> **Add Evidence Item…**,
+    as illustrated in the following screenshot:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用著名的**法医工具包成像工具**（**FTK Imager**）来完成这项工作。在目标主机上运行它，点击**文件** -> **添加证据项...**，如以下截图所示：
+- en: '![Figure 6.1 – FTK Imager''s Add Evidence Item option](img/Figure_6.1_B17056.jpg)'
+  id: totrans-14
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.1 – FTK Imager的添加证据项选项](img/Figure_6.1_B17056.jpg)'
+- en: Figure 6.1 – FTK Imager's Add Evidence Item option
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.1 – FTK Imager的添加证据项选项
+- en: 'In the window that appears, select **Logical Drive**, as shown in the following
+    screenshot, and click **Next**:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在出现的窗口中，选择**逻辑驱动器**，如以下截图所示，然后点击**下一步**：
+- en: '![Figure 6.2 – Select Source window'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.2 – 选择源窗口](img/Figure_6.2_B17056.jpg)'
+- en: '](img/Figure_6.2_B17056.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.2_B17056.jpg)'
+- en: Figure 6.2 – Select Source window
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.2 – 选择源窗口
+- en: 'From the drop-down menu, select root (`C:\`) and click **Finish**, as illustrated
+    in the following screenshot:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从下拉菜单中选择根目录（`C:\`），然后点击**完成**，如以下截图所示：
+- en: '![Figure 6.3 – Select Drive window'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.3 – 选择驱动器窗口](img/Figure_6.3_B17056.jpg)'
+- en: '](img/Figure_6.3_B17056.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.3_B17056.jpg)'
+- en: Figure 6.3 – Select Drive window
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.3 – 选择驱动器窗口
+- en: 'You will then have the target host''s filesystem on the left side of the main
+    window. In the root, you can find the hibernation file. To copy it to removable
+    media, right-click on it and select **Export Files…**, as illustrated in the following
+    screenshot:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后你将看到目标主机的文件系统出现在主窗口的左侧。在根目录下，你可以找到休眠文件。为了将其复制到可移动媒体，右键点击该文件并选择 **导出文件…**，如以下截图所示：
+- en: '![Figure 6.4 – Export Files option'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.4 – 导出文件选项'
+- en: '](img/Figure_6.4_B17056.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.4_B17056.jpg)'
+- en: Figure 6.4 – Export Files option
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.4 – 导出文件选项
+- en: 'In the dialog window, select your removable media where you want to save the
+    hibernation file and click **OK**, as illustrated in the following screenshot:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在对话框中，选择你想要保存休眠文件的可移动媒体，并点击**确定**，如以下截图所示：
+- en: '![Figure 6.5 – Destination path'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.5 – 目标路径'
+- en: '](img/Figure_6.5_B17056.jpg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.5_B17056.jpg)'
+- en: Figure 6.5 – Destination path
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.5 – 目标路径
+- en: 'You should see a progress bar showing the copying process to removable media,
+    as illustrated in the following screenshot:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你应该看到一个进度条，显示将文件复制到可移动媒体的过程，如下截图所示：
+- en: '![Figure 6.6 – Export process'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.6 – 导出过程'
+- en: '](img/Figure_6.6_B17056.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.6_B17056.jpg)'
+- en: Figure 6.6 – Export process
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.6 – 导出过程
+- en: This will result in a `hiberfil.sys` file appearing on the removable media,
+    ready for further processing.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将导致一个 `hiberfil.sys` 文件出现在可移动媒体上，准备进一步处理。
+- en: 'If there is no hibernation file on the target host but you still want to create
+    one, you will need to do the following:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果目标主机上没有休眠文件，但你仍然想创建一个，你需要执行以下操作：
+- en: Make sure that hibernation mode is enabled.
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保已启用休眠模式。
+- en: 'To do this, run PowerShell as administrator and execute the following command:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为此，请以管理员身份运行 PowerShell 并执行以下命令：
+- en: '[PRE0]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'If hibernation is enabled, you will see `Hibernate` in the list that appears.
+    Otherwise, you can enable it by issuing the following command:'
+  id: totrans-41
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果休眠已启用，你将在出现的列表中看到 `Hibernate`。否则，你可以通过执行以下命令启用它：
+- en: '[PRE1]'
+  id: totrans-42
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Examples of commands are shown in the following screenshot:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 命令示例如下截图所示：
+- en: '![Figure 6.7 – powercfg.exe'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.7 – powercfg.exe'
+- en: '](img/Figure_6.7_B17056.jpg)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.7_B17056.jpg)'
+- en: Figure 6.7 – powercfg.exe
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.7 – powercfg.exe
+- en: Create a hibernation file.
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个休眠文件。
+- en: 'To do so, simply run the following command:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行此操作，只需运行以下命令：
+- en: '[PRE2]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: This command will bring the target computer into hibernation mode, and you will
+    get a `hiberfil.sys` file with timestamps corresponding to when the command was
+    run. You can then use FTK Imager to export this file.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令将使目标计算机进入休眠模式，你将得到一个带有时间戳的 `hiberfil.sys` 文件，时间戳对应命令执行的时间。然后你可以使用 FTK Imager
+    导出这个文件。
+- en: Note that in forensic investigations, you are more likely to work with forensic
+    images rather than with live systems. To extract a hibernation file from a forensic
+    image, simply open it with a special tool. You can use the same FTK Imager and
+    the **Add Evidence Item…** menu option, but now, instead of the logical drive
+    of the live system, you must select **Image File** and specify the path to the
+    forensic copy on the drive. The rest of the process of exporting the hibernation
+    file to disk will be similar to the process described previously.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在法医调查中，你更可能与法医镜像打交道，而不是与实时系统打交道。要从法医镜像中提取休眠文件，只需使用特殊工具打开它。你可以使用相同的 FTK Imager
+    和 **添加证据项…** 菜单选项，但现在，你必须选择**镜像文件**，并指定驱动器上法医副本的路径，而不是实时系统的逻辑驱动器。导出休眠文件到磁盘的其余过程将与之前描述的过程类似。
+- en: Now that we have successfully obtained the hibernation file, let's look at how
+    to analyze it.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经成功获取了休眠文件，接下来让我们看看如何分析它。
+- en: Analyzing hiberfil.sys
+  id: totrans-53
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 hiberfil.sys
+- en: 'As the hibernation file is a compressed copy of RAM, we first need to uncompress
+    it and get a raw copy. This can be done by using a Volatility plugin called `imagecopy`.
+    This plugin allows us to convert memory dumps into different formats and to convert
+    a hibernation file into a raw format. It looks like this:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于休眠文件是 RAM 的压缩副本，我们首先需要解压它并获取原始副本。这可以通过使用一个名为 `imagecopy` 的 Volatility 插件来完成。这个插件允许我们将内存转储转换为不同的格式，并将休眠文件转换为原始格式。它的界面如下所示：
+- en: '![Figure 6.8 – Volatility imagecopy'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.8 – Volatility imagecopy'
+- en: '](img/Figure_6.8_B17056.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.8_B17056.jpg)'
+- en: Figure 6.8 – Volatility imagecopy
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.8 – Volatility imagecopy
+- en: We use the `-f` option to specify the path to our hibernation file and the `-O`
+    or `--output-image` option to specify the path where we want to save the result,
+    as well as the name and extension of the desired file. Don't forget the `--profile`
+    option, where you need to specify the profile that corresponds to the operating
+    system version of the target host. This will give you a file ready for analysis,
+    which in this case is `hiberfil.raw`.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用 `-f` 选项指定休眠文件的路径，使用 `-O` 或 `--output-image` 选项指定我们希望保存结果的路径，并指定文件名和扩展名。别忘了使用
+    `--profile` 选项，在此处需要指定与目标主机操作系统版本相对应的配置文件。这将为您提供一个准备好进行分析的文件，在本例中是 `hiberfil.raw`。
+- en: Another way to convert a hibernation file into a raw format is to use the `Hibr2Bin`
+    utility included in the Comae Toolkit. To get this tool, you need to become a
+    member of the beta program by registering on the official website at [https://www.comae.com/](https://www.comae.com/).
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将休眠文件转换为原始格式的另一种方法是使用 Comae 工具包中包含的 `Hibr2Bin` 工具。要获取此工具，您需要通过在官方网站上注册成为测试计划的成员，网址是
+    [https://www.comae.com/](https://www.comae.com/)。
+- en: 'This tool can be run via the command line. Not only input and output files
+    but also several options such as the platform and major and minor versions of
+    the operating system must be specified, as shown next:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具可以通过命令行运行。除了输入和输出文件外，还必须指定多个选项，例如平台以及操作系统的主版本和次版本，如下所示：
+- en: '![Figure 6.9 – Comae Toolkit Hibr2Bin'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.9 – Comae 工具包 Hibr2Bin'
+- en: '](img/Figure_6.9_B17056.jpg)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.9_B17056.jpg)'
+- en: Figure 6.9 – Comae Toolkit Hibr2Bin
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.9 – Comae 工具包 Hibr2Bin
+- en: '`Hibr2Bin` supports the following versions:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Hibr2Bin` 支持以下版本：'
+- en: '`/MAJOR 5` `/MINOR 1` Windows XP'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 5` `/MINOR 1` Windows XP'
+- en: '`/MAJOR 5` `/MINOR 2` Windows XP x64; Windows 2003 R2'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 5` `/MINOR 2` Windows XP x64；Windows 2003 R2'
+- en: '`/MAJOR 6` `/MINOR 0` Windows Vista; Windows Server 2008'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 6` `/MINOR 0` Windows Vista；Windows Server 2008'
+- en: '`/MAJOR 6` `/MINOR 1` Windows 7; Windows Server 2008 R2'
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 6` `/MINOR 1` Windows 7；Windows Server 2008 R2'
+- en: '`/MAJOR 6` `/MINOR 2` Windows 8; Windows Server 2012'
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 6` `/MINOR 2` Windows 8；Windows Server 2012'
+- en: '`/MAJOR 6` `/MINOR 3` Windows 8.1; Windows Server 2012 R2'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 6` `/MINOR 3` Windows 8.1；Windows Server 2012 R2'
+- en: '`/MAJOR 10` `/MINOR 0` Windows 10; Windows Server 2017'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MAJOR 10` `/MINOR 0` Windows 10；Windows Server 2017'
+- en: This will also result in a raw file. Such files can be analyzed with the tools
+    you are already familiar with. For example, you can use Volatility to get a list
+    of active processes, search for files, or detect traces of malicious activity.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这也将产生一个原始文件。此类文件可以使用您已经熟悉的工具进行分析。例如，您可以使用 Volatility 获取活动进程列表，搜索文件，或者检测恶意活动的痕迹。
+- en: Important note
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Since a hibernation file has its own structure, some information will still
+    be missing from there. For example, when you go into hibernation mode, information
+    about active network connections is cleared, so you will not be able to retrieve
+    full information about network connections from the `hiberfil.sys` file.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于休眠文件有其自身的结构，因此其中某些信息仍然会缺失。例如，当您进入休眠模式时，关于活动网络连接的信息会被清除，因此您无法从 `hiberfil.sys`
+    文件中获取有关网络连接的完整信息。
+- en: 'Let''s see how we can get a list of active processes from the hibernation file
+    using Volatility. To do this, we use the `pslist` plugin, as illustrated in the
+    following screenshot:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看如何使用 Volatility 从休眠文件中获取活动进程列表。为此，我们使用 `pslist` 插件，如下图所示：
+- en: '![Figure 6.10 – List of active processes from hibernation file'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.10 – 来自休眠文件的活动进程列表'
+- en: '](img/Figure_6.10_B17056.jpg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.10_B17056.jpg)'
+- en: Figure 6.10 – List of active processes from hibernation file
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.10 – 来自休眠文件的活动进程列表
+- en: 'Similarly, we can get details of the files encountered in the hibernation file,
+    as illustrated in the following screenshot:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，我们可以获取休眠文件中遇到的文件的详细信息，如下图所示：
+- en: '![Figure 6.11 – List of files from hibernation file'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.11 – 来自休眠文件的文件列表'
+- en: '](img/Figure_6.11_B17056.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.11_B17056.jpg)'
+- en: Figure 6.11 – List of files from hibernation file
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.11 – 来自休眠文件的文件列表
+- en: 'And we can even try to extract them, as shown next:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们甚至可以尝试提取它们，如下所示：
+- en: '![Figure 6.12 – File extraction from hibernation file'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.12 – 从休眠文件提取文件'
+- en: '](img/Figure_6.12_B17056.jpg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.12_B17056.jpg)'
+- en: Figure 6.12 – File extraction from hibernation file
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.12 – 从休眠文件提取文件
+- en: As you can see, this step of the analysis does not differ much from the analysis
+    of full memory dumps. You can therefore apply the techniques we discussed in the
+    previous chapters without any doubts.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，这一分析步骤与完整内存转储的分析没有太大区别。因此，您可以毫无疑虑地应用我们在前几章中讨论的技术。
+- en: For automated processing and analysis of a hibernation file, you can use paid
+    tools such as Hibernation Recon from Arsenal Recon or complex solutions such as
+    Magnet AXIOM or Belkasoft Evidence Center.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于休眠文件的自动处理和分析，您可以使用如 Arsenal Recon 的 Hibernation Recon 等付费工具，或像 Magnet AXIOM
+    或 Belkasoft Evidence Center 这样复杂的解决方案。
+- en: This is how we can analyze the hibernation file, but this is only one of the
+    alternative sources we are considering. Let's move on.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们分析休眠文件的方式，但这只是我们考虑的替代数据源之一。接下来，我们继续。
+- en: Examining pagefiles and swapfiles
+  id: totrans-90
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检查页面文件和交换文件
+- en: We have already mentioned pagefiles and swapfiles in previous chapters. There,
+    we talked about the mechanism used by our operating system to keep a large number
+    of processes running at the same time. This mechanism operates by putting temporary
+    process data into a specially reserved space on disk—the pagefile—when physical
+    memory shortages occur.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在前几章中已经提到过页面文件和交换文件。在那里，我们讨论了操作系统用来让大量进程同时运行的机制。当物理内存不足时，该机制会将临时进程数据存储到磁盘上一个专门保留的空间——页面文件中。
+- en: Important Note
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Data is loaded into a pagefile page by page, in blocks of 4 **kilobytes** (**KB**),
+    so the data can occupy a continuous area as well as different parts of the pagefile.
+    Consequently, you can use both file carving and string searching during analysis.
+    Additionally, Windows keeps track of pagefile entries and their relation to a
+    particular process only in memory at runtime, so it is not possible to recover
+    this relationship during pagefile analysis.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据按页面逐页加载到页面文件中，每页大小为 4 **千字节**（**KB**），因此数据可以占据连续区域以及页面文件的不同部分。因此，在分析过程中，您可以同时使用文件雕刻和字符串搜索。此外，Windows
+    在运行时仅在内存中跟踪页面文件条目及其与特定进程的关系，因此无法在页面文件分析过程中恢复这种关系。
+- en: The main difference between swapfiles and pagefiles is that a swapfile stores
+    data from Microsoft Store applications (previously known as Metro applications).
+    It stores data that is not currently needed but may be needed when switching between
+    applications or opening an application from a live tile in the `pagefile.sys`.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 交换文件和页面文件的主要区别在于，交换文件存储来自 Microsoft Store 应用程序（以前称为 Metro 应用程序）的数据。它存储那些当前不需要，但在切换应用程序或从动态磁贴打开应用程序时可能需要的数据，这些数据存储在
+    `pagefile.sys` 中。
+- en: Acquiring pagefiles
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 获取页面文件
+- en: 'A pagefile is enabled by default, so you don''t need to create it manually.
+    Furthermore, there may be several such files on the system and they will not always
+    be located in the root. To find the paging files, you need to check the `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session
+    Manager\Memory Management` registry key values of `ExistingPageFiles` and `PagingFiles`.
+    This can be done using the registry editor on a live machine or by analysis of
+    the `SYSTEM` registry file obtained from the forensic image, as illustrated in
+    the following screenshot:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，页面文件是启用的，因此您无需手动创建它。此外，系统中可能会有多个此类文件，它们不一定位于根目录。要查找分页文件，您需要检查 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session
+    Manager\Memory Management` 注册表项中的 `ExistingPageFiles` 和 `PagingFiles` 值。这可以通过在在线机器上使用注册表编辑器，或通过分析从取证映像中获得的
+    `SYSTEM` 注册表文件来完成，如下图所示：
+- en: '![Figure 6.13 – ExistingPageFiles and PagingFiles values in SYSTEM registry
+    file'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.13 – SYSTEM 注册表文件中的 ExistingPageFiles 和 PagingFiles 值'
+- en: '](img/Figure_6.13_B17056.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.13_B17056.jpg)'
+- en: Figure 6.13 – ExistingPageFiles and PagingFiles values in SYSTEM registry file
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.13 – SYSTEM 注册表文件中的 ExistingPageFiles 和 PagingFiles 值
+- en: 'Once you have checked the number and location of the paging files, they can
+    be extracted in the same way as a hibernation file, as shown next:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦检查了分页文件的数量和位置，您可以像提取休眠文件一样提取它们，如下所示：
+- en: '![Figure 6.14 – Pagefile extraction'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.14 – 页面文件提取'
+- en: '](img/Figure_6.14_B17056.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.14_B17056.jpg)'
+- en: Figure 6.14 – Pagefile extraction
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.14 – 页面文件提取
+- en: 'In addition, some tools allow you to create a copy of a pagefile along with
+    the memory dump. Look back at the FTK Imager dump creation process; there, you
+    can enable the capture of a pagefile using the **Include pagefile** checkbox,
+    as illustrated in the following screenshot:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，一些工具允许您在创建内存转储的同时创建页面文件的副本。回顾 FTK Imager 转储创建过程；在那里，您可以通过启用 **包含页面文件** 复选框来捕获页面文件，如下图所示：
+- en: '![Figure 6.15 – FTK Imager Include pagefile'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.15 – FTK Imager 包含页面文件'
+- en: '](img/Figure_6.15_B17056.jpg)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.15_B17056.jpg)'
+- en: Figure 6.15 – FTK Imager Include pagefile
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.15 – FTK Imager 包含页面文件
+- en: 'This will create two files: a memory dump and a copy of the pagefile.'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将创建两个文件：一个内存转储文件和一个页面文件的副本。
+- en: Once you have successfully extracted the pagefile, you can start analyzing it.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦你成功提取了页面文件，就可以开始分析它了。
+- en: Analyzing pagefile.sys
+  id: totrans-110
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 pagefile.sys
+- en: There are different ways of analyzing a pagefile. We will try to elaborate on
+    the most essential ones so that you can choose the method that best suits your
+    investigation objectives.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析页面文件有不同的方法。我们将尽量详细阐述一些最重要的方法，以便你可以选择最适合你调查目标的方法。
+- en: Important Note
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: Starting with build `10525`, Windows 10 uses pagefile compression. This means
+    that you will need to decompress the pagefile in order to analyze it. You can
+    use the `winmem_decompress` utility developed by Maxim Sukhanov for this purpose
+    ([https://github.com/msuhanov/winmem_decompress](https://github.com/msuhanov/winmem_decompress)).
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 `10525`版本开始，Windows 10 使用页面文件压缩。这意味着你需要先解压页面文件才能进行分析。你可以使用 Maxim Sukhanov
+    开发的`winmem_decompress`工具来实现这一目的（[https://github.com/msuhanov/winmem_decompress](https://github.com/msuhanov/winmem_decompress)）。
+- en: 'Some tools—for instance, MemProcFS—allow the joint analysis of memory dumps,
+    pagefiles, and swapfiles. To do this, the `-pagefile0...9` option is added to
+    the `-device` option. The default value for a pagefile is 0; for a swapfile, it
+    is 9\. An example of running MemProcFS is shown next:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些工具——例如 MemProcFS——允许联合分析内存转储、页面文件和交换文件。为此，`-pagefile0...9`选项会添加到`-device`选项中。页面文件的默认值为
+    0；而交换文件则是 9。下面展示了运行 MemProcFS 的一个示例：
+- en: '![Figure 6.16 – Joint analysis of memory dump and corresponding pagefile'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.16 – 联合分析内存转储与相应页面文件'
+- en: '](img/Figure_6.16_B17056.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.16_B17056.jpg)'
+- en: Figure 6.16 – Joint analysis of memory dump and corresponding pagefile
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.16 – 联合分析内存转储与相应页面文件
+- en: In this case, the data in the pagefile will complement the data in the memory
+    dump, but it is easier to miss specific information in this situation. Therefore,
+    it is better to analyze the pagefile with separate tools.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，页面文件中的数据将补充内存转储中的数据，但在这种情况下更容易遗漏特定信息。因此，最好使用独立工具来分析页面文件。
+- en: We have already mentioned that data in a pagefile is stored in blocks of 4 KB.
+    Since these blocks can occupy different parts of the file and it is difficult
+    to get a structured representation of the content, pagefile analysis will not
+    be straightforward. So, one of the best ways to start analyzing a pagefile is
+    to search for strings.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们之前已经提到，页面文件中的数据是以 4 KB 的块存储的。由于这些块可能占据文件的不同部分，而且很难获得数据内容的结构化表示，因此页面文件分析不会很直接。因此，开始分析页面文件的最佳方法之一是查找字符串。
+- en: String searching
+  id: totrans-120
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 字符串搜索
+- en: 'The easiest way to start analyzing a pagefile is to look for specific strings.
+    You can use the `Strings` utility you are already familiar with to retrieve all
+    ASCII and Unicode characters found in a given file. To run it, use PowerShell
+    and the following command:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析页面文件最简单的方法是查找特定的字符串。你可以使用你已经熟悉的`Strings`工具来提取给定文件中所有的ASCII和Unicode字符。运行该工具时，可以通过PowerShell和以下命令来执行：
+- en: '[PRE3]'
+  id: totrans-122
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The input is the path to our pagefile, and the output is redirected to a text
+    file, which is `output.txt`. In the resulting file, as before, we can use a keyword
+    search or simply examine the output to see if there are any strings related to
+    the execution of any programs potentially used by attackers, as illustrated in
+    the following screenshot:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入是我们页面文件的路径，输出会重定向到一个文本文件，即 `output.txt`。在生成的文件中，像之前一样，我们可以使用关键词搜索，或者简单地检查输出，查看是否有与执行任何程序（可能是攻击者使用的程序）相关的字符串，如下图所示：
+- en: '![Figure 6.17 – Strings output'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.17 – 字符串输出'
+- en: '](img/Figure_6.17_B17056.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.17_B17056.jpg)'
+- en: Figure 6.17 – Strings output
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.17 – 字符串输出
+- en: You can see in the preceding screenshot that analysis of the `Strings` output
+    detected a **HTTPS reverse shell** run.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以在前面的截图中看到，`Strings`工具的分析结果检测到了一个**HTTPS 反向 shell**运行。
+- en: 'Since we are talking about searching strings, naturally, we should not forget
+    about searching by `yara` utility to help us. The principle of this utility is
+    the same as the Volatility `yarascan` plugin. You can use the official GitHub
+    repository to download this tool, at [https://github.com/VirusTotal/yara/](https://github.com/VirusTotal/yara/).
+    You can see the GitHub page in the following screenshot:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们在谈论字符串搜索，自然不能忘记使用`yara`工具来帮助我们。这个工具的原理与 Volatility 的`yarascan`插件相同。你可以通过官方的
+    GitHub 仓库下载这个工具，链接为 [https://github.com/VirusTotal/yara/](https://github.com/VirusTotal/yara/)。你可以在以下截图中看到
+    GitHub 页面：
+- en: '![Figure 6.18 – yara GitHub repository'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.18 – yara GitHub 仓库'
+- en: '](img/Figure_6.18_B17056.jpg)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.18_B17056.jpg)'
+- en: Figure 6.18 – yara GitHub repository
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.18 – yara GitHub 仓库
+- en: 'On the right side of the page, there is a link to the latest releases, which
+    is exactly what you need. On the **Releases** page, select the version you need,
+    then download and extract the archive with the executable. You can use PowerShell
+    to run it. To see all the options available, run the command shown in the following
+    screenshot:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 页面右侧有一个指向最新版本发布的链接，这正是你需要的。在**Releases**页面，选择所需的版本，然后下载并解压包含可执行文件的档案。你可以使用 PowerShell
+    来运行它。要查看所有可用的选项，请运行以下命令，如下图所示：
+- en: '![Figure 6.19 – yara options'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.19 – yara 选项'
+- en: '](img/Figure_6.19_B17056.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.19_B17056.jpg)'
+- en: Figure 6.19 – yara options
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.19 – yara 选项
+- en: 'You can use YARA rules from public sources or write your own. Let''s use a
+    YARA rule to find the URLs in our file. The rule and its results are shown next:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用来自公共来源的 YARA 规则，也可以编写自己的规则。我们来使用一个 YARA 规则来查找文件中的 URL。规则及其结果如下所示：
+- en: '![Figure 6.20 – yara scan results'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.20 – yara 扫描结果'
+- en: '](img/Figure_6.20_B17056.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.20_B17056.jpg)'
+- en: Figure 6.20 – yara scan results
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.20 – yara 扫描结果
+- en: 'We can also extend our search with domains, emails, SQL queries, and more with
+    `bulk_extractor`, as illustrated in the following screenshot:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以通过 `bulk_extractor` 扩展搜索，查找域名、电子邮件、SQL 查询等，正如以下截图所示：
+- en: '![Figure 6.21 – bulk_extractor execution'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.21 – bulk_extractor 执行'
+- en: '](img/Figure_6.21_B17056.jpg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.21_B17056.jpg)'
+- en: Figure 6.21 – bulk_extractor execution
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.21 – bulk_extractor 执行
+- en: 'Here, we can find not just IP addresses and domains, but also the full URLs,
+    as shown next:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们不仅能找到 IP 地址和域名，还能找到完整的 URL，如下所示：
+- en: '![Figure 6.22 – bulk_extractor URL histogram'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.22 – bulk_extractor URL 直方图'
+- en: '](img/Figure_6.22_B17056.jpg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.22_B17056.jpg)'
+- en: Figure 6.22 – bulk_extractor URL histogram
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.22 – bulk_extractor URL 直方图
+- en: 'Pay attention to IP addresses. You can always check them on VirusTotal or any
+    other resource you like. If you check one of the addresses we found, you will
+    find the following results:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意 IP 地址。你可以随时在 VirusTotal 或任何你喜欢的资源上检查它们。如果你检查我们找到的其中一个地址，你将看到以下结果：
+- en: '![Figure 6.23 – VirusTotal results'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.23 – VirusTotal 结果'
+- en: '](img/Figure_6.23_B17056.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.23_B17056.jpg)'
+- en: Figure 6.23 – VirusTotal results
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.23 – VirusTotal 结果
+- en: VirusTotal has detected several malicious files containing this IP address.
+    It would be a good idea to check if our pagefile contains such files.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VirusTotal 已检测到多个包含此 IP 地址的恶意文件。最好检查我们的页面文件是否包含此类文件。
+- en: File carving
+  id: totrans-153
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 文件切割
+- en: In addition to string searching, you can apply tools to carve files. You can
+    use PhotoRec for this purpose. This tool enables signature-based searches and
+    can recognize over 300 file families, including archives, images, Microsoft Office
+    files, PDF files, and more.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了字符串搜索外，你还可以使用工具进行文件切割。你可以使用 PhotoRec 作为工具。此工具支持基于签名的搜索，可以识别超过 300 种文件类型，包括归档文件、图片、Microsoft
+    Office 文件、PDF 文件等。
+- en: PhotoRec can be downloaded along with the TestDisk tool from the official website
+    at [https://www.cgsecurity.org/wiki/PhotoRec](https://www.cgsecurity.org/wiki/PhotoRec).
+    To do this, find a link to the latest release on the right side of the page and
+    click on it. In the window that opens, select the appropriate version, then download
+    and unpack the archive. You need an executable called `photorec`.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PhotoRec 可以和 TestDisk 工具一起从官方网站下载，网址是 [https://www.cgsecurity.org/wiki/PhotoRec](https://www.cgsecurity.org/wiki/PhotoRec)。为此，在页面右侧找到最新版本的链接并点击它。在打开的窗口中选择适当的版本，然后下载并解压档案。你需要一个名为
+    `photorec` 的可执行文件。
+- en: 'Run the following command to analyze the paging file:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行以下命令分析分页文件：
+- en: '[PRE4]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'This will open a separate window, as shown next:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将打开一个独立的窗口，如下所示：
+- en: '![Figure 6.24 – PhotoRec media selection'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.24 – PhotoRec 媒体选择'
+- en: '](img/Figure_6.24_B17056.jpg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.24_B17056.jpg)'
+- en: Figure 6.24 – PhotoRec media selection
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.24 – PhotoRec 媒体选择
+- en: 'Press *Enter* to continue, and you will see the following:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按*Enter*继续，你将看到如下内容：
+- en: '![Figure 6.25 – PhotoRec filesystem type'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.25 – PhotoRec 文件系统类型'
+- en: '](img/Figure_6.25_B17056.jpg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.25_B17056.jpg)'
+- en: Figure 6.25 – PhotoRec filesystem type
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.25 – PhotoRec 文件系统类型
+- en: 'As our filesystem is **New Technology File System** (**NTFS**), don''t change
+    anything, and press *Enter* again. In the next window, you need to select the
+    directory to save the results, as illustrated in the following screenshot:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们的文件系统是**新技术文件系统**（**NTFS**），无需更改任何设置，直接再次按*Enter*。在接下来的窗口中，您需要选择保存结果的目录，如下图所示：
+- en: '![Figure 6.26 – PhotoRec destination folder selection'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.26 – PhotoRec 目标文件夹选择'
+- en: '](img/Figure_6.26_B17056.jpg)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.26_B17056.jpg)'
+- en: Figure 6.26 – PhotoRec destination folder selection
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.26 – PhotoRec 目标文件夹选择
+- en: 'In our case, the `output` folder will be used to save the carving results.
+    When the `output` directory is specified, the *C* key must be pressed to start.
+    The file recovery process will look like this:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的例子中，`output`文件夹将用来保存雕刻结果。当指定了`output`目录时，必须按下*C*键开始。文件恢复过程将是这样的：
+- en: '![Figure 6.27 – PhotoRec carving process'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.27 – PhotoRec雕刻过程'
+- en: '](img/Figure_6.27_B17056.jpg)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.27_B17056.jpg)'
+- en: Figure 6.27 – PhotoRec carving process
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.27 – PhotoRec雕刻过程
+- en: 'Carving will take some time, so be patient. Eventually, all files that have
+    been recovered will appear in the directory of your choice, as illustrated in
+    the following screenshot:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 雕刻过程需要一些时间，所以请耐心等待。最终，所有恢复的文件将出现在您选择的目录中，如下图所示：
+- en: '![Figure 6.28 – Carving results'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.28 – 雕刻结果'
+- en: '](img/Figure_6.28_B17056.jpg)'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.28_B17056.jpg)'
+- en: Figure 6.28 – Carving results
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.28 – 雕刻结果
+- en: 'As you can see in the preceding screenshot, we were able to recover a large
+    number of dynamic-link libraries (DLLs), as well as several text and executable
+    files. We can now check to see if there is a file containing the IP address we
+    checked earlier. Let''s use PowerShell and the `Select-String` command, as illustrated
+    in the following screenshot:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如前面的截图所示，我们能够恢复大量的动态链接库（DLL）文件，以及一些文本和可执行文件。现在我们可以检查是否有包含我们之前检查过的IP地址的文件。我们可以使用PowerShell和`Select-String`命令，如下图所示：
+- en: '![Figure 6.29 – Select-String results'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.29 – Select-String结果'
+- en: '](img/Figure_6.29_B17056.jpg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.29_B17056.jpg)'
+- en: Figure 6.29 – Select-String results
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.29 – Select-String结果
+- en: 'Note the context and extension of the file in which our IP address is detected.
+    The content resembles the signatures used by antivirus solutions to search for
+    malware. This is a fairly common situation, so be careful. In this case, the file
+    is more likely to be legitimate; however, there''s nothing stopping us from checking
+    the other files for malware. For example, here are the results of checking one
+    of the recovered libraries:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意我们检测到IP地址的文件的上下文和扩展名。该内容类似于防病毒解决方案用来查找恶意软件的签名。这是一个相当常见的情况，所以要小心。在这种情况下，该文件更可能是合法的；然而，仍然没有什么可以阻止我们检查其他文件是否含有恶意软件。例如，以下是检查其中一个恢复的库文件的结果：
+- en: '![Figure 6.30 – Malicious DLL detection'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.30 – 恶意DLL检测'
+- en: '](img/Figure_6.30_B17056.jpg)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.30_B17056.jpg)'
+- en: Figure 6.30 – Malicious DLL detection
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.30 – 恶意DLL检测
+- en: Several vendors have identified our file as malicious. This cannot be left unattended,
+    so a more in-depth analysis of the recovered DLL can be performed at this point.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 几个厂商已将我们的文件识别为恶意文件。这不能被忽视，因此可以对恢复的DLL文件进行更深入的分析。
+- en: As you can see, a pagefile is also a good source of data. You may find not only
+    interesting IP addresses, domains, parts of emails, or shell commands, but also
+    entire files. All of this data will help you to clarify the missing pieces of
+    the puzzle and complete a picture of the incident.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你所看到的，分页文件也是一个很好的数据来源。你可能会找到不仅是有趣的IP地址、域名、部分电子邮件或Shell命令，甚至是完整的文件。所有这些数据将帮助你补充拼图中的缺失部分，完整事件的全貌。
+- en: Now, it's time to look at our latest alternative source, crash dumps.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，到了查看我们最新的替代来源——崩溃转储的时候。
+- en: Analyzing crash dumps
+  id: totrans-189
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析崩溃转储
+- en: 'When a system gets into an unstable state—for example, due to an exception
+    that cannot be handled correctly—a Windows crash occurs. This happens because
+    of bugs in kernel drivers or other code running at the kernel level. In this case,
+    Windows attempts to save information that is relevant to the crash and can be
+    used for debugging purposes. Since the system is in an unstable state during the
+    crash, the data is first written to the paging file and then transferred to the
+    appropriate dump file during the next boot. Depending on the system configuration,
+    different crash dumps can be created. The following screenshot shows the dump
+    formats offered by Windows 10:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当系统进入不稳定状态时——例如，因无法正确处理的异常——会发生Windows崩溃。这是因为内核驱动程序或其他在内核级别运行的代码存在bug。在这种情况下，Windows会尝试保存与崩溃相关的信息，并可以用于调试。由于系统在崩溃期间处于不稳定状态，数据首先会写入分页文件，然后在下一次启动时转移到适当的转储文件中。根据系统配置，可以创建不同的崩溃转储。以下截图显示了Windows
+    10提供的转储格式：
+- en: '![Figure 6.31 – Crash dump formats in Windows 10'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.31 – Windows 10中的崩溃转储格式'
+- en: '](img/Figure_6.31_B17056.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.31_B17056.jpg)'
+- en: Figure 6.31 – Crash dump formats in Windows 10
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.31 – Windows 10中的崩溃转储格式
+- en: 'Let''s take a closer look at these formats, as follows:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们更仔细地看看这些格式，如下所示：
+- en: '**Small memory dump**: These files have a size of 64 KB and 128 KB in 32-bit
+    systems and 64-bit systems respectively. They contain information about running
+    processes, loaded drivers, and bug check messages.'
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**小型内存转储**：这些文件在 32 位和 64 位系统中分别为 64 KB 和 128 KB。它们包含正在运行的进程、加载的驱动程序和错误检查信息。'
+- en: '**Kernel memory dump**: These files contain memory pages in kernel mode only.
+    Consequently, they contain information about the memory used by the kernel. Usually,
+    the size of such dump files will be around one-third of the size of the physical
+    memory on the system.'
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**内核内存转储**：这些文件仅包含内核模式中的内存页面。因此，它们包含有关内核使用的内存的信息。通常，这种转储文件的大小大约为系统物理内存的三分之一。'
+- en: '**Complete memory dump**: These are the largest kernel-mode dumps. They contain
+    a complete dump of physical memory at the time of the crash. Unmapped memory is
+    not included.'
+  id: totrans-197
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**完整内存转储**：这些是最大的内核模式转储。它们包含崩溃时的物理内存的完整转储。未映射的内存不包括在内。'
+- en: '**Automatic memory dump**: This dump is similar to the kernel memory dump.
+    The main difference is in how the information is stored. For the automatic memory
+    dump, Windows sets the size of the system paging file. Starting with Windows 8,
+    this is the default method of creating crash dumps.'
+  id: totrans-198
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**自动内存转储**：此转储类似于内核内存转储。主要区别在于信息的存储方式。对于自动内存转储，Windows 会设置系统分页文件的大小。从 Windows
+    8 开始，这是创建崩溃转储的默认方法。'
+- en: '**Active memory dump**: This dump was introduced in Windows 10, and it is similar
+    to a complete memory dump and contains active memory from user and kernel modes.
+    However, pages that are not likely to be relevant to troubleshooting problems
+    on the host machine are filtered out.'
+  id: totrans-199
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**活动内存转储**：此转储是在 Windows 10 中引入的，类似于完整内存转储，包含来自用户模式和内核模式的活动内存。然而，不太可能与主机计算机故障排除相关的页面将被过滤掉。'
+- en: 'You may get varying information in different amounts depending on the dump
+    being created. To check which crash dumps are created on a particular host, you
+    can check the settings on a live system. To do this, go to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CrashControl`
+    registry key. To retrieve this data from the forensic image, you can refer to
+    the `SYSTEM` registry file, as illustrated in the following screenshot:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可能会根据创建的转储类型获取不同数量的信息。要检查特定主机上创建了哪些崩溃转储，可以检查实时系统上的设置。为此，请转到 `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CrashControl`
+    注册表键。要从法医映像中检索此数据，可以参考 `SYSTEM` 注册表文件，如下图所示：
+- en: '![Figure 6.32 – CrashControl registry key'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.32 – CrashControl 注册表键'
+- en: '](img/Figure_6.32_B17056.jpg)'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.32_B17056.jpg)'
+- en: Figure 6.32 – CrashControl registry key
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.32 – CrashControl 注册表键
+- en: 'The `CrashDumpEnabled` value defines the type of dump to be created. On Windows
+    10, the following values are possible:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`CrashDumpEnabled` 值定义了要创建的转储类型。在 Windows 10 上，以下值是可能的：'
+- en: '`0`: None'
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0`：无'
+- en: '`1`: Complete or active memory dump'
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1`：完整或活动内存转储'
+- en: '`2`: Kernel memory dump'
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`2`：内核内存转储'
+- en: '`3`: Small memory dump'
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`3`：小型内存转储'
+- en: '`7`: Automatic memory dump'
+  id: totrans-209
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`7`：自动内存转储'
+- en: Note that here, you can also find the path where the crash dump was created.
+    By default, this is the `%SystemRoot%\MEMORY.DMP` file.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在此处，您还可以找到创建崩溃转储的路径。默认情况下，这是 `%SystemRoot%\MEMORY.DMP` 文件。
+- en: In addition to system crashes, there may be a situation whereby a problem occurs
+    in a specific application and the system remains stable. In such situations, mini-crash
+    dumps are created containing error code, application, and host details. These
+    are generated by `C:\ProgramData\Microsoft\Windows\WER`. WER can also be configured
+    to create complete memory dumps of user-mode processes. For this purpose, the
+    `LocalDumps` key with a `DumpType` value of `DWORD = 00000002` is created in the
+    `HKLM\Software\Microsoft\Windows\Windows` `error` `reporting` registry key. Herewith,
+    created dumps of user processes will be stored in the `%LocalAppData%\Crashdumps`
+    folder of the user who got the error, and dumps of system processes will be stored
+    in the `C:\Windows\System32\config\systemprofile\AppData\Local\CrashDumps\` folder.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了系统崩溃外，某些特定应用程序发生问题并且系统保持稳定的情况也可能发生。在这种情况下，会创建包含错误代码、应用程序和主机详细信息的迷你崩溃转储。这些转储由
+    `C:\ProgramData\Microsoft\Windows\WER` 生成。WER 还可以配置为创建用户模式进程的完整内存转储。为此，在 `HKLM\Software\Microsoft\Windows\Windows`
+    `error` `reporting` 注册表项中创建一个 `LocalDumps` 键，并设置 `DumpType` 的值为 `DWORD = 00000002`。通过此设置，创建的用户进程转储将存储在出现错误的用户的
+    `%LocalAppData%\Crashdumps` 文件夹中，而系统进程的转储将存储在 `C:\Windows\System32\config\systemprofile\AppData\Local\CrashDumps\`
+    文件夹中。
+- en: Analysis of process crash dumps is particularly important in incident response,
+    as exploitation by malware of an application vulnerability is usually followed
+    by a crash of that application. Analysis of application crash dumps can tell us
+    which techniques the attackers used for the initial access.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程崩溃转储的分析在事件响应中尤其重要，因为恶意软件利用应用程序漏洞后，通常会导致该应用程序崩溃。分析应用程序崩溃转储可以告诉我们攻击者在初始访问中使用了哪些技术。
+- en: All of the files described previously are created by the system during various
+    crashes. You can search for such files in forensic images and retrieve them in
+    the way described previously for hibernation files.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面描述的所有文件都是系统在不同崩溃过程中创建的。你可以在取证镜像中搜索这些文件，并按前面描述的方式提取它们，就像休眠文件一样。
+- en: If you are working with a live system, you can create such files yourself if
+    necessary.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你正在处理一个实时系统，在必要时你可以自己创建这些文件。
+- en: Crash dump creation
+  id: totrans-215
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 崩溃转储创建
+- en: Before you start creating crash dumps, you need to make sure that their creation
+    is enabled. Don't forget to select the type of dump you want. You can do this
+    by going to **My Computer** -> **System and Security** -> **System** -> **Advanced
+    Settings** -> **Startup and Recovery**. Once you are ready, you can begin creating
+    a crash dump.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始创建崩溃转储之前，你需要确保已启用其创建功能。别忘了选择你想要的转储类型。你可以通过进入**我的电脑** -> **系统和安全** -> **系统**
+    -> **高级设置** -> **启动和恢复**来完成这一步。准备好后，你就可以开始创建崩溃转储了。
+- en: There are different ways to simulate a system crash—for example, using standard
+    Windows tools or the **Windows Debugger** (**WinDbg**). However, the easiest and
+    most reliable way is still to use the **NotMyFault** tool from **Sysinternals**.
+    To use this tool, simply download and unpack the archive from the official site
+    at [https://docs.microsoft.com/en-us/sysinternals/downloads/notmyfault](https://docs.microsoft.com/en-us/sysinternals/downloads/notmyfault).
+    In the archive, you will find executable files for 32- and 64-bit systems.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 模拟系统崩溃有不同的方式——例如，使用标准的 Windows 工具或**Windows 调试器**（**WinDbg**）。然而，最简单且最可靠的方式仍然是使用来自**Sysinternals**的**NotMyFault**工具。要使用此工具，只需从官方网站下载并解压缩存档，[https://docs.microsoft.com/en-us/sysinternals/downloads/notmyfault](https://docs.microsoft.com/en-us/sysinternals/downloads/notmyfault)。在存档中，你将找到适用于
+    32 位和 64 位系统的可执行文件。
+- en: Simulation of a system crash
+  id: totrans-218
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 系统崩溃模拟
+- en: 'Run `notmyfault.exe` as administrator. In the window that opens, you will see
+    options corresponding to the most common causes of system crashes, as illustrated
+    in the following screenshot:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以管理员身份运行`notmyfault.exe`。在弹出的窗口中，你将看到与系统崩溃最常见原因对应的选项，如下图所示：
+- en: '![Figure 6.33 – NotMyFault main window'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.33 – NotMyFault 主窗口'
+- en: '](img/Figure_6.33_B17056.jpg)'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.33_B17056.jpg)'
+- en: Figure 6.33 – NotMyFault main window
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.33 – NotMyFault 主窗口
+- en: Select the option that suits you and click `MEMORY.DMP` file, which is a crash
+    dump.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择适合你的选项并点击`MEMORY.DMP`文件，这是一个崩溃转储文件。
+- en: It's a different story with application dumps. The process for creating them
+    is simpler and more flexible as you can use either standard Windows tools such
+    as Task Manager, or third-party tools. Let's look at how to create process dumps.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于应用程序转储则是另一回事。创建它们的过程更简单且更灵活，因为你可以使用标准的 Windows 工具，如任务管理器，或者第三方工具。让我们来看一下如何创建进程转储。
+- en: Process dump creation
+  id: totrans-225
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 进程转储创建
+- en: Let's start with the built-in tools—more specifically, Task Manager.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从内置工具开始——更具体地说，是任务管理器。
+- en: 'To dump a process, start Task Manager by pressing *Ctrl* + *Alt* + *Delete*.
+    In the window that appears, find the suspicious process and right-click on its
+    name. In the pop-up menu, select **Create dump file**, as shown in the following
+    screenshot:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要转储进程，按*Ctrl* + *Alt* + *Delete*启动任务管理器。在弹出的窗口中，找到可疑进程并右键点击其名称。在弹出的菜单中，选择**创建转储文件**，如截图所示：
+- en: '![Figure 6.34 – Creating process dump with Task Manager'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.34 – 使用任务管理器创建进程转储'
+- en: '](img/Figure_6.34_B17056.jpg)'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.34_B17056.jpg)'
+- en: Figure 6.34 – Creating process dump with Task Manager
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.34 – 使用任务管理器创建进程转储
+- en: 'If the dump was successfully created, you will see the following window:'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果转储文件成功创建，你将看到如下窗口：
+- en: '![Figure 6.35 – Process dumping results'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.35 – 进程转储结果'
+- en: '](img/Figure_6.35_B17056.jpg)'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.35_B17056.jpg)'
+- en: Figure 6.35 – Process dumping results
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.35 – 进程转储结果
+- en: 'Here, you will find the name of the dump you have created and its location.
+    As you can see, this method is easy to use but does not allow you to select the
+    dump format. Another tool, Process Hacker ([https://processhacker.sourceforge.io/downloads.php](https://processhacker.sourceforge.io/downloads.php))
+    can be used in a similar way. You can see this tool in action in the following
+    screenshot:'
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，你可以找到你创建的转储文件及其所在位置。正如你所见，这种方法易于使用，但不允许选择转储格式。另一个工具，Process Hacker（[https://processhacker.sourceforge.io/downloads.php](https://processhacker.sourceforge.io/downloads.php)）可以以类似的方式使用。你可以在下图中看到该工具的使用场景：
+- en: '![Figure 6.36 – Creating process dump with Process Hacker'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.36 – 使用 Process Hacker 创建进程转储'
+- en: '](img/Figure_6.36_B17056.jpg)'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.36_B17056.jpg)'
+- en: Figure 6.36 – Creating process dump with Process Hacker
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.36 – 使用 Process Hacker 创建进程转储
+- en: 'If you want to be able to create different process dumps, there is another
+    tool from Sysinternals, called ProcDump. As the name suggests, this tool is designed
+    specifically for creating process dumps. As with NotMyFault, it can be downloaded
+    from the official site at [https://docs.microsoft.com/en-us/sysinternals/downloads/procdump](https://docs.microsoft.com/en-us/sysinternals/downloads/procdump).
+    This tool supports the types of dumps shown in the next screenshot:'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想能够创建不同类型的进程转储，Sysinternals 还提供了另一个工具，叫做 ProcDump。顾名思义，这个工具专门用于创建进程转储。与 NotMyFault
+    一样，它可以从官方网站下载：[https://docs.microsoft.com/en-us/sysinternals/downloads/procdump](https://docs.microsoft.com/en-us/sysinternals/downloads/procdump)。这个工具支持下图所示的转储类型：
+- en: '![Figure 6.37 – ProcDump supported formats'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.37 – ProcDump 支持的格式'
+- en: '](img/Figure_6.37_B17056.jpg)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.37_B17056.jpg)'
+- en: Figure 6.37 – ProcDump supported formats
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.37 – ProcDump 支持的格式
+- en: 'As you may have noticed, you will need PowerShell to run the tool. You can
+    use the PID from the **Details** tab of Task Manager to specify which process
+    you want to dump, as illustrated in the following screenshot:'
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能已经注意到的，你需要使用 PowerShell 来运行该工具。你可以通过任务管理器的 **详细信息** 标签页中的 PID 来指定要转储的进程，如下图所示：
+- en: '![Figure 6.38 – Identifying PID'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.38 – 识别 PID'
+- en: '](img/Figure_6.38_B17056.jpg)'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.38_B17056.jpg)'
+- en: Figure 6.38 – Identifying PID
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.38 – 识别 PID
+- en: 'To create a mini-dump containing process, thread, module, handle, address space,
+    and stack information, you need to use the `-mm` option, and to create a full
+    dump, use the `-ma` option. This is how it will look:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要创建包含进程、线程、模块、句柄、地址空间和堆栈信息的小型转储，你需要使用 `-mm` 选项，而要创建完整转储，则使用 `-ma` 选项。效果如下所示：
+- en: '![Figure 6.39 – Mini-dump and full dump creation'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.39 – 小型转储和完整转储的创建'
+- en: '](img/Figure_6.39_B17056.jpg)'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.39_B17056.jpg)'
+- en: Figure 6.39 – Mini-dump and full dump creation
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.39 – 小型转储和完整转储的创建
+- en: These are the tools you can use to create various dumps. Now, it's time to talk
+    about their analysis.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些是你可以用来创建各种转储的工具。现在，我们来谈谈如何分析这些转储。
+- en: Analyzing crash dumps
+  id: totrans-252
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析崩溃转储
+- en: Since a system crash and an application crash create different dumps, some of
+    the analysis methods will differ. Let's start with the analysis of dumps created
+    during a system crash.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于系统崩溃和应用程序崩溃会创建不同的转储，因此一些分析方法会有所不同。让我们从分析系统崩溃时创建的转储开始。
+- en: System crash dumps
+  id: totrans-254
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 系统崩溃转储
+- en: 'The most obvious way to analyze system crash dumps is to use WinDbg. This tool
+    is designed specifically for debugging and allows you to do more than just analysis
+    of crash dumps in order to find out the cause of the crash. Use this link to download
+    the tool: [https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools).
+    Find **Download WinDbg Preview from the Microsoft Store** option and click the
+    **WinDbg Preview** link. Click **GET**. You will be redirected to the Windows
+    Store. Simply click **GET** again to install.'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析系统崩溃转储最直接的方法是使用 WinDbg。这个工具专为调试设计，不仅可以分析崩溃转储，还能帮助你找出崩溃原因。使用以下链接下载该工具：[https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools)。找到
+    **从 Microsoft Store 下载 WinDbg Preview** 选项，并点击 **WinDbg Preview** 链接。点击 **GET**，然后你将被重定向到
+    Windows Store。再次点击 **GET** 进行安装。
+- en: 'After installation, you can launch WinDbg. Go to the **File** menu and select
+    **Open dump file**, as illustrated in the following screenshot:'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装完成后，你可以启动 WinDbg。进入 **文件** 菜单，选择 **打开转储文件**，如下图所示：
+- en: '![Figure 6.40 – WinDbg File menu'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.40 – WinDbg 文件菜单'
+- en: '](img/Figure_6.40_B17056.jpg)'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.40_B17056.jpg)'
+- en: Figure 6.40 – WinDbg File menu
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.40 – WinDbg 文件菜单
+- en: 'Select your crash dump, and once it is loaded, use the command line to run
+    the `!analyze -v` command, as illustrated in the following screenshot:'
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择你的崩溃转储文件，加载完成后，使用命令行运行`!analyze -v`命令，如下所示的截图所示：
+- en: '![Figure 6.41 – WinDbg !analyze -v command'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.41 – WinDbg !analyze -v命令'
+- en: '](img/Figure_6.41_B17056.jpg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.41_B17056.jpg)'
+- en: Figure 6.41 – WinDbg !analyze -v command
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.41 – WinDbg !analyze -v命令
+- en: 'This command allows you to display detailed information about the cause of
+    the crash, as we can see here:'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此命令允许你显示有关崩溃原因的详细信息，如下所示：
+- en: '![Figure 6.42 – WinDbg Bugcheck Analysis'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.42 – WinDbg Bugcheck分析'
+- en: '](img/Figure_6.42_B17056.jpg)'
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.42_B17056.jpg)'
+- en: Figure 6.42 – WinDbg Bugcheck Analysis
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.42 – WinDbg Bugcheck分析
+- en: Here, you will be able to find data such as faulty driver information, exception
+    errors and code, faulty IPs, failure ID hash strings, and so on.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，你可以找到例如有缺陷的驱动程序信息、异常错误和代码、故障IP、失败ID哈希字符串等数据。
+- en: 'Another tool that allows a similar analysis is **BlueScreenView** by **NirSoft**
+    ([https://www.nirsoft.net/utils/blue_screen_view.html](https://www.nirsoft.net/utils/blue_screen_view.html)),
+    which is shown in the following screenshot:'
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个可以进行类似分析的工具是**BlueScreenView**，由**NirSoft**公司开发 ([https://www.nirsoft.net/utils/blue_screen_view.html](https://www.nirsoft.net/utils/blue_screen_view.html))，该工具在下方的截图中展示：
+- en: '![Figure 6.43 – NirSoft BlueScreenView'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.43 – NirSoft BlueScreenView'
+- en: '](img/Figure_6.43_B17056.jpg)'
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.43_B17056.jpg)'
+- en: Figure 6.43 – NirSoft BlueScreenView
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.43 – NirSoft BlueScreenView
+- en: Keep in mind that this tool works best with mini-dumps on a live system. It
+    is therefore not practical for postmortem analysis.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，这个工具在处理实时系统上的小型转储时效果最佳，因此不适合用于事后分析。
+- en: 'There is another solution to help you with postmortem analysis: **SuperDump**
+    ([https://github.com/Dynatrace/superdump](https://github.com/Dynatrace/superdump)).
+    Its main advantage is that it allows you to automate the analysis process and
+    get all the data in a graphical report. The tool is shown in the following screenshot:'
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有另一种解决方案可以帮助你进行事后分析：**SuperDump** ([https://github.com/Dynatrace/superdump](https://github.com/Dynatrace/superdump))。它的主要优势在于可以自动化分析过程，并以图形报告的形式提供所有数据。该工具在下面的截图中展示：
+- en: '![Figure 6.44 – SuperDump'
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.44 – SuperDump'
+- en: '](img/Figure_6.44_B17056.jpg)'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.44_B17056.jpg)'
+- en: Figure 6.44 – SuperDump
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.44 – SuperDump
+- en: SuperDump is a service for automated crash dump analysis that has a web as well
+    as a **REST** (**Representational State Transfer**) interface to upload Windows
+    crash dumps. Moreover, it allows you to analyze Linux core dumps as well. However,
+    to run this tool, you will need to have Docker installed.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SuperDump是一个自动化崩溃转储分析服务，提供Web界面以及**REST**（**表现性状态转移**）接口来上传Windows崩溃转储。此外，它还允许你分析Linux核心转储。不过，要运行该工具，你需要安装Docker。
+- en: 'You now have several tools in your arsenal for system crash dump analysis.
+    You can choose the tool you feel most comfortable working with. We now move on
+    to something more interesting: process dump analysis.'
+  id: totrans-279
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，你已经拥有了几种用于系统崩溃转储分析的工具。你可以选择最适合你操作的工具。接下来我们将进入更有趣的内容：进程转储分析。
+- en: Process dump analysis
+  id: totrans-280
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 进程转储分析
+- en: Analysis of process dumps is an excellent way to investigate individual suspicious
+    processes without creating full memory dumps. This technique is often used during
+    incident response.
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程转储分析是调查单个可疑进程的绝佳方式，而无需创建完整的内存转储。此技术在事件响应过程中常常被使用。
+- en: Debuggers can naturally be used to analyze process dumps, but more classic methods
+    can be applied as well—for example, string search or search by YARA rules. Analysis
+    with the help of `bulk_extractor` can be used here as well.
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调试器自然可以用于分析进程转储，但也可以应用更经典的方法——例如，字符串搜索或基于YARA规则的搜索。在这里，使用`bulk_extractor`进行分析也是可行的。
+- en: 'Let''s consider an example with dump analysis of the suspicious process `explorer.exe`.
+    Let''s start with the `Strings` tool. We will use the standard command, as follows:'
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑一个关于可疑进程`explorer.exe`的转储分析示例。我们从`Strings`工具开始。我们将使用标准命令，如下所示：
+- en: '[PRE5]'
+  id: totrans-284
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'The resulting text file can be searched using keywords. In our case, a keyword
+    search for `cmd` found a command executed by the malware, as illustrated in the
+    following screenshot:'
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成的文本文件可以通过关键字进行搜索。在我们的案例中，通过搜索`cmd`关键字，我们找到了恶意软件执行的命令，如下所示的截图所示：
+- en: '![Figure 6.45 – Malicious cmd command in the Strings output'
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.45 – Strings输出中的恶意cmd命令'
+- en: '](img/Figure_6.45_B17056.jpg)'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.45_B17056.jpg)'
+- en: Figure 6.45 – Malicious cmd command in the Strings output
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.45 – Strings输出中的恶意cmd命令
+- en: '`bulk_extractor` will be useful as well. We can find IP addresses and domain
+    names used by the malware with the following command:'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`bulk_extractor` 也会非常有用。我们可以通过以下命令找到恶意软件使用的 IP 地址和域名：'
+- en: '[PRE6]'
+  id: totrans-290
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Results from scanning are shown next:'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 扫描结果如下所示：
+- en: '![Figure 6.46 – bulk_extractor domain histogram'
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.46 – bulk_extractor 域名直方图'
+- en: '](img/Figure_6.46_B17056.jpg)'
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.46_B17056.jpg)'
+- en: Figure 6.46 – bulk_extractor domain histogram
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.46 – bulk_extractor 域名直方图
+- en: 'Checking these IP addresses revealed that many of them are associated with
+    malicious files, as we can see here:'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查这些 IP 地址后发现，许多与恶意文件相关，如下所示：
+- en: '![Figure 6.47 – IP address from bulk_extractor output'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.47 – 来自 bulk_extractor 输出的 IP 地址'
+- en: '](img/Figure_6.47_B17056.jpg)'
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.47_B17056.jpg)'
+- en: Figure 6.47 – IP address from bulk_extractor output
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.47 – 来自 bulk_extractor 输出的 IP 地址
+- en: 'Lastly, let''s return to the results of the `Strings` utility. A keyword search
+    for `exe` also yielded extremely useful information, as we can see here:'
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们回到 `Strings` 工具的结果。搜索关键字 `exe` 也得到了极其有用的信息，如下所示：
+- en: '![Figure 6.48 – Detection of malicious files'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.48 – 检测恶意文件'
+- en: '](img/Figure_6.48_B17056.jpg)'
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.48_B17056.jpg)'
+- en: Figure 6.48 – Detection of malicious files
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.48 – 检测恶意文件
+- en: 'In this case, we see the name of the directory used by the malware, as well
+    as the names of the executable file and library. Using the new keyword allowed
+    us to discover even more data related to the malicious activity, as we can see
+    here:'
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们可以看到恶意软件使用的目录名称，以及可执行文件和库的名称。使用新的关键字让我们发现了更多与恶意活动相关的数据，如下所示：
+- en: '![Figure 6.49 – yrpoykg keyword search'
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.49 – yrpoykg 关键字搜索'
+- en: '](img/Figure_6.49_B17056.jpg)'
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_6.49_B17056.jpg)'
+- en: Figure 6.49 – yrpoykg keyword search
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.49 – yrpoykg 关键字搜索
+- en: As you can see, some analysis techniques are excellent for both full memory
+    dumps and memory dumps of individual processes.
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，一些分析技术对整个内存转储和单个进程的内存转储都非常有效。
+- en: Summary
+  id: totrans-308
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Analyzing Windows memory dumps is a time-consuming process but can yield invaluable
+    results. In addition to examining full dumps, you should not forget about alternative
+    sources, which can also be of great help in forensic investigations and incident
+    response.
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析 Windows 内存转储是一个耗时的过程，但可以产生非常宝贵的结果。除了检查完整的转储外，你还不应忽视其他来源，它们在法医调查和事件响应中也能提供很大的帮助。
+- en: Alternative sources include hibernation files, page files, and swap files, as
+    well as crash dumps and process memory dumps. Some of these files, such as a pagefile
+    and a swapfile, are enabled by default and are created automatically while the
+    operating system is running. Others are created when the system goes into a specific
+    state—for example, a hibernation file is created when the system enters the appropriate
+    mode. The latter, crash dumps, are created when a system crash or application
+    crash occurs, but you can also trigger these states artificially. Among other
+    things, there are special tools that allow you to create individual process dumps,
+    such as process memory dumps, without directly affecting their state.
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 替代来源包括休眠文件、页面文件和交换文件，以及崩溃转储和进程内存转储。部分文件，如页面文件和交换文件，是默认启用并在操作系统运行时自动创建的。其他文件则在系统进入特定状态时创建——例如，当系统进入休眠模式时，会创建休眠文件。后者的崩溃转储在系统崩溃或应用程序崩溃时生成，但你也可以人为触发这些状态。除此之外，还有一些特殊工具，可以在不直接影响进程状态的情况下，创建独立的进程转储，例如进程内存转储。
+- en: For analysis of alternative sources, both special tools such as debuggers and
+    more general tools that allow you to search through strings, regular expressions,
+    YARA rules, and signatures can be used.
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于替代来源的分析，可以使用调试器等特殊工具，或是允许你通过字符串、正则表达式、YARA 规则和签名搜索的通用工具。
+- en: On that note, we're finishing our analysis of Windows memory. Although this
+    system has been the leader on the desktop operating system market for many years,
+    other systems such as macOS and Linux are becoming more and more popular year
+    by year. It's now time to talk about their analysis. In the next part, we will
+    start to walk through the process of creating Linux memory dumps in detail and
+    then move on to their analysis. As always, we will cover the key techniques and
+    tools used for Linux forensic investigation, accompanied by illustrative examples
+    from our practice. See you in the next part!
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一点上，我们完成了对 Windows 内存的分析。尽管这个系统多年来一直是桌面操作系统市场的领导者，但其他系统如 macOS 和 Linux 正逐年变得越来越受欢迎。现在是时候谈论它们的分析了。在接下来的部分中，我们将详细讲解如何创建
+    Linux 内存转储，并继续进行其分析。像往常一样，我们将介绍 Linux 数字取证调查中使用的关键技术和工具，并附上我们实践中的示例。下部分见！

@@ -1,0 +1,1954 @@
+- en: Practical Reverse Engineering of a Windows Executable
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows 可执行文件的实用逆向工程
+- en: Reverse engineering is very common when dealing with malware analysis. In this
+    chapter, we will look at an executable program and determine its actual behavioral
+    flow using the tools we have learned so far. We will head straight from static
+    analysis to dynamic analysis. This will require that we have our lab set up ready
+    so that it will be easier to follow through.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逆向工程在处理恶意软件分析时非常常见。在本章中，我们将查看一个可执行程序，并使用我们目前所学的工具确定其实际行为流程。我们将直接从静态分析进入动态分析。这要求我们设置好实验环境，以便更容易跟进分析过程。
+- en: The target file that will be analyzed in this chapter has behaviors that were
+    seen in actual malware. Regardless of a file being malware or not, we have to
+    handle every file we analyze carefully in an enclosed environment. Let's get started
+    on performing some reversing.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章要分析的目标文件具有在实际恶意软件中看到的行为。无论文件是否恶意软件，我们在分析时都必须小心地在封闭环境中处理每个文件。让我们开始进行一些逆向工程。
+- en: '**We will cover the following topics in this chapter:**'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**本章将涵盖以下主题：**'
+- en: Practical static analysis
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 实用的静态分析
+- en: Practical dynamic analysis
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 实用的动态分析
+- en: Things to prepare
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备事项
+- en: The file we are about to analyze can be downloaded from [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch12/whatami.zip](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch12/whatami.zip).
+    It is a password-protected zip file and the password is "`infected`", without
+    the quotes.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们即将分析的文件可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch12/whatami.zip](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch12/whatami.zip)下载。它是一个密码保护的压缩文件，密码是"`infected`"，不带引号。
+- en: 'We need to prepare our Windows lab setup. The analysis discussed in this chapter
+    runs the program in a VirtualBox guest running a Windows 10 32-bit operating system .
+    The following tools additionally need to be prepared:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要准备好 Windows 实验室环境。本章讨论的分析将程序运行在一个 VirtualBox 虚拟机中，虚拟机上运行 Windows 10 32位操作系统。还需要准备以下工具：
+- en: 'IDA Pro 32-bit: A copy of the free version can be downloaded from [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Disassembler%20Tools/32-bit%20idafree50.exe](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Disassembler%20Tools/32-bit%20idafree50.exe).'
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: IDA Pro 32位版：可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Disassembler%20Tools/32-bit%20idafree50.exe](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Disassembler%20Tools/32-bit%20idafree50.exe)下载免费的版本。
+- en: 'x86dbg: The latest version can be downloaded from [https://x64dbg.com](https://x64dbg.com).
+    A copy of of an older version is available at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Debuggers/x64dbg%20-%20snapshot_2018-04-05_00-33.zip](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Debuggers/x64dbg%20-%20snapshot_2018-04-05_00-33.zip).'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'x86dbg: 最新版本可以从[https://x64dbg.com](https://x64dbg.com)下载。旧版本的副本可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Debuggers/x64dbg%20-%20snapshot_2018-04-05_00-33.zip](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/tools/Debuggers/x64dbg%20-%20snapshot_2018-04-05_00-33.zip)下载。'
+- en: 'Fakenet: The official version can be downloaded at [https://github.com/fireeye/flare-fakenet-ng](https://github.com/fireeye/flare-fakenet-ng).
+    A copy can also be downloaded from [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/FakeNet](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/FakeNet)'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'Fakenet: 官方版本可以从[https://github.com/fireeye/flare-fakenet-ng](https://github.com/fireeye/flare-fakenet-ng)下载。也可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/FakeNet](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/FakeNet)下载副本。'
+- en: SysInternals Suite: [https://docs.microsoft.com/en-us/sysinternals/downloads/](https://docs.microsoft.com/en-us/sysinternals/downloads/)
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SysInternals 套件: [https://docs.microsoft.com/en-us/sysinternals/downloads/](https://docs.microsoft.com/en-us/sysinternals/downloads/)
+- en: Snowman: [https://derevenets.com/](https://derevenets.com/)
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Snowman: [https://derevenets.com/](https://derevenets.com/)
+- en: HxD: [https://mh-nexus.de/en/hxd/](https://mh-nexus.de/en/hxd/)
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: HxD: [https://mh-nexus.de/en/hxd/](https://mh-nexus.de/en/hxd/)
+- en: 'CFF Explorer: [https://ntcore.com/](https://ntcore.com/)'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'CFF Explorer: [https://ntcore.com/](https://ntcore.com/)'
+- en: We may need other tools as we proceed with our analysis. If you find tools that
+    are more comfortable to use, feel free to use them.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析过程中，我们可能需要其他工具。如果你发现有更方便的工具，可以随时使用它们。
+- en: Initial static analysis
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 初步静态分析
+- en: 'To help us out in terms of our static info gathering, here is a list of the
+    information that we need to obtain:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了帮助我们进行静态信息收集，以下是我们需要获取的信息列表：
+- en: File properties (name, size, other info)
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件属性（名称、大小、其他信息）
+- en: Hash (MD5, SHA1)
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 哈希值（MD5、SHA1）
+- en: File type (including header information)
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件类型（包括头信息）
+- en: Strings
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 字符串
+- en: Deadlisting (highlight where we need information)
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 死名单（标记需要信息的地方）
+- en: At the end of the initial analysis, we will have to summarize all the information
+    we retrieved.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在初步分析的最后，我们需要总结所有获取的信息。
+- en: Initial file information
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 初始文件信息
+- en: 'To get the filename, file size, hash calculations, file type, and other information
+    regarding the file, we will be using `CFF` Explorer. When opening the file, we
+    might encounter an error message when using the latter, as can be seen in the
+    following screenshot:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了获取文件名、文件大小、哈希值、文件类型和其他关于文件的信息，我们将使用 `CFF` Explorer。当打开文件时，可能会遇到一个错误消息，如下截图所示：
+- en: '![](img/bd96f036-2350-4a15-bb9a-0ee95534364b.png)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bd96f036-2350-4a15-bb9a-0ee95534364b.png)'
+- en: This error is caused by MS Windows' virus protection feature. Since we are in
+    a sandboxed environment (under a virtualized guest environment), it should be
+    okay to disable this. Disabling this feature in a production environment can expose
+    risks for the computer getting compromised by malware.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此错误是由 MS Windows 的病毒防护功能引起的。由于我们处于一个沙箱环境中（在虚拟化的客户环境下），禁用此功能应该是可以的。禁用此功能在生产环境中可能会暴露计算机被恶意软件攻击的风险。
+- en: To disable this feature in Windows, select Start->Settings->Windows Security->Virus
+    & threat protection->Virus & threat protection settings. Then turn off Real-time
+    protection. You might as well turn off both Cloud-delivered protection and Automatic
+    sample submission to prevent any security settings from blocking activities that
+    the program that is being analyzed might perform.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 Windows 中禁用此功能，请选择“开始”->“设置”->“Windows 安全”->“病毒和威胁防护”->“病毒和威胁防护设置”。然后关闭实时保护。你还可以关闭云传递保护和自动样本提交，以防止任何安全设置阻止程序可能执行的操作。
+- en: 'The following screenshot shows Real-time protection disabled:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了禁用实时保护后的状态：
+- en: '![](img/2227778a-5de9-40fb-9730-cc75bc095a97.png)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2227778a-5de9-40fb-9730-cc75bc095a97.png)'
+- en: 'Opening the file with CFF Explorer reveals a lot of information, including
+    packer identification of the file being UPX packed:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 CFF Explorer 打开文件可以揭示很多信息，包括文件被 UPX 打包的打包者信息：
+- en: '![](img/34f736a3-b6b9-4a9a-aa99-652121aa44a8.png)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/34f736a3-b6b9-4a9a-aa99-652121aa44a8.png)'
+- en: 'From the preceding result, we can tabulate the following file information:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据前面的结果，我们可以列出以下文件信息：
+- en: '| Filename | `whatami.exe` |'
+  id: totrans-35
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | `whatami.exe` |'
+- en: '| File size | 28,672 bytes |'
+  id: totrans-36
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 28,672 字节 |'
+- en: '| MD5 | F4723E35D83B10AD72EC32D2ECC61091 |'
+  id: totrans-37
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | F4723E35D83B10AD72EC32D2ECC61091 |'
+- en: '| SHA-1 | 4A1E8A976F1515CE3F7F86F814B1235B7D18A231 |'
+  id: totrans-38
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 4A1E8A976F1515CE3F7F86F814B1235B7D18A231 |'
+- en: '| File type | Win32 PE file – packed with UPX v3.0 |'
+  id: totrans-39
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE 文件 - 使用 UPX v3.0 打包 |'
+- en: 'We will have to download the UPX tool and try to decompress the file. The UPX
+    tool can be downloaded from [https://upx.github.io/](https://upx.github.io/).
+    Using UPX, extract the file using the "`-d`" option, as follows:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将需要下载 UPX 工具并尝试解压文件。UPX 工具可以从 [https://upx.github.io/](https://upx.github.io/)
+    下载。使用 UPX，使用 "`-d`" 选项解压文件，方法如下：
+- en: '[PRE0]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The result after decompressing the file, demonstrated as follows, tells us
+    that the file originally had a size of 73,728 bytes:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解压文件后的结果，如下所示，告诉我们文件最初的大小为 73,728 字节：
+- en: '![](img/333c44f9-fcce-4917-b21a-8393c5ef9534.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/333c44f9-fcce-4917-b21a-8393c5ef9534.png)'
+- en: 'So, if we re-open the file in CFF Explorer, our file information table would
+    now include the following:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，如果我们重新打开文件在 CFF Explorer 中，我们的文件信息表将现在包含以下内容：
+- en: '| Filename | whatami.exe |'
+  id: totrans-45
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | whatami.exe |'
+- en: '| File size | 73,728 bytes |'
+  id: totrans-46
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 73,728 字节 |'
+- en: '| MD5 | 18F86337C492E834B1771CC57FB2175D |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | 18F86337C492E834B1771CC57FB2175D |'
+- en: '| SHA-1 | C8601593E7DC27D97EFC29CBFF90612A265A248E |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | C8601593E7DC27D97EFC29CBFF90612A265A248E |'
+- en: '| File type | Win32 PE file – compiled by Microsoft Visual C++ 8 |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE 文件 - 由 Microsoft Visual C++ 8 编译 |'
+- en: 'Let''s see what notable strings we can find using SysInternals'' strings tool.
+    Strings is a command-line tool. Just pass the filename as the tool''s argument
+    and redirect the output to a file. Here is how we use it:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看使用 SysInternals 的 strings 工具可以找到哪些值得注意的字符串。Strings 是一个命令行工具，只需将文件名作为工具的参数传递，并将输出重定向到文件。以下是使用方法：
+- en: '[PRE1]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'By removing noisy strings or text that are not relevant, we obtained the following:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过去除噪音字符串或与分析无关的文本，我们获得了以下内容：
+- en: '[PRE2]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'We highlighted a number of text strings. As a result, we may be expecting a
+    number of messages to pop up by using the `MessageBoxA` function. With APIs such
+    as `LoadResource` and `LockResource`, we may also encounter code that will process
+    some data from the resource section. A suspended process may also be invoked after
+    seeing APIs such as `CreateProcess` and `ResumeThread`. Anti-debugging may also
+    be expected using the `IsDebuggerPresent` API. The program may have been compiled
+    to use GUI-based code using `CreateWindowExW` and `RegisterClassExW`, but we do
+    not see the window messaging loop functions: `GetMessage`, `TranslateMessage`,
+    and `DispatchMessage`.'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们突出了多个文本字符串。因此，我们可能会期望通过使用`MessageBoxA`函数弹出多个消息。使用像`LoadResource`和`LockResource`这样的API时，我们也可能会遇到处理资源部分数据的代码。在看到像`CreateProcess`和`ResumeThread`这样的API后，可能会调用一个挂起的进程。使用`IsDebuggerPresent`
+    API时，也可能会遇到反调试技术。程序可能已经被编译成使用基于GUI的代码，通过`CreateWindowExW`和`RegisterClassExW`，但我们没有看到窗口消息循环函数：`GetMessage`、`TranslateMessage`和`DispatchMessage`。
+- en: All these are just assumptions that we can better understand following further
+    analysis. Now, let's try to do deadlisting on the file using IDA Pro.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些都只是我们在进一步分析后可以更好理解的假设。现在，让我们尝试使用IDA Pro对该文件进行死列举。
+- en: Deadlisting
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 死列举
+- en: 'After opening up `whatami.exe` in IDA Pro, auto-analysis recognizes the `WinMain`
+    function. In the following screenshot, we can see that the first three APIs that
+    will be executed are `LoadStringW`, `RegisterClassExW`, and `CreateWindowEx`:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在IDA Pro中打开`whatami.exe`后，自动分析识别出了`WinMain`函数。在接下来的截图中，我们可以看到将要执行的前三个API是`LoadStringW`、`RegisterClassExW`和`CreateWindowEx`：
+- en: '![](img/944764d5-5452-49b7-a608-d62f0716b1d7.png)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/944764d5-5452-49b7-a608-d62f0716b1d7.png)'
+- en: When `CreateWindowExW` is executed, the window properties are taken from the
+    configuration set by `RegisterClassExW`. The `ClassName`, which is used as the
+    name of the window, is taken from the file's text string resource using `LoadStringW`.
+    However, our concern here would only be the code pointed to by `lpfnWindProc`
+    takes us. When `CreateWindowExW` is executed, the code pointed to by the `lpfnWndProc`
+    parameter is executed.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当执行`CreateWindowExW`时，窗口的属性来自`RegisterClassExW`设置的配置。`ClassName`，作为窗口的名称，是通过`LoadStringW`从文件的文本字符串资源中获取的。然而，我们在这里关心的只是`lpfnWindProc`指向的代码。当执行`CreateWindowExW`时，`lpfnWndProc`参数指向的代码将被执行。
+- en: 'Before we proceed, take a look at `sub_4010C0`. Let''s see the code that comes
+    after `CreateWindowExW`:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在继续之前，先看看`sub_4010C0`。我们来看看`CreateWindowExW`之后的代码：
+- en: '![](img/e2cdeaa3-09ee-44f0-ba7e-0424771208f0.png)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e2cdeaa3-09ee-44f0-ba7e-0424771208f0.png)'
+- en: The preceding screenshot shows that after `CreateWindowExW`, `ShowWindow` and
+    `UpdateWindow` are the only APIs that may be executed. However, there are indeed no
+    window messaging APIs that were expected to process window activities. This would
+    entail us assuming that the intention of the program was only to run code at the
+    address pointed to by the `lpfnWndProc` parameter.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的截图显示，在`CreateWindowExW`之后，`ShowWindow`和`UpdateWindow`是可能被执行的唯一API。然而，确实没有预期中的窗口消息API来处理窗口活动。这使得我们假设程序的意图只是运行`lpfnWndProc`参数指向的地址处的代码。
+- en: 'Double clicking on `dword_4010C0`, which is the address of  `lpfnWndProc`,
+    will show a set of bytes that have not been properly analyzed by IDA Pro. Since
+    we are sure that this area should be a code, we will have to tell IDA Pro that
+    it is a code.  By pressing ''`c`'' at address `0x004010C0`, IDA Pro will start
+    converting the bytes to readable assembly language code. Select `Yes` when IDA
+    Pro asks us to convert to code:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 双击`dword_4010C0`，即`lpfnWndProc`的地址，将显示一组IDA Pro尚未正确分析的字节。由于我们确定这个区域应该是代码，因此我们需要告诉IDA
+    Pro它是代码。通过在地址`0x004010C0`按下`'c'`，IDA Pro将开始将字节转换为可读的汇编语言代码。当IDA Pro询问我们是否将其转换为代码时，选择`是`：
+- en: '![](img/ac468539-3f52-4783-8283-469b3c820792.png)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ac468539-3f52-4783-8283-469b3c820792.png)'
+- en: 'Scrolling down, we will encounter another unrecognized code at `0x004011a0`.
+    Just perform the same procedure:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 向下滚动，我们将在`0x004011a0`处遇到另一个无法识别的代码。只需执行相同的步骤：
+- en: '![](img/bdee9e12-1807-48b9-a856-30db46fe8f8a.png)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bdee9e12-1807-48b9-a856-30db46fe8f8a.png)'
+- en: Scrolling down again will bring us to data that can no longer be converted.
+    This should be the last part of the code. Let's tell IDA Pro that this code should
+    be a treated as a function. To do that, highlight lines from `0x004010C0` to `0x004011C0`,
+    right-click on the highlighted lines, and then select "`Create function...`" to
+    turn the set of code into a function.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再往下滚动会看到一些无法再转换的数据。这应该是代码的最后一部分。让我们告诉IDA Pro将这段代码处理为一个函数。操作方法是高亮选中从`0x004010C0`到`0x004011C0`的行，右键点击高亮部分，然后选择“`创建函数...`”将这段代码变成一个函数。
+- en: '![](img/e7b3b932-4ec0-4d75-acfe-94182572daab.png)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e7b3b932-4ec0-4d75-acfe-94182572daab.png)'
+- en: 'Turning the code into a function will help our deadlisting see a graphical
+    view of the code. To do that, right-click and select Graph view. The following
+    screenshot shows the first set of code of the function. What interests us here
+    is how the `rdtsc` and `cpuid` instructions were used:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将代码转化为函数可以帮助我们的死链表查看代码的图形视图。为此，右键点击并选择图形视图。下图显示了该函数的第一组代码。我们关心的是`rdtsc`和`cpuid`指令的使用方式：
+- en: '![](img/fe7fd37f-7f67-48f1-b326-02edfca89231.png)'
+  id: totrans-70
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/fe7fd37f-7f67-48f1-b326-02edfca89231.png)'
+- en: In *[Chapter 11](65131269-b507-47b8-9229-8f5ebb219464.xhtml), Identification
+    with POC Malware*, under anti-debugging tricks, we discussed `rdtsc` being used
+    as a timing trick. The difference is calculated right after the second `rdtsc`.
+    In the following code, the expected duration should only be less than or equal
+    to `0x10000`, or `65,536` cycles. If we get to pass that timing trick, a message
+    box will appear.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*[第11章](65131269-b507-47b8-9229-8f5ebb219464.xhtml)，与POC恶意软件的识别*中，在反调试技巧下，我们讨论了`rdtsc`被用作时间计算技巧。差异是在第二次`rdtsc`后计算的。在以下代码中，预期的持续时间应该小于或等于`0x10000`，即`65,536`个周期。如果我们能通过这个时间技巧，就会弹出一个消息框。
+- en: Leaf 1 (set in the register `eax`) is passed to the first execution of a `cpuid`
+    instruction. Again, in [Chapter 11](65131269-b507-47b8-9229-8f5ebb219464.xhtml),
+    `cpuid` can be used for anti-VM tricks. The result is placed in register eax.
+    This is followed by three `xor` instructions that eventually exchange the values
+    of the `eax` and `ecx` registers.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第1个叶子（设置在寄存器`eax`中）被传递给第一次执行`cpuid`指令。再次在*[第11章](65131269-b507-47b8-9229-8f5ebb219464.xhtml)*中，`cpuid`可以用于反虚拟机技巧。结果被放置在寄存器eax中。接着是三条`xor`指令，最终交换`eax`和`ecx`寄存器的值。
+- en: '[PRE3]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The bt instruction moves the 31st (`0x1F`) bit to the `carry` flag. If the 31st
+    bit is set, it means that we are running in a hypervisor environment. We will
+    need to take note of this line during our debugging session later. We want to
+    make the result with the 31st bit set to `0`.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`bt`指令将第31位（`0x1F`）移动到`进位`标志。如果第31位被设置，则意味着我们正在一个超级管理程序环境中运行。在后续的调试过程中，我们需要注意这一行。我们希望使结果中第31位被设置为`0`。'
+- en: This may be followed by another check on the 5th bit using `xor ecx, 20h`. With
+    the 5th bit set, it would mean that VMX (Virtual Machine eXtensions) instructions
+    are available. If the VMX instructions are available, it would also mean that
+    the system is capable of running virtualization. Usually, VMX is only available
+    at the host VM, and the program can assume that it is running on the physical
+    machine. For bitwise logic, if the 5th bit of `ecx` is set, an `xor` `20h` should
+    make it a zero. But if the other bits of register `ecx` were set, register ecx
+    would not have a zero value. We should also take note on this for our debug session.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这之后可能会紧接着用`xor ecx, 20h`检查第5位。如果第5位被设置，意味着VMX（虚拟机扩展）指令可用。如果VMX指令可用，则意味着系统能够运行虚拟化。通常，VMX仅在主机虚拟机上可用，程序可以假设它正在物理机上运行。对于位运算，如果`ecx`的第5位被设置，`xor
+    20h`应该使其归零。但如果`ecx`寄存器的其他位被设置，`ecx`寄存器的值就不会是零。我们在调试过程中也要特别注意这一点。
+- en: 'Two main tricks were shown here – a timing-trick and an anti-VM trick. Overall,
+    if we deduce what we analyzed, the program can either go in two directions: the
+    loop at `loc_4010EF`, which makes no sense, and the `MessageBoxA` code.'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里展示了两种主要的技巧——一个是时间技巧，另一个是反虚拟机技巧。总体而言，如果我们推测我们分析的内容，程序可以走两个方向：一个是`loc_4010EF`处的循环，它没有意义，另一个是`MessageBoxA`代码。
+- en: 'If we take a closer look, the whole anti-debug and anti-VM tricks are enclosed
+    by `pusha` and `popa` instructions. Essentially, we can skip the whole trick codes
+    and jump right to the `MessageBoxA` code, as can be seen in the following screenshot:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们仔细看，会发现整个反调试和反虚拟机技巧都被`pusha`和`popa`指令包围。实际上，我们可以跳过整个技巧代码，直接跳到`MessageBoxA`代码，正如下面的截图所示：
+- en: '![](img/69be9a22-0617-43f5-b253-b3948eb711ce.png)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/69be9a22-0617-43f5-b253-b3948eb711ce.png)'
+- en: 'The `MessageBoxA` code is followed by functions that read an `RCDATA` (`0x0A`)
+    resource type with an ordinal name of `0x88` (`136`).  Using CFF Explorer, click
+    on Resource Editor and expand `RCData`. We should be able to see the data being
+    read here, as shown in the following screenshot:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`MessageBoxA`代码后面是读取`RCDATA`（`0x0A`）资源类型，且该资源的序号名称为`0x88`（`136`）的函数。使用 CFF
+    Explorer，点击 Resource Editor 并展开 `RCData`。我们应该能够看到正在读取的数据，如下截图所示：'
+- en: '![](img/e3da36a3-e137-4e4d-bdc7-7853fcc0d759.png)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e3da36a3-e137-4e4d-bdc7-7853fcc0d759.png)'
+- en: The data is copied, using `memcpy`, to a memory space allocated using `VirtualAlloc`.
+    The allocated size is the size indicated in the RCData's properties. The size
+    can be seen by expanding `RCData` in the Resource Directory in `CFF` Explorer. The
+    address of the copied data is left to the`edi register.`
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据通过 `memcpy` 被复制到使用 `VirtualAlloc` 分配的内存空间中。分配的大小是 RCData 属性中指示的大小。可以通过在 CFF
+    Explorer 中展开 Resource Directory 中的 `RCData` 来查看大小。复制的数据地址被存储在 `edi` 寄存器中。
+- en: We also see `IsDebuggerPresent` being used here, another anti-debugging trick.
+    Following the green line ends up to an `ExitProcess`.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还看到 `IsDebuggerPresent` 被使用了，这是另一种反调试技巧。跟随绿色线条最终会到达 `ExitProcess`。
+- en: 'The following screenshot is where the red line goes to:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图是红线的去向：
+- en: '![](img/f1c9fdfa-5748-4fb4-845e-fa3f9bc0c243.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f1c9fdfa-5748-4fb4-845e-fa3f9bc0c243.png)'
+- en: The loop at `loc_4011A0` seems to be decrypting the data. Remember that the
+    address of the data is in register edi. The decryption algorithm uses a `ror`
+    `0x0c` (rotate 12 bits to the right). After decryption, it stores the data address
+    to register `eax` and then calls the `sub_4011D0` function.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`loc_4011A0` 处的循环似乎在解密数据。记住，数据的地址保存在寄存器 edi 中。解密算法使用 `ror` `0x0c`（向右旋转 12 位）。解密后，数据地址被存储到寄存器
+    `eax` 中，然后调用 `sub_4011D0` 函数。'
+- en: Knowing the location and size of the decrypted data, we should be able to create
+    a memory dump during our debug session.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解解密数据的位置和大小后，我们应该能够在调试过程中创建一个内存转储。
+- en: 'Inside `sub_4011DO`, the address stored in eax is transferred to the esi register,
+    and subsequently to register edi. We then encounter a call to `CreateProcessA`
+    that runs "calc":'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `sub_4011D0` 内部，存储在 eax 中的地址被转移到 esi 寄存器，随后转移到 edi 寄存器。然后我们看到一个调用 `CreateProcessA`
+    的函数来运行“calc”：
+- en: '![](img/e5ef948f-0df7-491a-9538-ceae1b2992c7.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e5ef948f-0df7-491a-9538-ceae1b2992c7.png)'
+- en: The process named "`calc`" is actually the Windows default calculator application. The
+    sixth parameter of `CreateProcessA`, `dwCreationFlags`, is what interests us here.
+    The value of 4 denotes CREATE_SUSPENDED. The calculator was run as a process in
+    suspended mode. This means that it is not running and was only loaded in the calculator's
+    own process space.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 名为“`calc`”的进程实际上是 Windows 默认的计算器应用程序。`CreateProcessA`的第六个参数`dwCreationFlags`在这里是我们关注的重点。值为4表示
+    CREATE_SUSPENDED。计算器以挂起模式作为进程运行，这意味着它并未执行，而是仅仅在计算器自己的进程空间中加载。
+- en: If we were to make a block diagram of `sub_4011D0` with the sequence of API
+    functions, we would have something like this.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们要为 `sub_4011D0` 创建一个包含 API 函数顺序的框图，可能会得到如下图所示的结果。
+- en: '![](img/6d652ae7-c513-4389-b68e-ea5cc2a83aa8.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6d652ae7-c513-4389-b68e-ea5cc2a83aa8.png)'
+- en: The sequence of APIs demonstrates a behavior called process hollowing. Process
+    hollowing is a technique, commonly used by malware, to mask its code under a legitimate
+    process. This technique creates a process in a suspended state, and then its memory
+    is unmapped and replaced with a different process image. In this case, the legitimate
+    process is Calculator.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些 API 的顺序展示了一种名为进程空洞（process hollowing）的行为。进程空洞是一种常被恶意软件使用的技术，通过将其代码隐藏在合法进程下方来掩盖其存在。这项技术会创建一个处于挂起状态的进程，然后卸载其内存并用另一个进程映像替换它。在这个案例中，合法进程是计算器（Calculator）。
+- en: The `NtUnmapViewOfSection` API is a function that unmaps or removes the PE image
+    layout from a given process space. This API comes from the `NTDLL.DLL` library
+    file. Instead of using `LoadLibrary`, the `GetModuleHandle` was used. `LoadLibrary`
+    is used to load a library that has not yet been loaded, while `GetModuleHandle`
+    is used to retrieve the handle of an already loaded library. In this case, the
+    program assumed that `NTDLL.DLL` was already loaded.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`NtUnmapViewOfSection` API 是一个从给定进程空间中卸载或移除 PE 映像布局的函数。这个 API 来自于 `NTDLL.DLL`
+    库文件。与使用 `LoadLibrary` 不同，这里使用了 `GetModuleHandle`。`LoadLibrary` 用于加载尚未加载的库，而 `GetModuleHandle`
+    用于检索已加载库的句柄。在这种情况下，程序假设 `NTDLL.DLL` 已经被加载。'
+- en: 'The following screenshot shows the disassembly code that retrieves the function
+    address of `NtUnmapViewOfSection`:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了获取`NtUnmapViewOfSection`函数地址的反汇编代码：
+- en: '![](img/3ff2b81f-36ec-483a-8944-76ef8245b5eb.png)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3ff2b81f-36ec-483a-8944-76ef8245b5eb.png)'
+- en: The decrypted data from the resource section's RCData is passed to sub_4011D0\.
+    Every call to `WriteProcessMemory` reads chunks of data from the decrypted data.
+    Given this, we are expecting the decrypted data to be that of a `Win32` PE file.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 资源部分的 RCData 解密数据会传递给 sub_4011D0。每次调用`WriteProcessMemory`都会从解密数据中读取数据块。鉴于此，我们预期解密数据应该是一个
+    `Win32` PE 文件的内容。
+- en: To summarize, the code initially creates a window. However, the registered window
+    properties are almost empty, except for the callback, `Wndproc`. The `Wndproc`
+    callback is the code that initially executes when the window is created. As a
+    result, the creation of a window using `RegisterClassEx` and `CreateWindow` APIs
+    were just used to pass code execution. In other words, the whole window creation
+    was the simple equivalent of a `jmp` instruction.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结一下，代码最初会创建一个窗口。然而，已注册的窗口属性几乎为空，只有回调函数 `Wndproc`。`Wndproc` 回调是窗口创建时最初执行的代码。因此，使用
+    `RegisterClassEx` 和 `CreateWindow` API 创建窗口实际上只是用来传递代码执行。换句话说，整个窗口创建过程只是 `jmp`
+    指令的简单等效。
+- en: 'Here''s another diagram outlining the flow of code at the Wndproc callback:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是另一张概述 Wndproc 回调中代码流的图示：
+- en: '![](img/2f056250-3218-4130-a3da-3b47c0d9324e.png)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2f056250-3218-4130-a3da-3b47c0d9324e.png)'
+- en: In the first section of the `Wndproc` code, we encountered anti-debug (timing
+    tricks with `rdtsc`) and anti-vm (`cpuid` bit 31 and 5) tricks. Once we get passed
+    that, a message box appears. The data from the resource's RCData is copied to
+    an allocated memory. We encounter another anti-debugging trick using the `IsDebuggerPresent`
+    API. The data is decrypted and passed to a process-hollowing code using Calculator.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `Wndproc` 代码的第一部分，我们遇到了反调试（通过 `rdtsc` 做时间技巧）和反虚拟机（`cpuid` 位 31 和 5）技巧。一旦我们通过这些，弹出了一个消息框。资源中的
+    RCData 数据被复制到一个分配的内存中。我们又遇到了一个使用 `IsDebuggerPresent` API 的反调试技巧。数据被解密并传递给一个使用计算器的进程劫持代码。
+- en: Our next target for analysis would be the decrypted image executed using process
+    hollowing. We will start directly with debugging.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们接下来的分析目标是通过进程劫持执行的解密镜像。我们将直接开始调试。
+- en: Debugging
+  id: totrans-102
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调试
+- en: We will be using `x86dbg` for our debug session. Remember that we decompressed
+    the file using UPX. It would be wise to open the decompressed version instead
+    of the original whatami.exe file.  Opening the compressed will be fine but we
+    will have to go through debugging the UPX packed code.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用 `x86dbg` 进行调试会话。记住，我们已经使用 UPX 解压了文件。最好打开解压后的版本，而不是原始的 whatami.exe 文件。打开压缩的文件也是可以的，但我们将需要调试
+    UPX 打包的代码。
+- en: Unlike IDA Pro, `x86dbg` is not able to recognize the `WinMain` function where
+    the real code starts. In addition, after opening the file, the instruction pointer
+    may still be somewhere in the `NTDLL` memory space. And to avoid being in an `NTDLL`
+    region during startup, we may need to make a short configuration change in `x86dbg`.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 IDA Pro 不同，`x86dbg` 无法识别 `WinMain` 函数，也就是程序的实际起始点。此外，打开文件后，指令指针可能还会处于 `NTDLL`
+    内存空间。为了避免在启动时进入 `NTDLL` 区域，我们可能需要在 `x86dbg` 中进行一些简单的配置更改。
+- en: 'Select Options->Preference. Under the Events tab, uncheck System Breakpoint
+    and TLS Callbacks. Click on the Save button and then select Debug->Restart. This
+    should now bring us to the entry point of `whatami.exe` at the following address:
+    `0x004016B8`.'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择“选项”->“首选项”。在“事件”标签下，取消勾选“系统断点”和“TLS 回调”。点击保存按钮，然后选择“调试”->“重启”。这应该将我们带到 `whatami.exe`
+    的入口点，地址为：`0x004016B8`。
+- en: Since we already know the `WinMain` address from IDA Pro, we can just place
+    a breakpoint at that address. The WinMain address is at `0x00401000`. Press CTRL+G,
+    then type `0x00401000`, then press `F2` to place a breakpoint, and finally press
+    `F9` to run the program.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们已经通过 IDA Pro 知道了 `WinMain` 的地址，我们可以直接在该地址设置断点。WinMain 地址是 `0x00401000`。按下
+    CTRL+G，然后输入 `0x00401000`，再按 `F2` 设置断点，最后按 `F9` 运行程序。
+- en: 'Here is a screenshot of where we should be at this point:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是此时我们应该达到的位置的截图：
+- en: '![](img/0ab87182-92d2-404c-b7b1-a90d34c623f1.png)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0ab87182-92d2-404c-b7b1-a90d34c623f1.png)'
+- en: 'We have observed in our static analysis that `RegisterClassExW` and `CreateWindowExW`
+    were used to set the WndProc as a window handler where more interesting codes
+    are placed. Make a breakpoint at the WndProc address, `0x004010c0`, and then press
+    F9\. This should bring us to the following screenshot, where the anti-debug and
+    anti-VM codes are located:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在静态分析中，我们观察到使用了`RegisterClassExW`和`CreateWindowExW`来设置WndProc作为窗口处理程序，其中包含更多有趣的代码。请在WndProc地址`0x004010c0`处设置断点，然后按F9键。这将带我们进入如下截图，其中包含反调试和反虚拟机代码：
+- en: '![](img/cc6abbd1-5daf-4dd3-a481-05d7ff40bc0d.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cc6abbd1-5daf-4dd3-a481-05d7ff40bc0d.png)'
+- en: We highlighted the anti-debug and anti-VM codes here. These codes run begins
+    from the pushad instruction up to the popad instruction. What we can do here is
+    skip the anti-debug and anti-VM codes. Press F7 or F8 until we are at address
+    `0x004010C9`. Select line `0x00401108`, the line right after `popad`, and then
+    right-click on it to bring up the context menu. Select Set New Origin Here. This
+    brings the instruction pointer, register EIP, to this address.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在这里突出了反调试和反虚拟机代码。代码从`pushad`指令开始，到`popad`指令结束。我们可以做的是跳过这些反调试和反虚拟机代码。按F7或F8，直到我们到达地址`0x004010C9`。选择`0x00401108`这一行（即`popad`之后的行），然后右键单击它以弹出上下文菜单。选择“Set
+    New Origin Here”。这样，指令指针（寄存器EIP）就会定位到这个地址。
+- en: 'We should now be at the code that displays the following message using the
+    `MessageBoxA` function. Just keep on pressing `F8` until the following message
+    appears:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们应该到达了使用`MessageBoxA`函数显示以下消息的代码。继续按`F8`，直到出现以下消息：
+- en: '![](img/7b5d6d55-d7cd-45de-921e-5c6690a4c240.png)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7b5d6d55-d7cd-45de-921e-5c6690a4c240.png)'
+- en: 'You will have to click on the OK button for debugging to proceed. The next
+    portion of the code will retrieve the `RCData` from the resource section. Keep
+    on pressing `F8` until we reach line `0x0040117D`, a call to `memcpy`. If we look
+    carefully at the three parameters to be passed for `memcpy`, register edi should
+    contain the source address of the data to be copied, register `eax` should contain
+    the destination address, and register `esi` should contain the size of data to
+    be copied. To get a memory view of what the destination will contain, select the
+    value of `EDI` in the right-hand pane, and then right-click on it to show the
+    context menu. Select Follow in Dump. We should now be able to view Dump 1''s memory
+    space, as demonstrated in the following screenshot:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你需要点击“确定”按钮才能继续调试。接下来的代码将从资源部分获取`RCData`。继续按`F8`，直到我们到达`0x0040117D`这一行，调用`memcpy`。仔细观察传递给`memcpy`的三个参数，寄存器edi应包含要复制数据的源地址，寄存器`eax`应包含目标地址，而寄存器`esi`应包含要复制的数据大小。为了查看目标将包含的内存内容，在右侧窗格中选择`EDI`的值，然后右键单击它以显示上下文菜单。选择“Follow
+    in Dump”。现在我们应该能够查看Dump 1的内存空间，如下图所示：
+- en: '![](img/c62ec0fc-248f-4d42-9ab3-f78f54c4d1b8.png)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c62ec0fc-248f-4d42-9ab3-f78f54c4d1b8.png)'
+- en: 'Press `F8` to proceed with the `memcpy`. The following screenshot shows the
+    current location:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按`F8`键继续执行`memcpy`。以下截图显示了当前的位置：
+- en: '![](img/c8fa24a5-79e1-4148-a8d9-6d38bd409da5.png)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c8fa24a5-79e1-4148-a8d9-6d38bd409da5.png)'
+- en: Keep on pressing `F8` until we are at the line (`0x00401192`) after the call
+    to `IsDebuggerPresent`. Register `EAX` is expected to be set to `1`, which indicates
+    a "`True`" value. We will need to change that to "`False`", with a zero value.
+    To do that, double-click on the value of register `EAX`, and then change 1 to
+    0\. In effect, this should not let the code jump straight to the `ExitProcess`
+    call.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续按`F8`键，直到我们到达调用`IsDebuggerPresent`之后的行（`0x00401192`）。寄存器`EAX`应该被设置为`1`，表示“`True`”值。我们需要将其改为“`False`”，即零值。为此，双击寄存器`EAX`的值，然后将1改为0。这样，代码就不会直接跳到`ExitProcess`调用。
+- en: 'The next code would be the decryption routine. The arrows in the far left-hand
+    pane show a `loopback` code. The algorithm uses a `ror` instruction. Keep on pressing
+    `F8` while observing Dump 1\. We can slowly see the data being decrypted, starting
+    with an `MZ` header. You can place a breakpoint at address `0x004011B7`, where
+    the decryption code ends and reveals entirely decrypted data, shown as follows:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的代码将是解密例程。左侧窗格中的箭头显示了一个`loopback`代码。该算法使用`ror`指令。继续按`F8`键，同时观察Dump 1。我们可以逐渐看到数据被解密，从一个`MZ`头开始。你可以在地址`0x004011B7`处设置断点，解密代码结束并完全解密的数据将显示如下：
+- en: '![](img/b181cffc-145e-4e76-8ca0-3f684564ccc8.png)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b181cffc-145e-4e76-8ca0-3f684564ccc8.png)'
+- en: 'The decrypted data is a `Win32` PE file with a size of `0x0D000` (53,248 bytes).
+    What we can do here is dump this decrypted memory to a file. To do that, click
+    on the Memory Map tab or select View->Memory Map. This shows us the process memory
+    space with the addresses of memory sections and its respective size. The memory
+    address where the decrypted data is, in our case, `0x001B000`. This address may
+    be different to other analyzes. Select the decrypted data''s memory address with
+    a size of `0x00D000`, right-click to bring up the context menu, and then select
+    Dump Memory to File. Refer to the following example:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密的数据是一个大小为`0x0D000`（53,248字节）的`Win32` PE文件。我们可以在这里做的是将此解密的内存转储到文件中。要执行此操作，请单击内存映射选项卡或选择视图->内存映射。这显示了进程内存空间，其中包含内存部分的地址和其相应大小。在我们的情况下，解密数据的内存地址是`0x001B000`。这个地址可能因分析而异。选择大小为`0x00D000`的解密数据的内存地址，右键单击以显示上下文菜单，然后选择转储内存到文件。请参考以下示例：
+- en: '![](img/ab880fb3-5717-4e14-b593-ded0ef9154c5.png)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ab880fb3-5717-4e14-b593-ded0ef9154c5.png)'
+- en: 'Save the file and open it with CFF Explorer. This gives us the following file
+    information:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 保存文件并使用CFF Explorer打开它。这为我们提供了以下文件信息：
+- en: '| File size | 53,248 bytes |'
+  id: totrans-124
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 53,248字节 |'
+- en: '| MD5 | DD073CBC4BE74CF1BD0379BA468AE950 |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | DD073CBC4BE74CF1BD0379BA468AE950 |'
+- en: '| SHA-1 | 90068FF0C1C1D0A5D0AF2B3CC2430A77EF1B7FC4 |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 90068FF0C1C1D0A5D0AF2B3CC2430A77EF1B7FC4 |'
+- en: '| File type | Win32 PE file – compiled by Microsoft Visual C++ 8 |'
+  id: totrans-127
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE文件 - 由Microsoft Visual C++ 8编译 |'
+- en: 'In addition, viewing the import directory shows us four library modules: `KERNEL32`,
+    `ADVAPI32`, `WS2_32`, and `URLMON`. The following CFF Explorer screenshot shows
+    that registry and cryptography APIs are being imported from `ADVAPI32`:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，查看导入目录显示了四个库模块：`KERNEL32`、`ADVAPI32`、`WS2_32`和`URLMON`。以下CFF Explorer截图显示从`ADVAPI32`导入了注册表和密码学API：
+- en: '![](img/efd52791-c10a-4054-b3bb-6e451975f2bc.png)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/efd52791-c10a-4054-b3bb-6e451975f2bc.png)'
+- en: The presence of `WS2_32` means that the program might use network socket functions.
+    `URLDownloadToFile` is the single API imported from `URLMON`. We are expecting
+    a file to be downloaded.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 存在`WS2_32`表示程序可能使用网络套接字函数。从`URLMON`导入的单个API是`URLDownloadToFile`。我们预计会下载一个文件。
+- en: 'Going back to our debug session, there are two call instructions left. The
+    one option is a call to `ExitProcess`, which will terminate the currently running
+    process. The other is a call to address `0x004011DO`. Use `F7` to do a debug step
+    causing the debugger to enter the call instruction. This is the function that
+    does the process-hollowing routine. The following screenshot is where we should
+    be at after entering `0x004011D0`:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回到我们的调试会话，还剩下两个调用指令。其中一个选择是调用`ExitProcess`，它将终止当前运行的进程。另一个是调用地址`0x004011D0`。使用`F7`进行调试步骤，使调试器进入调用指令。这是执行进程空心化例程的函数。下面的截图是我们在输入`0x004011D0`后应该所处的位置：
+- en: '![](img/3dae1c5e-4076-45f1-ab3d-f37bdd6d4498.png)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3dae1c5e-4076-45f1-ab3d-f37bdd6d4498.png)'
+- en: 'Continue pressing `F8` until after the call to `CreateProcessA`. Open Windows
+    Task Manger, and take a look at the list of processes. You should see `calc.exe`
+    in suspended status, shown as follows:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 持续按`F8`，直到调用`CreateProcessA`之后。打开Windows任务管理器，查看进程列表。您应该看到`calc.exe`处于挂起状态，如下所示：
+- en: '![](img/da66e345-7684-44d6-bfb3-f6d15e43c8d2.png)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/da66e345-7684-44d6-bfb3-f6d15e43c8d2.png)'
+- en: Continue pressing F8 until we reach the line that calls `ResumeThread` (`0x0040138C`).
+    What happened is that the unknown PE file has just replaced the image of the Calculator
+    process. If we take a look back at the block diagram of `sub_4011D0`, we are currently
+    in the process hollowing behavior of this program. While Calculator is in suspended
+    mode, no code is being executed yet. So before hitting `F8` on the `ResumeThread`
+    line, we will have to attach the suspended Calculator and place breakpoints at
+    the entry point or at its WinMain address. To do that, we will have to open up
+    another `x86dbg` debugger, then select File->Attach, and look for calc. If you
+    cannot see that, you will need to run as an administrator by selecting File->Restart.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 持续按F8，直到我们到达调用`ResumeThread`（`0x0040138C`）的行。发生的是未知PE文件刚刚替换了计算器进程的映像。如果我们回顾一下`sub_4011D0`的块图，我们目前处于该程序的进程空心化行为中。虽然计算器处于挂起模式，但尚未执行任何代码。因此，在`ResumeThread`行上按下F8之前，我们将需要附加挂起的计算器，并在其WinMain地址或入口点处设置断点。为此，我们将需要打开另一个`x86dbg`调试器，然后选择文件->附加，并查找calc。如果您看不到它，您将需要通过选择文件->重新启动以管理员身份运行。
+- en: 'Let''s use IDA Pro to help us identify the `WinMain` address. Open the dumped
+    memory in IDA Pro and, following the automated analysis, we''ll be at the `WinMain`
+    function. Change the view to Text view and then take note of the `WinMain` address,
+    as in the following screenshot:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用IDA Pro来帮助我们确定`WinMain`的地址。打开IDA Pro中的转储内存，并在自动分析后，我们将定位到`WinMain`函数。切换到文本视图，并记录下`WinMain`的地址，如下图所示：
+- en: '![](img/9daabfd9-b5cf-4d1a-9e39-8f7364ddbe46.png)'
+  id: totrans-137
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9daabfd9-b5cf-4d1a-9e39-8f7364ddbe46.png)'
+- en: 'In `x86dbg`, place a breakpoint at `0x004017A0`, as shown in the following
+    screenshot:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`x86dbg`中，将断点设置在`0x004017A0`，如以下截图所示：
+- en: '![](img/a8cc9ddc-d421-48b1-8061-0564d9129005.png)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a8cc9ddc-d421-48b1-8061-0564d9129005.png)'
+- en: 'Now we are ready to press `F8` over the `ResumeThread` line. But before doing
+    that, it would be a good idea to create a snapshot of our running VM just in case
+    something goes sideways:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们准备在`ResumeThread`这一行按`F8`键。但在此之前，最好还是创建一个正在运行的虚拟机快照，以防万一出现问题：
+- en: '![](img/b00bfc6c-0590-47ef-af67-f6f8365f3b88.png)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b00bfc6c-0590-47ef-af67-f6f8365f3b88.png)'
+- en: At this point, the only API left for `whatami.exe` to run is `ExitProcess`.
+    This means that we can just press `F9` to let this process die.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到此为止，`whatami.exe`要执行的唯一API是`ExitProcess`。这意味着我们可以按`F9`让该进程结束。
+- en: After `ResumeThread` has been called, the `calc` process is lifted from being
+    suspended and begins to run. But since the unknown image is in a debugger paused
+    state, we observe that the `calc` image is still at the attached breakpoint instruction
+    pointer.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在调用`ResumeThread`后，`calc`进程将被恢复并开始运行。但是由于未知的镜像处于调试器暂停状态，我们观察到`calc`镜像仍停留在附加的断点指令指针处。
+- en: The unknown image
+  id: totrans-144
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 未知镜像
+- en: At this point, we have the memory dump opened in IDA Pro and have the same unknown
+    image mapped into a Calculator process. We will work with both tools by using
+    IDA Pro for viewing the disassembly code and `x86dbg` for debugging.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，我们已经在IDA Pro中打开了内存转储，并且相同的未知镜像已映射到计算器进程中。我们将使用IDA Pro查看反汇编代码，并使用`x86dbg`进行调试。
+- en: In `x86dbg`, we have placed a breakpoint at the `WinMain` address of the unknown
+    image. However, the instruction pointer is still at an `NTDLL` address. Hit `F9`
+    to make it continue and bring us to our `WinMain`.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`x86dbg`中，我们已经在未知镜像的`WinMain`地址处设置了断点。然而，指令指针仍然停留在`NTDLL`地址处。按`F9`让其继续，直到我们到达`WinMain`。
+- en: 'Taking a detailed look at the disassembly codes from `WinMain`, we will notice
+    an SEH anti-debug here:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 详细查看`WinMain`的反汇编代码时，我们会注意到这里有一个SEH反调试机制：
+- en: '![](img/9dba0f73-d52f-42aa-9060-2e8501cb1f06.png)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9dba0f73-d52f-42aa-9060-2e8501cb1f06.png)'
+- en: '`call sub_4017CB` goes to a subroutine that has a `call $+5`, `pop eax`, and
+    then a `retn` instruction.  `call $+5` calls the next line. Remember that when
+    `call` is executed, the top of the stack will contain the return address. `call
+    sub_4017CB` stores the return address, `0x004017B3`, at the top of the stack.
+    And again, `call $+5` stores `0x004017D0` at the top of the stack. `0x004017D0`
+    is placed in the eax register because of `pop eax`. The ret instruction returns
+    to the `0x004017AD` address. A value of 2 is added to the address stored at the
+    `eax` register. As a result, the address in `eax` points to `0x004017D2`. This
+    must be the handler for the SEH being set up.'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`call sub_4017CB`跳转到一个子程序，里面有`call $+5`、`pop eax`和`retn`指令。`call $+5`调用下一行。记住，当执行`call`时，栈顶会包含返回地址。`call
+    sub_4017CB`会将返回地址`0x004017B3`存储到栈顶。接着，`call $+5`会将`0x004017D0`存储到栈顶。由于`pop eax`，`0x004017D0`被放入eax寄存器。`ret`指令会返回到`0x004017AD`地址。随后，地址中存储的值加2，结果是`eax`中的地址指向`0x004017D2`。这一定是正在设置的SEH处理程序地址。'
+- en: We can go through the SEH, or simply skip this in our debug session. Skipping
+    it would be as simple since we can identify the pushf/pusha and popa/popf instructions
+    and execute the same process as we did in the `whatami.exe` process.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以通过SEH，或者简单地在调试会话中跳过它。跳过它也非常简单，因为我们可以识别`pushf/pusha`和`popa/popf`指令，并执行与在`whatami.exe`进程中相同的操作。
+- en: Going through the SEH should also be simple. We can just place a breakpoint
+    at the handler address, `0x004017D2`, and press `F9` until we reach the handler.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过SEH的过程应该也很简单。我们可以在处理程序地址`0x004017D2`处设置断点，并按`F9`直到到达处理程序。
+- en: We can choose either of these options. When it comes to decisions like this,
+    it is always wise to take a snapshot of the VM. We can try both options by simply
+    restoring the VM snapshot.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以选择其中的任何一个选项。在做出这样的决策时，最好先拍个虚拟机的快照。如果出现问题，我们可以通过恢复虚拟机快照来尝试两个选项。
+- en: 'Our next stop is `sub_401730`. The following screenshot shows the code in `sub_401730`:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的下一站是`sub_401730`。以下截图显示了`sub_401730`中的代码：
+- en: '![](img/1f5afc70-9fd4-4b11-a134-00633edc2eca.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1f5afc70-9fd4-4b11-a134-00633edc2eca.png)'
+- en: Debugging through this code reveals that `LoadLibraryA` and `GetProcAddress`
+    is used to retrieve the address of `MessageBoxA`. Afterward, it just displays
+    a message.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过调试这段代码，可以发现使用了`LoadLibraryA`和`GetProcAddress`来获取`MessageBoxA`的地址。之后，它只是显示了一个消息。
+- en: '![](img/13c0140c-b9a3-4c92-8a36-2ae633d93d1f.png)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/13c0140c-b9a3-4c92-8a36-2ae633d93d1f.png)'
+- en: The next lines of code is an anti-automated analysis trick. We can see that
+    the difference of the results of two `GetTickCount` is being compared to a value
+    `0x0493e0` or `300000`. Between the calls to `GetTickCount`, a Sleep function
+    is also called.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一行代码是一个反自动化分析的技巧。我们可以看到，两个`GetTickCount`的结果差值正在与值`0x0493e0`或`300000`进行比较。在`GetTickCount`的调用之间，还调用了一个Sleep函数。
+- en: '![](img/84224f71-7972-4b5a-ab53-4fc1e2561031.png)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/84224f71-7972-4b5a-ab53-4fc1e2561031.png)'
+- en: A Sleep for 300000 means 5 minutes. Usually, automated analysis systems would
+    turn a long Sleep to a very short one. The preceding code wants to make sure that
+    5 minutes really elapsed. As analysts debugging this code, we can simply skip
+    this trick by setting our instruction pointer after the jb instruction.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个300000的Sleep意味着5分钟。通常，自动化分析系统会将较长的Sleep时间改为非常短的时间。前面的代码希望确保5分钟的时间确实已经过去。作为调试这段代码的分析员，我们可以通过将指令指针设置在`jb`指令之后，简单地跳过这个技巧。
+- en: Next is a call to `sub_401500` with two parameters: "`mcdo.thecyberdung.net`"
+    and `0x270F` (`9999`). The routine contains socket APIs. As we did before, let
+    us list down the sequence of APIs we will encounter.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是调用`sub_401500`，并传递两个参数："`mcdo.thecyberdung.net`"和`0x270F`（`9999`）。这个例程包含了套接字API。像之前一样，让我们列出我们将遇到的API序列。
+- en: '![](img/5da17ef7-1d5d-4ec2-bce6-da8f60a2300b.png)'
+  id: totrans-161
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5da17ef7-1d5d-4ec2-bce6-da8f60a2300b.png)'
+- en: For network socket behaviors, what we will be looking into are the parameters
+    and results for `gethostbyname`, `htons`, `send` and `recv`. Again, before we
+    proceed, taking a VM snapshot would be recommended at this point.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于网络套接字行为，我们需要关注的是`gethostbyname`、`htons`、`send`和`recv`的参数和结果。同样，在继续之前，建议此时先拍摄一个虚拟机快照。
+- en: Keep on step debugging until we reach the call to `gethostbyname`. We can get
+    the server to which the program is connecting to by looking at `gethostbyname`'s
+    parameters. And that would be "`mcdo.thecyberdung.net`". Proceeding with the call,
+    we might encounter a problem with gethostbyname's result. The result in register
+    EAX is zero. This means `gethostbyname` failed because it was not able to resolve "`mcdo.thecyberdung.net`"
+    to an IP address. What we need to do is setup `FakeNet` to mimic the internet.
+    Revert the VM snapshot to take us back before executing `WSAStartup`.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续逐步调试，直到我们到达`gethostbyname`的调用。我们可以通过查看`gethostbyname`的参数来获取程序连接的服务器。而这个服务器就是"`mcdo.thecyberdung.net`"。继续调用后，我们可能会遇到`gethostbyname`的结果问题。寄存器EAX中的结果是零。这意味着`gethostbyname`失败了，因为它未能将"`mcdo.thecyberdung.net`"解析为一个IP地址。我们需要做的是设置`FakeNet`来模拟互联网。恢复虚拟机快照，以便回到执行`WSAStartup`之前的状态。
+- en: Before running `FakeNet`, disconnect the cable by selecting Machine->Settings->Network
+    from the VirtualBox menu. Expand the Advanced menu and uncheck Cable connected.
+    We are doing this procedure to make sure that there will be no interference for
+    `FakeNet` reconfiguring the network.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在运行`FakeNet`之前，通过从VirtualBox菜单中选择“机器->设置->网络”来断开电缆。展开“高级”菜单并取消选中“Cable connected”。我们进行这个操作是为了确保在`FakeNet`重新配置网络时不会发生干扰。
+- en: '![](img/4dfa693d-503f-4f74-a485-a970788a3495.png)'
+  id: totrans-165
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4dfa693d-503f-4f74-a485-a970788a3495.png)'
+- en: 'The following screenshot shows `FakeNet` running successfully. `FakeNet` might
+    require running in administrative privileges. If that happens, just run it as
+    an Administrator:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了`FakeNet`成功运行。`FakeNet`可能需要以管理员权限运行。如果发生这种情况，只需以管理员身份运行它：
+- en: '![](img/80d8275d-6920-4043-8fbe-a8634476dde2.png)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/80d8275d-6920-4043-8fbe-a8634476dde2.png)'
+- en: 'Restore cable connection by checking the VM Network settings'' Cable Connected
+    check box. To verify that everything works fine, open up Internet Explorer and
+    visit any website. The resulting page should be similar to the following screenshot:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过勾选虚拟机网络设置中的“Cable Connected”复选框来恢复电缆连接。为了验证一切正常，打开Internet Explorer并访问任何网站。结果页面应类似于以下截图：
+- en: '![](img/29d6134e-4011-428a-931c-0044cc63d31c.png)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/29d6134e-4011-428a-931c-0044cc63d31c.png)'
+- en: Now, we can go back to our debugging at the `gethostbyname` address. We should
+    now get a result in register `EAX` with `FakeNet` running.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以回到`gethostbyname`地址继续调试。此时，我们应该能在寄存器`EAX`中获得一个结果，同时`FakeNet`正在运行。
+- en: '![](img/f16a8cd1-bfa2-4221-b15d-fcf872e74fd1.png)'
+  id: totrans-171
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f16a8cd1-bfa2-4221-b15d-fcf872e74fd1.png)'
+- en: The next API we are after is `htons`. This should give us information about
+    the server's network port the program is going to connect to. The parameter passed
+    to `htons` is stored in register `ECX`. This is the port number that will be used,
+    `0x270F` or `9999`.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们接下来要关注的API是`htons`。它将为我们提供程序将要连接的服务器的网络端口信息。传递给`htons`的参数存储在寄存器`ECX`中。这就是将使用的端口号，`0x270F`或9999。
+- en: '![](img/d3eb8ed4-5b1c-447c-a300-7cf8f825787a.png)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d3eb8ed4-5b1c-447c-a300-7cf8f825787a.png)'
+- en: Going on with debugging, we encounter the connect function where actual connection
+    to the server and given port commences. The connect function returns zero to register
+    `EAX` if it was successful. In our case, this fails with a `-1` return value.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试，我们遇到`connect`函数，实际的连接到服务器和指定端口在此开始。如果连接成功，`connect`函数会返回零给寄存器`EAX`。在我们的情况下，这里返回的是`-1`，说明连接失败。
+- en: '![](img/8fd24efd-99db-4f8c-a88b-fa31a6939789.png)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8fd24efd-99db-4f8c-a88b-fa31a6939789.png)'
+- en: The reason for this is that FakeNet only supports commonly used and few known
+    malware ports. Fortunately, we can edit FakeNet's configuration and add port 9999
+    to the list. FakeNet's configuration file, FakeNet.cfg, is found at the same directory
+    where FakeNet's executable is. But before updating this file, we will have to
+    revert again to snapshot before `WSAStartup` is called.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样做的原因是，FakeNet只支持常用且已知的恶意软件端口。幸运的是，我们可以编辑FakeNet的配置文件并将端口9999添加到列表中。FakeNet的配置文件`FakeNet.cfg`位于与FakeNet可执行文件相同的目录中。但是在更新此文件之前，我们需要先恢复到`WSAStartup`调用之前的快照。
+- en: Using Notepad, edit `FakeNet.cfg`. Look for the line that has the "`RawListner`"
+    text. If not found, just append the following lines in the config file.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用记事本编辑`FakeNet.cfg`文件。寻找包含“`RawListner`”的那一行。如果没有找到，就将以下几行添加到配置文件中。
+- en: '[PRE4]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'When this line is added, the config file should look like this:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当这行被添加时，配置文件应该如下所示：
+- en: '![](img/d9ca9b81-b7f4-49d8-8636-0468a0e2231e.png)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d9ca9b81-b7f4-49d8-8636-0468a0e2231e.png)'
+- en: Take note of the added `RawListener` line. After this, restart `FakeNet` then
+    debug again until we reach the `connect` API. This time we are expecting the connect
+    function to become successful.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意我们添加的`RawListener`行。添加之后，重新启动`FakeNet`，然后再次调试，直到我们到达`connect` API。这次我们希望`connect`函数能成功执行。
+- en: '![](img/b459d245-6250-4552-9ecf-f8960a1eb70a.png)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b459d245-6250-4552-9ecf-f8960a1eb70a.png)'
+- en: Continue debugging until we reach the send function. The second parameter (look
+    at the second entry from the top of stack) of the send function points to the
+    address of the data to be sent. Press `F8` to proceed sending the data and look
+    at `FakeNet`'s command console.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试，直到我们到达`send`函数。`send`函数的第二个参数（看栈顶第二项）指向要发送的数据的地址。按下`F8`继续发送数据，并查看`FakeNet`的命令控制台。
+- en: '![](img/04fe011d-19fc-4989-9b1e-027f3d265d48.png)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/04fe011d-19fc-4989-9b1e-027f3d265d48.png)'
+- en: We highlighted the communication between this program and `FakeNet`. Remember
+    that `FakeNet` here is a mimic of the remote server. The data sent was "`OLAH`".
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经标出了这个程序与`FakeNet`之间的通信。请记住，`FakeNet`在这里是远程服务器的模拟。发送的数据是“`OLAH`”。
+- en: Continue debugging until we reach another send or `recv` function. The next
+    function is a `recv`.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试，直到我们再次遇到`send`或`recv`函数。下一个函数是`recv`。
+- en: '![](img/5553d328-abf7-40ba-bbdc-676319e48a8a.png)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5553d328-abf7-40ba-bbdc-676319e48a8a.png)'
+- en: 'The second parameter is the buffer that receives data from the server. Apparently,
+    we are not expecting `FakeNet` to send any data back. What we can do is monitor
+    succeeding code that will process the data in this `recv` buffer. But to make
+    the `recv` call successful, the return value should be a non-zero number. We will
+    have to change register EAX''s value after stepping on the `recv` call, as we
+    did in the following screenshot:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个参数是从服务器接收数据的缓冲区。显然，我们不指望`FakeNet`返回任何数据。我们可以做的是监控随后处理这个`recv`缓冲区数据的代码。但是为了让`recv`调用成功，返回值应该是一个非零值。我们必须在执行`recv`调用后修改寄存器EAX的值，就像下面的截图所示：
+- en: '![](img/33e6d80c-8ef7-4a7d-b04f-9a4e55522e5e.png)'
+  id: totrans-189
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/33e6d80c-8ef7-4a7d-b04f-9a4e55522e5e.png)'
+- en: The next lines of code compare the data received with a string. See the following
+    disassembly using the `repe cmpsb` instruction to compare the strings.  This instruction
+    compares the text string stored at the address pointed to by registers `ESI` and
+    `EDI`.  The number of bytes to compare is stored in register `ECX`.  The supposedly
+    received data is located at the address pointed to by register `ESI`.  And the
+    address of the string, "`jollibee`", is stored in register `EDI`.  What we want
+    to happen here is make both strings equal.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的代码行将接收到的数据与一个字符串进行比较。请参见下面的反汇编代码，使用`repe cmpsb`指令进行字符串比较。该指令比较寄存器`ESI`和`EDI`指向的地址中的文本字符串。要比较的字节数存储在寄存器`ECX`中。假定接收到的数据位于寄存器`ESI`指向的地址。而字符串“`jollibee`”的地址则存储在寄存器`EDI`中。我们希望发生的情况是使两个字符串相等。
+- en: '![](img/199617e2-c270-4c2c-9705-fc9063e72b40.png)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/199617e2-c270-4c2c-9705-fc9063e72b40.png)'
+- en: To do that in our debug session, we will have to edit the bytes at the received
+    data address and make it equal to the 9 character string being compared to. Right
+    click on the value of register ESI to bring up the context menu, select Follow
+    in Dump. At the first byte of the data in Dump window, right click and select
+    Binary->Edit.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了在调试会话中实现这一点，我们需要编辑接收到的数据地址上的字节，并将其设置为正在比较的9字符字符串。右键点击寄存器ESI的值，弹出上下文菜单，选择“Follow
+    in Dump”。在Dump窗口中数据的第一个字节，右键点击并选择“Binary->Edit”。
+- en: '![](img/9c6ca9b4-2d8c-4007-8b55-54f22335c22e.png)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9c6ca9b4-2d8c-4007-8b55-54f22335c22e.png)'
+- en: 'This pops up a dialog box (shown in the following) where we can enter the string
+    "jollibee":'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这会弹出一个对话框（如下所示），在其中我们可以输入字符串“jollibee”：
+- en: '![](img/f044cce3-ff5c-49e0-99c8-27476d1ee789.png)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f044cce3-ff5c-49e0-99c8-27476d1ee789.png)'
+- en: Hit F8 to proceed with the comparison.  This should not go to the address where
+    the conditional jump points to. Continue debugging until we reach another send
+    function. Again, look at the data to be sent, which is the address that the second
+    parameter points to. However, irrespective of whether this succeeds or fails,
+    the result is not processed. The succeeding API closes the connection with `closesocket`
+    and WSACleanup functions, sets `EAX` to `1`, and returns from the current function.
+    `EAX` will only be set to `1` after the last send function.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按F8继续比较。这**不应**跳转到条件跳转指向的地址。继续调试直到我们到达另一个发送函数。再次查看要发送的数据，这是第二个参数指向的地址。然而，无论这是否成功，结果不会被处理。接下来的API通过`closesocket`和WSACleanup函数关闭连接，设置`EAX`为`1`，并从当前函数返回。`EAX`只会在最后一个发送函数之后被设置为`1`。
+- en: We've highlighted `var_DBD` in the disassembly code shown below to see that
+    a value of 1 was stored after the sending data back to the server.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在下面的反汇编代码中突出显示了`var_DBD`，以查看在数据发送回服务器后，值`1`已被存储。
+- en: '![](img/69265df9-3e46-4dae-9a47-d3a693ad44b5.png)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/69265df9-3e46-4dae-9a47-d3a693ad44b5.png)'
+- en: After returning to the `WinMain` function, it would be wise to do a VM snapshot.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 返回到`WinMain`函数后，最好进行一次虚拟机快照。
+- en: 'Keep on debugging until we reach a call to address `0x00401280`. There are
+    two parameters that will be passed to the function with values stored in the `EAX`
+    and `ECX` registers . The data is dumped under `Dump 1`, demonstrated as follows:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试直到我们到达调用地址`0x00401280`。将有两个参数传递给该函数，值存储在`EAX`和`ECX`寄存器中。数据在`Dump 1`下被转储，如下所示：
+- en: '![](img/9f96b84d-a3a9-4cfd-9fe0-2320f4a6a65e.png)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9f96b84d-a3a9-4cfd-9fe0-2320f4a6a65e.png)'
+- en: 'After entering function `0x00401280`, we will only encounter a URLDownloadToFile
+    function. The function downloads `https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal` and
+    stores it to a file named `unknown`, as can be seen in the following screenshot:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入函数`0x00401280`后，我们将只遇到一个URLDownloadToFile函数。该函数下载`https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal`并将其存储到名为`unknown`的文件中，如下截图所示：
+- en: '![](img/29ac6bdc-7b6c-4c56-b02e-ad7e599ac7a5.png)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/29ac6bdc-7b6c-4c56-b02e-ad7e599ac7a5.png)'
+- en: Doing this, we get to encounter an error that fails to download the file. The
+    reason is that we are still under a mimicked internet.  This time, we will need
+    to get a connection to the live internet. We will have to revert back to the snapshot
+    before the `URLDownloadToFile` function happens.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样做后，我们会遇到一个错误，无法下载文件。原因是我们仍处于模拟的互联网环境中。这一次，我们需要连接到真实的互联网。我们必须回到`URLDownloadToFile`函数之前的快照。
+- en: 'In the FakeNet console, press *CTRL + C* to exit the tool. To test whether
+    the live internet is up, visit [http://testmyids.com](http://testmyids.com) from
+    the internet browser. The result should be similar to the following screenshot:'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在FakeNet控制台中，按下*CTRL + C*退出工具。为了测试是否能够连接到互联网，请从互联网浏览器访问[http://testmyids.com](http://testmyids.com)。结果应该与以下截图类似：
+- en: '![](img/8f75bef0-1f45-4f84-82f6-d64c27a86e07.png)'
+  id: totrans-206
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8f75bef0-1f45-4f84-82f6-d64c27a86e07.png)'
+- en: Check VirtualBox's network configuration and Windows' network setup if the internet
+    cannot be accessed.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果无法访问互联网，请检查VirtualBox的网络配置和Windows的网络设置。
+- en: 'With the internet connection up, the program should be able to download the
+    file successfully. The file is downloaded with the filename `unknown`. If we load
+    this file in CFF Explorer, we get these file properties:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络连接正常后，程序应该能够成功下载文件。该文件的文件名为`unknown`。如果我们在CFF Explorer中加载此文件，我们将看到这些文件属性：
+- en: '![](img/d70d28ca-824e-4428-a041-044bdd433a26.png)'
+  id: totrans-209
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d70d28ca-824e-4428-a041-044bdd433a26.png)'
+- en: 'The following screenshot shows the file''s content by selecting the CFF Explorer''s
+    Hex Editor:'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了通过选择CFF Explorer的Hex Editor查看文件内容：
+- en: '![](img/0d2d2d21-17d6-4d93-8906-814aa5f33136.png)'
+  id: totrans-211
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0d2d2d21-17d6-4d93-8906-814aa5f33136.png)'
+- en: The file seems to be encrypted. We should expect that the next behavior will
+    process this file. Keep on debugging until we reach a call to address `0x004012e0`.
+    This function accepts two parameters, an address stored in `EAX`, and another
+    address pushed to the stack. The function receives these `imagine` parameter strings from
+    the top of the stack and `unknown` from the register `EAX`.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件似乎是加密的。我们预计接下来的行为会处理这个文件。继续调试，直到我们到达地址`0x004012e0`。这个函数接受两个参数，一个是存储在`EAX`寄存器中的地址，另一个是压入栈中的地址。该函数从栈顶接收这些`imagine`参数字符串，以及从寄存器`EAX`接收`unknown`。
+- en: 'Entering the function reveals reading the content of the file  "unknown". The
+    disassembly code that reads the file in a newly allocated memory space is as follows:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进入函数后发现正在读取文件"unknown"的内容。读取该文件到新分配的内存空间的反汇编代码如下：
+- en: '![](img/dec5b811-42f5-432a-a913-4f86bf17e748.png)'
+  id: totrans-214
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dec5b811-42f5-432a-a913-4f86bf17e748.png)'
+- en: 'Keep on pressing `F8` until after the `CloseHandle` call. The next set of code
+    shows the use of `Cryptographic` APIs. Let''s list the sequence of APIs here once
+    again:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 持续按`F8`直到`CloseHandle`调用之后。接下来的代码展示了`Cryptographic` API的使用。我们在这里再次列出这些API的顺序：
+- en: '[PRE5]'
+  id: totrans-216
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Based on the list, it would seem that whatever is decrypted gets stored in
+    a file. What we would want to know about this are the following:'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据列表，似乎所有解密的内容都会存储在文件中。我们想要了解的有以下几点：
+- en: The cryptographic algorithm used
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用的加密算法
+- en: The cipher key used
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用的加密密钥
+- en: The name of the file it stores data into
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 存储数据的文件名称
+- en: To identify the algorithm used, we should monitor the parameters used in either
+    `CryptAcquireContextA` function. Keep on debugging until `CryptAcquireContextA`.
+    The fourth parameter, `dwProvType`, should tell us what algorithm was used. `dwProvType`
+    here is `0x18` or `24`. For the list of provider type values, we can reference [https://docs.microsoft.com/en-us/dotnet/api/system.security.permissions.keycontainerpermissionattribute.providertype](https://docs.microsoft.com/en-us/dotnet/api/system.security.permissions.keycontainerpermissionattribute.providertype).
+    In this case, 24 is defined for the value of `PROV_RSA_AES`. Thus, the cipher
+    algorithm here uses `RSA AES`.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要识别所使用的算法，我们应该监视`CryptAcquireContextA`函数中的参数。继续调试直到`CryptAcquireContextA`。第四个参数`dwProvType`应该告诉我们使用了哪种算法。`dwProvType`的值为`0x18`或24。关于提供者类型值的列表，我们可以参考[https://docs.microsoft.com/en-us/dotnet/api/system.security.permissions.keycontainerpermissionattribute.providertype](https://docs.microsoft.com/en-us/dotnet/api/system.security.permissions.keycontainerpermissionattribute.providertype)。在这种情况下，24定义为`PROV_RSA_AES`的值。因此，这里的加密算法使用的是`RSA
+    AES`。
+- en: 'The cipher key used for this algorithm should be the third parameter of the
+    `CryptHashData` function. Look at the second parameter of the `CryptHashData`
+    function in the following screenshot:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该算法使用的加密密钥应该是`CryptHashData`函数的第三个参数。请查看以下截图中的`CryptHashData`函数的第二个参数：
+- en: '![](img/1b37c065-05b0-4389-b202-08c1db122bd8.png)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1b37c065-05b0-4389-b202-08c1db122bd8.png)'
+- en: The key is `this0is0quite0a0long0cryptographic0key`.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 密钥是`this0is0quite0a0long0cryptographic0key`。
+- en: For the final piece of information, we need to monitor `CreateFileA` to get
+    the filename of where the decrypted data will possibly be placed.  After debugging
+    to `CreateFileA`, we should see the first parameter as the output filename, "`imagine`".
+    The `CryptDecrypt` function accepts the location of encrypted data, the fifth
+    parameter, and decrypts it at the same location. The process runs in a loop where
+    every piece of decrypted data gets appended to the "imagine" file.
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于最后一条信息，我们需要监控`CreateFileA`，以获取解密数据可能被放置的文件名。在调试到`CreateFileA`时，我们应该看到第一个参数是输出文件名，"`imagine`"。`CryptDecrypt`函数接受加密数据的位置（第五个参数），并在同一位置进行解密。该过程以循环的形式运行，每一片解密后的数据都会附加到"imagine"文件中。
+- en: 'The following screenshot, an IDA Pro graphical view, shows decrypted data being
+    appended to the output file:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图，IDA Pro图形视图，显示了解密后的数据被附加到输出文件：
+- en: '![](img/04c32dde-4d4e-423c-960a-3cd7a0fbbd89.png)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/04c32dde-4d4e-423c-960a-3cd7a0fbbd89.png)'
+- en: The decryption ends by closing the cryptographic handles with `CryptDestroyKey`,
+    `CryptDestroyHash`, and `CryptReleaseContext`.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密过程通过使用`CryptDestroyKey`、`CryptDestroyHash`和`CryptReleaseContext`来关闭加密句柄。
+- en: 'Curious enough, let''s use CFF Explorer to extract information from the "`imagine`"
+    file:'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好奇吗？让我们使用CFF Explorer从"`imagine`"文件中提取信息：
+- en: '![](img/e01b8815-3c93-4fa9-a838-15d52b16504a.png)'
+  id: totrans-230
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e01b8815-3c93-4fa9-a838-15d52b16504a.png)'
+- en: 'Using the TrID tool, we get a more meaningful file type, as shown in the following
+    screenshot:'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用TrID工具，我们获得了更有意义的文件类型，如下图所示：
+- en: '![](img/b7438729-a772-407e-a581-f04c66d7eebc.png)'
+  id: totrans-232
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b7438729-a772-407e-a581-f04c66d7eebc.png)'
+- en: The file is a `PNG` image file.
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件是一个`PNG`图像文件。
+- en: 'Continuing with the debug session, keep on pressing `F8` until we reach a call
+    to address `0x00401180`. Press `F7` to enter this function. This reveals the utilization
+    of registry APIs in this sequence:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试会话，持续按`F8`直到到达`0x00401180`地址的调用。按`F7`进入此函数。这揭示了此序列中注册表API的使用：
+- en: '[PRE6]'
+  id: totrans-235
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Basically, the registry functions here only retrieve certain values that exist
+    in the registry. The disassembly codes shown below shows that the first query
+    retrieves the data value of `ProgId` from the `HKEY_CURRENT_USER\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice` registry
+    key:'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基本上，注册表函数仅用于检索注册表中存在的某些值。下面显示的反汇编代码表明，第一个查询从`HKEY_CURRENT_USER\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice`注册表项中检索`ProgId`的数据值：
+- en: '![](img/9877d651-ebb4-4aa4-96be-ed3a937cebb0.png)'
+  id: totrans-237
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9877d651-ebb4-4aa4-96be-ed3a937cebb0.png)'
+- en: 'If we take a look at the registry, this location points to the ID of the default
+    internet browser used by the logged-in user. The following screenshot shows an
+    example of the ID of the default internet browser set in `Progid`, which is `FirefoxURL-308046B0AF4A39CB`:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们查看注册表，这个位置指向当前登录用户使用的默认互联网浏览器的ID。以下截图显示了`Progid`中设置的默认互联网浏览器ID的示例，`FirefoxURL-308046B0AF4A39CB`：
+- en: '![](img/7be3ae70-acdb-4d97-b9dd-b9cce1179235.png)'
+  id: totrans-239
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7be3ae70-acdb-4d97-b9dd-b9cce1179235.png)'
+- en: 'For the next registry query, `RegOpenKeyExA` opens the `HKEY_CLASSES_ROOT\FirefoxURL-308046B0AF4A39CB\shell\open\command`
+    registry key, where `FirefoxURL-308046B0AF4A39CB` is the ID of the default internet
+    browser:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于下一个注册表查询，`RegOpenKeyExA`打开`HKEY_CLASSES_ROOT\FirefoxURL-308046B0AF4A39CB\shell\open\command`注册表项，其中`FirefoxURL-308046B0AF4A39CB`是默认互联网浏览器的ID：
+- en: '![](img/436c57f9-4baf-417b-87c3-366faa0f7768.png)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/436c57f9-4baf-417b-87c3-366faa0f7768.png)'
+- en: 'The succeeding `RegQueryValueExA` has the second parameter, `lpValuename`,
+    equal to `zero`. Refer to the disassembly as follows:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随后的`RegQueryValueExA`有第二个参数`lpValuename`等于`zero`。请参考以下反汇编：
+- en: '![](img/4b6acf8a-b025-477c-9ba6-d011701760c4.png)'
+  id: totrans-243
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4b6acf8a-b025-477c-9ba6-d011701760c4.png)'
+- en: If `lpValuename` is equal to `0`, the data being retrieved will be taken from
+    the default value.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果`lpValuename`等于`0`，则获取的数据将来自默认值。
+- en: 'Looking at the registry, this is displayed as (Default), demonstrated as follows:'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看注册表时，显示为（默认值），如下面所示：
+- en: '![](img/d463d335-cbfe-4a62-af7b-b04ec70cc941.png)'
+  id: totrans-246
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d463d335-cbfe-4a62-af7b-b04ec70cc941.png)'
+- en: Hence, the action performed by the function was retrieval of the command line
+    for the default internet browser.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，该函数执行的操作是获取默认互联网浏览器的命令行。
+- en: 'The following lines of code resolve the full file path of the "`imagine`" file,
+    and then pass the path to the final function, `sub_401000`, before exiting the
+    process:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码行解析了"`imagine`"文件的完整文件路径，然后将路径传递给最终函数`sub_401000`，然后退出进程：
+- en: '![](img/2925d97d-51ad-4d4f-9dca-798218cfac67.png)'
+  id: totrans-249
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2925d97d-51ad-4d4f-9dca-798218cfac67.png)'
+- en: 'Debugging into `sub_401000`, we encounter more than a hundred lines of code
+    that pretty much moves test strings around. But the `bottomline` is that it will
+    run another process using the `CreateProcessA`. Taking a look at the parameters
+    that will be passed to `CreateProcess`, the second parameter, which is the command
+    line, that it will execute contains the path of the default browser passed with
+    the full path of the "imagine" file as its argument. From the following screenshot,
+    it can be seen that we dumped the command line in Dump 1:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在调试 `sub_401000` 时，我们遇到了一百多行代码，基本上是在移动测试字符串。但最终的`bottomline`是，它将使用 `CreateProcessA`
+    运行另一个进程。查看将传递给 `CreateProcess` 的参数时，第二个参数是命令行，它将执行的命令包含了默认浏览器的路径，并将 "imagine"
+    文件的完整路径作为参数。从以下截图可以看到，我们在 Dump 1 中转储了命令行：
+- en: '![](img/4199826a-e020-4a76-8d0c-be6687ede8cd.png)'
+  id: totrans-251
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4199826a-e020-4a76-8d0c-be6687ede8cd.png)'
+- en: 'As a result, this opens the "imagine" file using the default internet browser.
+    The following screenshot is displayed:'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果是，使用默认的互联网浏览器打开 "imagine" 文件。显示以下截图：
+- en: '![](img/bbd47186-f420-47a0-ae77-e901fc1b9d2b.png)'
+  id: totrans-253
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bbd47186-f420-47a0-ae77-e901fc1b9d2b.png)'
+- en: Analysis summary
+  id: totrans-254
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析总结
+- en: The following table concerns the file elements we found.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下表格涉及我们发现的文件元素。
+- en: The original file is a UPX-packed Win32 executable file.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 原始文件是一个 UPX 压缩的 Win32 可执行文件。
+- en: '| Filename | whatami.exe |'
+  id: totrans-257
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | whatami.exe |'
+- en: '| File size | 28,672 bytes |'
+  id: totrans-258
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 28,672 字节 |'
+- en: '| MD5 | F4723E35D83B10AD72EC32D2ECC61091 |'
+  id: totrans-259
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | F4723E35D83B10AD72EC32D2ECC61091 |'
+- en: '| SHA-1 | 4A1E8A976F1515CE3F7F86F814B1235B7D18A231 |'
+  id: totrans-260
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 4A1E8A976F1515CE3F7F86F814B1235B7D18A231 |'
+- en: '| File type | Win32 PE file – packed with UPX v3.0 |'
+  id: totrans-261
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE 文件 – 使用 UPX v3.0 压缩 |'
+- en: 'The UPX unpacked version gives us this new information about the file:'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: UPX 解压版本为我们提供了关于该文件的新信息：
+- en: '| Filename | whatami.exe |'
+  id: totrans-263
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | whatami.exe |'
+- en: '| File size | 73,728 bytes |'
+  id: totrans-264
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 73,728 字节 |'
+- en: '| MD5 | 18F86337C492E834B1771CC57FB2175D |'
+  id: totrans-265
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | 18F86337C492E834B1771CC57FB2175D |'
+- en: '| SHA-1 | C8601593E7DC27D97EFC29CBFF90612A265A248E |'
+  id: totrans-266
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | C8601593E7DC27D97EFC29CBFF90612A265A248E |'
+- en: '| File type | Win32 PE file – compiled by Microsoft Visual C++ 8 |'
+  id: totrans-267
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE 文件 – 由 Microsoft Visual C++ 8 编译 |'
+- en: 'The program maps an unknown PE file using process hollowing. This PE file contains
+    the following information:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序通过进程空洞技术映射了一个未知的 PE 文件。该 PE 文件包含以下信息：
+- en: '| File size | 53,248 bytes |'
+  id: totrans-269
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 53,248 字节 |'
+- en: '| MD5 | DD073CBC4BE74CF1BD0379BA468AE950 |'
+  id: totrans-270
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | DD073CBC4BE74CF1BD0379BA468AE950 |'
+- en: '| SHA-1 | 90068FF0C1C1D0A5D0AF2B3CC2430A77EF1B7FC4 |'
+  id: totrans-271
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 90068FF0C1C1D0A5D0AF2B3CC2430A77EF1B7FC4 |'
+- en: '| File type | Win32 PE file – compiled by Microsoft Visual C++ 8 |'
+  id: totrans-272
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | Win32 PE 文件 – 由 Microsoft Visual C++ 8 编译 |'
+- en: 'A file downloaded from [https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal](https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal)
+    is stored in a file as unknown. Here is the file''s information:'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 [https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal](https://raw.githubusercontent.com/PacktPublishing/Mastering-Reverse-Engineering/master/ch12/manginasal)
+    下载的一个文件被作为未知文件存储。以下是该文件的信息：
+- en: '| Filename | unknown |'
+  id: totrans-274
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | unknown |'
+- en: '| File size | 3,008 bytes |'
+  id: totrans-275
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 3,008 字节 |'
+- en: '| MD5 | 05213A14A665E5E2EEC31971A5542D32 |'
+  id: totrans-276
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | 05213A14A665E5E2EEC31971A5542D32 |'
+- en: '| SHA-1 | 7ECCD8EB05A31AB627CDFA6F3CFE4BFFA46E01A1 |'
+  id: totrans-277
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 7ECCD8EB05A31AB627CDFA6F3CFE4BFFA46E01A1 |'
+- en: '| File type | Unknown file type |'
+  id: totrans-278
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | 未知文件类型 |'
+- en: 'The unknown file was decrypted and stored using the filename "`imagine`", containing
+    the following file information:'
+  id: totrans-279
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该未知文件被解密并使用文件名 "`imagine`" 存储，包含以下文件信息：
+- en: '| Filename | imagine |'
+  id: totrans-280
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | imagine |'
+- en: '| File size | 3,007 bytes |'
+  id: totrans-281
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件大小 | 3,007 字节 |'
+- en: '| MD5 | 7AAF7D965EF8AEE002B8D72AF6855667 |'
+  id: totrans-282
+  prefs: []
+  type: TYPE_TB
+  zh: '| MD5 | 7AAF7D965EF8AEE002B8D72AF6855667 |'
+- en: '| SHA-1 | 4757E071CA2C69F0647537E5D2A6DB8F6F975D49 |'
+  id: totrans-283
+  prefs: []
+  type: TYPE_TB
+  zh: '| SHA-1 | 4757E071CA2C69F0647537E5D2A6DB8F6F975D49 |'
+- en: '| File type | PNG file type |'
+  id: totrans-284
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件类型 | PNG 文件类型 |'
+- en: 'To recap what behaviors it executed, here is a step-by-step process:'
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了回顾它执行的行为，以下是一步步的过程：
+- en: 'Displays a message box: "`How did you get here?`"'
+  id: totrans-286
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 显示消息框："`你是怎么来到这里的？`"
+- en: Decrypts a PE image from the resource section
+  id: totrans-287
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从资源部分解密一个 PE 映像
+- en: Uses process hollowing to replace "`calc`" with a decrypted PE image
+  id: totrans-288
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用进程空洞技术将 "`calc`" 替换为解密后的 PE 映像
+- en: 'Displays a message box: "Learning reversing is fun. For educational purposes
+    only. This is not a malware."'
+  id: totrans-289
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 显示消息框："学习逆向工程很有趣。仅用于教育目的。这不是恶意软件。"
+- en: Sleeps for 5 minutes
+  id: totrans-290
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 程序休眠 5 分钟
+- en: Checks the connection to the "`mcdo.thecyberdung.net:9999`" server
+  id: totrans-291
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查与 "`mcdo.thecyberdung.net:9999`" 服务器的连接
+- en: Downloads the file from [raw.githubusercontent.com](http://raw.githubusercontent.com)
+  id: totrans-292
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 [raw.githubusercontent.com](http://raw.githubusercontent.com) 下载该文件
+- en: Decrypts the downloaded file and outputs of result to a PNG image file.
+  id: totrans-293
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 解密下载的文件并将结果输出为PNG图像文件。
+- en: Retrieves the default internet browser path
+  id: totrans-294
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取默认互联网浏览器的路径。
+- en: Displays the PNG image file using the default internet browser
+  id: totrans-295
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用默认的互联网浏览器显示PNG图像文件。
+- en: Summary
+  id: totrans-296
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Reversing a software takes time and patience. It may take days to analyze just
+    one piece of software. But with practice and experience, the time it takes to
+    analyze a file improves.
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逆向工程软件需要时间和耐心。分析一款软件可能需要几天的时间。但随着练习和经验的积累，分析文件所需的时间会有所改善。
+- en: In this chapter, we dealt with a file that can be reversed using the tools we
+    learned. With the help of a debugger, a disassembler, and tools such as CFF Explorer
+    and TriD, we were able to extract file information and behaviors. In addition,
+    we also learned to use FakeNet to mimic the network and the internet, which became
+    very useful for us when generating network information for the socket functions.
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一章中，我们处理了一个可以使用我们所学工具逆向的文件。在调试器、反汇编器和CFF Explorer、TriD等工具的帮助下，我们能够提取文件信息和行为。此外，我们还学习了使用FakeNet模拟网络和互联网，当我们为套接字函数生成网络信息时，这对我们非常有用。
+- en: There are a lot of obstacles, including anti-debugging tricks. However, familiarity
+    with these tricks enabled us to skip these codes.
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有很多障碍，包括反调试技巧。然而，对这些技巧的熟悉使我们能够绕过这些代码。
+- en: One of the most important tips when reversing is to keep on making snapshots
+    just in case we encounter obstacles. We can experiment on every piece of data
+    that functions require.
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逆向工程中最重要的技巧之一是不断制作快照，以防遇到障碍。我们可以对每个功能所需的数据进行实验。
+- en: Again, reversing is a patience game that you can cheat by saving and loading
+    snapshots.
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次强调，逆向工程是一项需要耐心的工作，通过保存和加载快照，你可以“作弊”。
+- en: Further Reading
+  id: totrans-302
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: DLL Injection -[ https://en.wikipedia.org/wiki/DLL_injection](https://en.wikipedia.org/wiki/DLL_injection)
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DLL注入 - [https://en.wikipedia.org/wiki/DLL_injection](https://en.wikipedia.org/wiki/DLL_injection)
+- en: Process Hollowing - [https://github.com/m0n0ph1/Process-Hollowing](https://github.com/m0n0ph1/Process-Hollowing)
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程空洞化 - [https://github.com/m0n0ph1/Process-Hollowing](https://github.com/m0n0ph1/Process-Hollowing)

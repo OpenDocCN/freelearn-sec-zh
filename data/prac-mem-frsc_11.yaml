@@ -1,0 +1,1591 @@
+- en: 'Chapter 8: User Activity Reconstruction'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第八章：用户活动重建
+- en: During forensic investigations and incident responses, reconstructing user activity
+    is an essential part of collecting important data from the hosts of both victims
+    and attackers. Linux-based systems have an important role to play here as they
+    are often used by attackers to carry out their activities. This is because many
+    different network and vulnerability scanners, web application security testing
+    tools, and post-exploitation frameworks are implemented under Linux. Thus, investigating
+    the host used by the attackers reveals to us detailed information about the tools
+    and techniques used in the attack. Furthermore, by examining user activity, we
+    can learn more about the stages of preparation for the attack, possible affiliates,
+    activity on different forums, and more.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在取证调查和事件响应过程中，重建用户活动是从受害者和攻击者主机收集重要数据的关键部分。基于 Linux 的系统在这方面扮演着重要角色，因为攻击者常常使用它们进行活动。这是因为许多不同的网络和漏洞扫描器、Web
+    应用程序安全测试工具以及后渗透框架都是在 Linux 下实现的。因此，调查攻击者使用的主机能够为我们揭示有关攻击中使用的工具和技术的详细信息。此外，通过检查用户活动，我们可以了解攻击准备的各个阶段、可能的合作伙伴、在不同论坛上的活动等。
+- en: 'Based on the preceding lines, we must consider the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于前面的内容，我们需要考虑以下主题：
+- en: Investigating launched programs
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调查已启动的程序
+- en: Analyzing Bash history
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析 Bash 历史
+- en: Searching for recent files
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 搜索最近的文件
+- en: Recovering filesystem from memory
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从内存中恢复文件系统
+- en: Checking browsing history
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检查浏览历史
+- en: Investigating communication applications
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调查通信应用程序
+- en: Looking for mounted devices
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 寻找挂载的设备
+- en: Detecting crypto containers
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检测加密容器
+- en: Technical requirements
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: This time, we will use both Linux and Windows systems to work with the tools
+    described in the next two chapters and to carry out Linux memory forensics. In
+    our case, **Volatility** **2.6.1** together with some built-in utilities will
+    run on Ubuntu 21.04 (Hirsute Hippo) and programs such as **Bulk Extractor** or
+    **PhotoRec** will run on Windows.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次，我们将使用 Linux 和 Windows 系统来操作接下来两章中描述的工具，并执行 Linux 内存取证。在我们的案例中，**Volatility**
+    **2.6.1** 和一些内置实用工具将在 Ubuntu 21.04（Hirsute Hippo）上运行，而像 **Bulk Extractor** 或 **PhotoRec**
+    这样的程序将在 Windows 上运行。
+- en: Investigating launched programs
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查已启动的程序
+- en: In the previous chapter, we already discussed the process of profile creation
+    for Linux-based systems, so now we'll restrict ourselves to checking which profiles
+    you have available.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们已经讨论了为基于 Linux 的系统创建配置文件的过程，因此现在我们将只检查你可用的配置文件。
+- en: 'Let''s assume that you have created a profile and placed it in the profiles
+    folder. Don''t forget that you need to pass the path to this folder using the
+    `--plugins` option. To check that your profiles are available for use you can
+    run `--info`. In order to get only the necessary output, we use `grep`, a command-line
+    utility that allows us to find lines that match a given regular expression in
+    the input and print them out:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你已经创建了一个配置文件，并将其放置在配置文件文件夹中。别忘了，你需要使用 `--plugins` 选项传递此文件夹的路径。为了检查你的配置文件是否可用，你可以运行
+    `--info`。为了只获取必要的输出，我们使用 `grep`，这是一种命令行实用工具，允许我们在输入中查找与给定正则表达式匹配的行并打印出来：
+- en: '![Figure 8.1 – Linux profiles in Volatility'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.1 – Volatility 中的 Linux 配置文件](img/Figure_8.1_B17056.jpg)'
+- en: '](img/Figure_8.1_B17056.jpg)'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.1_B17056.jpg)'
+- en: Figure 8.1 – Linux profiles in Volatility
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.1 – Volatility 中的 Linux 配置文件
+- en: 'As you can see, we have several Ubuntu profiles at our disposal, as well as
+    a Debian profile. Similarly, we can see a list of all plugins available for use
+    with these profiles:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们可以使用多个 Ubuntu 配置文件以及一个 Debian 配置文件。类似地，我们还可以看到所有可供这些配置文件使用的插件列表：
+- en: '![Figure 8.2 – Linux plugins in Volatility'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.2 – Volatility 中的 Linux 插件](img/Figure_8.2_B17056.jpg)'
+- en: '](img/Figure_8.2_B17056.jpg)'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.2_B17056.jpg)'
+- en: Figure 8.2 – Linux plugins in Volatility
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.2 – Volatility 中的 Linux 插件
+- en: Now that we have ensured that we have everything we need, we can start analyzing.
+    As in the case of Windows, we will start by investigating the active processes,
+    which will tell us what programs the user is running.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经确保我们拥有所需的一切，可以开始分析了。像 Windows 一样，我们将从调查活动进程开始，这将告诉我们用户正在运行哪些程序。
+- en: 'Volatility has a `pslist` and `pstree` equivalent for Linux-based systems.
+    These plugins also work with the list of active processes and allow us to view
+    this information. Let''s use the `linux_pslist` plugin:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 为基于 Linux 的系统提供了 `pslist` 和 `pstree` 等效插件。这些插件也适用于活动进程列表，并允许我们查看这些信息。我们可以使用
+    `linux_pslist` 插件：
+- en: '![Figure 8.3 – List of active processes'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.3 – 活跃进程列表'
+- en: '](img/Figure_8.3_B17056.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.3_B17056.jpg)'
+- en: Figure 8.3 – List of active processes
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.3 – 活跃进程列表
+- en: The output of this plugin will be quite lengthy. This is because Linux systems
+    use the same kernel structure to store information about processes as they do
+    for kernel threads. Therefore, the output of this plugin will contain both processes
+    and kernel threads. The latter can be identified by the absence of DTB.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该插件的输出将会相当长。这是因为 Linux 系统使用相同的内核结构来存储进程信息，就像它们存储内核线程信息一样。因此，该插件的输出将包含进程和内核线程。后者可以通过缺少
+    DTB 来识别。
+- en: Important Note
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: DTB is the physical offset of the process directory table base used to read
+    from the process address space. Since kernel threads use the kernel address space,
+    they do not have a DTB.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DTB 是用于从进程地址空间读取数据的进程目录表基址的物理偏移量。由于内核线程使用内核地址空间，因此它们没有 DTB。
+- en: 'Note that there is also a `Uid` column that corresponds to the user ID. Using
+    this column, you can filter the information for a particular user. Let''s look
+    at the processes that were started by the `1000` user ID. To do this, we will
+    simply use the `grep` utility:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，输出中还有一个 `Uid` 列，它对应用户 ID。通过这个列，你可以筛选出特定用户的信息。我们来看看由 ID 为 `1000` 的用户启动的进程。为此，我们只需要使用
+    `grep` 工具：
+- en: '![Figure 8.4 – Processes started by a specific user'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.4 – 特定用户启动的进程'
+- en: '](img/Figure_8.4_B17056.jpg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.4_B17056.jpg)'
+- en: Figure 8.4 – Processes started by a specific user
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.4 – 特定用户启动的进程
+- en: 'We can now see that all rows with a value of `1000` in the `Uid` column belong
+    to the same user. We can take a closer look at this output:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在可以看到，在 `Uid` 列中所有值为 `1000` 的行都属于同一用户。我们可以更仔细地查看这些输出：
+- en: '![Figure 8.5 – User processes'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.5 – 用户进程'
+- en: '](img/Figure_8.5_B17056.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.5_B17056.jpg)'
+- en: Figure 8.5 – User processes
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.5 – 用户进程
+- en: Here, we already see some familiar names. For example, we can infer that the
+    user with the `1000` ID had a terminal open, nano, Thunderbird, LibreOffice, and
+    so on. It would also be nice to have a bit more information about the user.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们已经看到一些熟悉的名字。例如，我们可以推测，ID 为 `1000` 的用户曾打开了终端、nano、Thunderbird、LibreOffice
+    等。我们也希望能获取更多关于该用户的信息。
+- en: 'Usually, user information can be found in the `/etc/passwd` file, but if we
+    only have a memory dump at our disposal, getting access to this file can be problematic.
+    However, we may be able to see information about the environment in which the
+    processes in question were started. To do this, we can use the `linux_psenv` plugin.
+    Let''s run this plugin and specify one of the bash processes with the `23639`
+    identifier:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，用户信息可以在 `/etc/passwd` 文件中找到，但如果我们手头只有内存转储，访问该文件可能会有些困难。不过，我们或许可以看到与启动这些进程相关的环境信息。为此，我们可以使用
+    `linux_psenv` 插件。让我们运行这个插件并指定一个 ID 为 `23639` 的 bash 进程：
+- en: '![Figure 8.6 – Process environment variables'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.6 – 进程环境变量'
+- en: '](img/Figure_8.6_B17056.jpg)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.6_B17056.jpg)'
+- en: Figure 8.6 – Process environment variables
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.6 – 进程环境变量
+- en: Note that the username is among the environment variables of this process. We
+    now know that the programs we detected were started by the i`tsupport` user.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，用户名出现在该进程的环境变量中。我们现在知道，我们检测到的程序是由 `itsupport` 用户启动的。
+- en: 'But let''s go back to the running processes. Apart from the standard `pslist`
+    and `pstree` plugins, we have another interesting plugin at our disposal, which
+    allows us to view not only the names of the running programs but also their locations
+    and the arguments passed to them at startup. This plugin is called `linux_psaux`.
+    Let''s check it:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不过，让我们回到正在运行的进程。除了标准的 `pslist` 和 `pstree` 插件外，我们还有另一个有趣的插件可用，它允许我们查看正在运行的程序的名称、位置以及启动时传递给它们的参数。这个插件叫做
+    `linux_psaux`。让我们来检查一下：
+- en: '![Figure 8.7 – Volatility linux_psaux'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.7 – Volatility linux_psaux'
+- en: '](img/Figure_8.7_B17056.jpg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.7_B17056.jpg)'
+- en: Figure 8.7 – Volatility linux_psaux
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.7 – Volatility linux_psaux
+- en: 'As you can see, we have once again used `grep` to get information about the
+    processes associated with a particular user. We now have all the data about the
+    location of the running programs and the arguments passed to them. Why might this
+    be useful? Let''s look at the following figure:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们再次使用了 `grep` 来获取与特定用户关联的进程信息。现在我们得到了关于正在运行的程序的位置以及传递给它们的参数的所有数据。这些信息为什么有用呢？让我们看看以下图示：
+- en: '![Figure 8.8 – File names in command lines](img/Figure_8.8_B17056.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.8 – 命令行中的文件名](img/Figure_8.8_B17056.jpg)'
+- en: Figure 8.8 – File names in command lines
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.8 – 命令行中的文件名
+- en: Here we can see not only the programs that the user has run but also the files
+    opened with them. For example, we now know that the user was not just running
+    Libre Office, but was running calc, an Excel analogue for Linux, and had `clients.xls`
+    open with it. We can also see that nano was used to work with the `passwords.txt`
+    text file, located on the desktop.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们不仅可以看到用户运行的程序，还可以看到与之一起打开的文件。例如，现在我们知道用户不仅仅是在运行 Libre Office，而是在运行 calc，这是
+    Linux 上类似 Excel 的程序，并且打开了 `clients.xls` 文件。我们还可以看到，nano 被用来处理位于桌面上的 `passwords.txt`
+    文本文件。
+- en: Important Note
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: Since `linux_psaux` shows the arguments at startup, you may not be able to get
+    all the information about the files opened by a program from here. You can use
+    another method to retrieve this information, which will be discussed later.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 `linux_psaux` 显示的是启动时的参数，您可能无法从这里获取有关程序打开的所有文件的信息。您可以使用另一种方法来检索这些信息，稍后将讨论。
+- en: You have probably noticed that our user actively uses not only GUI programs,
+    but also works with the terminal. This is a common story for users of Linux systems,
+    so analysis of the executed commands becomes an integral part of user activity
+    investigation.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可能已经注意到，我们的用户不仅积极使用图形界面程序，还与终端进行交互。这是 Linux 系统用户的常见情况，因此执行命令的分析成为用户活动调查的重要组成部分。
+- en: Analyzing Bash history
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析 Bash 历史记录
+- en: The most commonly used shell on Linux systems is Bash, one of the most popular
+    Unix shells. One of the reasons for this popularity is that it is preinstalled
+    on the vast majority of Linux distributions. At the same time, it is quite functional,
+    as it allows you to interactively execute many commands and scripts, work with
+    the filesystem, redirect the input and output of commands, and much more.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 系统中，最常用的 Shell 是 Bash，它是最流行的 Unix Shell 之一。它受欢迎的原因之一是它在绝大多数 Linux 发行版中预装。同时，Bash
+    功能非常强大，可以交互式地执行许多命令和脚本、操作文件系统、重定向命令的输入和输出等。
+- en: 'Typically, if Bash history logging is enabled, it is stored in the user''s
+    home directory, in the `.bash_history` file. Naturally, attackers may perform
+    various manipulations on both this file and the history-logging process in order
+    to hide their traces. Nevertheless, we can try to recover this information from
+    memory. Volatility has a specific plugin for this, `linux_bash`. Running this
+    plugin looks like this:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，如果启用了 Bash 历史记录日志，它会存储在用户的主目录中的 `.bash_history` 文件里。当然，攻击者可能会对这个文件以及历史记录日志过程进行各种操作，以隐藏他们的痕迹。然而，我们仍然可以尝试从内存中恢复这些信息。Volatility
+    提供了一个专门的插件 `linux_bash` 来进行此操作。运行该插件的方式如下：
+- en: '![Figure 8.9 – Bash history'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.9 – Bash 历史记录'
+- en: '](img/Figure_8.9_B17056.jpg)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.9_B17056.jpg)'
+- en: Figure 8.9 – Bash history
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.9 – Bash 历史记录
+- en: 'As you can see, in our case, the user first tried to output the contents of
+    the passwords file with `cat`, then opened it with `nano`, but apparently the
+    file was not on the desktop, so the user created it with the `touch` command.
+    Then, there was a network check, using `ping` and installing Git via `apt`. Obviously,
+    with a threat actor working on the host, a Bash history analysis is of special
+    value. Let''s look at the following example:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，在我们的例子中，用户首先尝试使用 `cat` 输出密码文件的内容，然后用 `nano` 打开它，但显然该文件不在桌面上，因此用户用 `touch`
+    命令创建了该文件。随后，进行了网络检查，使用 `ping` 并通过 `apt` 安装了 Git。显然，当威胁行为者在主机上操作时，Bash 历史记录分析具有特别的重要性。让我们来看一下以下示例：
+- en: '![Figure 8.10 – Bash history on the attacker’s host'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.10 – 攻击者主机上的 Bash 历史记录'
+- en: '](img/Figure_8.10_B17056.jpg)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.10_B17056.jpg)'
+- en: Figure 8.10 – Bash history on the attacker's host
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.10 – 攻击者主机上的 Bash 历史记录
+- en: Here, on the attacker's host, we see the post-exploitation framework, Metasploit,
+    installed and running, as well as the network scanning tool Nmap. We also see
+    the `rockyou.txt` file and can assume that this is one of the popular password
+    dictionaries used for brute-forcing.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们看到攻击者的主机上安装并运行了后渗透框架 Metasploit，以及网络扫描工具 Nmap。我们还看到了 `rockyou.txt` 文件，并可以推测这是常用的密码字典之一，用于暴力破解。
+- en: Thus, examining the Bash history on the attacker's host can reveal to us information
+    about the tools used and the techniques applied, while Bash on the victim's host
+    will tell us not only the tools used in the attack but also the individual files
+    or systems the attacker was interested in.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，检查攻击者主机上的 Bash 历史记录可以揭示有关使用的工具和应用的技术，而受害者主机上的 Bash 则能告诉我们攻击中使用的工具，以及攻击者关注的具体文件或系统。
+- en: Note that this is not the first time we have encountered the opening of certain
+    files. Let's take a closer look at how to obtain information about the files a
+    user was working with.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这不是我们第一次遇到打开某些文件。让我们更仔细地看看如何获取用户正在使用的文件的信息。
+- en: Searching for opened documents
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 搜索已打开的文档
+- en: Unfortunately, Linux-based systems do not have the same level of information
+    logging as Windows. Nevertheless, it is still possible to find information about
+    a particular file or even try to recover its content from memory. But first things
+    first.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不幸的是，基于Linux的系统没有与Windows相同级别的信息记录。尽管如此，仍然可以找到有关特定文件的信息，甚至尝试从内存中恢复其内容。但首先要有条不紊。
+- en: 'You already know that the files opened at the start of a program can be seen
+    with the `linux_psaux` or `linux_bash` plugins. If you are interested in the files
+    opened while a program is running, you can use the `linux_lsof` plugin by passing
+    it the ID of the process you are interested in via the `-p` option. Let''s try
+    to find information about `xls` files opened by the `soffice.bin` process of the
+    `itupport` user. To search for files of a certain type, we will use `grep`:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您已经知道，可以使用`linux_psaux`或`linux_bash`插件查看程序启动时打开的文件。如果您对程序运行时打开的文件感兴趣，可以使用`linux_lsof`插件，通过`-p`选项传递您感兴趣的进程的ID。让我们尝试查找`itupport`用户的`soffice.bin`进程打开的`xls`文件的信息。为了搜索特定类型的文件，我们将使用`grep`：
+- en: '![Figure 8.11 – Files opened in LibreOffice'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.11 – 在LibreOffice中打开的文件'
+- en: '](img/Figure_8.11_B17056.jpg)'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.11_B17056.jpg)'
+- en: Figure 8.11 – Files opened in LibreOffice
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.11 – 在LibreOffice中打开的文件
+- en: 'The output shows that, in our case, LibreOffice connected to only one file,
+    `cliens.xls`. It would be nice to know the contents of this file as well. Volatility
+    provides a mechanism to find out which files have recently been used and export
+    them. The fact is that Linux-based systems cache file data that is read from and
+    written to disk. Volatility allows you to list and recover such files using the
+    `linux_find_file` plugin. Let''s start by listing the files cached in memory.
+    To do this, the `-L` option should be used. As the list is quite long, we recommend
+    saving it to a file, as shown in *Figure 8.12*:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出显示，在我们的情况下，LibreOffice只连接到一个文件，`cliens.xls`。了解这个文件的内容也是很好的。Volatility提供了一种机制来查找最近使用过的文件并导出它们。事实上，基于Linux的系统会缓存从磁盘读取和写入的文件数据。Volatility允许您使用`linux_find_file`插件列出和恢复这些文件。让我们从列出在内存中缓存的文件开始。为此，应使用`-L`选项。由于列表相当长，我们建议将其保存到文件中，如*图8.12*所示：
+- en: '![Figure 8.12 – List of cached files'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.12 – 缓存文件列表'
+- en: '](img/Figure_8.12_B17056.jpg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.12_B17056.jpg)'
+- en: Figure 8.12 – List of cached files
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.12 – 缓存文件列表
+- en: From the output, you can see that here you can find information about the directories
+    and files used, as well as their `inode` number and address.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从输出中，您可以看到这里可以找到有关使用的目录和文件的信息，以及它们的`inode`编号和地址。
+- en: Important Note
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: An `inode` or index descriptor is a data structure that stores metadata about
+    standard files, directories, or other filesystem objects, apart from the data
+    and name itself.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`inode`或索引描述符是一种存储有关标准文件、目录或其他文件系统对象的元数据的数据结构，除了数据和名称本身。'
+- en: Alternatively, if you want to quickly check for a file in memory, you can use
+    the `-F` option, followed by the name or location of the file you are looking
+    for. If the file is found, you will see its location and `inode` information.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，如果您想快速检查内存中的文件，可以使用`-F`选项，后跟您要查找的文件的名称或位置。如果找到文件，您将看到其位置和`inode`信息。
+- en: 'Using this information, we can try to extract any file found. To do this, we
+    can use `option -i`, after which we should specify the desired `inode`. Here,
+    we should also use the `-O` option to specify the path to the output file. The
+    file search and extraction will look like this:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 利用这些信息，我们可以尝试提取找到的任何文件。为此，我们可以使用`-i`选项，之后应指定所需的`inode`。在这里，我们还应使用`-O`选项指定输出文件的路径。文件搜索和提取将如下所示：
+- en: '![Figure 8.13 – File extraction'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.13 – 文件提取'
+- en: '](img/Figure_8.13_B17056.jpg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.13_B17056.jpg)'
+- en: Figure 8.13 – File extraction
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.13 – 文件提取
+- en: As you can see, we first found the file of interest and then used its `inode`
+    to extract the data file to disk. But this is not all the possibilities that `inode`
+    gives us. Let's get to the bottom of it.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你所看到的，我们首先找到了感兴趣的文件，然后使用其`inode`将数据文件提取到磁盘上。但这并不是`inode`给我们的所有可能性。让我们深入了解一下。
+- en: Recovering the filesystem
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恢复文件系统
+- en: 'In addition to retrieving individual files, Volatility provides the ability
+    to recover a portion of the filesystem that was in memory at the time the dump
+    was created. This is made possible precisely because of the large number of metadata
+    stored in the `inode`. Filesystem recovery can be done using the `linux_recover_filesystem`
+    plugin:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了检索单个文件外，Volatility还提供了恢复在创建转储时存储在内存中的文件系统部分的能力。这正是由于存储在`inode`中的大量元数据而变得可能。可以使用`linux_recover_filesystem`插件来进行文件系统恢复：
+- en: '[PRE0]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Note that here we add the `-D` option, specifying the directory where we want
+    to save the filesystem to be recovered. In our case, it will be saved in the `recover_fs`
+    folder. The result of the plugin will look like this:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这里我们添加了`-D`选项，指定我们要保存要恢复的文件系统的目录。在我们的情况下，它将保存在`recover_fs`文件夹中。插件的结果将如下所示：
+- en: '![Figure 8.14 – Recovered FS'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.14 – 恢复的文件系统'
+- en: '](img/Figure_8.14_B17056.jpg)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.14_B17056.jpg)'
+- en: Figure 8.14 – Recovered FS
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.14 – 恢复的文件系统
+- en: Here, you can see the standard directories that have been recovered and also
+    a `swapfile`, which is the Linux equivalent of Windows' `pagefile`. You can analyze
+    this file in a similar way, using tools such as strings or Bulk Extractor.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，您可以看到已恢复的标准目录以及一个`swapfile`，这是Linux中与Windows的`pagefile`相当的文件。您可以使用类似的工具，如strings或Bulk
+    Extractor，以类似的方式分析此文件。
+- en: 'In general, the filesystems used in Linux distributions have a similar hierarchy.
+    The root directory is `/`, followed by the `/bin/`, `/boot/`, and `/etc/` standard
+    directories, and others:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，Linux发行版中使用的文件系统具有类似的层次结构。根目录是`/`，然后是`/bin/`、`/boot/`和`/etc/`等标准目录，以及其他目录：
+- en: '![Figure 8.15 – Linux directory hierarchy'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.15 – Linux目录层次结构'
+- en: '](img/Figure_8.15_B17056.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.15_B17056.jpg)'
+- en: Figure 8.15 – Linux directory hierarchy
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.15 – Linux目录层次结构
+- en: The fact is that most Linux distributions follow the general rules described
+    by the Filesystem Hierarchy Standard.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事实上，大多数Linux发行版遵循文件系统层次结构标准描述的一般规则。
+- en: Important Note
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: The **Filesystem Hierarchy Standard** (**FHS**) is maintained by the Linux Foundation.
+    It defines the directory structure and directory contents in Linux distributions.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**文件系统层次结构标准**（**FHS**）由Linux基金会维护。它定义了Linux发行版中的目录结构和目录内容。'
+- en: 'Therefore, each directory has its own purpose and stores specific content.
+    The following is a list of the key directories:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，每个目录都有其自己的目的，并存储特定内容。以下是关键目录的列表：
+- en: '![ Figure 8.16 – Standard directories'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![ 图 8.16 – 标准目录'
+- en: '](img/Figure_8.16_B17056.jpg)'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.16_B17056.jpg)'
+- en: Figure 8.16 – Standard directories
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.16 – 标准目录
+- en: 'Thus, using the recovered filesystem, you can try to find user files of interest
+    or work with system files such as `~/.bash_history` and `/etc/passwd`, or system
+    logs. The following are a few files you might be interested in while conducting
+    a forensic investigation or responding to an incident:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，使用恢复的文件系统，您可以尝试查找感兴趣的用户文件或处理系统文件，如`~/.bash_history`和`/etc/passwd`，或系统日志。在进行取证调查或应对事件时，以下是一些您可能感兴趣的文件：
+- en: '`/etc/os-release` – information about the operating system'
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/os-release` – 操作系统信息'
+- en: '`/etc/passwd` – information about users, their `uid`, `guid`, home directory,
+    and login shell'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/passwd` – 关于用户、其`uid`、`guid`、主目录和登录shell的信息'
+- en: '`/etc/group` – information about groups and their members'
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/group` – 关于组及其成员的信息'
+- en: '`/etc/sudoers` – information about privilege separation'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/etc/sudoers` – 关于特权分离的信息'
+- en: '`/var/log/syslog` – messages from different programs and services, including
+    the kernel mode, excluding authentication messages'
+  id: totrans-112
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/var/log/syslog` – 来自不同程序和服务的消息，包括内核模式，但不包括认证消息'
+- en: '`/var/log/auth.log` – authentication messages'
+  id: totrans-113
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/var/log/auth.log` – 认证消息'
+- en: '`/var/log/error.log` – error messages'
+  id: totrans-114
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/var/log/error.log` – 错误消息'
+- en: '`/var/log/dmesg` – general messages about operating system events'
+  id: totrans-115
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/var/log/dmesg` – 关于操作系统事件的一般消息'
+- en: '`/home/<user>/.bash_history` – bash history'
+  id: totrans-116
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/home/<user>/.bash_history` – bash历史记录'
+- en: Application log files
+  id: totrans-117
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 应用程序日志文件
+- en: Examining the previous files can help you learn more about the users, launched
+    programs, executed commands, and so on.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查前述文件可以帮助您了解更多关于用户、启动的程序、执行的命令等内容。
+- en: Important Note
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: When extracting a filesystem from memory, Volatility tries to retain existing
+    file timestamps. However, filesystems prior to `ext4` do not store file creation
+    information. Therefore, the `linux_recover_filesystem` plugin does not replicate
+    these timestamps.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在从内存中提取文件系统时，Volatility 会尝试保留现有的文件时间戳。然而，`ext4` 之前的文件系统不存储文件创建信息。因此，`linux_recover_filesystem`
+    插件不会复制这些时间戳。
+- en: 'Volatility also allows `tmpfs` to be extracted. The `linux_tmpfs` plugin can
+    be used for this purpose:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 还允许提取 `tmpfs`。可以使用 `linux_tmpfs` 插件来实现这一目的：
+- en: '![Figure 8.17 – Linux tmpfs information'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.17 – Linux tmpfs 信息](img/Figure_8.17_B17056.jpg)'
+- en: '](img/Figure_8.17_B17056.jpg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.17_B17056.jpg)'
+- en: Figure 8.17 – Linux tmpfs information
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.17 – Linux tmpfs 信息
+- en: Running it with the `-L` option will list all superblocks available for extraction,
+    and with the `-S` and `-D` options, you can save them to disk.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 `-L` 选项运行它会列出所有可供提取的超级块，并且使用 `-S` 和 `-D` 选项，您可以将它们保存到磁盘。
+- en: Important Note
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: '`Tmpfs` is a temporary file storage facility in many Unix-like operating systems
+    that resides in RAM. In Linux, `tmpfs` has been supported since version 2.4\.
+    It is used to store directories containing temporary data that is deleted upon
+    system reboot: `/var/lock`, `/var/run`, `/tmp`, and so on. `Tmpfs` can also host
+    directories that store data between reboots, such as `/var/tmp`, or cache directories
+    for specific programs, such as browsers.'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Tmpfs` 是许多类 Unix 操作系统中的临时文件存储工具，驻留在内存中。在 Linux 中，从版本 2.4 开始支持 `tmpfs`。它用于存储包含临时数据的目录，这些数据会在系统重启时被删除：`/var/lock`、`/var/run`、`/tmp`
+    等等。`Tmpfs` 还可以托管在重启之间存储数据的目录，例如 `/var/tmp`，或用于特定程序（如浏览器）的缓存目录。'
+- en: 'Another way to recover files from memory is to use the already familiar PhotoRec
+    tool. Let''s take a look at how to do this. First of all, you need to run PhotoRec
+    via PowerShell using a command:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恢复内存中文件的另一种方法是使用已熟悉的 PhotoRec 工具。我们来看一下如何操作。首先，您需要通过 PowerShell 使用以下命令运行 PhotoRec：
+- en: '[PRE1]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Next, confirm that we want to work with the specified file:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，确认我们是否要处理指定的文件：
+- en: '![Figure 8.18 – Input file confirmation'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.18 – 输入文件确认](img/Figure_8.18_B17056.jpg)'
+- en: '](img/Figure_8.18_B17056.jpg)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.18_B17056.jpg)'
+- en: Figure 8.18 – Input file confirmation
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.18 – 输入文件确认
+- en: 'In the next window, select the desired partition and press *Enter*:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个窗口中，选择所需的分区并按 *Enter*：
+- en: '![Figure 8.19 – Partition selection](img/Figure_8.18_B17056.jpg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.19 – 分区选择](img/Figure_8.18_B17056.jpg)'
+- en: Figure 8.19 – Partition selection
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.19 – 分区选择
+- en: 'Since Linux-based systems typically use `ext` as the filesystem, we need to
+    specify this type for correct file carving:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于基于 Linux 的系统通常使用 `ext` 文件系统，我们需要为正确的文件雕刻指定该类型：
+- en: '![Figure 8.20 – Filesystem selection](img/Figure_8.20_B17056.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.20 – 文件系统选择](img/Figure_8.20_B17056.jpg)'
+- en: Figure 8.20 – Filesystem selection
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.20 – 文件系统选择
+- en: 'In the next window, select the directory in which you want to save the recovered
+    files. In our case, this is the `photorec output` directory:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个窗口中，选择您希望保存恢复文件的目录。在我们的案例中，这是 `photorec output` 目录：
+- en: '![Figure 8.21 – Output directory](img/Figure_8.21_B17056.jpg)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.21 – 输出目录](img/Figure_8.21_B17056.jpg)'
+- en: Figure 8.21 – Output directory
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.21 – 输出目录
+- en: 'In the last window, press *Shift* + *C* to start the recovery process:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在最后一个窗口，按 *Shift* + *C* 开始恢复过程：
+- en: '![Figure 8.22 – Recovery process](img/Figure_8.22_B17056.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.22 – 恢复过程](img/Figure_8.22_B17056.jpg)'
+- en: Figure 8.22 – Recovery process
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.22 – 恢复过程
+- en: 'When the process is complete, you will see the total number of files recovered
+    and be able to locate the files themselves in the directory you specified earlier:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当过程完成时，您将看到恢复的文件总数，并能够在您之前指定的目录中找到这些文件：
+- en: '![Figure 8.23 – PhotoRec recovery results](img/Figure_8.23_B17056.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.23 – PhotoRec 恢复结果](img/Figure_8.23_B17056.jpg)'
+- en: Figure 8.23 – PhotoRec recovery results
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.23 – PhotoRec 恢复结果
+- en: Here, you can search for files with the extensions you are interested in and
+    analyze them.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，您可以搜索您感兴趣的扩展名的文件并进行分析。
+- en: If this method doesn't give you the results you want either, you can search
+    for content in the memory of the process itself. This is what we will discuss
+    in the next part, using browser history investigation as an example.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果这种方法也无法提供您想要的结果，您可以直接在进程的内存中搜索内容。这就是我们将在下一部分讨论的内容，我们将以浏览器历史记录调查为例。
+- en: Checking browsing history
+  id: totrans-151
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检查浏览历史
+- en: On Linux-based systems, as on Windows, most popular browsers store their data
+    in SQLite databases. For example, Firefox stores its history in the `places.sqlite`
+    file located in `/home/user/.mozilla/firefox/*.default-release`, and Chrome stores
+    its history in the `history` file from `/home/user/.config/google-chrome/Default`.
+    If you've managed to retrieve these files from memory during the filesystem recovery
+    process, that's fine. But of course, this will not always be the case. If you
+    do not have the standard history files at your disposal, you will have to search
+    for information about the visited resources in process memory. In some ways, this
+    approach is even more versatile in that it allows you to obtain data on the visited
+    websites regardless of the browser and history storage formats that are used.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在基于 Linux 的系统上，与 Windows 一样，大多数流行的浏览器将其数据存储在 SQLite 数据库中。例如，Firefox 将其历史记录存储在位于`/home/user/.mozilla/firefox/*.default-release`中的`places.sqlite`文件中，而
+    Chrome 将其历史记录存储在位于`/home/user/.config/google-chrome/Default`中的`history`文件中。如果您在文件系统恢复过程中成功检索到这些文件，那就太好了。但当然，情况并非总是如此。如果您没有标准的历史记录文件，您将不得不在进程内存中搜索有关访问资源的信息。在某种程度上，这种方法甚至更加灵活，因为它允许您获取有关访问的网站的数据，而不受使用的浏览器和历史记录存储格式的限制。
+- en: 'The process of accessing an individual process''s memory will not be as straightforward
+    as it is in Windows. To give you an example, let''s take another look at the list
+    of processes running on our host:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问单个进程内存的过程不像在Windows中那样直接。举个例子，让我们再次看看在我们的主机上运行的进程列表：
+- en: '![Figure 8.24 – Firefox in the list of active processes'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.24 – Firefox 在活动进程列表中'
+- en: '](img/Figure_8.24_B17056.jpg)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.24_B17056.jpg)'
+- en: Figure 8.24 – Firefox in the list of active processes
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.24 – Firefox 在活动进程列表中
+- en: Here is the Firefox process with the `12909` ID. Prior to Kernel version 3.6,
+    information about sites visited via browsers could be retrieved using the `linux_route_cache`
+    plugin, but in newer versions, routing cache was disabled, so we will break down
+    a more general method to find the information we are interested in. More specifically,
+    we will try to look into the memory of our Firefox process.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是具有`12909` ID的 Firefox 进程。在 Kernel 版本 3.6 之前，可以使用`linux_route_cache`插件检索通过浏览器访问的站点的信息，但在更新版本中，路由缓存被禁用，因此我们将拆分一个更通用的方法来查找我们感兴趣的信息。更具体地说，我们将尝试查看我们的
+    Firefox 进程的内存。
+- en: 'Unlike Windows, we can''t export the whole process memory. During the runtime
+    loader maps all needed thigs such as executable file, shared libraries, stack,
+    heap, and others into the different regions of process address space. We can extract
+    these mappings using the `linux_dump_map` plugin:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 Windows 不同，我们无法导出整个进程内存。在运行时加载器将所有需要的东西（如可执行文件、共享库、堆栈、堆等）映射到进程地址空间的不同区域。我们可以使用`linux_dump_map`插件提取这些映射：
+- en: '![Figure 8.25 – Firefox memory'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.25 – Firefox 内存'
+- en: '](img/Figure_8.25_B17056.jpg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.25_B17056.jpg)'
+- en: Figure 8.25 – Firefox memory
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.25 – Firefox 内存
+- en: 'As you can see, when using this plugin, each mapping is saved to a separate
+    file. But we can still use tools such as `strings` to search for this or that
+    information. To avoid handling each file individually, we can use the following
+    simple script:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，使用此插件时，每个映射都保存到单独的文件中。但我们仍然可以使用`strings`等工具来搜索这些信息。为了避免逐个处理每个文件，我们可以使用以下简单脚本：
+- en: '[PRE2]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'In our case, it will look like this:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的情况下，它将如下所示：
+- en: '![Figure 8.26 – Script to run strings on multiple files'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.26 – 运行多个文件上的字符串脚本'
+- en: '](img/Figure_8.26_B17056.jpg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.26_B17056.jpg)'
+- en: Figure 8.26 – Script to run strings on multiple files
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.26 – 运行多个文件上的字符串脚本
+- en: 'This will run `strings` for each file in `/mnt/hgfs/flash/firefox` and add
+    the results to `firefox_strings.txt`:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将为`/mnt/hgfs/flash/firefox`中的每个文件运行`strings`，并将结果添加到`firefox_strings.txt`中：
+- en: '![Figure 8.27 – Strings output'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.27 – 字符串输出'
+- en: '](img/Figure_8.27_B17056.jpg)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.27_B17056.jpg)'
+- en: Figure 8.27 – Strings output
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.27 – 字符串输出
+- en: Searching by regular expressions, it is easy to find our visited URLs and a
+    user's search queries.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过正则表达式搜索，很容易找到我们访问的 URL 和用户的搜索查询。
+- en: 'Another way to find such information is to use the already familiar Bulk Extractor.
+    We will use Windows to run it, but first we will merge all the files into one
+    so that Bulk Extractor can handle them. To do this, we will use a PowerShell script:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种查找这些信息的方法是使用已经熟悉的 Bulk Extractor。我们将使用Windows来运行它，但首先我们将把所有文件合并成一个，以便 Bulk
+    Extractor 可以处理它们。为此，我们将使用一个 PowerShell 脚本：
+- en: '[PRE3]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'This script takes the content of each file in the `firefox` directory and adds
+    it to the `firefox-result.vma` shared file. When the shared file is received,
+    we can start parsing. We use the usual options:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该脚本将 `firefox` 目录中每个文件的内容添加到 `firefox-result.vma` 共享文件中。当收到共享文件后，我们可以开始解析。我们使用常规选项：
+- en: '`-o` – to specify the output folder'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-o` – 指定输出文件夹'
+- en: '`-x` – to disable all plugins'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-x` – 禁用所有插件'
+- en: '`-e` – to enable the email scanner to search for the URL'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`-e` – 启用电子邮件扫描器以搜索 URL'
+- en: 'The resulting startup looks like the one shown next:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成的启动界面如下所示：
+- en: '![Figure 8.28 – Bulk Extractor execution'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.28 – Bulk Extractor 执行'
+- en: '](img/Figure_8.28_B17056.jpg)'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.28_B17056.jpg)'
+- en: Figure 8.28 – Bulk Extractor execution
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.28 – Bulk Extractor 执行
+- en: 'When the parsing is finished, you can search for the results in the output
+    folder. For example, from the `url_histogram.txt` file, we can pull out the links
+    of interest:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当解析完成后，你可以在输出文件夹中查找结果。例如，在 `url_histogram.txt` 文件中，我们可以提取出感兴趣的链接：
+- en: '![Figure 8.29 – Parsing results'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.29 – 解析结果'
+- en: '](img/Figure_8.29_B17056.jpg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.29_B17056.jpg)'
+- en: Figure 8.29 – Parsing results
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.29 – 解析结果
+- en: Note that even information from search engines such as DuckDuckGo, which is
+    very focused on the anonymity and privacy of its users, is captured here thanks
+    to memory analysis.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，即便是像 DuckDuckGo 这样的搜索引擎信息，也能通过内存分析被捕获，尽管它非常注重用户的匿名性和隐私。
+- en: This type of analysis can be applied to any process. Specifically, you can use
+    process memory analysis on applications related to communications to find the
+    data you are interested in – conversations, publications, and so on. This is what
+    we will talk about.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种类型的分析可以应用于任何进程。具体来说，你可以对与通信相关的应用程序进行进程内存分析，以查找你感兴趣的数据——对话、发布内容等等。这正是我们将要讨论的内容。
+- en: Investigating communication applications
+  id: totrans-189
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查通信应用
+- en: In addition to various browsers, Linux-based desktop operating systems also
+    support a large number of communication applications – messengers, mail agents,
+    chat rooms, and so on. Naturally, the information these applications carry may
+    be of interest to us, especially if they are hosted by an attacker.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了各种浏览器，基于 Linux 的桌面操作系统还支持大量通信应用程序——即时通讯工具、邮件客户端、聊天室等。自然，这些应用程序所包含的信息可能对我们有用，特别是当它们是由攻击者托管时。
+- en: 'As we mentioned before, analysis of such applications will not differ much
+    from analysis of browsers, as we will be working with process memory. Let''s take
+    a look at an example. We have already seen that we have a Thunderbird application
+    with the `51825` ID on the target host. Let''s dump its memory, as we did before
+    with Firefox:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，分析这些应用程序与分析浏览器的方式不会有太大不同，因为我们将处理的是进程内存。让我们来看一个例子。我们已经看到目标主机上有一个 ID 为 `51825`
+    的 Thunderbird 应用。现在我们来转储它的内存，就像之前我们对 Firefox 所做的那样：
+- en: '![Figure 8.30 – Thunderbird memory'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.30 – Thunderbird 内存'
+- en: '](img/Figure_8.30_B17056.jpg)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.30_B17056.jpg)'
+- en: Figure 8.30 – Thunderbird memory
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.30 – Thunderbird 内存
+- en: 'We can now use the preceding script to get all the readable lines from the
+    dumped files:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在可以使用之前的脚本从转储的文件中提取所有可读的行：
+- en: '[PRE4]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Once executed, we get one big text file. It can be explored manually, searched
+    by keywords or regular expressions. Either way, you will be able to find, for
+    example, different notifications from social networks and services, which will
+    give you an idea of what accounts and services the user has, what he or she is
+    interested in:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦执行，我们将得到一个大的文本文件。可以手动浏览，或通过关键词或正则表达式进行搜索。无论哪种方式，你都能够找到例如来自社交网络和服务的不同通知，这将让你了解用户有哪些账户和服务，他们感兴趣的内容是：
+- en: '![Figure 8.31 – Emails from social networks'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.31 – 来自社交网络的电子邮件'
+- en: '](img/Figure_8.31_B17056.jpg)'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.31_B17056.jpg)'
+- en: Figure 8.31 – Emails from social networks
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.31 – 来自社交网络的电子邮件
+- en: 'And, of course, you can find parts of normal conversations, attachment names,
+    sender addresses, and so on:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，你也可以找到正常对话的部分，附件名称，发件人地址等：
+- en: '![Figure 8.32 – Conversation parts'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.32 – 对话部分'
+- en: '](img/Figure_8.32_B17056.jpg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.32_B17056.jpg)'
+- en: Figure 8.32 – Conversation parts
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.32 – 对话部分
+- en: With this simple method, you can find out a lot of interesting things about
+    the user. But now, let's move on. Our next topic of discussion is mounted devices.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这种简单的方法，你可以发现很多有关用户的有趣信息。但是现在，让我们继续。我们下一个讨论的话题是已挂载的设备。
+- en: Looking for mounted devices
+  id: totrans-206
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查找已挂载的设备
+- en: On Linux operating systems, users have the ability to mount devices as well
+    as specific filesystems. Analysis of such information can help us identify not
+    only the individual devices and filesystems mounted to the host but also recover
+    the relative timelines of their mounts.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 操作系统上，用户有能力挂载设备和特定的文件系统。分析这些信息可以帮助我们识别不仅是挂载到主机的单个设备和文件系统，还可以恢复它们挂载的相对时间线。
+- en: 'The Volatility `linux_mount` plugin can be used to find information about attached
+    devices and filesystems:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 的 `linux_mount` 插件可以用于查找有关已连接设备和文件系统的信息：
+- en: '![Figure 8.33 – Mounted filesystems'
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.33 – 挂载的文件系统'
+- en: '](img/Figure_8.33_B17056.jpg)'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.33_B17056.jpg)'
+- en: Figure 8.33 – Mounted filesystems
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.33 – 挂载的文件系统
+- en: As you can see from the screenshot, this plugin displays information about all
+    mounted devices and filesystems, including their location, mount point, type,
+    and access rights. The attentive reader may have already noticed that we also
+    talked about the timeline, but this information is missing here. So, what can
+    we do?
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你从截图中看到的，这个插件显示了所有挂载的设备和文件系统的信息，包括它们的位置、挂载点、类型和访问权限。细心的读者可能已经注意到，我们也谈到了时间线，但这里缺少这些信息。那么，我们该怎么办呢？
+- en: 'In this case, the kernel debug buffer will help us. The kernel debug buffer
+    contains information about the connected USB devices and their serial numbers,
+    network activity in promiscuous mode, and a timeline of events. To access this
+    buffer, we can use the Volatility `linux_dmesg` plugin. For convenience, the output
+    of the plugin is redirected to a text file:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，内核调试缓冲区将帮助我们。内核调试缓冲区包含有关已连接 USB 设备及其序列号、混杂模式下的网络活动以及事件时间线的信息。要访问此缓冲区，我们可以使用
+    Volatility 的 `linux_dmesg` 插件。为了方便起见，插件的输出被重定向到一个文本文件中：
+- en: '![Figure 8.34 – Volatility linux_dmesg output](img/Figure_8.34_B17056.jpg)'
+  id: totrans-214
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.34 – Volatility linux_dmesg 输出](img/Figure_8.34_B17056.jpg)'
+- en: Figure 8.34 – Volatility linux_dmesg output
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.34 – Volatility linux_dmesg 输出
+- en: 'If you still want to try to calculate at least an approximate connection time,
+    you can perform the following calculations:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你仍然想尝试至少计算出大致的连接时间，可以执行以下计算：
+- en: In *Figure 8.34*, you can see that the SanDisk Cruzer Glide 3.0 USB device was
+    connected to the examined host. Here, you can see the details of its connection,
+    such as the absence of write protection. The timestamps you see on the left are
+    relative timestamps and can help you analyze the sequence of events, but there
+    is a problem with interpreting these timestamps. These kernel timestamps are derived
+    from an uptime value kept by individual CPUs. Over time, this gets out of sync
+    with the real-time clock, so reliably reconstructing the time of an event from
+    the memory dump is problematic.
+  id: totrans-217
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 *图 8.34* 中，你可以看到 SanDisk Cruzer Glide 3.0 USB 设备已连接到所检查的主机。这里，你可以看到它连接的详细信息，例如没有写保护。你在左侧看到的时间戳是相对时间戳，能够帮助你分析事件的顺序，但解释这些时间戳时有一个问题。这些内核时间戳是从各个
+    CPU 保持的正常运行时间值中派生的。随着时间的推移，这个值与实时时钟之间会发生偏差，因此从内存转储中可靠地重建事件的时间是有问题的。
+- en: '![Figure 8.35 – Systemd start time'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.35 – Systemd 启动时间'
+- en: '](img/Figure_8.35_B17056.jpg)'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.35_B17056.jpg)'
+- en: Figure 8.35 – Systemd start time
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.35 – Systemd 启动时间
+- en: 'We see that the start time of the `systemd` process is `2021-10-02 17:05:54`
+    UTC. We need to convert this time to seconds. Any epoch converter can do this
+    for us. We will use the online converter at [https://www.unixtimestamp.com](https://www.unixtimestamp.com):'
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们看到 `systemd` 进程的启动时间为 `2021-10-02 17:05:54` UTC。我们需要将这个时间转换为秒。任何纪元转换器都可以为我们完成此操作。我们将使用在线转换器
+    [https://www.unixtimestamp.com](https://www.unixtimestamp.com)：
+- en: '![Figure 8.36 – Start time conversion'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.36 – 启动时间转换'
+- en: '](img/Figure_8.36_B17056.jpg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.36_B17056.jpg)'
+- en: Figure 8.36 – Start time conversion
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.36 – 启动时间转换
+- en: This results in a value of `1633442754` seconds. The value displayed in `dmesg`
+    is in nanoseconds and must therefore be converted to seconds. The connection timestamp
+    of our USB device is `4824232947404.4824` nanoseconds, which is rounded to `4824`
+    seconds. This value is added to the Unix timestamp you calculated earlier. We
+    get `1633447578` seconds.
+  id: totrans-225
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这导致了一个值为 `1633442754` 秒的结果。`dmesg` 中显示的值是纳秒，因此必须将其转换为秒。我们 USB 设备的连接时间戳是 `4824232947404.4824`
+    纳秒，四舍五入后为 `4824` 秒。这个值会加到你之前计算的 Unix 时间戳上。最终得到的时间戳为 `1633447578` 秒。
+- en: 'Our final step is to convert the resulting timestamp into a readable format.
+    To do this, we can again use the converter:'
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们的最后一步是将得到的时间戳转换为可读格式。为此，我们可以再次使用转换器：
+- en: '![Figure 8.37 – Unix timestamp conversion'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.37 – Unix 时间戳转换'
+- en: '](img/Figure_8.37_B17056.jpg)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_8.37_B17056.jpg)'
+- en: Figure 8.37 – Unix timestamp conversion
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.37 – Unix 时间戳转换
+- en: Now, we know the approximate time of USB device connection – October 5th, 2021,
+    `15:26:18`.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们知道 USB 设备连接的大致时间是 2021 年 10 月 5 日 `15:26:18`。
+- en: Naturally, if we have access to a live host, the task of timing a particular
+    event is easier. However, please keep in mind that after being written to disk,
+    `dmesg` logs can be changed by attackers, and the events you are interested in
+    may not be present at all. You can, however, use cross-checking to detect these
+    manipulations.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自然，如果我们可以访问一个实时主机，特定事件的定时任务会更容易。不过，请记住，在写入磁盘后，`dmesg` 日志可能会被攻击者篡改，您感兴趣的事件可能根本不存在。您仍然可以使用交叉检查来检测这些篡改。
+- en: 'To output the `dmesg` timestamps in a readable format, the `-T` option has
+    been introduced in many Linux distributions. Its use is as follows. We run the
+    `dmesg` `-T` command and get the exact time of the events logged by `dmesg`:'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了以可读的格式输出 `dmesg` 时间戳，许多 Linux 发行版引入了 `-T` 选项。其使用方法如下。我们运行 `dmesg` `-T` 命令，并获得
+    `dmesg` 记录的事件的准确时间：
+- en: '![Figure 8.38 – Output of dmesg on a live host](img/Figure_8.38_B17056.jpg)'
+  id: totrans-233
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.38 – 实时主机上的 dmesg 输出](img/Figure_8.38_B17056.jpg)'
+- en: Figure 8.38 – Output of dmesg on a live host
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.38 – 实时主机上的 dmesg 输出
+- en: The command output shows that the connection of the USB device in question was
+    made on October 5, 2021 at 8:25:13 in the host's local time. The time zone in
+    which the host is located is PDT, so the connection time is 15:25:13 UTC. As you
+    can see, the timestamp we calculated has a relatively small deviation, so in the
+    absence of access to a live host, the above method of calculating timestamps can
+    be used.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 命令输出显示，所涉及的 USB 设备连接发生在 2021 年 10 月 5 日 8:25:13（主机的本地时间）。主机所在的时区为 PDT，因此连接时间为
+    15:25:13 UTC。正如您所看到的，我们计算出的时间戳偏差相对较小，因此在无法访问实时主机的情况下，可以使用上述计算时间戳的方法。
+- en: The last thing we need to consider is the detection of crypto containers, so
+    that is what we will move on to.
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要考虑的最后一件事是加密容器的检测，接下来我们将讨论这一内容。
+- en: Detecting crypto containers
+  id: totrans-237
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检测加密容器
+- en: An important step in the investigation of user activity on Linux systems is
+    to look for crypto containers, especially when it comes to investigating hosts
+    used by potential threat actors. The fact is that, for their own safety, they
+    can put important data related to the preparation for an attack, developed malicious
+    tools, or stolen information into the crypto containers.
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 系统上调查用户活动时，一个重要的步骤是寻找加密容器，尤其是在调查潜在威胁行为者使用的主机时。事实上，为了自身的安全，他们可以将与攻击准备、开发的恶意工具或被窃取的信息相关的重要数据放入加密容器中。
+- en: Linux-based systems have various encryption options ranging from `dm-Crypt`
+    to the more standard `TrueCrypt` and `VeraCrypt`. In fact, the process of detecting
+    crypto containers and recovering encryption keys is almost the same as in Windows.
+    Therefore, we will only discuss the main points.
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于 Linux 的系统有多种加密选项，从 `dm-Crypt` 到更标准的 `TrueCrypt` 和 `VeraCrypt`。实际上，检测加密容器并恢复加密密钥的过程几乎与
+    Windows 中的过程相同。因此，我们只讨论主要的要点。
+- en: Firstly, you can still use analysis of running processes to detect encryption
+    containers because if a crypto container was opened on the system, you will still
+    find the corresponding process in the list.
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，您仍然可以通过分析正在运行的进程来检测加密容器，因为如果系统上打开了加密容器，您仍然可以在进程列表中找到相应的进程。
+- en: Second, for the most popular TrueCrypt solution, Volatility has a separate plugin
+    to recover the cached passphrase – `linux_truecrypt_passphrase`.
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其次，对于最流行的 TrueCrypt 解决方案，Volatility 有一个单独的插件，用于恢复缓存的密码短语 – `linux_truecrypt_passphrase`。
+- en: 'Third, you can always use the Bulk Extractor AES scanner to search for AES
+    keys potentially used for encryption. This will look the same as in case of Windows:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第三，您始终可以使用 Bulk Extractor AES 扫描器来搜索可能用于加密的 AES 密钥。这与 Windows 中的情况相同：
+- en: '![Figure 8.39 – AES keys search with Bulk Extractor](img/Figure_8.39_B17056.jpg)'
+  id: totrans-243
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.39 – 使用 Bulk Extractor 搜索 AES 密钥](img/Figure_8.39_B17056.jpg)'
+- en: Figure 8.39 – AES keys search with Bulk Extractor
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.39 – 使用 Bulk Extractor 搜索 AES 密钥
+- en: 'The output is the same `aes_keys` file in which all AES keys extracted by Bulk
+    Extractor can be found:'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出是相同的 `aes_keys` 文件，其中包含所有由 Bulk Extractor 提取的 AES 密钥：
+- en: '![Figure 8.40 – AES keys found](img/Figure_8.40_B17056.jpg)'
+  id: totrans-246
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.40 – 找到的 AES 密钥](img/Figure_8.40_B17056.jpg)'
+- en: Figure 8.40 – AES keys found
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.40 – 找到的 AES 密钥
+- en: Knowing the crypto container running on the system and using AES, and its key
+    length, you can try to recover the master key from the available data.
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解系统上运行的加密容器，及其使用的AES算法和密钥长度后，你可以尝试从现有数据中恢复主密钥。
+- en: Summary
+  id: totrans-249
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: User activity analysis plays an important role regardless of the operating system
+    under investigation, as it can reconstruct the context in which the incident occurred
+    and reveal important details about the actions taken by the user. On the other
+    hand, Linux operating systems are often used by attackers, so investigating user
+    activity on such systems takes on a special meaning.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论调查的是哪种操作系统，用户活动分析都起着重要作用，因为它可以重建事件发生的背景，并揭示用户采取的行动的关键信息。另一方面，Linux操作系统常常被攻击者使用，因此在这种系统上调查用户活动具有特殊意义。
+- en: Due to the way Linux systems are designed, investigating them is not as easy
+    as it is with Windows. Nevertheless, we can obtain data about running programs,
+    documents opened, devices connected, crypto containers used, and so on.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于Linux系统的设计方式，调查它们不像Windows那样简单。然而，我们仍然可以获得关于运行中的程序、打开的文档、连接的设备、使用的加密容器等数据。
+- en: An important aid in analyzing user activity on Linux is the examination of process
+    memory, which is done in several steps. Despite the relative difficulty of extracting
+    mappings and their further processing, the process memory may contain valuable
+    data – visited links, conversations, publications, email addresses, filenames,
+    and so on.
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析Linux上用户活动时，一个重要的辅助工具是检查进程内存，这需要几个步骤来完成。尽管提取映射及其进一步处理相对较难，但进程内存可能包含有价值的数据——访问过的链接、对话、发布内容、电子邮件地址、文件名等。
+- en: Thus, we have covered the general methods of analyzing user activity. Now it
+    is time to talk about something malicious. This is what we will talk about in
+    the next chapter.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们已经涵盖了分析用户活动的一般方法。现在是时候讨论一些恶意内容了。这将是我们在下一章讨论的内容。

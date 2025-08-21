@@ -1,0 +1,1218 @@
+- en: Chapter 5. Timeline
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第五章 时间线
+- en: In this chapter, we will look at timeline analysis. We will learn a few different
+    approaches to perform a timeline analysis with The Sleuth Kit and Plaso Framework.
+    We will also cover some theoretical issues that are specific to some filesystems
+    and how they work with file time-related attributions. Also, we will demonstrate
+    how we can use Plaso in practice.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将探讨时间线分析。我们将学习几种使用侦探工具包（The Sleuth Kit）和Plaso框架进行时间线分析的不同方法。我们还将涵盖一些特定于某些文件系统的理论问题，以及它们如何处理与文件时间相关的属性。我们还将演示如何在实践中使用Plaso。
+- en: 'In a nutshell, we will cover the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简而言之，我们将涵盖以下主题：
+- en: Timeline
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 时间线
+- en: '**The Sleuth Kit** (**TSK**)'
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**侦探工具包** (**TSK**)'
+- en: Plaso architecture
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Plaso架构
+- en: Plaso in practice
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Plaso的实际应用
+- en: Timeline introduction
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 时间线简介
+- en: One question, which is very prominent in forensics is, "When?"
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在取证过程中，一个非常突出的疑问是，“什么时候？”
+- en: In other words, time is a very important factor at which analytics is based
+    in the process of forensics. There are many artifacts that we use in an investigation
+    which have temporal characteristics. These characteristics allow us to build the
+    whole picture of an incident.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 换句话说，时间是取证过程中分析的一个非常重要的因素。在调查中，我们使用的许多工件都有时间特征。这些特征帮助我们构建事件的完整图景。
+- en: Moreover, timeline analysis could help when we analyze different types of evidence.
+    Timeline analysis may be built on the base of any source that has timestamps.
+    This could be the metadata of the filesystem, registry, event log files, log files
+    of applications, memory, network traffic, and so on.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，时间线分析有助于我们分析不同类型的证据。时间线分析可以建立在任何具有时间戳的来源上。这可以是文件系统的元数据、注册表、事件日志文件、应用程序的日志文件、内存、网络流量等等。
+- en: Certainly, the timeline is one of the most useful techniques that is applied
+    in digital forensics. However, this is based on the analysis of particular artifacts,
+    so it is very important to understand how to analyze the artifacts that are suppliers
+    of timeline events.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，时间线是数字取证中最有用的技术之一。然而，这基于对特定工件的分析，因此理解如何分析那些提供时间线事件的工件非常重要。
+- en: Despite the apparent simplicity of the idea underlying the timeline, in practice,
+    it is not so easy. One of the difficulties is the large amount of data that has
+    to be analyzed. The issue with a running system is that there are a few users
+    and many system services, which produce a lot of events. We need to filter out
+    such activities from normal users.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管时间线背后的概念看似简单，但实际上并不容易。一个困难是必须分析大量数据。对于一个正在运行的系统来说，问题在于有少量用户和大量系统服务，这些服务会产生许多事件。我们需要过滤掉正常用户的活动。
+- en: The idea of a timeline is not very new. It has been around since the year 2000,
+    when Rob Lee and some other forensic people started applying it in digital forensics.
+    Originally, filesystems served as a source of data for the timeline. We will consider
+    the NTFS filesystem as the most prevalent filesystem in our review.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 时间线的概念并不新鲜。自2000年以来，Rob Lee和其他一些取证专家开始在数字取证中应用它。最初，文件系统是时间线数据的来源。我们将在本综述中将NTFS文件系统作为最常用的文件系统进行讨论。
+- en: The timeline of the NTFS filesystem is based on the timestamps in some attributes
+    of the filesystem objects.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NTFS文件系统的时间线基于文件系统对象某些属性中的时间戳。
+- en: 'Every object of the filesystem has the following timestamps:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个文件系统对象都有以下时间戳：
+- en: '`M`: This is the date of data modification'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`M`：这是数据修改的日期'
+- en: '`A`: This is the date of data access'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`A`：这是数据访问的日期'
+- en: '`C`: This is the date of metadata change'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`C`：这是元数据更改的日期'
+- en: '`B`: This is the date of metadata creation'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`B`：这是元数据创建的日期'
+- en: Based on the analysis of this data, we can determinate when a file was created,
+    copied, moved, and so on. The NTFS filesystem uses `FILETIME` as its time format
+    in UTC. **UTC** is **Coordinated Universal Time**. `FILETIME` contains a 64-bit
+    value representing the number of 100-nanosecond intervals since January 1, 1601
+    (UTC). MS Windows also uses other time formats. They are the UNIX time format,
+    DOS Date format, and `SYSTEMTIME` format.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于对这些数据的分析，我们可以确定文件何时被创建、复制、移动等等。NTFS文件系统使用`FILETIME`作为其UTC时间格式。**UTC**是**协调世界时**。`FILETIME`包含一个64位的值，表示自1601年1月1日（UTC）以来的100纳秒间隔数。MS
+    Windows还使用其他时间格式，包括UNIX时间格式、DOS日期格式和`SYSTEMTIME`格式。
+- en: Also, we should highlight some cases when the file is moved across different
+    filesystems, for example, a file is copied to a USB key. In most cases, USB uses
+    the FAT32 filesystem, so files on the FAT32 system have different attributes,
+    and timestamps are on the NTFS and FAT32 filesystems.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还需要强调一些文件在不同文件系统间移动的情况，例如文件被复制到 USB 驱动器。大多数情况下，USB 使用 FAT32 文件系统，因此 FAT32
+    系统中的文件属性和时间戳与 NTFS 和 FAT32 文件系统之间有所不同。
+- en: 'Let''s consider case when a file is created on the NTFS filesystem and then
+    is copied to USB with the FAT32 filesystem. In this case, the modification date
+    remains unchanged, but the C date on the USB drive changes and will fit to the
+    date of file creation on the USB. Microsoft has an explanation on how attributes
+    are changed in different situations at [http://support.microsoft.com/kb/299648](http://support.microsoft.com/kb/299648).
+    The following are the file properties with regards to the date and time stamps:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设有一个文件在 NTFS 文件系统上创建，然后被复制到使用 FAT32 文件系统的 USB 上。在这种情况下，修改日期保持不变，但 USB 上的创建日期会变化，且会调整为文件在
+    USB 上创建的日期。微软对不同情况下属性变化的解释可以参考 [http://support.microsoft.com/kb/299648](http://support.microsoft.com/kb/299648)。以下是与日期和时间戳相关的文件属性：
+- en: In the case that a file is copied from `C:\fatfolder` to `C:\fatfolder\subfolder`,
+    it keeps the same date and time of modification but changes the date and time
+    of creation to the current date and time
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `C:\fatfolder` 复制到 `C:\fatfolder\subfolder`，它保持相同的修改日期和时间，但创建日期和时间会更改为当前日期和时间。
+- en: In the case that a file is moved from `C:\fatfolder` to `C:\fatfolder\subfolder`,
+    it keeps the same date and time of modification and keeps the same date and time
+    of creation
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `C:\fatfolder` 移动到 `C:\fatfolder\subfolder`，它保持相同的修改日期和时间，并保持相同的创建日期和时间。
+- en: In the case that a file is copied from `C:\fatfolder` to `D:\NTFSfolder`, it
+    keeps the same date and time of modification but changes the date and time of
+    creation to the current date and time
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `C:\fatfolder` 复制到 `D:\NTFSfolder`，它保持相同的修改日期和时间，但创建日期和时间会更改为当前日期和时间。
+- en: In the case that a file is moved from `C:\fatfolder` to `D:\NTFSfolder`, it
+    keeps the same date and time of modification and keeps the same date and time
+    of creation
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `C:\fatfolder` 移动到 `D:\NTFSfolder`，它保持相同的修改日期和时间，并保持相同的创建日期和时间。
+- en: In the case that a file is copied from `D:\NTFSfolder` to `D:\NTFSfolder\SUBfolder`,
+    it keeps the same date and time of modification but changes the date and time
+    of creation to the current date and time
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `D:\NTFSfolder` 复制到 `D:\NTFSfolder\SUBfolder`，它保持相同的修改日期和时间，但创建日期和时间会更改为当前日期和时间。
+- en: In the case that a file is moved from `D:\NTFSfolder` to `D:\NTFSfolder\SUBfolder`,
+    it keeps the same date and time of modification and keeps the same date and time
+    of creation
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果一个文件从 `D:\NTFSfolder` 移动到 `D:\NTFSfolder\SUBfolder`，它保持相同的修改日期和时间，并保持相同的创建日期和时间。
+- en: In all cases, the date and time of modification of a file does not change unless
+    a property of the file has changed. The date and time of creation of the file
+    changes, depending on whether the file was copied or moved.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在所有情况下，除非文件的某个属性发生变化，否则文件的修改日期和时间不会改变。文件的创建日期和时间会根据文件是被复制还是移动而变化。
+- en: 'The following are the folder properties with regards to the date and time stamps:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是与日期和时间戳相关的文件夹属性：
+- en: In the case that two new folders on an NTFS partition called `D:\NTFSfolder1`
+    and `D:\NTFSfolder2` are created, both the date and time of creation and modification
+    are the same
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果在 NTFS 分区上创建了两个新文件夹，分别为 `D:\NTFSfolder1` 和 `D:\NTFSfolder2`，则它们的创建日期和时间以及修改日期和时间相同。
+- en: 'In the case that the `D:\NTFSfolder2` folder is moved into the `D:\NTFSfolder1`
+    folder, creating `D:\NTFSfolder1\NTFSfolder2`, then the following occurs:'
+  id: totrans-32
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果 `D:\NTFSfolder2` 文件夹被移动到 `D:\NTFSfolder1` 文件夹中，创建了 `D:\NTFSfolder1\NTFSfolder2`，则会发生以下情况：
+- en: '`D:\NTFSfolder1`: This is when the created folder is the same and the modified
+    stamp changes.'
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`D:\NTFSfolder1`：这是当创建的文件夹保持不变，而修改的时间戳发生变化的情况。'
+- en: '`D:\NTFSfolder1\NTFSfolder2`: This is when both the created folder changes
+    and the modified folder stay the same.'
+  id: totrans-34
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`D:\NTFSfolder1\NTFSfolder2`：这是当创建的文件夹发生变化，而修改的文件夹保持不变的情况。'
+- en: This behavior occurs because even though you moved the folder, a new folder
+    is seen as being created within the `D:\NTFSfolder1` folder by the Master File
+    Table (MFT).
+  id: totrans-35
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这种行为发生的原因是，尽管你移动了文件夹，但主文件表（MFT）仍然认为在 `D:\NTFSfolder1` 文件夹下创建了一个新文件夹。
+- en: 'In the case that the `D:\NTFSfolder2` folder is copied into the `D:\NTFSfolder1`
+    folder, creating the `D:\NTFSfolder1\NTFSfolder2` folder, and the `D:\NTFSfolder2`
+    folder still exists (after having copied it):'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果将`D:\NTFSfolder2`文件夹复制到`D:\NTFSfolder1`文件夹中，创建`D:\NTFSfolder1\NTFSfolder2`文件夹，而`D:\NTFSfolder2`文件夹仍然存在（在复制后）：
+- en: '`D:\NTFSfolder1`: This is when the created folder is the same and the modified
+    folder time and date stamp changes.'
+  id: totrans-37
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`D:\NTFSfolder1`：这是指当创建的文件夹相同，但修改的文件夹时间戳发生变化时。'
+- en: '`D:\NTFSfolder2`: This is when no changes occur because it is the original
+    folder.'
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`D:\NTFSfolder2`：这是指没有发生任何更改，因为它是原始文件夹。'
+- en: '`D:\NTFSfolder1\NTFSfolder2`: This is when both the created folder and the
+    modified folder change to the same stamp, which is that of the time of the move.'
+  id: totrans-39
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`D:\NTFSfolder1\NTFSfolder2`：这是指当创建的文件夹和修改的文件夹都变成相同的时间戳，即移动时的时间。'
+- en: This behavior occurs because even though you copied the folder, the new folder
+    is seen as being created by the MFT and is given a new created and modified time
+    stamp.
+  id: totrans-40
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这种行为发生是因为即使你复制了文件夹，新的文件夹仍被MFT视为新创建的，并赋予新的创建和修改时间戳。
+- en: 'The FAT filesystem has different behavior with regards to the modified time
+    stamp. On a FAT filesystem, the modified date of a folder does not change if the
+    contents of the folder change. For example,if `D:\FATfolder2` is copied or moved
+    into `D:\FATfolder1`, the created date and modified date of `D:\FATfolder1` remain
+    unchanged. The following table reflects the changes of attributes in accordance
+    with operations on the file:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: FAT文件系统在修改时间戳方面表现不同。在FAT文件系统中，如果文件夹的内容发生变化，文件夹的修改日期不会改变。例如，如果`D:\FATfolder2`被复制或移动到`D:\FATfolder1`，`D:\FATfolder1`的创建日期和修改日期将保持不变。以下表格反映了根据文件操作变化的属性：
+- en: '| **Operations** | **Attribute** |'
+  id: totrans-42
+  prefs: []
+  type: TYPE_TB
+  zh: '| **操作** | **属性** |'
+- en: '| Renaming | `..C.` |'
+  id: totrans-43
+  prefs: []
+  type: TYPE_TB
+  zh: '| 重命名 | `..C.` |'
+- en: '| Displacement inside a volume | `..C.` |'
+  id: totrans-44
+  prefs: []
+  type: TYPE_TB
+  zh: '| 卷内位移 | `..C.` |'
+- en: '| Displacement between volumes | `.AC.` |'
+  id: totrans-45
+  prefs: []
+  type: TYPE_TB
+  zh: '| 卷之间的位移 | `.AC.` |'
+- en: '| Copying | `.ACB` |'
+  id: totrans-46
+  prefs: []
+  type: TYPE_TB
+  zh: '| 复制 | `.ACB` |'
+- en: '| Access | `.AC.` |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| 访问 | `.AC.` |'
+- en: '| Modification | `M.C.` |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| 修改 | `M.C.` |'
+- en: '| Creation | `MACB` |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| 创建 | `MACB` |'
+- en: '| Deletion | .... |'
+  id: totrans-50
+  prefs: []
+  type: TYPE_TB
+  zh: '| 删除 | .... |'
+- en: Tip
+  id: totrans-51
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 提示
+- en: When we talk about a moving action, we mean moving of the file with Windows
+    Explorer and the cut and paste procedure, not the `move` command in the command
+    line.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们谈论移动操作时，我们指的是使用Windows资源管理器进行的文件移动操作，和剪切粘贴过程，而不是命令行中的`move`命令。
+- en: One more thing what we want to mention is that some investigators make the mistake
+    of assuming that disabling the last accessed time will stop any updates to the
+    file's last access time (default on Vista+). This is incorrect. The last accessed
+    time will be changed in the case of the copy or move commands; it remains unchanged
+    only if the files are opening.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另外需要提到的是，一些调查人员错误地认为禁用最后访问时间会阻止文件的最后访问时间更新（Vista+系统的默认设置）。这是不正确的。最后访问时间会在复制或移动命令执行时发生变化；只有在打开文件时，文件的最后访问时间才不会改变。
+- en: Also, the moving of a file by cutting and pasting in Windows Explorer in the
+    border of the filesystem doesn't change the creation time. However, it will be
+    changed if a file is moved on the command line with the `move` command.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，通过Windows资源管理器剪切和粘贴的文件，在文件系统的边界内移动时不会更改创建时间。然而，如果使用命令行中的`move`命令移动文件，创建时间将发生变化。
+- en: The Sleuth Kit
+  id: totrans-55
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Sleuth Kit
+- en: Let's considers the stages of the creation of a timeline for a filesystem.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑一下文件系统时间线创建的各个阶段。
+- en: The first step for creation of the timeline is building of body file.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建时间线的第一步是构建正文文件。
+- en: 'There are three types of data to collect:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有三种类型的数据需要收集：
+- en: Existing on filesystem files, which we could list with the `dir` or `ls` command.
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 存在于文件系统中的文件，我们可以通过`dir`或`ls`命令列出它们。
+- en: Deleted files, which are deleted but structures of them still exist. This allows
+    for recovering the full path and other attributes of the file. However, this depends
+    on the filesystem, as not all filesystems allow this.
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 已删除的文件，它们被删除但其结构仍然存在。这允许恢复文件的完整路径及其他属性。然而，这取决于文件系统，并非所有文件系统都允许这样做。
+- en: Unallocated inodes `($Orphan` files), which are file structures which do not
+    exist anymore.
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 未分配的inode（`$Orphan`文件），这些是已不存在的文件结构。
+- en: To build a bodyfile, we will use the `fls` tool from TSK. The `fls` tool allows
+    interacting with a forensics image as with the filesystem and extracting timeline
+    data from the filesystem level.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要构建一个正文文件，我们将使用TSK中的`fls`工具。`fls`工具允许像操作文件系统一样与取证镜像进行交互，并从文件系统级别提取时间线数据。
+- en: 'This gets the value of the inode directory, processes its content, and displays
+    the names of files in the directory (including deleted files). If the value of
+    inode is not present, it will display the content of the root directory:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这会获取inode目录的值，处理其内容，并显示目录中文件的名称（包括已删除的文件）。如果inode的值不存在，它将显示根目录的内容：
+- en: '![The Sleuth Kit](img/image_05_001.jpg)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![The Sleuth Kit](img/image_05_001.jpg)'
+- en: 'In our case, one of the most important options is `-m`, which allows output
+    in a format for use with the mactime tool:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，最重要的选项之一是 `-m`，它允许输出为mactime工具使用的格式：
+- en: '![The Sleuth Kit](img/image_05_002.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![The Sleuth Kit](img/image_05_002.jpg)'
+- en: 'So if you have an `image.dd` and you want to create a timeline, you should
+    enter the following three commands:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，如果你有一个 `image.dd` 文件，并且想要创建一个时间轴，你应该输入以下三个命令：
+- en: '[PRE0]'
+  id: totrans-68
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Super timeline – Plaso
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 超级时间轴 – Plaso
+- en: 'The filesystem is not the only source of data that contains timestamps of events
+    in the system. When computers work, even when users do not do anything, a lot
+    of events occur in the system. For example, Windows XP creates a System Restore
+    Point every 24 hours, runs disk defragmentation every three days so that sectors
+    of deleted files will be rewritten. Windows 7 has a Volume Shadow Copy mechanism,
+    which also creates backup files and so on. All these actions occur automatically
+    without any user activity. So, even in idle mode, Windows has a lot of events.
+    In the case that the system has active users, we would see many more events. The
+    information about these events will reflect in different places: in the registry,
+    event log files, log files of applications, browser history, and so on.'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件系统并不是唯一包含系统中事件时间戳的数据源。当计算机工作时，即使用户什么都不做，系统中也会发生许多事件。例如，Windows XP每24小时创建一个系统还原点，每三天运行磁盘碎片整理，以便删除的文件所在的扇区可以被重写。Windows
+    7有一个卷影副本机制，它也会创建备份文件，等等。这些操作都会自动发生，且无需用户干预。所以，即使在空闲模式下，Windows也会有许多事件。如果系统有活跃用户，我们会看到更多的事件。这些事件的信息会反映在不同的地方：注册表、事件日志文件、应用程序的日志文件、浏览器历史记录等等。
+- en: If we could use all of these sources in the timeline, we could make a whole
+    picture of what happened in the system and link different events in logical chain.
+    This approach is called **Super Timeline**.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们能在时间轴中使用所有这些来源，就能全面了解系统中发生了什么，并将不同事件链接成一个逻辑链条。这种方法被称为**超级时间轴**。
+- en: To build a super timeline from different sources separately and then merge results
+    could be a complicated and longtime process. However, thanks to cool tools, such
+    as the Plaso framework, this task became much easier.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从不同来源分别构建超级时间轴然后合并结果可能是一个复杂且耗时的过程。然而，得益于像Plaso框架这样的酷工具，这项任务变得更加简单。
+- en: '*Kristinn Gudjonsson* created the`log2timeline` tool, which allows the creation
+    of a super timeline in an automatic way. Originally, it was written in Perl, but
+    later rewritten in Python. The Python version is now called **Plaso.** It has
+    a lot of features and flexible architecture. It allows the addition of new parsers
+    and plugins to process new types of data.'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*Kristinn Gudjonsson* 创建了 `log2timeline` 工具，允许自动创建超级时间轴。最初，它是用Perl编写的，但后来用Python重写。现在的Python版本被称为**Plaso**。它有很多功能和灵活的架构，允许添加新的解析器和插件来处理新的数据类型。'
+- en: Plaso architecture
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Plaso架构
+- en: 'Let''s take a look at Plaso architecture. Plaso has a few core components which
+    perform independent roles:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看Plaso的架构。Plaso有几个核心组件，它们执行独立的角色：
+- en: Preprocessing
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 预处理
+- en: Collection
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 采集
+- en: Worker
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 工作者
+- en: Storage
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 存储
+- en: Let's look at them in more detail.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们更详细地了解它们。
+- en: Preprocessing
+  id: totrans-81
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 预处理
+- en: At this stage, some preprocessing tasks should be done prior to all other processing.
+    For example, before mounting the image and determining which OS is installed on
+    the disk, collect some information which will be used in the next stage.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个阶段，一些预处理任务应该在所有其他处理之前完成。例如，在挂载图像并确定磁盘上安装的操作系统之前，收集一些将在下一阶段使用的信息。
+- en: 'The preprocessing process should collect the following:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 预处理过程应该收集以下内容：
+- en: The version of the OS
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 操作系统的版本
+- en: The hostname
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 主机名
+- en: Time zone information
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 时区信息
+- en: Default applications, such as the default browser, and so on
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 默认应用程序，例如默认浏览器等等
+- en: Enumerate all users and their paths
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 枚举所有用户及其路径
+- en: Collection
+  id: totrans-89
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 采集
+- en: In the collection stage, the process goes over the image, directory, or mount
+    point, and finds all the files that the tool can process.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在采集阶段，该过程会遍历图像、目录或挂载点，并找到工具可以处理的所有文件。
+- en: 'The collection could be divided into three different scenarios:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 收集过程可以分为三种不同的场景：
+- en: In the simplest case, the collection process recursively goes through either
+    a mount point or an image file and collects every file discovered.
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在最简单的情况下，收集过程会递归地遍历一个挂载点或映像文件，收集每个发现的文件。
+- en: During the recursive scan, if VSS are to be parsed, a hash is calculated, based
+    on the four timestamps of every file. During the collection phase, from the VSS
+    image, the hash value is compared to already existing hashes for that file. If
+    the file has not previously been collected, it is included; otherwise, it is skipped.
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在递归扫描过程中，如果需要解析 VSS，会基于每个文件的四个时间戳计算哈希值。在收集阶段，从 VSS 映像中，哈希值会与该文件已存在的哈希值进行比较。如果该文件之前没有被收集，则会被包括在内；否则，会跳过。
+- en: In the case of a targeted collection, a set of file paths is defined and only
+    the files that fit that pattern are collected.
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在有针对性的收集情况下，会定义一组文件路径，只有符合该模式的文件才会被收集。
+- en: Worker
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Worker
+- en: 'The worker is the main part of Plaso. The worker should be monitoring the process
+    queue, and process each file that gets in there. During processing files, the
+    worker will perform the following actions:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Worker 是 Plaso 的核心部分。Worker 应该监控处理队列，并处理每一个进入队列的文件。在处理文件的过程中，worker 会执行以下操作：
+- en: Determining the type of file
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定文件类型
+- en: Determining which parsers should be applied to it
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定应应用哪些解析器
+- en: Parsing the file and extract all events from it
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解析文件并从中提取所有事件
+- en: Applying some defined filters to the file
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对文件应用一些定义的过滤器
+- en: Sending extracted events to the storage queue
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将提取的事件发送到存储队列
+- en: Determining if this file contains other files within it that can be processed/extracted,
+    and process them as well
+  id: totrans-102
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定该文件是否包含可以处理/提取的其他文件，并对它们进行处理。
+- en: Storage
+  id: totrans-103
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 存储
+- en: In the storage stage, events from the storage queue are written to a disk.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在存储阶段，存储队列中的事件被写入磁盘。
+- en: 'Now, let''s consider the main tools from the Plaso framework:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们考虑 Plaso 框架中的主要工具：
+- en: '**log2timeline**: This is the main command line frontend to the Plaso backend.
+    This is the tool that can be used to extract events from an image, mount point,
+    or a file, and save it in a Plaso storage file for future processing and analysis.'
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**log2timeline**：这是 Plaso 后端的主要命令行前端。此工具可用于从映像、挂载点或文件中提取事件，并将其保存到 Plaso 存储文件中，以供未来处理和分析。'
+- en: '**Pinfo**: This tool allows the extraction of the information, which is contained
+    in the Plaso storage. It is simple tool, which prints out information from the
+    storage file.'
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Pinfo**：此工具允许提取 Plaso 存储中包含的信息。它是一个简单的工具，会打印出存储文件中的信息。'
+- en: '**pprof**: This is small tool, which could be useful for developers and those
+    that are interested in trying to optimize certain parsers.'
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**pprof**：这是一个小工具，对于开发者和那些有兴趣尝试优化某些解析器的人来说非常有用。'
+- en: '**preg**: This tool provides a different frontend to the registry parser. It
+    parses an image or a registry hive and provides the user with a console or shell
+    to work with the registry.'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**preg**：此工具为注册表解析器提供了一个不同的前端。它解析映像或注册表文件并提供一个控制台或 shell 供用户与注册表交互。'
+- en: '**pshell**: This is an iPython console to the Plaso backend. This shell provides
+    the user with access to all the libraries of Plaso and provides an access to more
+    advanced analysis of the output, debugging, and experimentation.'
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**pshell**：这是 Plaso 后端的 iPython 控制台。此 shell 提供用户对 Plaso 所有库的访问，并提供对输出的更高级分析、调试和实验的访问。'
+- en: '**psort**:The storage format of Plaso is not a human-readable format and psort
+    allows the convertion of it to a more convenient form. It is used as a postprocessing
+    tool to filter, sort, and process the Plaso storage file.'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**psort**：Plaso 的存储格式不是人类可读的格式，psort 允许将其转换为更便捷的形式。它作为后处理工具，用于过滤、排序和处理 Plaso
+    存储文件。'
+- en: Plaso in practice
+  id: totrans-112
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Plaso 在实践中
+- en: Let's take a look how we can use Plaso in practice.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一下如何在实践中使用 Plaso。
+- en: Let's assume that we have an image of the hard drive from the infected PC, and
+    now we need to investigate this case to figure out how the infection occurred.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们有一个来自感染的 PC 硬盘映像，现在我们需要调查此案例，找出感染是如何发生的。
+- en: First, we need observe the image and determine partitions, which we need to
+    analyze. To do this, we need to use the mmls tool from TSK.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要观察映像并确定需要分析的分区。为此，我们需要使用 TSK 中的 mmls 工具。
+- en: 'Then, we can build bodyfile with log2timeline:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们可以使用 log2timeline 构建 bodyfile：
+- en: '![Plaso in practice](img/image_05_003.jpg)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Plaso 在实践中](img/image_05_003.jpg)'
+- en: 'Now, we will use a dynamic format for output. The dynamic output format allows
+    the setting of filtering rules as SQL-SELECT-like requests. We will build our
+    rules based on the following attributes of events:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们将使用动态格式进行输出。动态输出格式允许像SQL-SELECT请求一样设置过滤规则。我们将基于事件的以下属性构建我们的规则：
+- en: '| **Attribute** | **Description** |'
+  id: totrans-119
+  prefs: []
+  type: TYPE_TB
+  zh: '| **属性** | **描述** |'
+- en: '| Date | This is the date of the event |'
+  id: totrans-120
+  prefs: []
+  type: TYPE_TB
+  zh: '| 日期 | 这是事件发生的日期 |'
+- en: '| Time | This is the time of the event |'
+  id: totrans-121
+  prefs: []
+  type: TYPE_TB
+  zh: '| 时间 | 这是事件发生的时间 |'
+- en: '| Timezone | This is the time zone of the event |'
+  id: totrans-122
+  prefs: []
+  type: TYPE_TB
+  zh: '| 时区 | 这是事件的时区 |'
+- en: '| Source | This is the source of the event (`FILE`,`REG`, ...) |'
+  id: totrans-123
+  prefs: []
+  type: TYPE_TB
+  zh: '| 来源 | 这是事件的来源（`FILE`, `REG`, ...） |'
+- en: '| Message, Description | This is the description of the event |'
+  id: totrans-124
+  prefs: []
+  type: TYPE_TB
+  zh: '| 消息，描述 | 这是事件的描述 |'
+- en: '| User | This is the user associated to the event |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| 用户 | 这是与事件相关的用户 |'
+- en: '| Host | This is the ID of the computer associated to the event |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| 主机 | 这是与事件相关的计算机的ID |'
+- en: '| inode | This is the ID of the file inside the filesystem |'
+  id: totrans-127
+  prefs: []
+  type: TYPE_TB
+  zh: '| inode | 这是文件在文件系统中的ID |'
+- en: '| Filename | This is the name of the file linked to the event |'
+  id: totrans-128
+  prefs: []
+  type: TYPE_TB
+  zh: '| 文件名 | 这是与事件相关联的文件名 |'
+- en: '| Macb | This is the MACB timestamp notation |'
+  id: totrans-129
+  prefs: []
+  type: TYPE_TB
+  zh: '| Macb | 这是MACB时间戳表示法 |'
+- en: '| Timestamp_desc | This is the description of the timestamp (`LastWritten`,...)
+    |'
+  id: totrans-130
+  prefs: []
+  type: TYPE_TB
+  zh: '| 时间戳描述 | 这是时间戳的描述（`LastWritten`, ...） |'
+- en: '| Parser | This is the Module that collects and processes data (`WinRegistryParser`,
+    ...) |'
+  id: totrans-131
+  prefs: []
+  type: TYPE_TB
+  zh: '| 解析器 | 这是收集和处理数据的模块（`WinRegistryParser`, ...） |'
+- en: When we browse a list of executed files, we found a file with a suspicious name,
+    `ZkPECED.exe`. We could use it now as a pivotal point of a timeline investigation.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们浏览已执行文件列表时，发现一个可疑文件，名为`ZkPECED.exe`。我们现在可以将其作为时间轴调查的关键点。
+- en: So, we can filter all files, which contain the `ZkPECED` string in the name
+    of the file.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们可以过滤出所有文件，文件名中包含`ZkPECED`字符串的文件。
+- en: 'The following figure displays the results of searching for events associated
+    with files containing the `ZkPECED` keyword in their name, from which it is clear
+    that on April 8, 2014, at 12:39:08 UTC (16:39:08 UTC+4), two files named `ZkPECED.tmp`
+    and `ZkPECED.exe` were created in`\Users\Alina\AppData\Local\Temp` directory:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图显示了搜索与文件名中包含`ZkPECED`关键字的事件的结果，结果清楚表明在2014年4月8日12:39:08 UTC（16:39:08 UTC+4）时，两个文件`ZkPECED.tmp`和`ZkPECED.exe`被创建在`\Users\Alina\AppData\Local\Temp`目录中：
+- en: '![Plaso in practice](img/image_05_004.jpg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Plaso 实践](img/image_05_004.jpg)'
+- en: Using the `--sliceDateTime` and`--slice_sizeMinutes` parameters and the `psort.py`
+    utility, we can restrict the sample data from the file storage (`timeline.body`)
+    to events that occurred in the time range *[DateTime-Minutes, DateTime + Minutes]*.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`--sliceDateTime`和`--slice_sizeMinutes`参数，以及`psort.py`工具，我们可以将文件存储（`timeline.body`）中的样本数据限制在发生在时间范围*[DateTime-Minutes,
+    DateTime + Minutes]*内的事件。
+- en: 'As we do not know where the `ZkPECED.exe` file executable came from, we perform
+    a search for all executables created or modified within 10 minutes of 12:39:08
+    UTC:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们不知道`ZkPECED.exe`文件的可执行文件来自哪里，因此我们对所有在UTC时间12:39:08前后10分钟内创建或修改的可执行文件进行搜索：
+- en: '![Plaso in practice](img/image_05_005.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Plaso 实践](img/image_05_005.jpg)'
+- en: 'Note that just before the appearance of the `ZkPECED.exe` file, the metadata
+    of a file in the `systemhost` directory with the suspicious name `24FC2AE3CB0.exe`
+    (inode 46912) changed (meaning that the file was renamed or moved locally), although
+    its other timestamps (`creation`, `last modified`, and `last accessed`) refer
+    back to 2010:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在`ZkPECED.exe`文件出现之前，位于`systemhost`目录中的一个名为`24FC2AE3CB0.exe`的文件（inode 46912）的元数据发生了变化（这意味着文件被重命名或在本地移动），尽管它的其他时间戳（`创建`、`最后修改`和`最后访问`）回溯至2010年：
+- en: '![Plaso in practice](img/image_05_006.jpg)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Plaso 实践](img/image_05_006.jpg)'
+- en: 'Using the `istat` utility in TSK suite, we obtain information about the attributes
+    of the `24FC2AE3CB0.exe` file (inode 46912):'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用TSK工具包中的`istat`工具，我们获得了`24FC2AE3CB0.exe`文件（inode 46912）属性的信息：
+- en: '![Plaso in practice](img/image_05_007.jpg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Plaso 实践](img/image_05_007.jpg)'
+- en: The preceding screenshot shows that the timestamps contained in the `$STANDARD_INFORMATION`
+    and`$FILENAME` attributes do not match, which probably indicates that the timestamps
+    of the`24FC2AE3CB0.exe` file (inode 46912) were changed manually.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的截图显示，`$STANDARD_INFORMATION`和`$FILENAME`属性中的时间戳不匹配，这可能表明`24FC2AE3CB0.exe`文件（inode
+    46912）的时间戳是手动更改的。
+- en: Hence, it can be assumed that the `24FC2AE3CB0.exe` file (inode 46912) was created
+    on April 8 at 12:31:44 UTC (16:31:44 UTC+4), and that its timestamps (created,
+    last modified, and last accessed) were changed "manually", which is one of the
+    signs of malware.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，可以推测，`24FC2AE3CB0.exe`文件（inode 46912）是在4月8日12:31:44 UTC（16:31:44 UTC+4）创建的，其时间戳（创建时间、最后修改时间和最后访问时间）被“手动”更改，这也是恶意软件的一个迹象。
+- en: Analyzing the results
+  id: totrans-145
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析结果
+- en: 'Analysis of the results of the WinRegistryParser processing module establishes
+    that links to both suspicious executable files are stored in the Windows registry
+    keys that are responsible for auto-running programs at system startup:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对WinRegistryParser处理模块的结果分析表明，两个可疑可执行文件的链接被存储在负责系统启动时自动运行程序的Windows注册表项中：
+- en: '![Analyzing the results](img/image_05_008.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_008.jpg)'
+- en: The screenshot also shows the time of the last modification of each of the registry
+    keys.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 屏幕截图还显示了每个注册表项最后修改的时间。
+- en: 'As the source of the `24FC2AE3CB0.exe` file is also unknown, we perform a search
+    for files created before 12:31:49 UTC, excluding files with `safe` extensions
+    from the search results:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于`24FC2AE3CB0.exe`文件的来源也未知，我们执行了对12:31:49 UTC之前创建的文件进行搜索的操作，搜索结果中排除了具有`safe`扩展名的文件：
+- en: '![Analyzing the results](img/image_05_009.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_009.jpg)'
+- en: 'The result of this command will be as follows:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此命令的结果如下：
+- en: '![Analyzing the results](img/image_05_010.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_010.jpg)'
+- en: The screenshot shows that, a few seconds before the appearance of the `24FC2AE3CB0.exe`
+    file, the `jp2launcher.exe` file process has been started. It starts the Java
+    virtual machine for Java applets and `.jnlp` files. So after this, two Java`.idx`
+    files named `7d088b-2be562b3.idx` (inode 48067) and `57ebc62f-6dfa622f.idx` (inode
+    48074) were created.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 屏幕截图显示，在`24FC2AE3CB0.exe`文件出现之前的几秒钟，`jp2launcher.exe`文件进程已启动。它启动了Java虚拟机，用于Java小应用程序和`.jnlp`文件。因此，在此之后，创建了两个名为`7d088b-2be562b3.idx`（inode
+    48067）和`57ebc62f-6dfa622f.idx`（inode 48074）的Java`.idx`文件。
+- en: 'The results of the `JavaIDXParser` processing module gives us some information
+    about objects loaded in the Java virtual machine:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`JavaIDXParser`处理模块的结果为我们提供了一些关于加载到Java虚拟机中的对象的信息：'
+- en: '![Analyzing the results](img/image_05_011.jpg)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_011.jpg)'
+- en: The information displayed in the screenshot shows that a Java archive named
+    `utisl.jar` was downloaded from the URL `http://finansial.gov` (IP 85.17.137.151),
+    and an unknown object named `2` was downloaded from the URL `>http://w282d1wb.athleticsdrycleaner.pw/f/1389931620/4067114524/`.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 屏幕截图显示的信息表明，名为`utisl.jar`的Java归档文件是从URL `http://finansial.gov`（IP 85.17.137.151）下载的，另一个名为`2`的未知对象是从URL
+    `>http://w282d1wb.athleticsdrycleaner.pw/f/1389931620/4067114524/`下载的。
+- en: The `utisl.jar` Java archive is saved in the `/Users/Alina/AppData/LocalLow/Sun/Java/Deployment/cache/6.0/11/7d088b-2be562b3`
+    file (inode 48068), and the unknown object named `2` in`/Users/Alina/AppData/LocalLow/Sun/Java/Deployment/cache/6.0/47/57ebc62f-6dfa622f`
+    (inode 48075).
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`utisl.jar` Java归档文件保存在`/Users/Alina/AppData/LocalLow/Sun/Java/Deployment/cache/6.0/11/7d088b-2be562b3`文件中（inode
+    48068），而名为`2`的未知对象保存在`/Users/Alina/AppData/LocalLow/Sun/Java/Deployment/cache/6.0/47/57ebc62f-6dfa622f`（inode
+    48075）中。'
+- en: 'With the help of the `icat` utility in The Sleuth Kit suite, we can obtain
+    the contents of both Java IDX files, from which we extract the size of the objects
+    that were downloaded by the Java virtual machine:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在The Sleuth Kit套件的`icat`工具帮助下，我们可以获取两个Java IDX文件的内容，从中提取由Java虚拟机下载的对象的大小：
+- en: '![Analyzing the results](img/image_05_012.jpg)'
+  id: totrans-159
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_012.jpg)'
+- en: 'The output presented in the screenshot indicates that the `utisl.jar` file
+    («7d088b-2be562b3») is 14,052 bytes in size:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 屏幕截图显示的输出表明，`utisl.jar`文件（`7d088b-2be562b3`）的大小为14,052字节：
+- en: '![Analyzing the results](img/image_05_013.jpg)'
+  id: totrans-161
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_013.jpg)'
+- en: The output presented in the figures indicates that the object **2** (`57ebc62f-6dfa622f`)
+    is 411,648 bytes.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图中呈现的输出表明，名为**2**（`57ebc62f-6dfa622f`）的对象大小为411,648字节。
+- en: 'This is because, according to the output of the `istat` and `icat` utilities,
+    the size and contents of the `/systemhost/24FC2AE3CB0.exe` (inode 46912) and `/Users/Alina/AppData/LocalLow/Sun/Java/
+    Deployment/cache/6.0/47/57ebc62f-6dfa622f` (inode 48075) files match:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是因为根据`istat`和`icat`工具的输出，`/systemhost/24FC2AE3CB0.exe`（inode 46912）和`/Users/Alina/AppData/LocalLow/Sun/Java/Deployment/cache/6.0/47/57ebc62f-6dfa622f`（inode
+    48075）文件的大小和内容匹配：
+- en: '![Analyzing the results](img/image_05_014.jpg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_014.jpg)'
+- en: It can be assumed that on March 13, 2014, a Java applet was downloaded from
+    the URL `http://finansial.gov` (IP 85.17.137.151), which, when started, downloaded
+    an executable file of size 411,648 bytes. The body of the file was saved in the
+    `/systemhost/24FC2AE3CB0.exe` file. A link to the specified executable file was
+    added as the `YI9B2F0F6EXG1Y1ZLMA` parameter in the `HKCU\Software\Microsoft\CurrentVersion\Run`
+    registry key, which is responsible for auto-running programs when the operating
+    system starts.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以假设，2014年3月13日，从URL `http://finansial.gov`（IP 85.17.137.151）下载了一个Java小程序，当该小程序启动时，下载了一个大小为411,648字节的可执行文件。该文件的内容被保存到`/systemhost/24FC2AE3CB0.exe`文件中。一个指向该可执行文件的链接作为`YI9B2F0F6EXG1Y1ZLMA`参数被添加到`HKCU\Software\Microsoft\CurrentVersion\Run`注册表项中，该项负责在操作系统启动时自动运行程序。
+- en: 'The results of the `MsiecfParser` parser, indicate that while working with
+    Internet Explorer on April 8, 2014, at 12:31:13 UTC, the user accessed, perhaps
+    unknowingly, the resource `http://finansial.gov`, from which the `utisl.jar` Java
+    applet was subsequently downloaded and executed:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`MsiecfParser`解析器的结果表明，在2014年4月8日12:31:13 UTC，用户在使用Internet Explorer时，可能在不知情的情况下访问了资源`http://finansial.gov`，从中下载并执行了`utisl.jar`
+    Java小程序：'
+- en: '![Analyzing the results](img/image_05_015.jpg)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_015.jpg)'
+- en: 'Next, on analyzing the results of the `WinEvtxParser` processing module, we
+    select from the Windows security log (`Security.evtx`) successful authentication
+    events in the system (`EventId` 4624) after the appearance of the Java `.idx`
+    files on April 8, 2014, at 12:31:13 UTC:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，在分析`WinEvtxParser`处理模块的结果时，我们从Windows安全日志（`Security.evtx`）中选择了2014年4月8日12:31:13
+    UTC之后，系统中成功的身份验证事件（`EventId` 4624），此时Java `.idx`文件已经出现：
+- en: '![Analyzing the results](img/image_05_016.jpg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_016.jpg)'
+- en: 'To present the result in a more convenient form, we can convert it with the
+    following commands:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了以更方便的形式呈现结果，我们可以使用以下命令进行转换：
+- en: '[PRE1]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'You can see them in the following screenshot:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以在下面的截图中看到这些内容：
+- en: '![Analyzing the results](img/image_05_017.jpg)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_017.jpg)'
+- en: Note
+  id: totrans-174
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Note that the authentication type, `(LogonType)`,`10`, indicates that the target
+    system made a connection via the RDP protocol.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，身份验证类型`(LogonType)`中的`10`表示目标系统通过RDP协议建立了连接。
+- en: 'The screenshot shows that on April 8, several RDP protocol connections were
+    made by the user, `SYSTEMSERVICE`. Pay attention to two features: the connection
+    was made using IP address 127.0.0.1 (loopback), that is, effectively from the
+    computer under investigation to itself; and the **security identifiers** (**SIDs**)
+    of the user `SYSTEMSERVICE` are different, that is, the user was recreated several
+    times in the specified time interval.'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 截图显示，2014年4月8日，用户`SYSTEMSERVICE`通过RDP协议建立了几次连接。请注意两个特征：该连接是使用IP地址127.0.0.1（回环）建立的，也就是说，实际上是从被调查的计算机连接到它自己；并且用户`SYSTEMSERVICE`的**安全标识符**（**SIDs**）是不同的，也就是说，用户在指定的时间间隔内被多次重建。
+- en: 'By filtering the results of the `WinEvtxParser` module for `EventId` 4720 (user
+    creation) and the user name `SYSTEMSERVICE,` we come to the conclusion that the
+    specified user was first created on April 8 at 12:40:52 UTC, and three attempts
+    were later made to recreate it:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过过滤`WinEvtxParser`模块的`EventId` 4720（用户创建）和用户名`SYSTEMSERVICE`的结果，我们得出结论，该用户首次创建于2014年4月8日12:40:52
+    UTC，随后又进行了三次重建尝试：
+- en: '![Analyzing the results](img/image_05_018.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![分析结果](img/image_05_018.jpg)'
+- en: 'So, now we can establish a likely scenario for the incident: on April 8, 2014,
+    the user Alina accessed, perhaps unknowingly, the resource `http://finansial.gov`,
+    as a result of which the `utisl.jar` Java applet was downloaded and executed.'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们可以推测该事件的可能场景：2014年4月8日，用户Alina可能在不知情的情况下访问了资源`http://finansial.gov`，导致下载并执行了`utisl.jar`
+    Java小程序。
+- en: Next, an unknown object of size 411,648 bytes was downloaded from the URL, `http://w282d1wb.athleticsdrycleaner.pw/f/1389931620/4067114524/`,
+    the body of which was saved in the`/systemhost/24FC2AE3CB0.exe` file. A link to
+    the specified executable file was added as the `YI9B2F0F6EXG1Y1ZLMA` parameter
+    in the `HKCU\Software\Microsoft\CurrentVersion\Run` registry key, which is responsible
+    for auto-running programs at system startup.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接着，一个大小为411,648字节的未知对象从URL `http://w282d1wb.athleticsdrycleaner.pw/f/1389931620/4067114524/`
+    被下载，内容被保存到`/systemhost/24FC2AE3CB0.exe`文件中。一个指向该可执行文件的链接作为`YI9B2F0F6EXG1Y1ZLMA`参数被添加到`HKCU\Software\Microsoft\CurrentVersion\Run`注册表项中，该项负责在系统启动时自动运行程序。
+- en: Thereafter, the system repeatedly created a suspicious user named `SYSTEMSERVICE`,
+    under which local connections were made to the system via the RDP protocol.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此后，系统反复创建了一个名为`SYSTEMSERVICE`的可疑用户，并通过RDP协议建立了本地连接。
+- en: Summary
+  id: totrans-182
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: In this chapter, we looked at time-related attributions on different filesystems,
+    how to build a timeline with TSK and with the Plaso framework.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们探讨了不同文件系统上的时间相关属性，如何使用TSK和Plaso框架构建时间线。
+- en: In the next chapter, we will cover how to analyze dates on the NTFS and FAT
+    filesystems. We will continue to work with TSK and study other utilities from
+    TSK.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章，我们将讲解如何分析NTFS和FAT文件系统上的日期。我们将继续使用TSK，并研究TSK中的其他工具。

@@ -1,0 +1,1680 @@
+- en: '10'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '10'
+- en: Cloud Evidence Acquisition
+  id: totrans-1
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 云证据获取
+- en: Until now, we have looked at investigating artifacts locally within the cloud
+    using the tools provided by the **Cloud Service Provider** (**CSP**). We looked
+    at AWS GuardDuty CloudTrail from a logging and investigation point of view. We
+    also looked at GCP’s Cloud Logging capability to investigate cloud logs emitted
+    by various services, and Azure Monitor offers similar capabilities for services
+    hosted within Microsoft Azure.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经在云内使用 **云服务提供商**（**CSP**）提供的工具来调查取证。我们看了 AWS GuardDuty CloudTrail
+    从日志和调查的角度来看。我们还研究了 GCP 的云日志功能，以调查各种服务发出的云日志，Azure Monitor 为托管在 Microsoft Azure
+    内的服务提供了类似的功能。
+- en: 'This chapter will take a step further in our cloud investigative journey and
+    look at methods and techniques for securely collecting artifacts or forensic images
+    of core services for offline analysis. Investigators will recognize that not all
+    investigations can be performed using native cloud tools. Investigators may be
+    required to use specialized tools that they have access to in a forensic environment,
+    and the challenge will be to collect images from the cloud in a forensically sound
+    and legally acceptable manner. We will explore these tools in the later sections
+    of this chapter. We will be looking at forensic collections from the three significant
+    CSPs:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将在我们的云调查旅程中进一步探讨，并探讨安全地收集核心服务的取证或离线分析取证图像的方法和技术。调查人员将认识到，并非所有调查都可以使用本地云工具完成。调查人员可能需要使用他们在取证环境中可以访问的专业工具，挑战将是以取证合规和法律可接受的方式从云中收集图像。我们将在本章后面的部分探索这些工具。我们将研究三大
+    CSP 提供的取证收集：
+- en: Forensic acquisition of AWS instances
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AWS 实例的取证获取
+- en: Forensic acquisition of Microsoft Azure Instances
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 实例的取证获取
+- en: Forensic acquisition of GCP instances
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GCP 实例的取证获取
+- en: Note that throughout this chapter, we will rely on some standard steps for collecting
+    forensic images when investigators can access a Windows or a Linux operating system;
+    these steps are standard irrespective of the underlying cloud platform.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在本章中，我们将依赖一些标准步骤来收集取证图像，当调查人员可以访问 Windows 或 Linux 操作系统时，这些步骤是标准的，无论底层的云平台是什么。
+- en: Forensic acquisition of AWS instance
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: AWS 实例的取证获取
+- en: Let us jump right into the details of collecting forensic artifacts in a secure
+    and forensically sound manner. We will assume that an organization received alerts
+    for ransomware deployment on an **Elastic Compute Cloud** (**EC2**) instance.
+    As a result, this instance was stopped. Forensic investigators would need to pull
+    forensic artifacts out of the EC2 instance safely.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们直接深入安全和取证上的细节。我们假设一个组织收到了有关在 **弹性计算云**（**EC2**）实例上部署勒索软件的警报。因此，这个实例已被停止。取证人员需要安全地从
+    EC2 实例中提取取证图像。
+- en: Any disks associated with an EC2 instance are referred to as **volumes** by
+    AWS. To collect artifacts, investigators have to follow a specific sequence of
+    steps. Firstly, investigators must record the infected instance’s **instance ID**
+    (unique identifier).
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 任何与 EC2 实例相关联的磁盘在 AWS 中称为 **卷**。为了收集证据，调查人员必须按照特定的步骤顺序操作。首先，调查人员必须记录受感染实例的 **实例
+    ID**（唯一标识符）。
+- en: In this case, the infected instance name is `CF2` and it has the instance ID
+    `i-00229ce2dd123a2e6`.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本案例中，受感染的实例名称为 `CF2`，其实例 ID 为 `i-00229ce2dd123a2e6`。
+- en: Step 1 – creating EC2 volume snapshots
+  id: totrans-12
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第一步 – 创建 EC2 卷快照
+- en: 'We will refer to these EC2 instances by their instance ID for the following
+    steps:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将按照实例 ID 引用这些 EC2 实例进行以下步骤：
+- en: 'Investigators must note storage volumes associated with `i-00229ce2dd123a2e6
+    (CF2)` and the volume IDs (a unique identifier for each volume):'
+  id: totrans-14
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查人员必须注意与 `i-00229ce2dd123a2e6 (CF2)` 关联的存储卷及其卷 ID（每个卷的唯一标识符）：
+- en: '![Figure 10.1 – Volumes (disks) associated with 00229ce2dd123a2e (CF2)](img/00021.jpeg)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.1 – 与 00229ce2dd123a2e (CF2) 关联的卷（磁盘）](img/00021.jpeg)'
+- en: Figure 10.1 – Volumes (disks) associated with 00229ce2dd123a2e (CF2)
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.1 – 与 00229ce2dd123a2e (CF2) 关联的卷（磁盘）
+- en: We see two volumes attached to `i-00229ce2dd123a2e (CF2)`. AWS will always assign
+    the root drive (`C:\`) to `/dev/sda1`. This is an investigator’s reference point
+    if they only want to collect forensic images of the root drive.
+  id: totrans-17
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们看到有两个卷附加到 `i-00229ce2dd123a2e (CF2)`。AWS 总是将根驱动器 (`C:\`) 分配给 `/dev/sda1`。这是调查人员的参考点，如果他们只想收集根驱动器的取证图像。
+- en: 'We select the root drive, `vol-061392d9abebf9433`, attached to instance `i-00229ce2dd123a2e
+    (CF2)`, which takes us to the **Volumes** page, identified in the following screenshot:'
+  id: totrans-18
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们选择附加到实例`i-00229ce2dd123a2e (CF2)`的根驱动器 `vol-061392d9abebf9433`，这将带我们到**卷**页面，页面截图如下：
+- en: '![Figure 10.2 – Selecting the volume that requires forensic imaging](img/00039.jpeg)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.2 – 选择需要取证成像的卷](img/00039.jpeg)'
+- en: Figure 10.2 – Selecting the volume that requires forensic imaging
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.2 – 选择需要取证成像的卷
+- en: Under the **Actions** tab, select the **Create snapshot** option. Snapshot creates
+    a copy of the original volume without modifying the volume. We demonstrate this
+    in *Figure 10**.3*. Investigators must note that volumes associated with an EC2
+    instance cannot directly be downloaded or exported. It is always recommended to
+    perform forensics on a copy or a snapshot of the original volume instead of the
+    original volume to preserve artifacts.
+  id: totrans-21
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**操作**标签下，选择**创建快照**选项。快照会创建原始卷的副本，但不会修改该卷。我们在*图 10.3*中演示了这一过程。调查人员必须注意，附加到
+    EC2 实例的卷不能直接下载或导出。建议始终在原始卷的副本或快照上进行取证，以保护证据。
+- en: '![Figure 10.3 – Selecting the AWS volume for the snapshot](img/00056.jpeg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.3 – 选择用于快照的 AWS 卷](img/00056.jpeg)'
+- en: Figure 10.3 – Selecting the AWS volume for the snapshot
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.3 – 选择用于快照的 AWS 卷
+- en: Depending on the size of the volume, creating a snapshot may take seconds to
+    a few minutes. Investigators must wait until proceeding further, ensuring snapshots
+    are successfully created. In *Figure 10**.4*, we see the successful completion
+    of the snapshot. All the snapshots will be available under the `snap-0857fc1efa85ae0ff`.
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 根据卷的大小，创建快照可能需要几秒钟到几分钟的时间。调查人员必须等待，直到确保快照成功创建后才能继续。在*图 10.4*中，我们看到快照成功创建。所有快照将在`snap-0857fc1efa85ae0ff`下可用。
+- en: '![Figure 10.4 – Snapshot created of AWS Volume (vol-061392d9abebf9433)](img/00074.jpeg)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.4 – 创建的 AWS 卷快照 (vol-061392d9abebf9433)](img/00074.jpeg)'
+- en: Figure 10.4 – Snapshot created of AWS Volume (vol-061392d9abebf9433)
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.4 – 创建的 AWS 卷快照 (vol-061392d9abebf9433)
+- en: Step 2 – acquiring OS memory images
+  id: totrans-27
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第 2 步 – 获取操作系统内存映像
+- en: Let us now look at methods of acquiring memory images of an EC2 instance forensically.
+    Should there be a need for taking a memory image as part of the investigation,
+    DFIR teams can consider some common steps as long as the infected instance is
+    still running. Investigators have some form of interactive access to the infected
+    instance via the command line (AWS `AmazonSSMFullAccess` policy to allow complete
+    access to the EC2 instance through Amazon SSM.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来看一下如何通过取证方法获取 EC2 实例的内存映像。如果需要在调查中获取内存映像，DFIR 团队可以考虑一些常见步骤，只要受感染的实例仍在运行。调查人员可以通过命令行与受感染的实例进行某种形式的交互访问（AWS
+    `AmazonSSMFullAccess` 策略允许通过 Amazon SSM 完全访问 EC2 实例）。
+- en: Taking a memory image is more complicated than a disk image. One of the simplest
+    methods would be switching the EC2 instance into hibernation mode, which forces
+    all the memory contents to be written to the disk in the form of `hyberfil.sys`
+    before a complete disk evidence collection can be performed, allowing investigators
+    to utilize a snapshot of the memory.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取内存映像比获取磁盘映像更复杂。最简单的方法之一是将 EC2 实例切换到休眠模式，这会强制将所有内存内容写入磁盘，形成 `hyberfil.sys`
+    文件，然后才能进行完整的磁盘证据采集，从而允许调查人员利用内存的快照。
+- en: Step 2a – acquiring memory images via hibernation
+  id: totrans-30
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 第 2a 步 – 通过休眠获取内存映像
+- en: 'One of the options that AWS allows within its EC2 dashboard is hibernation.
+    Select the instance, choose **Instance state**, and select **Hibernation**. However,
+    for AWS to hibernate the EC2 instance (on Windows or Linux), it must meet the
+    following conditions:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: AWS 在其 EC2 控制台中允许的一项选项是休眠。选择实例，点击**实例状态**，然后选择**休眠**。但是，为了让 AWS 休眠 EC2 实例（无论是
+    Windows 还是 Linux），它必须满足以下条件：
+- en: AWS supports the cloud native hibernation feature only on select instance families.
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AWS 仅在部分实例家族中支持云原生休眠功能。
+- en: When launching an EC2 instance, administrators should have enabled the **Hibernation**
+    feature under **Advanced settings** to enable this behavior. This cannot be changed
+    after an EC2 instance is created/launched.
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在启动 EC2 实例时，管理员应在**高级设置**下启用**休眠**功能以启用此行为。EC2 实例创建/启动后无法更改此设置。
+- en: The EC2 instance must have root storage space to accommodate memory contents.
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: EC2 实例必须拥有足够的根存储空间以容纳内存内容。
+- en: Only specific `gp2` and `gp3`) or Provisioned IOPS SSD (`io1` and `io2`)
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 仅支持特定的 `gp2` 和 `gp3` 类型或预配置 IOPS SSD (`io1` 和 `io2`)
+- en: AWS will not support cloud-native hibernation if the preceding conditions are
+    not configured.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果未配置前述条件，AWS 不支持云原生的休眠功能。
+- en: Once hibernation is enabled, investigators can capture memory contents by hibernating
+    via the cloud console and collecting disk images for forensics.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦启用休眠，调查员可以通过云控制台将系统休眠并收集磁盘映像进行法医分析，从而捕获内存内容。
+- en: Step 2b – common steps for acquiring memory images directly from OS
+  id: totrans-38
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 2b – 从操作系统直接获取内存映像的常见步骤
+- en: The process for memory acquisition is quite simple, but securely acquiring a
+    forensic image is a manual process. You will note that there are various ways
+    this can be automated; however, it depends on the level of access the investigators
+    have and their roles (external (one-time) investigators or in-house corporate
+    investigators). If it’s in-house and organizations have a bigger footprint in
+    the cloud, they can look into automating forensic collections and uploading to
+    the cloud storage in various ways. In the *Further reading* section, we have included
+    some ideas that leverage other cloud services. However, these steps provide you
+    with a guide to make forensic data acquisition easier.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存采集的过程相当简单，但安全地获取法医图像是一个手动过程。你会注意到有多种方法可以实现自动化；然而，这取决于调查员的访问权限和角色（外部（一次性）调查员或内部公司调查员）。如果是内部调查，且组织在云中的规模较大，他们可以考虑以各种方式自动化法医数据采集并上传到云存储。在*进一步阅读*部分，我们已经包含了一些利用其他云服务的想法。然而，这些步骤为你提供了一个指南，使法医数据采集变得更加简便。
+- en: 'The following steps will provide a high-level overview of collecting memory
+    images from relevant operating systems. Investigators must ensure that they can
+    connect to the instance, either through an interactive RDP session or through
+    a command line using cloud-native command line capabilities:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下步骤将提供一个从相关操作系统收集内存映像的概述。调查员必须确保他们能够连接到实例，无论是通过交互式 RDP 会话，还是通过使用云原生命令行功能的命令行：
+- en: Collecting memory images from a Windows OS instance
+  id: totrans-41
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: 从 Windows 操作系统实例收集内存映像
+- en: 'Once investigators log into the infected Windows instance, they can begin their
+    collections:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦调查员登录到感染的 Windows 实例，他们可以开始进行数据采集：
+- en: Specifically in AWS, this can be achieved by either directly logging into the
+    affected virtual machine or via Amazon SSM.
+  id: totrans-43
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 特别是在 AWS 中，这可以通过直接登录到受影响的虚拟机或通过 Amazon SSM 实现。
+- en: Using `powershell.exe` with Windows Administrator privileges, create a folder
+    to place all the memory dumps and artifacts in.
+  id: totrans-44
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用具有 Windows 管理员权限的 `powershell.exe`，创建一个文件夹，将所有的内存转储和工件存放在其中。
+- en: 'We then download the most recent version of `winpmem.exe` (we referred to this
+    tool in [*Chapter 8*](part0028_split_000.html#_idTextAnchor151)) using the following
+    command:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们使用以下命令下载最新版本的 `winpmem.exe`（我们在[*第 8 章*](part0028_split_000.html#_idTextAnchor151)中提到过这个工具）：
+- en: '[PRE0]'
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Once it''s been downloaded, we run it within the same PowerShell window. We
+    run the tool and provide a file name as a parameter to save the memory into a
+    file. Note that we are capturing the memory in RAW format:'
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦下载完成，我们在同一个 PowerShell 窗口中运行它。我们运行工具并提供一个文件名作为参数，将内存保存到一个文件中。请注意，我们正在以 RAW
+    格式捕获内存：
+- en: '[PRE1]'
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The following screenshots demonstrate the in-progress memory collection. Depending
+    upon the size of the memory, this may take anything from a few seconds to a few
+    minutes:'
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下截图展示了正在进行的内存采集过程。根据内存的大小，这可能需要几秒钟到几分钟不等：
+- en: '![Figure 10.5 – Memory dump using winpmem.exe](img/00094.jpeg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.5 – 使用 winpmem.exe 进行内存转储](img/00094.jpeg)'
+- en: Figure 10.5 – Memory dump using winpmem.exe
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.5 – 使用 winpmem.exe 进行内存转储
+- en: Once memory collections are complete, investigators must export the memory dump
+    to a remote server or cloud-native storage area for offline access and processing.
+    Alternatively, depending on an investigator’s preference, you can also turn off
+    the operating system and take a complete disk snapshot, and through forensic disk
+    imaging, the memory images can later be exported as an artifact during the offline
+    processing of the disk images.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦内存采集完成，调查员必须将内存转储导出到远程服务器或云原生存储区域，以便离线访问和处理。或者，根据调查员的偏好，你也可以关闭操作系统并拍摄完整的磁盘快照，通过法医磁盘成像，内存映像可以在离线处理磁盘映像时作为工件导出。
+- en: Acquiring memory images from a Linux OS
+  id: totrans-53
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: 从 Linux 操作系统获取内存映像
+- en: Key differences investigators must know about are the different Linux and Windows
+    operating system tools for memory acquisition. In some cases, investigators must
+    first compile the specialized tools from the source to collect forensic images
+    of the memory. This is because these tools make use of low-level libraries that
+    are specific to the Linux kernel versions. For this purpose, we use **LiME**,
+    which allows for full volatile memory acquisition in Linux.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调查人员必须了解的关键区别是，Linux 和 Windows 操作系统在内存获取方面的不同工具。在某些情况下，调查人员必须先从源代码编译专门的工具来收集内存的取证图像。这是因为这些工具使用特定于
+    Linux 内核版本的低级库。为此，我们使用 **LiME**，它允许在 Linux 中进行完整的易失性内存获取。
+- en: 'Here are the steps for collecting memory images:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是收集内存映像的步骤：
+- en: 'Once relevant access is secured, investigators must ensure they can download
+    and compile tools from the source. They will also need access to the `sudo` command.
+    In this case, we will use the LiME tool for memory capture. We will download them
+    from GitHub using a command compile them. It is best if all the following commands
+    are run with `sudo` privileges (meaning as `root`):'
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦获得相关访问权限，调查人员必须确保可以从源代码下载并编译工具。他们还需要访问 `sudo` 命令。在本例中，我们将使用 LiME 工具进行内存捕获。我们将通过
+    GitHub 下载它们并使用命令进行编译。最好所有以下命令都以 `sudo` 权限（即以 `root` 身份）运行：
+- en: '[PRE2]'
+  id: totrans-57
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'src folder, as the compiled version is saved in this folder:*   `insmod`: This
+    command inserts a kernel module into a running Linux kernel.*   `lime-$(uname
+    -r).ko`: This command part specifies the kernel module to load. It uses command
+    substitution (`$(uname -r)`) to dynamically insert the current kernel version
+    into the filename, loading a LiME module tailored to the currently running kernel
+    version.*   `path=/home/ubuntu/ir_foreniscs/memory.dump`: This parameter specifies
+    the path to save the memory dump.*   `format=lime`: This parameter specifies the
+    format in which the memory dump should be saved, which is `lime` in this case.'
+  id: totrans-58
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: src 文件夹，因为编译后的版本保存在此文件夹中：*`insmod`：此命令将内核模块插入正在运行的 Linux 内核中。*`lime-$(uname
+    -r).ko`：此命令部分指定要加载的内核模块。它使用命令替换（`$(uname -r)`）动态地将当前内核版本插入文件名中，从而加载适用于当前运行内核版本的
+    LiME 模块。*`path=/home/ubuntu/ir_foreniscs/memory.dump`：此参数指定保存内存转储的路径。*`format=lime`：此参数指定内存转储的保存格式，此处为
+    `lime`。
+- en: '[PRE3]'
+  id: totrans-59
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Once the command executes completely and a memory dump is generated, investigators
+    can export the artifacts and analyze them offline using the tool of their choice,
+    including volatility.
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦命令完全执行并生成内存转储，调查人员可以导出数据并使用他们选择的工具（包括 volatility）离线分析它们。
+- en: Step 3 – creating a forensic collector instance
+  id: totrans-61
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第三步 – 创建取证收集器实例
+- en: Once snapshots are successfully created, investigators must prepare a forensic
+    collector instance. Some DFIR teams may already have their instance pre-created
+    or use a templated virtual machine created for this purpose. Any of the preceding
+    methods is suitable for forensically collecting the artifacts. Investigators must,
+    however, note that when creating a forensic collector instance, the storage size
+    of the collector instance must be appropriately configured. In general, it is
+    recommended to configure a storage space for forensic data that is at least 120%
+    or more of the original volume.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成功创建快照后，调查人员必须准备一个取证收集器实例。一些 DFIR 团队可能已经预先创建了实例，或者使用了为此目的创建的模板虚拟机。上述任何方法都适合进行取证数据的收集。然而，调查人员必须注意，在创建取证收集器实例时，收集器实例的存储大小必须适当配置。通常，建议为取证数据配置至少原始磁盘空间的
+    120% 或更多的存储空间。
+- en: We are creating an `dd` tool and Windows and Linux filesystems. No other live
+    forensic tools are installed on Ubuntu for this demonstration, and it’s purely
+    used for forensic collection. Investigators must, however, consider assigning
+    higher CPU and memory for the instance since it will be doing bulk bit-by-bit
+    copying, which requires more CPU cycles.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们正在创建一个 `dd` 工具和 Windows 及 Linux 文件系统。此演示中，Ubuntu 上没有安装其他实时取证工具，仅用于取证收集。然而，调查人员必须考虑为实例分配更高的
+    CPU 和内存，因为它将进行大规模的逐位复制，这需要更多的 CPU 周期。
+- en: Some investigators may create vast storage space and save all their forensic
+    images within the same storage space, treat it like a USB Drive, or create separate
+    storage for specific volumes. Either way, as long as there’s enough space for
+    the forensic image to be saved, that is all that matters. We created a 100 GB
+    storage volume to capture our forensic image in our target forensic collector
+    instance, although we know the original infected system had only 30 GB of disk
+    size. This should be good enough for all the bit-by-bit copying into the target
+    storage.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些调查员可能会创建大量存储空间，并将所有取证镜像保存在同一存储空间中，将其当作 USB 驱动器使用，或者为特定的卷创建独立存储。无论哪种方式，只要有足够的空间来保存取证镜像，那就是最重要的。我们创建了一个
+    100 GB 的存储卷，用于在目标取证收集器实例中捕获取证镜像，尽管我们知道原始受感染系统只有 30 GB 的磁盘空间。这个存储空间足以进行所有的逐位复制到目标存储中。
+- en: '![Figure 10.6 – Creating a new storage for forensic collections](img/00115.jpeg)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.6 – 为取证收集创建新存储](img/00115.jpeg)'
+- en: Figure 10.6 – Creating a new storage for forensic collections
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.6 – 为取证收集创建新存储
+- en: 'Once the instance is created (`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`)
+    and additional storage is set up, we mount the disk, as indicated in the following
+    screenshot. See `/dev/nvme1n1p1`, which is mounted as `/forensic`:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦实例创建完成（`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`）并且额外的存储已设置好，我们按照以下截图的指示挂载磁盘。请查看`/dev/nvme1n1p1`，它被挂载为`/forensic`：
+- en: '![Figure 10.7 – Additional storage for forensic collections (initialized and
+    mounted)](img/00138.jpeg)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.7 – 为取证收集创建额外存储（已初始化并挂载）](img/00138.jpeg)'
+- en: Figure 10.7 – Additional storage for forensic collections (initialized and mounted)
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.7 – 为取证收集创建额外存储（已初始化并挂载）
+- en: Refer to the *Further reading* section for information about initializing and
+    mounting disks in Ubuntu Linux.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考*进一步阅读*部分，了解如何在 Ubuntu Linux 中初始化和挂载磁盘的相关信息。
+- en: Note
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Once the target EC2 instance is created (forensic collector), investigators
+    must note the **availability zone** of this instance. We will explain the importance
+    of this in *step 4*.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦目标 EC2 实例（取证收集器）创建完成，调查员必须记录该实例的**可用区**。我们将在*第 4 步*中解释这一点的重要性。
+- en: In our case, the forensic collector instance is hosted in `ca-central-1d`. This
+    information is only made available once the EC2 instance is created.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，取证收集器实例托管在`ca-central-1d`。该信息只有在创建 EC2 实例后才能获取。
+- en: Step 4 – creating and attaching infected volume from snapshots
+  id: totrans-74
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第 4 步 – 从快照创建并附加受感染的卷
+- en: 'Specifically for forensic purposes, we will create a volume from the snapshot
+    we created in *step 1* and attach it to the target volume we created in *step
+    2*:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 专门用于取证目的，我们将从*第 1 步*中创建的快照创建一个卷，并将其附加到我们在*第 2 步*中创建的目标卷：
+- en: 'The first step is to initiate the volume creation process from the snapshot.
+    As indicated in the following screenshot, we select the snapshot we created in
+    *step 1* and then use the **Actions** option to **Create volume** **from snapshot**:'
+  id: totrans-76
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一步是从快照启动卷创建过程。如以下截图所示，我们选择在*第 1 步*中创建的快照，然后使用**操作**选项来**从快照创建卷**：
+- en: '![Figure 10.8 – Create volume from Snapshot (created in step 1)](img/00154.jpeg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.8 – 从快照创建卷（在第 1 步中创建）](img/00154.jpeg)'
+- en: Figure 10.8 – Create volume from Snapshot (created in step 1)
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.8 – 从快照创建卷（在第 1 步中创建）
+- en: As indicated in *step 2*, the forensic collector instance is created in the
+    `ca-central-1d` availability zone. Investigators will require this information
+    as volumes are assigned to an availability zone. If appropriate availability zones
+    are not selected, the created volumes will not be available to attach to the target
+    EC2 instance. We follow on-screen instructions on creating the volume; however,
+    ensure that you map the volume to an availability zone that we recorded in *step
+    2* (`ca-central-1d`). Once a volume is created, availability zones cannot be changed,
+    so it is essential to select the correct availability zone.
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如*第 2 步*所示，取证收集器实例是在`ca-central-1d`可用区创建的。调查员需要这一信息，因为卷是分配给特定的可用区的。如果没有选择适当的可用区，创建的卷将无法附加到目标
+    EC2 实例。我们按照屏幕上的指示创建卷；但是，确保将卷映射到我们在*第 2 步*中记录的可用区（`ca-central-1d`）。一旦卷创建完成，不能更改其可用区，因此选择正确的可用区至关重要。
+- en: 'Record the volume ID upon creating the volume from the snapshot. In our case,
+    the volume ID (as reflected in the following screenshot) is `vol-09ba3e6ad9ed12e5b`:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在从快照创建卷时，请记录卷 ID。在我们的案例中，卷 ID（如以下截图所示）为`vol-09ba3e6ad9ed12e5b`：
+- en: '![Figure 10.9 – Successful volume creation from snapshot](img/00172.jpeg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.9 – 从快照成功创建卷](img/00172.jpeg)'
+- en: Figure 10.9 – Successful volume creation from snapshot
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.9 – 从快照成功创建卷
+- en: 'Once the volume is successfully created, we attach the new volume to the forensic
+    collector EC2 instance (`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`). We filter
+    the new volume based on its unique identifier, select the volume, and under **Actions**,
+    select **Attach volume**. No limitation exists on how many volumes can be attached
+    to an EC2 instance:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦卷成功创建，我们将新卷附加到取证收集器 EC2 实例（`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`）。我们根据其唯一标识符过滤新卷，选择该卷，并在**操作**下选择**附加卷**。对于
+    EC2 实例，可以附加的卷数量没有限制：
+- en: '![Figure 10.10 – Attaching a volume to the EC2 instance](img/00190.jpeg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.10 – 将卷附加到 EC2 实例](img/00190.jpeg)'
+- en: Figure 10.10 – Attaching a volume to the EC2 instance
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.10 – 将卷附加到 EC2 实例
+- en: 'As indicated in the next screenshot, we follow on-screen instructions. However,
+    one specific area that requires investigators to pay attention is mapping the
+    volume to the correct instance; therefore, investigators must record the unique
+    instance ID to ensure the volumes are attached correctly. In our case, we attach
+    the volume (`vol-09ba3e6ad9ed12e5b`) to the EC2 instance (`i-00747860d682ac481
+    (EC2_FORENSIC_CAPTURE)`). As you can see, key elements are highlighted in the
+    following screenshot. This is where everything comes together: the `vol-09ba3e6ad9ed12e5b`)
+    we created from the snapshot (`snap-0957fc1efa85ae0ff`) in *step 1*, the `ca-central-1d`),
+    which we recorded in *step 2* upon creating the EC2 instance and also when volume
+    was created, and the `i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`):'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如下截图所示，我们按照屏幕上的指示进行操作。然而，有一个特别需要调查人员注意的地方是将卷映射到正确的实例；因此，调查人员必须记录唯一的实例 ID，以确保卷正确附加。在我们的案例中，我们将卷（`vol-09ba3e6ad9ed12e5b`）附加到
+    EC2 实例（`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`）。如你所见，关键元素在下图中已被高亮显示。这就是一切汇聚的地方：我们从快照（`snap-0957fc1efa85ae0ff`）中创建的
+    `vol-09ba3e6ad9ed12e5b`，在*步骤 1* 中记录的 `ca-central-1d`，以及在*步骤 2* 中创建 EC2 实例时记录的，卷创建时记录的，还有
+    `i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`：
+- en: '![Figure 10.11 – Attaching volumes to EC2 instance for forensics](img/00009.jpeg)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.11 – 为取证将卷附加到 EC2 实例](img/00009.jpeg)'
+- en: Figure 10.11 – Attaching volumes to EC2 instance for forensics
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.11 – 为取证将卷附加到 EC2 实例
+- en: Note that AWS will reference attached volumes as mount points; in this case,
+    for AWS, the device name mount point is `/dev/sdf`, which may not be the same
+    when accessing the volume within the Ubuntu Linux operating system.
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，AWS 将附加的卷引用为挂载点；在这种情况下，对于 AWS，设备名称挂载点是 `/dev/sdf`，在 Ubuntu Linux 操作系统中访问卷时，可能会有所不同。
+- en: Now we switch to the Ubuntu Linux, our forensic collector system (`i-00747860d682ac481
+    (EC2_FORENSIC_CAPTURE)`).
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们切换到 Ubuntu Linux，作为我们的取证收集器系统（`i-00747860d682ac481 (EC2_FORENSIC_CAPTURE)`）。
+- en: Step 4a – common steps for acquiring instance disk images
+  id: totrans-91
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 4a – 获取实例磁盘映像的常见步骤
+- en: 'Irrespective of the cloud service provider, the following steps are common
+    steps that would be followed for collecting operating system forensic data. Before
+    we start the forensic collection, ensure that pre-requisites are completed, which
+    includes taking a snapshot, creating a forensic collector instance, and so on:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论云服务提供商是谁，以下步骤是收集操作系统取证数据的常见步骤。在开始取证收集之前，请确保已完成先决条件，包括拍摄快照、创建取证收集器实例等：
+- en: Once infected volume snapshots are created within the cloud console, investigators
+    can perform full disk forensic data collections. We will leverage the `dd` command
+    natively available on Linux Ubuntu to do this.
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦在云控制台中创建了感染的卷快照，调查人员可以执行完整的磁盘取证数据收集。我们将利用 Linux Ubuntu 上本地可用的 `dd` 命令来执行此操作。
+- en: We will create a forensic collector instance on the same cloud platform to attach
+    snapshots to the forensic collector instance as disk volumes.
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将在同一个云平台上创建一个取证收集器实例，将快照附加为磁盘卷到取证收集器实例中。
+- en: 'We validate whether the new volume was correctly attached; see the following
+    screenshot. We do this by running the `lsblk` command along with validating the
+    filesystem information for the identified disk by running `sudo file -``s /dev/nvme2n1p1`:'
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们验证新卷是否已正确附加；请参阅以下截图。我们通过运行 `lsblk` 命令并通过运行 `sudo file -s /dev/nvme2n1p1` 来验证已识别磁盘的文件系统信息：
+- en: '![Figure 10.12 – Validating volumes attached to the EC2 instance](img/00028.jpeg)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.12 – 验证附加到 EC2 实例的卷](img/00028.jpeg)'
+- en: Figure 10.12 – Validating volumes attached to the EC2 instance
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.12 – 验证附加到 EC2 实例的卷
+- en: For entire disk forensic imaging, mounting disks to the instance (within the
+    OS) is unnecessary; `dd` will image the whole volume directly. However, if investigations
+    prefer to pull down specific artifacts (as outlined in [*Chapter 8*](part0028_split_000.html#_idTextAnchor151)),
+    they can manually mount the disk to a mount point and extract relevant artifacts.
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于整个磁盘的取证映像，无需将磁盘挂载到实例（操作系统内）；`dd` 会直接映像整个卷。但是，如果调查人员希望提取特定的证据（如[*第8章*](part0028_split_000.html#_idTextAnchor151)所述），他们可以手动将磁盘挂载到挂载点并提取相关证据。
+- en: 'Before initiating the `dd` command, investigators must also ensure the target
+    storage where the forensic images will be saved is created and mounted with read-write
+    privileges. We run the following command to initiate forensic data collection.
+    Ensure you have access to the `sudo` command, as this will be a low-level forensic
+    collection:'
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在启动 `dd` 命令之前，调查人员还必须确保目标存储已经创建，并且该存储具备读写权限。我们运行以下命令启动取证数据收集。确保你有 `sudo` 命令的权限，因为这将是低级别的取证收集：
+- en: '[PRE4]'
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Here are the details of the parameters supplied for the `dd` command:'
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 下面是为 `dd` 命令提供的参数详细信息：
+- en: '`if=/dev/nvme2n1p1`: This is the source disk that you need a copy of.'
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`if=/dev/nvme2n1p1`：这是你需要复制的源磁盘。'
+- en: '`of=/forensic/cf2.raw`: We dump the forensic image in raw format at `/forensic`
+    mount point. You can dump the forensic image in any format if the tool supports
+    it. The forensic image is saved as `cf2.raw` (similar to the hostname of the infected
+    EC2 instance) and is stored under the folder `/forensic/`.'
+  id: totrans-103
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`of=/forensic/cf2.raw`：我们将取证映像以原始格式转储到 `/forensic` 挂载点。你可以根据工具的支持将取证映像以任何格式转储。取证映像保存为
+    `cf2.raw`（类似于受感染 EC2 实例的主机名），并存储在 `/forensic/` 文件夹下。'
+- en: '`bs=4M`: This sets the block size to 4 MB; you can adjust the value based on
+    the needs.'
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`bs=4M`：此设置将块大小设置为 4MB；你可以根据需求调整该值。'
+- en: 'The following screenshot reflects the completion of forensic acquisition via
+    the `dd` command:'
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 以下截图显示了通过 `dd` 命令完成的取证获取：
+- en: '![Figure 10.13 – Outputs from the dd command](img/00046.jpeg)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.13 – dd 命令输出](img/00046.jpeg)'
+- en: Figure 10.13 – Outputs from the dd command
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.13 – dd 命令输出
+- en: 'Optionally, once forensic imaging is completed, investigators can validate
+    the accuracy by hashing both the source and destination points. For example, in
+    the following snippet, we validate the hashes by running the `md5sum` command
+    and confirming that the acquisition is accurate:'
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可选地，取证成像完成后，调查人员可以通过对源和目标点进行哈希验证，来确认准确性。例如，在下面的片段中，我们通过运行 `md5sum` 命令验证哈希，并确认获取的准确性：
+- en: '[PRE5]'
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Once these steps are completed, investigators must determine their export options.
+    Simply put, investigators can either upload these artifacts to the cloud-hosted
+    storage (AWS S3, Azure Blob Storage, GCP Cloud Storage) or upload them to a remote
+    server controlled by the investigator for offline analysis.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成这些步骤后，调查人员必须确定他们的导出选项。简而言之，调查人员可以将这些证据上传到云托管存储（如 AWS S3、Azure Blob Storage、GCP
+    Cloud Storage），或上传到由调查人员控制的远程服务器进行离线分析。
+- en: Step 5 – exporting collected images to AWS S3 for offline processing
+  id: totrans-111
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第 5 步 – 将收集到的映像导出到 AWS S3 进行离线处理
+- en: 'Now that we have completed *steps 1–4*, our forensic image can be processed
+    offline or offsite. However, before offline processing, you will have to export
+    it. One of the most common methods investigators use is exporting via an S3 bucket:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经完成了*步骤 1–4*，我们的取证映像可以进行离线或异地处理。但是，在离线处理之前，你必须先导出它。调查人员最常用的导出方法之一是通过 S3
+    存储桶进行导出：
+- en: Investigators must ensure that an S3 bucket is created and their account is
+    configured with an AWS access key and secret key to access S3 buckets via the
+    command line within EC2\. Default configurations will not allow access to S3 buckets.
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查人员必须确保创建了 S3 存储桶，并且他们的帐户已配置 AWS 访问密钥和秘密密钥，以便通过 EC2 内的命令行访问 S3 存储桶。默认配置将不允许访问
+    S3 存储桶。
+- en: 'Once a bucket is created and access to AWS S3 is configured, you are all set
+    to export. You can export by running the following command:'
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦创建了桶并配置了 AWS S3 访问权限，你就可以开始导出了。你可以通过运行以下命令进行导出：
+- en: '[PRE6]'
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The following parameters are typically supplied with the `aws` `s3` command:'
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 以下是通常与 `aws` `s3` 命令一起提供的参数：
+- en: '`cp`: Initiates the copy function, similar to the command available in most
+    Linux variants'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`cp`：启动复制功能，类似于大多数 Linux 变种中的命令。'
+- en: '`/forensic/`: The source folder name you would like to export'
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/forensic/`：你想要导出的源文件夹名称。'
+- en: '`S3://foreniscbucket1/`: The destination S3 bucket where the files must be
+    uploaded; command line parameters require using the `s3://` nomenclature'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`S3://foreniscbucket1/`：需要上传文件的目标 S3 存储桶；命令行参数需要使用 `s3://` 的命名法'
+- en: '`--recursive`: Copy everything within the source folder, including sub-folders,
+    to the destination bucket'
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`--recursive`：将源文件夹中的所有内容（包括子文件夹）复制到目标存储桶'
+- en: 'The following screenshot reflects the copy process:'
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 下图反映了复制过程：
+- en: '![Figure 10.14 – Exporting files to AWS S3 from the command-line interface
+    (CLI)](img/00062.jpeg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.14 – 从命令行界面（CLI）导出文件到 AWS S3](img/00062.jpeg)'
+- en: Figure 10.14 – Exporting files to AWS S3 from the command-line interface (CLI)
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.14 – 从命令行界面（CLI）导出文件到 AWS S3
+- en: If the `aws s3` command is unavailable, run `sudo apt install aws-cli`, followed
+    by the `aws configure` command, and follow on-screen instructions to configure
+    the AWS access key and secret key.
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果 `aws s3` 命令不可用，请运行 `sudo apt install aws-cli`，然后运行 `aws configure` 命令，并按照屏幕上的指示配置
+    AWS 访问密钥和秘密密钥。
+- en: 'Once uploads are completed, you can validate them via the S3 dashboard online.
+    Investigators can download the file directly on the forensic workstations for
+    further analysis. The next screenshot confirms successful uploads to the S3 bucket
+    from the EC2 instance:'
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦上传完成，你可以通过在线的 S3 控制台验证上传情况。调查人员可以直接在取证工作站上下载文件以进行进一步分析。下图确认了从 EC2 实例成功上传到
+    S3 存储桶：
+- en: '![Figure 10.15 – Uploading forensic images to AWS S3](img/00081.jpeg)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.15 – 将取证映像上传到 AWS S3](img/00081.jpeg)'
+- en: Figure 10.15 – Uploading forensic images to AWS S3
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.15 – 将取证映像上传到 AWS S3
+- en: Most forensic tools can access RAW files; investigators can add this forensic
+    image to their forensic case library and begin their offline processing.
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 大多数取证工具可以访问 RAW 文件；调查人员可以将此取证映像添加到他们的取证案例库中，并开始离线处理。
+- en: As we can see here, there are steps within AWS Console that you are required
+    to perform to ensure access to the operating systems and memory to capture images.
+    However, complications are added when you export the artifacts or full disk images
+    of these AWS instances, which requires specific steps to be followed.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，在 AWS 控制台中有一些步骤需要执行，以确保能够访问操作系统和内存来捕获映像。然而，当你导出这些 AWS 实例的证据或完整磁盘映像时，会遇到一些复杂情况，这需要遵循特定的步骤。
+- en: Forensic acquisition of Microsoft Azure Instances
+  id: totrans-130
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Microsoft Azure 实例的取证获取
+- en: Like AWS, Microsoft Azure offers a similar approach when collecting the full
+    disk image of an **Azure Virtual Machine** (**VM**) instance. You will have to
+    specifically create a snapshot and then look to export the snapshot. Let us look
+    at these specific steps in detail.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 AWS 类似，Microsoft Azure 在收集 Azure 虚拟机 (**VM**) 实例的完整磁盘映像时提供了类似的方法。你需要专门创建一个快照，然后导出该快照。让我们详细查看这些特定的步骤。
+- en: Step 1 – creating an Azure VM Snapshot
+  id: totrans-132
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 步骤 1 – 创建 Azure 虚拟机快照
+- en: 'As indicated earlier, each cloud platform will have slight variations in terms
+    of the steps to achieve an entire disk and memory imaging; familiarity with these
+    variations will help investigators greatly to the point where they can automate
+    basic tasks if the number of VMs for forensic acquisition is significant:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，每个云平台在执行整个磁盘和内存映像的步骤上会有所不同；熟悉这些差异将极大地帮助调查人员，以至于如果取证获取的虚拟机数量较多，他们可以自动化基本任务：
+- en: The first step is ensuring investigators have information about the infected
+    Azure VM. This includes the VM name and operating system.
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一步是确保调查人员获取有关感染的 Azure 虚拟机的信息，包括虚拟机名称和操作系统。
+- en: 'Investigators can create a full disk snapshot of this infected Azure VM. Investigators
+    may prefer to turn off the VM entirely before taking the snapshot. Snapshots are
+    accessible via the navigation page of the VM. Once on the snapshot page, we will
+    select the **Create snapshot** option, as indicated in the following screenshot:'
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查人员可以创建该感染 Azure 虚拟机的完整磁盘快照。调查人员可能更倾向于在拍摄快照前完全关闭虚拟机。快照可以通过虚拟机的导航页面访问。一旦进入快照页面，我们将选择
+    **创建快照** 选项，如下图所示：
+- en: '![Figure 10.16 – Creating an Azure VM snapshot](img/00100.jpeg)'
+  id: totrans-136
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.16 – 创建 Azure 虚拟机快照](img/00100.jpeg)'
+- en: Figure 10.16 – Creating an Azure VM snapshot
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.16 – 创建 Azure 虚拟机快照
+- en: 'Follow the on-screen instructions to create the snapshot of the infected Azure
+    VM. As indicated in the next screenshot, ensure that you select the right resource
+    group in which the infected VM resides and the specific **Instance details** (which
+    we collected earlier):'
+  id: totrans-138
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按照屏幕上的指示，创建受感染的 Azure 虚拟机快照。如下一个截图所示，请确保选择正确的资源组，其中包含受感染的虚拟机，以及特定的**实例详细信息**（我们之前收集的）：
+- en: '![Figure 10.17 – Creating an Azure VM snapshot (details)](img/00122.jpeg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.17 – 创建 Azure 虚拟机快照（详细信息）](img/00122.jpeg)'
+- en: Figure 10.17 – Creating an Azure VM snapshot (details)
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.17 – 创建 Azure 虚拟机快照（详细信息）
+- en: 'In the same screen, select **Full** (*Figure 10**.18*). Microsoft Azure also
+    offers incremental snapshots that will only take a snapshot of the changes made
+    within the filesystem. Since we intend to capture the disk image fully, we will
+    select **Full** snapshot for a complete copy:'
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在同一屏幕上，选择**完整**（*图 10.18*）。微软 Azure 还提供增量快照，它只会捕捉文件系统内所做的更改。由于我们打算完整捕获磁盘镜像，因此我们将选择**完整**快照以获取完整副本：
+- en: '![Figure 10.18 – Azure VM snapshot options](img/00143.jpeg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.18 – Azure 虚拟机快照选项](img/00143.jpeg)'
+- en: Figure 10.18 – Azure VM snapshot options
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.18 – Azure 虚拟机快照选项
+- en: You will subsequently be asked to select the **Source disk** for which the snapshot
+    will be created. As indicated in the following screenshot, ensure you select the
+    correct disk. Typically, investigators will snapshot the root drive of the operating
+    system; however, in some cases, investigators may want to take a snapshot of all
+    the disks attached to the VM. Each disk attached to the infected VM will require
+    a separate snapshot operation in these cases.
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 随后，系统会要求你选择将为其创建快照的**源磁盘**。如以下截图所示，请确保选择正确的磁盘。通常，调查员会对操作系统的根驱动器进行快照；但在某些情况下，调查员可能希望对所有附加到虚拟机的磁盘进行快照。在这些情况下，每个附加到受感染虚拟机的磁盘都需要单独进行快照操作。
+- en: '![Figure 10.19 – Azure VM snapshot disk](img/00160.jpeg)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.19 – Azure 虚拟机快照磁盘](img/00160.jpeg)'
+- en: Figure 10.19 – Azure VM snapshot disk
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.19 – Azure 虚拟机快照磁盘
+- en: 'Once you have filled in all the required details, you can let Azure create
+    the disk snapshot. Once completed, the snapshots will be available within the
+    Azure subscription hosting the infected VM. You will notice the snapshot details
+    within the snapshot dashboard, as indicated in the following screenshot:'
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦填写完所有必需的详细信息，你可以让 Azure 创建磁盘快照。完成后，快照将在托管受感染虚拟机的 Azure 订阅内可用。你将在快照仪表板中看到快照的详细信息，如下一个截图所示：
+- en: '![Figure 10.20 – Successful completion of Azure VM snapshot](img/00179.jpeg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.20 – Azure 虚拟机快照成功完成](img/00179.jpeg)'
+- en: Figure 10.20 – Successful completion of Azure VM snapshot
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.20 – Azure 虚拟机快照成功完成
+- en: Next, we look at exporting the newly created snapshot.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们来看一下如何导出新创建的快照。
+- en: Step 2 – exporting an Azure VM snapshot directly
+  id: totrans-151
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 步骤 2 – 直接导出 Azure 虚拟机快照
+- en: 'Once we complete *step 1*, investigators can attach this snapshot by creating
+    a new disk, connecting to a VM to run a `dd` command, or using any of the commonly
+    available tools discussed in [*Chapter 8*](part0028_split_000.html#_idTextAnchor151).
+    However, Microsoft Azure offers an option to download the snapshot directly once
+    it''s been created:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们完成了*步骤 1*，调查员可以通过创建新磁盘，连接虚拟机并运行 `dd` 命令，或者使用[*第 8 章*](part0028_split_000.html#_idTextAnchor151)中讨论的任何常用工具来附加该快照。然而，微软
+    Azure 提供了一个选项，在快照创建后可以直接下载：
+- en: 'Within the navigation menu, on the **Settings** tab, click on **Export snapshot**;
+    this section offers the ability to export any snapshot directly via the browser:'
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在导航菜单中，点击**设置**选项卡，选择**导出快照**；此部分提供通过浏览器直接导出任何快照的功能：
+- en: '![Figure 10.21 – Exporting Azure snapshots directly](img/00198.jpeg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.21 – 直接导出 Azure 快照](img/00198.jpeg)'
+- en: Figure 10.21 – Exporting Azure snapshots directly
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.21 – 直接导出 Azure 快照
+- en: Depending on the size of the infected volume, investigators may have to select
+    the amount of time required for exporting snapshots, after which the secure URL
+    will expire. They will not be available to resume or download any further. The
+    maximum time that Microsoft Azure allows is 10 hours (36,000 seconds). In our
+    example, we are downloading a 30 GB file, which takes less than one hour; therefore,
+    we left it with the default value of 3,600 seconds. The Azure administrator may
+    also configure specific authentication requirements instead of allowing the secure
+    and unique URL to be publicly available online. Investigators must note URLs,
+    which are displayed only once, before navigating away from the page. Even though
+    they are publicly available, they are not widely available through search engines
+    and require the investigators to know the full URL to access these artifacts.
+  id: totrans-156
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 根据感染卷的大小，调查人员可能需要选择导出快照所需的时间，导出后安全 URL 将过期，无法继续恢复或下载任何内容。微软 Azure 允许的最大时间为 10
+    小时（36,000 秒）。在我们的示例中，我们正在下载一个 30 GB 的文件，下载时间少于一个小时；因此，我们将其保持在默认值 3,600 秒。Azure
+    管理员也可以配置特定的身份验证要求，而不是允许安全的唯一 URL 在网上公开可用。调查人员必须记录下 URL，这些 URL 仅显示一次，且离开页面后无法再次访问。尽管这些
+    URL 在公开的情况下可用，但它们不会通过搜索引擎广泛传播，需要调查人员知道完整的 URL 才能访问这些文件。
+- en: Microsoft Azure typically generates two URLs, one with the **virtual hard disk**
+    (**VHD**) file export and another with **VM guest state VHD** Export. These two
+    links provide different files; however, investigators should download VHD files
+    for investigative purposes.
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 微软 Azure 通常生成两个 URL，一个用于 **虚拟硬盘**（**VHD**）文件导出，另一个用于 **VM 客户状态 VHD** 导出。这两个链接提供不同的文件；然而，调查人员应当下载
+    VHD 文件用于调查目的。
+- en: Step 3 – connecting to an Azure VM for memory imaging
+  id: totrans-158
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 第 3 步 – 连接到 Azure 虚拟机进行内存映像获取
+- en: 'Microsoft Azure offers a couple of options to access the VMs; one of the most
+    common is accessing the Azure VM via RDP or SSH. Alternatively, Azure offers a
+    service called **Bastion**, which provides in-browser capabilities to access the
+    Azure VM safely. See the next screenshot, which shows the options that are typically
+    available. The choice on the left offers Bastion, which proxies RDP connection
+    to the Azure VM through a browser session. The option on the right is the traditional
+    approach to connecting with the Azure VM. To collect memory images, we will access
+    the Azure VM via Bastion:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 微软 Azure 提供几种访问虚拟机的选项，其中最常见的是通过 RDP 或 SSH 访问 Azure 虚拟机。或者，Azure 提供一个名为 **Bastion**
+    的服务，提供浏览器内访问虚拟机的能力。请参见下方截图，显示了通常可用的选项。左侧选项提供 Bastion，通过浏览器会话代理 RDP 连接到 Azure 虚拟机。右侧选项则是传统的连接方式。为了收集内存映像，我们将通过
+    Bastion 访问 Azure 虚拟机：
+- en: '![Figure 10.22 – Connection Option to Azure VM](img/00015.jpeg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.22 – 连接选项到 Azure 虚拟机](img/00015.jpeg)'
+- en: Figure 10.22 – Connection Option to Azure VM
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.22 – 连接选项到 Azure 虚拟机
+- en: 'After selecting **Go To Bastion**, Azure will automatically create a proxy
+    tunnel service that allows connection to Azure VM. Investigators must supply a
+    username and password to Bastion service to connect to the Azure VM, as indicated
+    in the following screenshot. This service is similar to what Amazon calls its
+    SSM service, which offers command-line access to the virtual machine:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择 **Go To Bastion** 后，Azure 会自动创建一个代理隧道服务，允许连接到 Azure 虚拟机。调查人员必须提供用户名和密码才能连接到
+    Bastion 服务以访问 Azure 虚拟机，如下图所示。此服务类似于 Amazon 的 SSM 服务，后者提供对虚拟机的命令行访问：
+- en: '![Figure 10.23 – Connecting to Azure VM via the Bastion service](img/00034.jpeg)'
+  id: totrans-163
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.23 – 通过 Bastion 服务连接到 Azure 虚拟机](img/00034.jpeg)'
+- en: Figure 10.23 – Connecting to Azure VM via the Bastion service
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.23 – 通过 Bastion 服务连接到 Azure 虚拟机
+- en: Once connected to the Azure VM, investigators can follow the steps outlined
+    in *step 2b* and *step 4a* for AWS.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦连接到 Azure 虚拟机，调查人员可以按照 *第 2b 步* 和 *第 4a 步* 中为 AWS 提供的步骤进行操作。
+- en: Once all the relevant artifacts are collected, investigators can use their choice
+    of export mechanism to export memory images or operating system artifacts using
+    a third-party file-sharing service or through Azure Blob storage.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦收集完所有相关文件，调查人员可以选择导出机制，通过第三方文件共享服务或通过 Azure Blob 存储导出内存映像或操作系统文件。
+- en: In the next section, we will review GCP’s approach to allowing investigators
+    to acquire and collect snapshots and memory images for offline forensic analysis.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将回顾 GCP 的方法，允许调查人员获取并收集快照和内存映像以进行离线取证分析。
+- en: Forensic acquisition of GCP instances
+  id: totrans-168
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: GCP 实例的取证获取
+- en: Like the steps we saw for AWS and Microsoft Azure, forensic acquisition of a
+    GCP compute follows the same steps. We will first take a snapshot of the **compute
+    engine** instance and then attach the snapshot as a separate drive to another
+    forensic collector compute instance so we can do a bit-by-bit copy before exporting
+    the disk image via cloud storage or any other data transfer means.
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像我们在 AWS 和 Microsoft Azure 中看到的步骤一样，对 GCP 计算实例的取证获取遵循相同的步骤。我们将首先对 **计算引擎**
+    实例进行快照，然后将快照作为独立的磁盘附加到另一个取证收集计算实例上，这样我们就可以在通过云存储或其他数据传输方式导出磁盘映像之前进行逐位复制。
+- en: Step 1 – creating a snapshot of the compute engine instance
+  id: totrans-170
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 步骤 1 – 创建计算引擎实例的快照
+- en: 'So, let us look at the pre-requisite steps to acquire a forensic image of a
+    compute instance:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，让我们来看一下获取计算实例取证映像的前提步骤：
+- en: The first step is to create a disk snapshot of the compute engine instance;
+    this can be done by accessing the navigation menu under **Storage** and selecting
+    **Snapshots**. GCP offers two forms of snapshots. The first is regular snapshots,
+    which include a complete disk snapshot of the compute engine instance, while the
+    second is instant snapshots, which are more like an in-place backup of the disk
+    used to create new disk volumes quickly. Instant snapshots are incremental, meaning
+    after the first full snapshots, only the changes to the disk are recorded in instant
+    snapshots. This is used for a more straightforward restoration of files. We will
+    require a complete snapshot to copy everything from the operating system level
+    for forensics.
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一步是创建计算引擎实例的磁盘快照；这可以通过访问 **存储** 下的导航菜单并选择 **快照** 来完成。GCP 提供两种类型的快照。第一种是常规快照，包括计算引擎实例的完整磁盘快照；第二种是即时快照，更像是用于快速创建新磁盘卷的磁盘就地备份。即时快照是增量的，这意味着在第一次完整快照之后，只有磁盘的变化会被记录在即时快照中。这通常用于更简便的文件恢复。我们需要一个完整的快照，以便从操作系统层面复制所有内容进行取证。
+- en: 'When creating a snapshot, we must select the correct disk associated with the
+    original infected instance, as indicated in the following screenshot. Similar
+    to AWS and Microsoft Azure, each snapshot will associate with each disk, and therefore,
+    when snapshotting a compute engine with multiple attached disks, investigators
+    must note the number of disks attached to the instance and consider snapshotting
+    them if all other disks are required. However, at minimum, the instance’s root
+    drive (`C:\`) must be selected for snapshots:'
+  id: totrans-173
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在创建快照时，我们必须选择与原始感染实例关联的正确磁盘，如下图所示。与 AWS 和 Microsoft Azure 类似，每个快照都会与一个磁盘关联，因此，当对附加了多个磁盘的计算引擎进行快照时，调查人员必须注意实例附加的磁盘数量，并考虑是否需要对所有其他磁盘进行快照。如果没有其他要求，至少必须选择实例的根驱动器（`C:\`）进行快照：
+- en: '![Figure 10.24 – Selecting a disk for a snapshot](img/00051.jpeg)'
+  id: totrans-174
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.24 – 选择用于快照的磁盘](img/00051.jpeg)'
+- en: Figure 10.24 – Selecting a disk for a snapshot
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.24 – 选择用于快照的磁盘
+- en: Step 2 – attaching a snapshot disk for forensic acquisition
+  id: totrans-176
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 步骤 2 – 附加快照磁盘以进行取证获取
+- en: 'Once a snapshot is completed, investigators can create a new forensic instance
+    within the same GCP tenant and attach this snapshot as a disk source. The following
+    are some of the critical steps that investigators must take note of:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦快照完成，调查人员可以在同一 GCP 租户内创建一个新的取证实例，并将该快照作为磁盘源附加。以下是调查人员需要注意的关键步骤：
+- en: 'When creating a new instance, investigators must select the additional disk
+    and choose the recently saved snapshot. As indicated in the following screenshot,
+    investigators must ensure they attach the correct snapshots if multiple disk snapshots
+    are taken:'
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建新实例时，调查人员必须选择附加磁盘并选择最近保存的快照。如以下截图所示，调查人员必须确保在拍摄了多个磁盘快照的情况下，附加正确的快照：
+- en: '![Figure 10.25 – Attaching a disk and restoring from a snapshot in GCP](img/00069.jpeg)'
+  id: totrans-179
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.25 – 在 GCP 中附加磁盘并从快照恢复](img/00069.jpeg)'
+- en: Figure 10.25 – Attaching a disk and restoring from a snapshot in GCP
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.25 – 在 GCP 中附加磁盘并从快照恢复
+- en: 'Once a disk is attached, similar to the steps listed earlier for AWS, investigators
+    can validate whether the disk is attached correctly by running the `lsblk -a`
+    command, as illustrated in the following screenshot:'
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦磁盘附加，类似于之前列出的 AWS 步骤，调查人员可以通过运行 `lsblk -a` 命令来验证磁盘是否正确附加，以下截图展示了这一过程：
+- en: '![Figure 10.26 – Snapshot attached as a disk to the GCP compute instance](img/00088.jpeg)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.26 – 快照作为磁盘附加到 GCP 计算实例](img/00088.jpeg)'
+- en: Figure 10.26 – Snapshot attached as a disk to the GCP compute instance
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.26 – 快照作为磁盘附加到 GCP 计算实例
+- en: Once the disk is successfully attached, we follow the steps outlined in *step
+    4a* for AWS through the `dd` command.
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦磁盘成功附加，我们将按照 AWS 的*步骤 4a*通过 `dd` 命令进行操作。
+- en: Step 3 – connecting to the GCP compute engine instance for memory acquisition
+  id: totrans-185
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 步骤 3 – 连接到 GCP 计算引擎实例进行内存采集
+- en: 'Since all the cloud service providers operate in the same way, each cloud service
+    provider offers a remote connection tool such as Cloud Shell or direct connection
+    via IP. This section will utilize GCP Cloud Shell to connect to the infected host
+    machine for memory acquisition:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于所有云服务提供商的操作方式相同，每个云服务提供商都提供类似 Cloud Shell 或通过 IP 直接连接等远程连接工具。本节将使用 GCP Cloud
+    Shell 连接到感染主机进行内存采集：
+- en: Upon connecting to GCP’s cloud shell, it will request an interactive logon to
+    pass authentication tokens to the Cloud Shell session. Alternatively, administrators
+    may create appropriate service accounts for investigators to handle the authentication
+    process at the command line level without passing credentials interactively.
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 连接到 GCP 的 Cloud Shell 后，它将请求交互式登录以将身份验证令牌传递给 Cloud Shell 会话。或者，管理员可以为调查人员创建适当的服务账户，以便在命令行级别处理身份验证过程，而无需交互式传递凭据。
+- en: 'When creating a service account, investigators must ensure that appropriate
+    privileges are configured to the service account, specifically **Compute Admin**
+    and **Storage Object Admin** privileges. **Compute Admin** privileges will allow
+    investigators to access and modify the instance as required for forensic collections.
+    In contrast, **Storage Object Admin** will allow the service account with privileges
+    to upload artifacts to GCPs’ cloud storage buckets. To create a service account,
+    the following steps must be taken:'
+  id: totrans-188
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在创建服务账户时，调查人员必须确保为服务账户配置了适当的权限，特别是**计算管理员**和**存储对象管理员**权限。**计算管理员**权限将允许调查人员根据需要访问和修改实例，以进行取证采集。相反，**存储对象管理员**权限将允许具有该权限的服务账户将工件上传到
+    GCP 的云存储桶。要创建服务账户，必须采取以下步骤：
+- en: Within the GCP’s console, navigate to the **IAM &** **Admin** section.
+  id: totrans-189
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 GCP 控制台内，导航到**IAM &** **管理员**部分。
+- en: Click on **Service accounts** and then click on the **Create service** **account**
+    button.
+  id: totrans-190
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**服务账户**，然后点击**创建服务账户**按钮。
+- en: Give the service account a name description and select the role(s) that grant
+    it the necessary permissions.
+  id: totrans-191
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 给服务账户命名并选择授予其必要权限的角色。
+- en: Click **Create** to create the service account.
+  id: totrans-192
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**创建**以创建服务账户。
+- en: 'For forensic collections, we created a service account, as indicated in the
+    following screenshot, that will be used to interact with compute engine instances:'
+  id: totrans-193
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 对于取证采集，我们创建了一个服务账户，如下截图所示，将用于与计算引擎实例交互：
+- en: '![Figure 10.27 – Creating a service account for forensic acquisition](img/00108.jpeg)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 10.27 – 为取证采集创建服务账户](img/00108.jpeg)'
+- en: Figure 10.27 – Creating a service account for forensic acquisition
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 10.27 – 为取证采集创建服务账户
+- en: 'Next, we generate keys to access the compute engine instance using the service
+    account:'
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们生成密钥以使用服务账户访问计算引擎实例：
+- en: Within the GCP’s console, navigate to the **IAM &** **Admin** section.
+  id: totrans-197
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 GCP 控制台内，导航到**IAM &** **管理员**部分。
+- en: Click on **Service accounts** and then click on the service account name that
+    requires keys to be generated.
+  id: totrans-198
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**服务账户**，然后点击需要生成密钥的服务账户名称。
+- en: On the **KEYS** tab, select **ADD KEY** and then **Create** **new key**.
+  id: totrans-199
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**密钥**标签下，选择**添加密钥**，然后点击**创建新密钥**。
+- en: Select **JSON** as the option for the key file to be created. You will be presented
+    with details once, with the option to download and save it on your computer.
+  id: totrans-200
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择**JSON**作为要创建的密钥文件选项。您将看到一次性显示的详细信息，并可以选择将其下载并保存在计算机上。
+- en: Investigators can use this service account or their interactive accounts when
+    connecting to a compute engine instance via Cloud Shell. Essentially, a service
+    account offers a containerized set of roles that investigators can use to access
+    the compute instance securely.
+  id: totrans-201
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查人员可以在通过 Cloud Shell 连接到计算引擎实例时，使用此服务账户或其交互账户。本质上，服务账户提供了一组容器化的角色，调查人员可以用它来安全地访问计算实例。
+- en: Once we have access to the compute instance via Cloud Shell or directly via
+    RDP, we will follow the same steps as in *step 2b* for AWS for memory acquisition.
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦我们通过 Cloud Shell 或直接通过 RDP 获得计算实例的访问权限，我们将按照 AWS 的*步骤 2b*进行操作，以进行内存采集。
+- en: To export a memory image, investigators can upload the file to a remote server
+    hosted by the DFIR team or to GCP’s cloud storage bucket. To do this, you can
+    use the service account that was created. We will take an example of exporting
+    the memory image in a Windows device using PowerShell. We will first download
+    the JSON file or copy the contents into a JSON file we generated in *step 3*.
+  id: totrans-203
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要导出内存镜像，调查人员可以将文件上传到由DFIR团队托管的远程服务器或GCP的云存储桶。为此，可以使用已创建的服务帐户。我们将以在Windows设备上使用PowerShell导出内存镜像为例。我们将首先下载JSON文件或将内容复制到我们在*步骤3*中生成的JSON文件中。
+- en: 'Using PowerShell, we will run the following commands; you must ensure `gcloud`:'
+  id: totrans-204
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用PowerShell，我们将运行以下命令；您必须确保`gcloud`：
+- en: '[PRE7]'
+  id: totrans-205
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '`gcloud` is the command we invoke to connect to the GCP console. The following
+    parameters are utilized to establish a connection to GCP successfully:'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '`gcloud`是我们用于连接GCP控制台的命令。以下参数用于成功建立与GCP的连接：'
+- en: '`gcloud auth activate-service-account`: This command is used to activate a
+    service account for authentication.'
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gcloud auth activate-service-account`：此命令用于激活服务帐户进行身份验证。'
+- en: '`forensic-collector@vaulted-timing-390314.iam.gserviceaccount.com`: This is
+    the full email address of the service account (created under Google IAM) that
+    requires activation.'
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`forensic-collector@vaulted-timing-390314.iam.gserviceaccount.com`：这是需要激活的服务帐户的完整电子邮件地址（在Google
+    IAM下创建）。'
+- en: '`key-file=./KEY.json`: This parameter specifies the path to the JSON key file
+    associated with the service account. Ensure the JSON file path exists.'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`key-file=./KEY.json`：此参数指定与服务帐户相关联的JSON密钥文件的路径。确保JSON文件路径存在。'
+- en: '`--project=vaulted-timing-390314`: This represents the project name assigned
+    by GCP under which the service account is associated.'
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`--project=vaulted-timing-390314`：表示GCP分配的项目名称，服务帐户与该项目关联。'
+- en: 'Once the service account is authenticated, investigators can upload memory
+    images and other artifacts to the **GCP Cloud Storage** (**GCS**) bucket using
+    the following command:'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 一旦服务帐户通过身份验证，调查人员可以使用以下命令将内存镜像和其他工件上传到**GCP云存储**（**GCS**）桶中：
+- en: '[PRE8]'
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'The following are the parameters that are utilized for exporting the memory
+    image to the storage area:'
+  id: totrans-213
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 以下是用于将内存镜像导出到存储区域的参数：
+- en: '`cp`: The sub-command of `gsutil` used for copying files and objects to and
+    from GCS buckets'
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`cp`：`gsutil`的子命令，用于将文件和对象复制到GCS桶以及从GCS桶复制'
+- en: '`<memory.img>`: The filename and full path of the memory image stored on the
+    host instance'
+  id: totrans-215
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`<memory.img>`：存储在主机实例上的内存镜像的文件名和完整路径'
+- en: '`gs://<bucket_name>`: The destination GCS bucket where the file will be exported'
+  id: totrans-216
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gs://<bucket_name>`：文件将被导出的目标GCS桶'
+- en: Once the memory image or any other artifacts are exported through `gsutil`,
+    investigators can then proceed to acquire these artifacts from storage for their
+    offline analysis. They can continue to retain these images in the storage area
+    as long as it’s not publicly accessible and access controls are strictly defined.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦内存镜像或任何其他工件通过`gsutil`导出，调查人员就可以继续从存储中获取这些工件进行离线分析。他们可以继续将这些镜像保留在存储区域，只要它不公开访问，并且访问控制被严格定义。
+- en: Summary
+  id: totrans-218
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: To summarize, the basic principles for collecting forensic artifacts, disk images,
+    and memory dumps are similar when investigators have access to the operating system.
+    The process is very similar if they have access to a computer or a device as part
+    of the investigation. What is more important to learn are the steps to gain safe
+    access to an operating system during an incident response situation.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结一下，当调查人员可以访问操作系统时，收集法医工件、磁盘镜像和内存转储的基本原则是相似的。如果他们在调查过程中可以访问计算机或设备，过程也非常相似。更重要的是要学习在事件响应情况下如何安全地访问操作系统的步骤。
+- en: Debunking cloud forensic acquisition is key; however, investigators must familiarize
+    themselves with getting access to the full disk without making significant modifications
+    to the instance, such as adding a new empty disk or installing tools only to create
+    a full disk image and jumping through the challenges of exporting. Most cloud
+    services have the option to snapshot your entire disk; this allows for more accessible
+    collections. As for memory dump, unfortunately, there is no better option than
+    jumping on the infected machine and running tools to dump memory. It is important
+    for investigators to minimize their forensic footprint in volatile memory.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 破解云端法医数据采集的难题；然而，调查人员必须熟悉如何在不对实例进行重大修改的情况下获取完整磁盘访问权限，例如添加新的空磁盘或仅安装工具来创建完整磁盘镜像，并克服导出过程中的各种挑战。大多数云服务都提供快照整个磁盘的选项，这使得数据收集更加便捷。至于内存转储，遗憾的是，目前没有比直接进入感染机器并使用工具转储内存更好的选择。调查人员需要尽量减少在易变内存中的法医痕迹。
+- en: The next chapter will go over containerized instances, such as dockers and Kubernetes.
+    In the forensic world, containerized instances offer different challenges, exacerbated
+    when hosted on the cloud, and investigators are required to analyze them. The
+    next chapter will look into demystifying container forensics on the cloud.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一章将讲解容器化实例，如 Docker 和 Kubernetes。在法医领域，容器化实例带来了不同的挑战，尤其在云端托管时，挑战更为复杂，调查人员需要进行分析。下一章将深入探讨云端容器法医分析。
+- en: Further reading
+  id: totrans-222
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'Make an Amazon EBS volume available for use on Linux: [https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.xhtml](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.xhtml)'
+  id: totrans-223
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Linux 上使 Amazon EBS 卷可用：[https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.xhtml](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.xhtml)
+- en: 'How To Use LVM To Manage Storage Devices on Ubuntu 18.04: [https://www.digitalocean.com/community/tutorials/how-to-use-lvm-to-manage-storage-devices-on-ubuntu-18-04](https://www.digitalocean.com/community/tutorials/how-to-use-lvm-to-manage-storage-devices-on-ubuntu-18-04)'
+  id: totrans-224
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何在 Ubuntu 18.04 上使用 LVM 管理存储设备：[https://www.digitalocean.com/community/tutorials/how-to-use-lvm-to-manage-storage-devices-on-ubuntu-18-04](https://www.digitalocean.com/community/tutorials/how-to-use-lvm-to-manage-storage-devices-on-ubuntu-18-04)
+- en: 'Creating an IAM role with permissions for Session Manager and Amazon S3 and
+    CloudWatch Logs (console): [https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.xhtml#create-iam-instance-profile-ssn-logging](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.xhtml#create-iam-instance-profile-ssn-logging)'
+  id: totrans-225
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为会话管理器、Amazon S3 和 CloudWatch 日志创建具有权限的 IAM 角色（控制台）：[https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.xhtml#create-iam-instance-profile-ssn-logging](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.xhtml#create-iam-instance-profile-ssn-logging)
+- en: 'Create a Partition in Linux – A Step-by-Step Guide: [https://www.digitalocean.com/community/tutorials/create-a-partition-in-linux](https://www.digitalocean.com/community/tutorials/create-a-partition-in-linux)'
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Linux 中创建分区——逐步指南：[https://www.digitalocean.com/community/tutorials/create-a-partition-in-linux](https://www.digitalocean.com/community/tutorials/create-a-partition-in-linux)
+- en: 'Download a Windows VHD from Azure: [https://learn.microsoft.com/en-us/azure/virtual-machines/windows/download-vhd?tabs=azure-portal](https://learn.microsoft.com/en-us/azure/virtual-machines/windows/download-vhd?tabs=azure-portal)'
+  id: totrans-227
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从 Azure 下载 Windows VHD：[https://learn.microsoft.com/en-us/azure/virtual-machines/windows/download-vhd?tabs=azure-portal](https://learn.microsoft.com/en-us/azure/virtual-machines/windows/download-vhd?tabs=azure-portal)
+- en: 'Google Cloud (GCP) Forensics Best Practices and Tools: [https://medium.com/@cloud_tips/google-cloud-gcp-forensics-best-practices-and-tools-a99ed21e5ae5](mailto:https://medium.com/@cloud_tips/google-cloud-gcp-forensics-best-practices-and-tools-a99ed21e5ae5)'
+  id: totrans-228
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Google Cloud (GCP) 法医最佳实践与工具：[https://medium.com/@cloud_tips/google-cloud-gcp-forensics-best-practices-and-tools-a99ed21e5ae5](mailto:https://medium.com/@cloud_tips/google-cloud-gcp-forensics-best-practices-and-tools-a99ed21e5ae5)
+- en: 'How to automate forensic disk collection in AWS: [https://aws.amazon.com/blogs/security/how-to-automate-forensic-disk-collection-in-aws/](https://aws.amazon.com/blogs/security/how-to-automate-forensic-disk-collection-in-aws/)'
+  id: totrans-229
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如何在 AWS 中自动化法医磁盘收集：[https://aws.amazon.com/blogs/security/how-to-automate-forensic-disk-collection-in-aws/](https://aws.amazon.com/blogs/security/how-to-automate-forensic-disk-collection-in-aws/)
+- en: 'Computer forensics chain of custody in Azure: [https://learn.microsoft.com/en-us/azure/architecture/example-scenario/forensics/](https://learn.microsoft.com/en-us/azure/architecture/example-scenario/forensics/)'
+  id: totrans-230
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 中的计算机取证链条：[https://learn.microsoft.com/en-us/azure/architecture/example-scenario/forensics/](https://learn.microsoft.com/en-us/azure/architecture/example-scenario/forensics/)

@@ -1,0 +1,1570 @@
+- en: '*Chapter 8*: Auditing Program Binaries'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第8章*：审计程序二进制文件'
+- en: In this chapter, you will learn about auditing executable binary files. It consists
+    of analyzing binary programs to identify their vulnerabilities. It is interesting
+    for us because this is another common Ghidra use case. Furthermore, if you find
+    an unknown vulnerability in a program, in most cases, you will be able to hack
+    computers without needing to convince the user to perform some action via social
+    engineering.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你将学习如何审计可执行二进制文件。它包括分析二进制程序以识别其漏洞。这对我们来说很有趣，因为这是Ghidra的另一个常见使用场景。此外，如果你在程序中发现了一个未知漏洞，在大多数情况下，你可以不通过社会工程学说服用户执行某些操作而直接入侵计算机。
+- en: You will walk through a review of the main memory corruption vulnerabilities
+    (that is, integer overflows, buffer overflow, format strings, and so on) while
+    approaching them with Ghidra. Finally, you will learn how these vulnerabilities
+    can be exploited in practice.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你将回顾主要的内存损坏漏洞（即整数溢出、缓冲区溢出、格式化字符串等），并使用Ghidra对它们进行分析。最后，你将学习这些漏洞如何在实际中被利用。
+- en: 'We will cover the following topics in this chapter:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将覆盖以下主题：
+- en: Understanding memory corruption vulnerabilities
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解内存损坏漏洞
+- en: Finding vulnerabilities using Ghidra
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用Ghidra查找漏洞
+- en: Exploiting a simple stack-based buffer overflow
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 利用简单的基于栈的缓冲区溢出
+- en: Technical requirements
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The requirements for this chapter are as follows:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的要求如下：
+- en: 'MinGW64 – GCC compiler support for Windows: [https://mingw-w64.org/](https://mingw-w64.org/)'
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: MinGW64 – 为Windows提供GCC编译器支持：[https://mingw-w64.org/](https://mingw-w64.org/)
+- en: 'Olly Debugger 1.10 (OllyDBG) – A debugger for Microsoft Windows platforms.
+    Other versions of OllyDBG do exist but this version is very stable and works well
+    with x86 32-bit binaries: [http://www.ollydbg.de/odbg110.zi](http://www.ollydbg.de/odbg110.zi)p'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Olly Debugger 1.10 (OllyDBG) – 一个适用于Microsoft Windows平台的调试器。OllyDBG还有其他版本，但这个版本非常稳定，并且适用于x86
+    32位二进制文件：[http://www.ollydbg.de/odbg110.zi](http://www.ollydbg.de/odbg110.zi)p
+- en: 'FTPShell Client 6.7: A real-world application that makes use of the `strcpy`
+    function: [https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi](https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi)'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: FTPShell Client 6.7：一个使用`strcpy`函数的实际应用程序：[https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi](https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi)
+- en: 'The GitHub repository containing all the necessary code for this chapter: [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter08](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter08)'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 包含所有必要代码的GitHub仓库：[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter08](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter08)
+- en: 'Check out the following link to see the Code in Action video: [https://bit.ly/3lP7hRa](https://bit.ly/3lP7hRa)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请访问以下链接查看《Code in Action》视频：[https://bit.ly/3lP7hRa](https://bit.ly/3lP7hRa)
+- en: Understanding memory corruption vulnerabilities
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解内存损坏漏洞
+- en: There are a lot of types of software vulnerabilities. In an effort to categorize
+    software weakness types, arose the **Common Weakness Enumeration** (**CWE**).
+    If you want to know what kind of vulnerabilities exist, I recommend you check
+    out the entire list, which you can find at [https://cwe.mitre.org/data/index.html](https://cwe.mitre.org/data/index.html).
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多种软件漏洞。为了对软件弱点类型进行分类，诞生了**常见弱点枚举**（**CWE**）。如果你想了解存在哪些漏洞，我建议你查看完整的列表，网址是[https://cwe.mitre.org/data/index.html](https://cwe.mitre.org/data/index.html)。
+- en: We will be focusing on memory corruption vulnerabilities. This kind of vulnerability
+    happens when a program tries to access a memory region without having access privileges
+    to it.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将重点关注内存损坏漏洞。这种漏洞发生在程序试图访问没有访问权限的内存区域时。
+- en: These kinds of vulnerabilities are typical in the C/C++ programming languages
+    because a programmer has direct memory access, allowing us to commit memory access
+    mistakes. They are not possible in the Java programming language, which is considered
+    a memory-safe programming language because its runtime error detection checks
+    and prevents such errors, although the **Java Virtual Machine** (**JVM**) is also
+    susceptible to memory corruption vulnerabilities ([https://media.blackhat.com/bh-ad-11/Drake/bh-ad-11-Drake-Exploiting_Java_Memory_Corruption-WP.pdf](https://media.blackhat.com/bh-ad-11/Drake/bh-ad-11-Drake-Exploiting_Java_Memory_Corruption-WP.pdf)).
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些类型的漏洞在C/C++编程语言中很常见，因为程序员可以直接访问内存，这使得我们可能犯下内存访问错误。而在Java编程语言中则不可能发生这种情况，因为Java被认为是一种内存安全的编程语言，其运行时错误检测机制可以检查并防止此类错误，尽管**Java虚拟机**（**JVM**）也容易受到内存损坏漏洞的影响（[https://media.blackhat.com/bh-ad-11/Drake/bh-ad-11-Drake-Exploiting_Java_Memory_Corruption-WP.pdf](https://media.blackhat.com/bh-ad-11/Drake/bh-ad-11-Drake-Exploiting_Java_Memory_Corruption-WP.pdf)）。
+- en: 'Before addressing memory corruption vulnerabilities, we need to cover two memory
+    allocation mechanisms: automatic memory allocation (which takes place on the stack
+    of the program) and dynamic memory allocation (which takes place on the heap).
+    There''s static allocation as well, which we are going to omit for this book (which
+    is performed in the C programming language via the `static` keyword, but is not
+    relevant here).'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在处理内存损坏漏洞之前，我们需要了解两种内存分配机制：自动内存分配（发生在程序的栈上）和动态内存分配（发生在堆上）。还有静态分配机制，但我们将在本书中省略（它在C语言中通过`static`关键字执行，但在这里不相关）。
+- en: Next, we will cover buffer overflow, which causes memory corruption when trying
+    to use more memory than is allocated. And finally, since more protection mechanisms
+    are being developed to mitigate buffer overflows, we will cover format string
+    vulnerabilities, which enable the leaking of program information, allowing confidential
+    data to be seen, but also enable learning about program memory addresses, making
+    it possible to bypass some state-of-the-art memory corruption countermeasures.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将讨论缓冲区溢出，它在尝试使用超过分配内存时会导致内存损坏。最后，由于为了缓解缓冲区溢出，正在开发更多的保护机制，我们将讨论格式字符串漏洞，它能够泄露程序信息，允许机密数据被看到，还能获取程序的内存地址，从而使得绕过一些最先进的内存损坏防护措施成为可能。
+- en: Understanding the stack
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 理解栈
+- en: 'The stack of a computer works like a stack of plates. You can put plates onto
+    the stack but, when removing plates, you can only remove the last plate put onto
+    the stack. Let''s see this with an example. The function `sum` (check line `00`)
+    is supposed to perform the sum of its arguments, so the following code performs
+    the operation `1 + 3` and stores the result in the `result` variable (check line
+    `05`):'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计算机的栈工作原理类似于盘子堆叠。你可以将盘子放到栈上，但在移除盘子时，你只能移除最后放上的盘子。我们通过一个例子来看看这个过程。`sum`函数（查看第`00`行）本应执行其参数的和，因此以下代码执行了`1
+    + 3`操作，并将结果存储在`result`变量中（查看第`05`行）：
+- en: '[PRE0]'
+  id: totrans-22
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-24
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-26
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Compile the previous code, targeting the x86 (32-bit) architecture:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译前面的代码，目标为x86（32位）架构：
+- en: '[PRE7]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'If we analyze the resulting binary using Ghidra, the line `05` is translated
+    into the following assembly code lines:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们使用Ghidra分析生成的二进制文件，第`05`行被翻译成以下汇编代码：
+- en: '![Figure 8.1 – Ghidra assembly overview of the sum function'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.1 – Ghidra 汇编概述的求和函数'
+- en: '](img/B16207_08_001.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_001.jpg)'
+- en: Figure 8.1 – Ghidra assembly overview of the sum function
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.1 – Ghidra 汇编概述的求和函数
+- en: A stack frame is a frame of data that gets pushed onto the stack. In the case
+    of a call stack, a stack frame would represent a function call and its argument
+    data. The current stack frame is located between the memory address stored in
+    `ESP` (whose purpose is to point at the top of the stack) and `EBP` (whose purpose
+    is to point at the base of the stack). As you can see, it pushes onto the stack
+    the values `0x1` and `0x3` in reverse order regarding our code. It puts the integer
+    `0x1` at the top of the stack (at the memory address pointed to by `ESP`) and
+    also puts the integer `0x3` just before. The `_sum` function, corresponding to
+    `sum` (check line `00`) in our code, is called and the result is expected to be
+    returned in the `EAX` register, which is also stored on the stack using a `MOV`
+    operation. Notice that when a `CALL` operation is performed, the address of the
+    next instruction is pushed onto the stack and then it transfers the control to
+    the callee function.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 栈帧是被推送到栈上的一帧数据。在调用栈的情况下，栈帧代表了一个函数调用及其参数数据。当前的栈帧位于存储在`ESP`中的内存地址（其目的是指向栈的顶部）和`EBP`中的内存地址（其目的是指向栈的底部）之间。如你所见，它将值`0x1`和`0x3`以与我们代码相反的顺序推送到栈上。它将整数`0x1`放置在栈的顶部（即`ESP`指向的内存地址），并且将整数`0x3`放在前面。与我们代码中的`sum`（查看`00`行）相对应的`_sum`函数被调用，结果预计将存储在`EAX`寄存器中，并通过`MOV`操作将其也存储在栈上。注意，当执行`CALL`操作时，下一条指令的地址会被推送到栈上，然后控制权转交给被调用的函数。
+- en: In order to perform function calls, a convention is necessary to agree where
+    the caller function places the parameters (into registers or onto the stack).
+    If they are placed into registers, then the convention must specify which registers.
+    It is also necessary to decide the order in which the parameters are placed. Who
+    cleans the stack? The caller or the callee function? Where is the return value
+    placed after returning from the function? As is evident, it is necessary to establish
+    a calling convention.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了执行函数调用，必须有一个约定来规定调用者函数将参数放置在哪里（寄存器中还是栈上）。如果参数放入寄存器，那么约定必须指定使用哪些寄存器。还需要决定参数放置的顺序。谁来清理栈？是调用者还是被调用者函数？从函数返回后，返回值放在哪里？显然，必须建立一个调用约定。
+- en: In this case, parameters are pushed onto the stack by the caller function, and
+    the callee function, `_sum`, is responsible for clearing the stack and returning
+    the value using the `EAX` register. This is called the **cdecl** convention, which
+    stands for **C declaration**.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，参数由调用者函数推送到栈上，而被调用函数`_sum`负责清理栈并通过`EAX`寄存器返回值。这就是被称为**cdecl**约定，表示**C声明**。
+- en: 'Now, let''s take a look at the `_sum` function:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来看看`_sum`函数：
+- en: '![Figure 8.2 – Program allowing you to sum numbers'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.2 – 允许你求和的程序'
+- en: '](img/B16207_08_002.jpg)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_002.jpg)'
+- en: Figure 8.2 – Program allowing you to sum numbers
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.2 – 允许你求和的程序
+- en: As you can see, the stack base address of the caller function is pushed onto
+    the stack by the callee function via the `PUSH EBP` instruction (line `1`). Next,
+    the `MOV EBP, ESP` instruction (line `2`) establishes that the top of the stack
+    of the caller (the address stored in `ESP`) is the bottom of the callee function.
+    In other words, the stack frame of the callee function is over the stack frame
+    of the caller function.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，被调用函数通过`PUSH EBP`指令（第`1`行）将调用者函数的栈基地址推送到栈上。接下来，`MOV EBP, ESP`指令（第`2`行）建立了调用者栈顶（`ESP`中存储的地址）作为被调用函数的栈底。换句话说，被调用函数的栈帧位于调用者函数的栈帧之上。
+- en: In this case, there is no stack allocation, which is can be performed via the
+    `SUB ESP, 0xXX` operation, where `0xXX` is the amount of stack memory to allocate.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，没有栈分配，可以通过`SUB ESP, 0xXX`操作来执行，其中`0xXX`是要分配的栈内存的大小。
+- en: Both parameters, `a` and `b`, are taken from the stack and stored in registers.
+    The `ADD` operation (line `5`) is responsible for summing both registers and storing
+    the result in the `EAX` register.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 两个参数`a`和`b`从栈上取出并存储到寄存器中。`ADD`操作（第`5`行）负责将这两个寄存器相加，并将结果存储在`EAX`寄存器中。
+- en: Finally, the stack frame of the caller function is restored via `POP EBP` (line
+    `6`), and the control is transferred to the caller function via `RET` (line `7`),
+    which takes the next instruction to execute stored on the stack by the `CALL`
+    instruction of the caller, and transfers the execution to it.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，通过`POP EBP`（第`6`行）恢复调用者函数的栈帧，并通过`RET`（第`7`行）将控制转移到调用者函数，这个指令将执行栈上`CALL`指令存储的下一个指令，并将执行转移给它。
+- en: In conclusion, the stack memory is available until the function exits and it
+    is not necessary to free it.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总之，栈内存在函数退出之前是可用的，并且不需要手动释放。
+- en: Stack-based buffer overflow
+  id: totrans-48
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基于栈的缓冲区溢出
+- en: 'A stack-based buffer overflow (CWE-121: [https://cwe.mitre.org/data/definitions/121.html](https://cwe.mitre.org/data/definitions/121.html))
+    happens when a buffer allocated in the stack is overwritten beyond its limits.'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '基于栈的缓冲区溢出（CWE-121: [https://cwe.mitre.org/data/definitions/121.html](https://cwe.mitre.org/data/definitions/121.html)）发生在栈上分配的缓冲区被超出其界限地覆盖时。'
+- en: 'In the following example, we can see a program that reserves 10 bytes of memory
+    (see line `01`) and then copies the first argument given to the program into this
+    buffer (see line `02`). Finally, the program returns `0`, but this is not relevant
+    in this case:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下示例中，我们可以看到一个程序，它预留了10字节的内存（见`01`行），然后将传递给程序的第一个参数复制到这个缓冲区中（见`02`行）。最后，程序返回`0`，但在这个例子中这一点并不重要：
+- en: '[PRE9]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: '[PRE12]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'Compile the program targeting the x86 (32-bit) architecture:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译面向x86（32位）架构的程序：
+- en: '[PRE14]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'The vulnerability happens because there are no length checks over the argument
+    to copy into the buffer. So, if more than 200 bytes are copied into the buffer
+    via `_strcpy`, some stuff stored on the stack apart from the buffer variable will
+    be overwritten. Let''s take a look at it using Ghidra:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 漏洞的发生是因为没有对要复制到缓冲区的参数进行长度检查。所以，如果通过`_strcpy`将超过200字节的数据复制到缓冲区，一些除缓冲区变量外的栈上内容会被覆盖。我们来用Ghidra看一下：
+- en: '![Figure 8.3 – A stack-based overflow on _strcpy'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.3 – _strcpy上的栈溢出'
+- en: '](img/B16207_08_003.jpg)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_003.jpg)'
+- en: Figure 8.3 – A stack-based overflow on _strcpy
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.3 – _strcpy上的栈溢出
+- en: 'As you can see, when the code is compiled, the buffer is located at `ESP +
+    0x18` and `ptr_source` is at `Stack[-0xec]`, meaning that the buffer length is
+    `0xec - 0x18 = 212` bytes. So, the code of the binary file is different than the
+    source code written in C since the buffer was expected to be 10 bytes in size.
+    See the following screenshot of the Ghidra decompiler:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，当代码被编译时，缓冲区位于`ESP + 0x18`，而`ptr_source`位于`Stack[-0xec]`，意味着缓冲区的长度是`0xec
+    - 0x18 = 212`字节。所以，二进制文件的代码与用C编写的源代码不同，因为缓冲区原本预计为10字节。请查看以下Ghidra反编译器的截图：
+- en: '![Figure 8.4 – A compiler optimization applied over the local buffer variable'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.4 – 编译器优化应用于局部缓冲区变量'
+- en: '](img/B16207_08_004.jpg)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_004.jpg)'
+- en: Figure 8.4 – A compiler optimization applied over the local buffer variable
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.4 – 编译器优化应用于局部缓冲区变量
+- en: The aforementioned difference between the source code and the binary file happens
+    due to compiler optimization. Notice that modifications and vulnerabilities can
+    also be introduced by the compiler (for example, the compiler tends to remove
+    uses of the `memset` function during the optimization phase when the targeted
+    buffer is not used after, so it is not safe to use `memset` for zeroing memory).
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述源代码与二进制文件之间的差异是由于编译器优化引起的。请注意，编译器也可能引入修改和漏洞（例如，编译器在优化阶段倾向于删除`memset`函数的使用，当目标缓冲区在之后不再使用时，因此，使用`memset`来清零内存并不安全）。
+- en: Understanding the heap
+  id: totrans-68
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 理解堆
+- en: Sometimes, the programmer doesn't know how much memory will be needed at runtime
+    or maybe they need to store some information that must survive to the exit of
+    the function. It is in these cases that the programmer uses functions like the
+    `malloc()` C standard function to dynamically allocate memory.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时候，程序员不知道在运行时需要多少内存，或者他们可能需要存储一些必须在函数退出后依然存在的信息。在这种情况下，程序员会使用类似`malloc()`这样的C标准函数来动态分配内存。
+- en: In this case, the memory is allocated by the operating system in a heap structure,
+    and the programmer is responsible for freeing it, for instance, using the `free()`
+    C standard function.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，内存由操作系统在堆结构中分配，程序员需要负责释放它，例如使用`free()` C标准函数。
+- en: If the programmer forgets to call the `free()` function, the memory resource
+    will not be freed until the program finishes its execution (because modern operating
+    systems are sufficiently smart to release the resource when the program finishes).
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果程序员忘记调用`free()`函数，内存资源在程序执行结束之前不会被释放（因为现代操作系统足够智能，会在程序结束时释放资源）。
+- en: Heap-based buffer overflow
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基于堆的缓冲区溢出
+- en: 'A heap-based buffer overflow (CWE-122: [https://cwe.mitre.org/data/definitions/122.html](https://cwe.mitre.org/data/definitions/122.html))
+    happens when a buffer allocated in the heap is overwritten beyond its limits.'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '基于堆的缓冲区溢出（CWE-122: [https://cwe.mitre.org/data/definitions/122.html](https://cwe.mitre.org/data/definitions/122.html)）发生在堆中分配的缓冲区被写入超出其边界时。'
+- en: 'This vulnerability is very similar to a stack-based buffer overflow but, in
+    this case, the buffer is explicitly allocated via some function such as `malloc()`
+    performing a heap dynamic allocation of memory. Let''s see an example of this
+    vulnerability:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个漏洞与基于栈的缓冲区溢出非常相似，但在这种情况下，缓冲区是通过某些函数（如`malloc()`）显式地进行堆内存分配的。我们来看一下这个漏洞的例子：
+- en: '[PRE16]'
+  id: totrans-75
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '[PRE20]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: '[PRE21]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '[PRE22]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Compile the program targeting the x86 (32-bit) architecture:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译面向 x86（32 位）架构的程序：
+- en: '[PRE23]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: This code is analogous to the stack-based buffer overflow but the vulnerability
+    happens in the heap. As you can see on line `02`, `10` bytes of memory are allocated
+    in the heap, and then, on line `03`, it is overwritten by the first argument of
+    the program that is bigger than `10` bytes.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码类似于基于栈的缓冲区溢出，但漏洞发生在堆中。正如你在`02`行看到的，堆中分配了`10`字节的内存，然后在`03`行，它被程序的第一个参数覆盖，而这个参数的大小超过了`10`字节。
+- en: Usually, heap-based buffer overflows are considered more difficult to exploit
+    than stack-based buffer overflows because the exploitation requires understanding
+    how the heap structure works, which is an operating system-dependent structure
+    and, therefore, a more complex topic.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，基于堆的缓冲区溢出被认为比基于栈的缓冲区溢出更难以利用，因为它要求理解堆的结构如何工作，而堆结构是操作系统依赖的，因此是一个更复杂的话题。
+- en: 'Let''s see how it looks on Ghidra:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看它在 Ghidra 中的样子：
+- en: '![Figure 8.5 – A heap-based overflow on _strcpy'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.5 – 基于堆的溢出在_strcpy函数中'
+- en: '](img/B16207_08_005.jpg)'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_005.jpg)'
+- en: Figure 8.5 – A heap-based overflow on _strcpy
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.5 – 基于堆的溢出在_strcpy函数中
+- en: As you can see, the size passed to `_malloc` is `0xa`. No optimizations are
+    performed by the compiler because it is a dynamic allocation. After the `malloc`
+    allocation, the pointer to the buffer is stored, then a pointer to the vector
+    of program arguments, `_Argv`, is retrieved and, since it contains an array of
+    pointers (one `dword` per pointer), `0x4` is added to `EAX` in order to skip the
+    first parameter (which is the name of the program) and go to the first argument.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，传递给`_malloc`的大小是`0xa`。由于这是动态分配，编译器没有进行优化。`malloc`分配后，指向缓冲区的指针被存储，然后获取指向程序参数向量`_Argv`的指针，并且由于它包含一个指针数组（每个指针占一个`dword`），`0x4`被加到`EAX`寄存器，以跳过第一个参数（即程序名），并进入第一个参数。
+- en: Next to it, the call to the insecure `_strcpy` function happens and, finally,
+    the allocated buffer is released via `_free`.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，调用不安全的`_strcpy`函数，最后，通过`_free`释放已分配的缓冲区。
+- en: Format strings
+  id: totrans-93
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 格式化字符串
+- en: 'A format string vulnerability (CWE-134: [https://cwe.mitre.org/data/definitions/134.html](https://cwe.mitre.org/data/definitions/134.html))
+    happens when the program uses a function that accepts a format string from an
+    external source. Check out the following code:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '格式化字符串漏洞（CWE-134: [https://cwe.mitre.org/data/definitions/134.html](https://cwe.mitre.org/data/definitions/134.html)）发生在程序使用接受来自外部源的格式化字符串的函数时。看看下面的代码：'
+- en: '[PRE25]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '[PRE28]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '[PRE29]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'Compile the program targeting the x86 (32-bit) architecture:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编译面向 x86（32 位）架构的程序：
+- en: '[PRE30]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '[PRE31]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: The first argument given to the program is assigned to the string pointer on
+    line `01` and is passed directly to the `printf()` function, which prints a format
+    string.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序传递的第一个参数被赋值给字符串指针，并在第`01`行直接传递给`printf()`函数，该函数打印格式化字符串。
+- en: 'You can use it not only to crash the program but also to retrieve information.
+    For instance, you can use `%p` to retrieve information from the stack:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你不仅可以用它来崩溃程序，还可以用它来获取信息。例如，你可以使用`%p`从栈中获取信息：
+- en: '[PRE32]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: These kinds of vulnerabilities are very important nowadays because they are
+    helpful to bypass **Address Space Layout Randomization** (**ASLR**) anti-exploit
+    protection. ASLR prevents the attacker from knowing the base address where the
+    binary is loaded (and, therefore, any other address), making it hard to control
+    the program flow but, for instance, if you leak the content of some address in
+    memory using a format string vulnerability, you will be able to calculate the
+    base address (or any arbitrary binary address) using offsets relative to the leaked
+    data.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些类型的漏洞在如今非常重要，因为它们有助于绕过**地址空间布局随机化**（**ASLR**）反利用保护。ASLR 使攻击者无法得知二进制文件加载的基础地址（因此也无法知道其他地址），使得控制程序流程变得困难。但例如，如果你利用格式字符串漏洞泄露了内存中某个地址的内容，就可以通过相对泄露数据的偏移量来计算基础地址（或任意二进制地址）。
+- en: Format string attack
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 格式字符串攻击
+- en: 'If you want to learn more about the details on how to retrieve information
+    using format strings and how to exploit it, check out the following OWASP URL:
+    [https://owasp.org/www-community/attacks/Format_string_attack](https://owasp.org/www-community/attacks/Format_string_attack)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想了解更多关于如何使用格式字符串检索信息以及如何利用它的细节，请查看以下 OWASP URL：[https://owasp.org/www-community/attacks/Format_string_attack](https://owasp.org/www-community/attacks/Format_string_attack)
+- en: The exploiting topic is broad. These are not the only existing types of memory-corruption
+    vulnerabilities (that is, use after free, double free, integer overflow, off-by-one,
+    and so on were not covered here), but we've covered the basics.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 利用的主题非常广泛。这些并不是唯一的内存破坏漏洞类型（例如，use after free、double free、integer overflow、off-by-one
+    等未在此涵盖），但我们已涵盖了基础知识。
+- en: Next, we will discuss how to manually look for vulnerabilities using Ghidra.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将讨论如何使用 Ghidra 手动查找漏洞。
+- en: Finding vulnerabilities using Ghidra
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Ghidra 查找漏洞
+- en: The vulnerabilities covered in the previous section are all related to unsafe
+    C functions so, when looking for vulnerabilities, you can start checking whether
+    the program makes use of any of them.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前一部分所涵盖的漏洞都与不安全的 C 函数相关，因此，在查找漏洞时，你可以先检查程序是否使用了其中的任何一个。
+- en: After identifying an unsafe function, the next step is to check the parameters
+    and/or previous checks over the parameters to determine whether the function is
+    being used properly.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 识别到不安全的函数后，下一步是检查参数和/或对参数的先前检查，以确定该函数是否被正确使用。
+- en: 'In order to perform the experiment on a real-world application, please install
+    FTPShell Client 6.7\. The installation steps are the following:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了在真实世界的应用程序上进行实验，请安装 FTPShell 客户端 6.7。安装步骤如下：
+- en: 'Download the installer and execute it: https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi.'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下载安装程序并执行： https://www.exploit-db.com/apps/40d5fda024c3fc287fc841f23998ec27-fa_ftp_setup.msi。
+- en: Click on **Next** when the wizard menu appears:![Figure 8.6 – FTPShell Client
+    6 Setup Wizard
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 向导菜单出现时，点击**下一步**：![图 8.6 – FTPShell 客户端 6 安装向导
+- en: '](img/B16207_08_006.jpg)'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_006.jpg)'
+- en: Figure 8.6 – FTPShell Client 6 Setup Wizard
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 8.6 – FTPShell 客户端 6 安装向导
+- en: Accept the FTPShell Client license and click on **Next**:![Figure 8.7 – Accepting
+    the FTPShell Client license
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接受 FTPShell 客户端许可证并点击**下一步**：![图 8.7 – 接受 FTPShell 客户端许可证
+- en: '](img/B16207_08_007.jpg)'
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_007.jpg)'
+- en: Figure 8.7 – Accepting the FTPShell Client license
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 8.7 – 接受 FTPShell 客户端许可证
+- en: Choose the location where the program will be installed and click on **Next**:![Figure
+    8.8 – Choosing the FTPShell Client install location
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择程序的安装位置并点击**下一步**：![图 8.8 – 选择 FTPShell 客户端安装位置
+- en: '](img/B16207_08_008.jpg)'
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_008.jpg)'
+- en: Figure 8.8 – Choosing the FTPShell Client install location
+  id: totrans-124
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 8.8 – 选择 FTPShell 客户端安装位置
+- en: Proceed to install:![Figure 8.9 – Installing FTPShell Client
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续安装：![图 8.9 – 安装 FTPShell 客户端
+- en: '](img/B16207_08_009.jpg)'
+  id: totrans-126
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_009.jpg)'
+- en: Figure 8.9 – Installing FTPShell Client
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.9 – 安装 FTPShell 客户端
+- en: 'After the installation process, you will find the principal binary of the program
+    at the following location:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装过程完成后，你将在以下位置找到该程序的主要二进制文件：
+- en: '[PRE33]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: 'To prepare the lab for our experiment of looking for vulnerable functions in
+    `ftpshell.exe`, we will need to create a Ghidra project containing the `ftpshell.exe`
+    binary. Follow these steps:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了准备我们的实验，寻找 `ftpshell.exe` 中的易受攻击函数，我们需要创建一个包含 `ftpshell.exe` 二进制文件的 Ghidra
+    项目。请按照以下步骤操作：
+- en: Create a new Ghidra project with the name of `FtpShell`. The steps to create
+    a Ghidra project were explained in [*Chapter 1*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017),
+    *Getting Started with Ghidra*, in the *Creating a new Ghidra project* section.
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个名为`FtpShell`的新Ghidra项目。创建Ghidra项目的步骤在[*第1章*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017)，《Ghidra入门》一章的*创建新的Ghidra项目*部分中已解释。
+- en: Add the `ftpshell.exe` binary to it. The steps to add a binary to a Ghidra project
+    were explained in [*Chapter 1*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017),
+    *Getting Started with Ghidra*, in the *Importing files to a Ghidra project* section:![Figure
+    8.10 – Resulting FTPShell Ghidra project
+  id: totrans-132
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将`ftpshell.exe`二进制文件添加到项目中。将二进制文件添加到Ghidra项目中的步骤在[*第1章*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017)，《Ghidra入门》一章的*将文件导入Ghidra项目*部分中已解释：![图8.10
+    – 结果为FTPShell Ghidra项目
+- en: '](img/B16207_08_010.jpg)'
+  id: totrans-133
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_010.jpg)'
+- en: Figure 8.10 – Resulting FTPShell Ghidra project
+  id: totrans-134
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图8.10 – 结果为FTPShell Ghidra项目
+- en: Analyze the file. The steps to analyze a Ghidra project were explained in [*Chapter
+    1*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017), *Getting Started with Ghidra*,
+    in the *Performing and configuring Ghidra analysis* section.
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 分析文件。分析Ghidra项目的步骤在[*第1章*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017)，《Ghidra入门》一章的*执行和配置Ghidra分析*部分中已解释。
+- en: 'Some functions that you can look for are the following:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以查找以下一些函数：
+- en: 'Some functions that can lead to stack-based buffer overflow vulnerabilities:
+    `strcpy`, `strcat`, `strncat`, `gets()`, `memcpy()`.'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可能导致基于栈的缓冲区溢出漏洞的函数有：`strcpy`、`strcat`、`strncat`、`gets()`、`memcpy()`。
+- en: 'Some functions that can lead to heap-based buffer overflow vulnerabilities:
+    `malloc()`, `calloc()`, `resize()`, `free()`.'
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可能导致基于堆的缓冲区溢出漏洞的函数有：`malloc()`、`calloc()`、`resize()`、`free()`。
+- en: 'Some functions that can lead to format string vulnerabilities: `prinft()`,
+    `fprintf()`, `sprintf()`, `snprintf()`, `vsprintf()`, `vprintf()`, `vsnprintf()`,
+    `vfprintf()`.'
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可能导致格式化字符串漏洞的函数有：`prinft()`、`fprintf()`、`sprintf()`、`snprintf()`、`vsprintf()`、`vprintf()`、`vsnprintf()`、`vfprintf()`。
+- en: 'You can apply a filter to the `strcpy`:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以对`strcpy`应用过滤器：
+- en: '![Figure 8.11 – Filtering functions to locate _strcpy'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.11 – 过滤函数以定位_strcpy'
+- en: '](img/B16207_08_011.jpg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_011.jpg)'
+- en: Figure 8.11 – Filtering functions to locate _strcpy
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.11 – 过滤函数以定位_strcpy
+- en: 'Right-click on the results and click on **Show References to Ctrl+Shift+F**
+    as shown in the following screenshot:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 右键点击结果并点击**显示引用 Ctrl+Shift+F**，如下图所示：
+- en: '![Figure 8.12 – Finding references to _strcpy'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.12 – 查找_strcpy的引用'
+- en: '](img/B16207_08_012.jpg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_012.jpg)'
+- en: Figure 8.12 – Finding references to _strcpy
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.12 – 查找_strcpy的引用
+- en: 'Choosing the mentioned option will show you the list of program functions calling
+    it:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择上述选项将显示调用它的程序函数列表：
+- en: '![Figure 8.13 – References to _strcpy'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.13 – _strcpy的引用'
+- en: '](img/B16207_08_013.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_013.jpg)'
+- en: Figure 8.13 – References to _strcpy
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.13 – _strcpy的引用
+- en: By disassembling the caller function, you can analyze whether the length checks
+    applied to the string are sufficient to prevent exceeding the destination buffer
+    length.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过反汇编调用者函数，你可以分析字符串的长度检查是否足以防止超出目标缓冲区的长度。
+- en: 'In the following screenshot, you can see a call to `lstrlenA` in order to calculate
+    the length of the source buffer and store the length in `iVar1`, following an
+    `if` condition taking into account the value of `iVar1` and finally the unsafe
+    function `lstrcpyA`:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，你可以看到一个调用`lstrlenA`的例子，用来计算源缓冲区的长度并将长度存储在`iVar1`中，接着是一个`if`条件，考虑到`iVar1`的值，最后是一个不安全的函数`lstrcpyA`：
+- en: '![Figure 8.14 – Some length checks before the call to _strcpy'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图8.14 – 调用_strcpy前的一些长度检查'
+- en: '](img/B16207_08_014.jpg)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_014.jpg)'
+- en: Figure 8.14 – Some length checks before the call to _strcpy
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.14 – 调用_strcpy前的一些长度检查
+- en: A very efficient technique to find vulnerabilities is called **fuzzing**. It
+    consists of monitoring the target application and sending data to it, expecting
+    the program to crash for some given input.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种非常有效的技术来发现漏洞叫做**模糊测试**。它包括监控目标应用程序并向其发送数据，期望在某些给定输入下程序崩溃。
+- en: Finally, when the program crashes, you can start a debugging session on the
+    target and analyze what happens when this input is given to the program. Ghidra
+    can be a useful companion to your favorite debugger in this situation because
+    you can rename variables and show the decompiled code, basically, offering support
+    for issues that the debugger lacks.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，当程序崩溃时，你可以在目标上启动调试会话，并分析当输入被传递给程序时发生了什么。Ghidra 在这种情况下可以成为你最喜欢的调试器的有用伴侣，因为你可以重命名变量并显示反编译的代码，基本上提供了调试器所缺少的支持。
+- en: Fuzzing is very easy to understand but is a very complex topic because it is
+    difficult to develop an efficient fuzzer. When developing a fuzzer, you have to
+    choose whether it is better to generate program inputs from scratch or take an
+    existing input (for example, a PDF file) and mutate it. If you decide to generate
+    inputs, you will need to generate inputs that are likely to crash the program.
+    On the other hand, if you mutate an existing input, you will need to guess what
+    portions are likely to crash the program when being mutated. There is not currently
+    a strong mathematical basis to make this decision, so it is hard and very empirical-based.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 模糊测试很容易理解，但却是一个非常复杂的话题，因为开发一个高效的模糊器非常困难。在开发模糊器时，你必须选择是从头开始生成程序输入，还是采用现有输入（例如，PDF
+    文件）并进行变异。如果你决定生成输入，你需要生成可能会导致程序崩溃的输入。另一方面，如果你变异现有输入，你需要猜测哪些部分在变异时可能会导致程序崩溃。目前没有强大的数学基础来做出这个决策，因此它很难并且非常依赖经验。
+- en: Exploiting a simple stack-based buffer overflow
+  id: totrans-160
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 利用简单的基于栈的缓冲区溢出
+- en: In this section, we will cover exploiting. It consists of writing a program
+    or a script that takes advantage of a vulnerability.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将介绍利用技术。它包括编写一个程序或脚本，利用漏洞。
+- en: 'In this case, we will exploit our stack overflow sample application to execute
+    arbitrary code on the system. The following code is what we want to exploit:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们将利用我们的栈溢出示例应用程序在系统上执行任意代码。以下代码是我们想要利用的：
+- en: '[PRE34]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: '[PRE35]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '[PRE37]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: '[PRE38]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: '[PRE39]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: '[PRE40]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'Using the `–m32` flag of the MinGW64 compiler, we compile the code for the
+    x86 architecture:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 MinGW64 编译器的 `–m32` 标志，我们为 x86 架构编译代码：
+- en: '[PRE41]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '[PRE42]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: 'Now, we can check that it works correctly when the first argument is short:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以检查当第一个参数较短时它是否能正常工作：
+- en: '[PRE43]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: '[PRE44]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'Now, we can check that it works correctly when the first argument is short
+    but crashes when the argument is long because the stack overflow vulnerability
+    is triggered:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以检查当第一个参数较短时它是否能正常工作，但当参数较长时由于触发栈溢出漏洞而崩溃：
+- en: '![Figure 8.15 – Triggering the overflow to cause Denial of Service (DoS)'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.15 – 触发溢出以导致拒绝服务（DoS）](img/B16207_08_015.jpg)'
+- en: '](img/B16207_08_015.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_015.jpg)'
+- en: Figure 8.15 – Triggering the overflow to cause Denial of Service (DoS)
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.15 – 触发溢出以导致拒绝服务（DoS）
+- en: 'To exploit a stack overflow vulnerability, you will need to do two things:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要利用栈溢出漏洞，你需要做两件事：
+- en: Take control of the program flow in order to redirect it to your malicious code
+    (also known as the payload or shellcode).
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取程序流程的控制权，将其重定向到你的恶意代码（也称为载荷或 shellcode）。
+- en: Inject the malicious code you wanted to execute (or reuse existing code).
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注入你想要执行的恶意代码（或重用现有代码）。
+- en: 'We know from the decompiled code of the binary that the buffer is 212 bytes
+    in size, so we can write 212 characters without triggering the stack-based overflow:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们从二进制文件的反编译代码中得知缓冲区的大小是 212 字节，因此我们可以写入 212 个字符而不会触发基于栈的溢出：
+- en: '[PRE45]'
+  id: totrans-184
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: 'Since `strcpy` uses the `cdecl` calling convention, `EBP` will be removed from
+    the stack by the function, so 4 bytes will be removed from the stack:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 `strcpy` 使用 `cdecl` 调用约定，`EBP` 将被函数从栈中移除，因此会从栈中移除 4 字节：
+- en: '![Figure 8.16 – Ghidra identifying the cdecl calling convention for strcpy'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.16 – Ghidra 识别 strcpy 的 cdecl 调用约定](img/B16207_08_016.jpg)'
+- en: '](img/B16207_08_016.jpg)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_016.jpg)'
+- en: Figure 8.16 – Ghidra identifying the cdecl calling convention for strcpy
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.16 – Ghidra 识别 strcpy 的 cdecl 调用约定
+- en: 'We can adapt the payload by subtracting 4 bytes corresponding to `EBP` from
+    our padding of A''s and adding 4 bytes of B''s to overwrite the return address:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以通过从填充 A 的数据中减去对应 `EBP` 的 4 字节，并添加 4 字节的 B 数据来适配载荷，从而覆盖返回地址：
+- en: '[PRE46]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: '[PRE47]'
+  id: totrans-191
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'If we continue overwriting, due to the `CALL` instruction executed by the caller,
+    which places the address of the next instruction to execute onto the stack, we
+    will be able to control the program flow, accomplishing our first goal. So, we
+    will be able to overwrite the `EIP` register with an arbitrary value:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们继续覆盖，由于调用方执行的 `CALL` 指令将下一条指令的地址放到栈上，我们将能够控制程序流程，从而实现我们的第一个目标。所以，我们将能够用任意值覆盖
+    `EIP` 寄存器：
+- en: '[PRE48]'
+  id: totrans-193
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'The complete **Probe of Concept** (**PoC**) Python code looks as follows:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完整的 **概念验证** (**PoC**) Python 代码如下所示：
+- en: '[PRE49]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: '[PRE50]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: '[PRE51]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: '[PRE52]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: '[PRE53]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'We can see that it works correctly because the `EPB` register was overwritten
+    by `0x42424242`, which is the ASCII representation of `BBBB`, and the `EIP` register
+    was also overwritten by `0x43434343`, which is the ASCII representation of `CCCC`:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到它工作正常，因为 `EPB` 寄存器被 `0x42424242`（即 `BBBB` 的 ASCII 表示）覆盖，而 `EIP` 寄存器也被
+    `0x43434343`（即 `CCCC` 的 ASCII 表示）覆盖：
+- en: '![Figure 8.17 – Investigating the buffer overflow crash with a debugger'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.17 – 使用调试器调查缓冲区溢出崩溃'
+- en: '](img/B16207_08_017.jpg)'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_017.jpg)'
+- en: Figure 8.17 – Investigating the buffer overflow crash with a debugger
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.17 – 使用调试器调查缓冲区溢出崩溃
+- en: 'Now, as the payload, I will use the following shellcode, which spawns a calculator:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，作为有效负载，我将使用以下 shellcode，它启动一个计算器：
+- en: '[PRE54]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: '[PRE55]'
+  id: totrans-206
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: '[PRE56]'
+  id: totrans-207
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: '[PRE57]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: '[PRE58]'
+  id: totrans-209
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: '[PRE59]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: '[PRE60]'
+  id: totrans-211
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: 'Please, never execute shellcode without knowing what it does. It could be malware.
+    Instead, dump the shellcode to a file using the following:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请务必不要在不了解 shellcode 功能的情况下执行它。它可能是恶意软件。相反，使用以下方法将 shellcode 转储到文件中：
+- en: '[PRE61]'
+  id: totrans-213
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: '[PRE62]'
+  id: totrans-214
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: 'Import the resulting `shellcode.bin` fille to Ghidra, choosing an adequate
+    language. In this case, the adequate assembly language is **x86:LE:32:System Management
+    Mode: default**:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '将生成的 `shellcode.bin` 文件导入 Ghidra，选择合适的语言。在本例中，适合的汇编语言是 **x86:LE:32:System Management
+    Mode: default**：'
+- en: '![Figure 8.18 – Importing the shellcode to Ghidra'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.18 – 将 shellcode 导入 Ghidra'
+- en: '](img/B16207_08_018.jpg)'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_018.jpg)'
+- en: Figure 8.18 – Importing the shellcode to Ghidra
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.18 – 将 shellcode 导入 Ghidra
+- en: 'Press the *D* key while focusing on the first byte of the shellcode:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按下 *D* 键，同时聚焦在 shellcode 的第一个字节上：
+- en: '![Figure 8.19 – Converting shellcode bytes to code'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.19 – 将 shellcode 字节转换为代码'
+- en: '](img/B16207_08_019.jpg)'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_019.jpg)'
+- en: Figure 8.19 – Converting shellcode bytes to code
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.19 – 将 shellcode 字节转换为代码
+- en: 'And try to understand what the shellcode is doing. In this case, it spawns
+    a calculator:'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并尝试理解 shellcode 的作用。在这个例子中，它启动了一个计算器：
+- en: '![Figure 8.20 – Analyzing the shellcode'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.20 – 分析 shellcode'
+- en: '](img/B16207_08_020.jpg)'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_020.jpg)'
+- en: Figure 8.20 – Analyzing the shellcode
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.20 – 分析 shellcode
+- en: 'The chosen strategy to execute the shellcode, in this case, will be the following:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行 shellcode 的策略，在本例中，将如下所示：
+- en: Put the shellcode at the beginning, letting it be at the top of the stack, which
+    is pointed to by the `ESP` register. We know the value of `ESP` because we see
+    it in the debugger, `0x0028FA08` (we have to put the value in reverse order due
+    to the endianness and also can omit the byte zero).
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将 shellcode 放在开头，使其位于栈顶，由 `ESP` 寄存器指向。我们知道 `ESP` 的值，因为我们在调试器中看到了它，值为 `0x0028FA08`（由于字节序问题，我们需要将值反转顺序，并且可以省略字节零）。
+- en: Next, add the padding in order to trigger the stack overflow, and after, let's
+    place the value of `ESP` because `EIP` will be overwritten with this value, triggering
+    the execution of our shellcode.
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，添加填充以触发栈溢出，然后放置 `ESP` 的值，因为 `EIP` 将被此值覆盖，从而触发我们的 shellcode 执行。
+- en: 'The following code implements the aforementioned strategy:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码实现了上述策略：
+- en: '[PRE63]'
+  id: totrans-231
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: '[PRE64]'
+  id: totrans-232
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: '[PRE65]'
+  id: totrans-233
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: '[PRE66]'
+  id: totrans-234
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: '[PRE67]'
+  id: totrans-235
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: '[PRE68]'
+  id: totrans-236
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: '[PRE69]'
+  id: totrans-237
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: '[PRE70]'
+  id: totrans-238
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: '[PRE71]'
+  id: totrans-239
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: '[PRE72]'
+  id: totrans-240
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: '[PRE73]'
+  id: totrans-241
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: '[PRE74]'
+  id: totrans-242
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: '[PRE75]'
+  id: totrans-243
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE75]'
+- en: '[PRE76]'
+  id: totrans-244
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE76]'
+- en: 'Finally, let''s execute the exploit and see what happens:'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，让我们执行漏洞攻击，看看会发生什么：
+- en: '![Figure 8.21 – Executing the exploit'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 8.21 – 执行漏洞攻击'
+- en: '](img/B16207_08_021.jpg)'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_08_021.jpg)'
+- en: Figure 8.21 – Executing the exploit
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.21 – 执行漏洞攻击
+- en: It works as expected. The calculator was successfully spawned.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它按预期工作。计算器已成功启动。
+- en: Summary
+  id: totrans-250
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned how to use Ghidra to manually analyze program binaries
+    to find bugs. We started by talking about memory corruption vulnerabilities. Next,
+    we talked about how to find them and how to exploit them.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何使用 Ghidra 手动分析程序二进制文件以发现漏洞。我们首先讨论了内存损坏漏洞。接着，我们讨论了如何发现它们以及如何利用它们。
+- en: You learned how to look for vulnerabilities in both source code and assembly
+    code. Finally, you learned how to develop a simple stack-based overflow exploit
+    and how to dump shellcode to disk in order to analyze it.
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你已经学会了如何在源代码和汇编代码中寻找漏洞。最后，你还学会了如何开发一个简单的基于栈的溢出漏洞利用，并且如何将 shellcode 转储到磁盘以便进行分析。
+- en: The knowledge acquired in this chapter will allow you to look for software vulnerabilities
+    even if the source code is not available. After identifying a vulnerability, you
+    will be able to exploit it. On the other hand, when using exploits developed by
+    a third party, you will be able to understand them and decide whether it is safe
+    to execute the exploit or not by analyzing the shellcode.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章所学的知识将帮助你在没有源代码的情况下寻找软件漏洞。在识别漏洞后，你将能够利用它。另一方面，当使用第三方开发的漏洞利用工具时，你将能够理解它们，并通过分析
+    shellcode 判断执行漏洞利用是否安全。
+- en: In the next chapter of this book, we will cover scripting a binary audit using
+    Ghidra. You will learn the power of PCode intermediate representation, a very
+    important feature of Ghidra that makes the tool different from its competitors.
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的下一章中，我们将介绍如何使用 Ghidra 脚本化二进制审计。你将学习到 PCode 中间表示的强大功能，这是 Ghidra 的一项非常重要的特性，它使得该工具与竞争对手有所不同。
+- en: Questions
+  id: totrans-255
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Is memory corruption a unique type of software vulnerability? State some types
+    of memory corruption vulnerability not covered here and explain them.
+  id: totrans-256
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 内存损坏是软件漏洞的独特类型吗？列举一些此处未涉及的内存损坏漏洞类型并进行解释。
+- en: Why is `strcpy` considered an unsafe function?
+  id: totrans-257
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为什么 `strcpy` 被认为是一个不安全的函数？
+- en: State three binary protection methods that prevent memory corruption exploitation.
+    Is it impossible to exploit software when it's protected with these mechanisms?
+  id: totrans-258
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 列出三种防止内存损坏利用的二进制保护方法。使用这些机制保护的软件是否无法被利用？
+- en: Further reading
+  id: totrans-259
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'You can refer to *Penetration Testing with Shellcode*, *Hamza Megahed*, *February
+    2018* for more information on topics covered in this chapter: [https://www.packtpub.com/eu/networking-and-servers/penetration-testing-shellcode](https://www.packtpub.com/eu/networking-and-servers/penetration-testing-shellcode)'
+  id: totrans-260
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你可以参考 *Penetration Testing with Shellcode*，*Hamza Megahed*，*2018年2月* 来获取更多关于本章涉及的主题的信息：[https://www.packtpub.com/eu/networking-and-servers/penetration-testing-shellcode](https://www.packtpub.com/eu/networking-and-servers/penetration-testing-shellcode)
+- en: '**Common Weakness Enumeration** (**CWE**). CWE-14: Compiler Removal of Code
+    to Clear Buffers. [https://cwe.mitre.org/data/definitions/14.html](https://cwe.mitre.org/data/definitions/14.html)'
+  id: totrans-261
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**常见弱点枚举**（**CWE**）。CWE-14：编译器移除代码以清除缓冲区。[https://cwe.mitre.org/data/definitions/14.html](https://cwe.mitre.org/data/definitions/14.html)'

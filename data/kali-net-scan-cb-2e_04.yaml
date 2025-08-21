@@ -1,0 +1,2786 @@
+- en: Port Scanning
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 端口扫描
+- en: 'This chapter includes the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章包括以下内容：
+- en: Port scanning with Scapy
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 进行端口扫描
+- en: Port scanning with Nmap
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Nmap 进行端口扫描
+- en: Port scanning with Metasploit
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 进行端口扫描
+- en: Port scanning with hping3
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 hping3 进行端口扫描
+- en: Port scanning with DMitry
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 DMitry 进行端口扫描
+- en: Port scanning with Netcat
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Netcat 进行端口扫描
+- en: Port scanning with masscan
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 masscan 进行端口扫描
+- en: Introduction
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: Identifying open ports on a target system is the next step to defining the attack
+    surface of a target. Open ports correspond to the networked services that are
+    running on a system. Programming errors or implementation flaws can make these
+    services vulnerable to attack and can sometimes lead to total system compromise.
+    To determine the possible attack vectors, one must first enumerate the open ports
+    on all of the remote systems within the project's scope. These open ports correspond
+    to services that may be addressed with either UDP or TCP traffic. Both TCP and
+    UDP are transport protocols. **Transmission Control Protocol** (**TCP**) is the
+    more commonly used of the two and provides connection-oriented communication.
+    **User Datagram Protocol** (**UDP**) is a non connection-oriented protocol that
+    is sometimes used with services for which speed of transmission is more important
+    than data integrity. The penetration testing technique used to enumerate these
+    services is called **port scanning**. Unlike host discovery, which was discussed
+    in the previous chapter, these techniques should yield enough information to identify
+    whether a service is associated with a given port on the device or server. Prior
+    to addressing the specific recipes listed, we will discuss some of the underlying
+    principles that should be understood about port scanning.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定目标系统上开放的端口是定义攻击面下一个关键步骤。开放的端口对应着系统上正在运行的网络服务。编程错误或实现缺陷可能使这些服务容易受到攻击，有时甚至导致系统完全被攻破。为了确定可能的攻击向量，必须首先枚举项目范围内所有远程系统上的开放端口。这些开放端口对应的服务可能使用
+    UDP 或 TCP 流量进行通讯。TCP 和 UDP 都是传输协议。**传输控制协议**（**TCP**）是两者中更常用的，提供面向连接的通信方式。**用户数据报协议**（**UDP**）则是无连接的协议，有时用于那些传输速度比数据完整性更重要的服务。用于枚举这些服务的渗透测试技术叫做**端口扫描**。与前一章节讨论的主机发现不同，这些技术应当能够提供足够的信息，来识别服务是否与设备或服务器上的某个特定端口相关联。在具体介绍以下列出的方法之前，我们将讨论一些关于端口扫描的基本原理。
+- en: UDP port scanning
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: UDP 端口扫描
+- en: Because TCP is a more commonly used transport-layer protocol, services that
+    operate over UDP are frequently forgotten. Despite the natural tendency to overlook
+    UDP services, it is absolutely critical that these services be enumerated to acquire
+    a complete understanding of the attack surface of any given target. UDP scanning
+    can often be challenging, tedious, and time consuming. The first three recipes
+    in this chapter will cover how to perform a UDP port scan with different tools
+    in Kali Linux. To understand how these tools work, it is important to understand
+    the two different approaches to UDP scanning that will be used. One technique,
+    which will be addressed in the first recipe, is to rely exclusively on ICMP port-unreachable
+    responses. This type of scanning relies on the assumption that any UDP ports that
+    are not associated with a live service will return an ICMP port-unreachable response,
+    and a lack of this response is interpreted as an indication of a live service.
+    While this approach can be effective in some circumstances, it can also return
+    inaccurate results in cases where the host is not generating port-unreachable
+    responses or the port-unreachable replies are rate limited or are filtered by
+    a firewall. An alternative approach, which is addressed in the second and third
+    recipes, is to use service-specific probes to attempt to solicit a response, which
+    would indicate that the expected service is running on the targeted port. While
+    this approach can be highly effective, it can also be very time consuming.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于TCP是一个更常用的传输层协议，基于UDP的服务往往被忽略。尽管有自然倾向忽视UDP服务，但要全面了解任何目标的攻击面，完全列举这些服务是至关重要的。UDP扫描通常具有挑战性、繁琐且耗时。本章中的前三个方案将介绍如何在Kali
+    Linux中使用不同的工具进行UDP端口扫描。为了理解这些工具的工作原理，理解将要使用的两种UDP扫描方法非常重要。第一种技术将在第一个方案中介绍，它完全依赖于ICMP端口不可达响应。这种扫描方法假设任何没有活动服务的UDP端口会返回ICMP端口不可达响应，缺乏此响应则被解释为活动服务的迹象。虽然这种方法在某些情况下有效，但当主机没有生成端口不可达响应，或者端口不可达的回复被速率限制或防火墙过滤时，可能会返回不准确的结果。第二种和第三种方案中介绍的替代方法是使用特定服务的探测工具，尝试获取响应，这表明目标端口上正在运行预期的服务。虽然这种方法非常有效，但也可能非常耗时。
+- en: TCP port scanning
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: TCP端口扫描
+- en: 'Throughout this chapter, several different approaches to TCP scanning will
+    be addressed. These techniques include stealth scanning, connect scanning, and
+    zombie scanning. To understand how these scanning techniques work, it is important
+    to understand how TCP connections are established and maintained. TCP is a connection-oriented
+    protocol, and data is only transported over TCP after a connection has been established
+    between two systems. The process associated with establishing a TCP connection
+    is often referred to as the three-way handshake. This name alludes to the three
+    steps involved in the connection process. The following diagram illustrates this
+    process in graphical form:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，将介绍几种不同的TCP扫描方法。这些技术包括隐匿扫描、连接扫描和僵尸扫描。要理解这些扫描技术的工作原理，首先需要了解TCP连接是如何建立和维持的。TCP是一个面向连接的协议，数据只有在两个系统之间建立连接后才会通过TCP进行传输。建立TCP连接的过程通常被称为三次握手，这个名称指的是连接过程中的三个步骤。以下图表以图形方式展示了这个过程：
+- en: '![](../images/00420.jpeg)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00420.jpeg)'
+- en: A TCP **SYN** packet is sent from the device that wishes to establish a connection
+    with a port of the device that it desires to connect with. If the service associated
+    with the receiving port accepts the connection, it will reply to the requesting
+    system with a TCP packet that has both the **SYN** and **ACK** bits activated.
+    The connection is established only when the requesting system responds with a
+    TCP **ACK** response. This three-step process establishes a TCP session between
+    the two systems. All of the TCP port scanning techniques will perform some variation
+    of this process to identify live services on remote hosts.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个TCP **SYN** 数据包从希望与目标设备的端口建立连接的设备发送出去。如果接收端口关联的服务接受该连接，它将回复一个同时激活**SYN**和**ACK**位的TCP数据包。只有当请求系统以TCP
+    **ACK**响应回传时，连接才算建立。这个三步过程在两台系统之间建立了一个TCP会话。所有TCP端口扫描技术都会以某种方式执行这一过程，以识别远程主机上的活动服务。
+- en: Both connect scanning and stealth scanning are fairly easy to understand. Connect
+    scanning is used to establish a full TCP connection for each port that is scanned.
+    This is to say that for each port that is scanned, the full three-way handshake
+    is completed. If a connection is successfully established, the port is then determined
+    to be open. On the other hand, stealth scanning does not establish a full connection.
+    Stealth scanning is also referred to as SYN scanning or half-open scanning. For
+    each port that is scanned, a single SYN packet is sent to the destination port,
+    and all ports that reply with a SYN+ACK packet are assumed to be running live
+    services. Since no final ACK is sent from the initiating system, the connection
+    is left half open. This is referred to as stealth scanning because logging solutions
+    that only record established connections will not record any evidence of the scan.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接扫描和隐身扫描都相对容易理解。连接扫描用于为每个扫描的端口建立完整的TCP连接。也就是说，对于每个扫描的端口，都会完成完整的三次握手。如果连接成功建立，则该端口被判定为开放。另一方面，隐身扫描则不建立完整的连接。隐身扫描也称为SYN扫描或半开放扫描。对于每个扫描的端口，发送一个SYN包到目标端口，所有回复SYN+ACK包的端口被认为正在运行服务。由于没有从发起系统发送最终的ACK包，连接保持半开放状态。这被称为隐身扫描，因为只记录已建立连接的日志系统不会记录任何扫描的证据。
+- en: 'The final method of TCP scanning that will be discussed in this chapter is
+    a technique called **zombie scanning**. The purpose of zombie scanning is to map
+    open ports on a remote system without producing any evidence that you have interacted
+    with that system. The principles behind how zombie scanning works are somewhat
+    complex. Carry out the process of zombie scanning with the following steps:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将讨论的最后一种TCP扫描方法是名为**僵尸扫描**的技术。僵尸扫描的目的是在不留下任何与该系统交互的证据的情况下，映射远程系统的开放端口。僵尸扫描的工作原理较为复杂。进行僵尸扫描的步骤如下：
+- en: 'Identify a remote system for your zombie. This system should have the following
+    characteristics:'
+  id: totrans-19
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为你的僵尸主机确定一个远程系统。这个系统应具有以下特点：
+- en: It is idle and does not communicate actively with other systems on the network
+  id: totrans-20
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它处于空闲状态，不主动与网络中的其他系统进行通信。
+- en: It uses an incremental IPID sequence
+  id: totrans-21
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它使用递增的IPID序列。
+- en: Send a SYN+ACK packet to this zombie host and record the initial IPID value.
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 向该僵尸主机发送一个SYN+ACK包，并记录初始的IPID值。
+- en: Send a SYN packet with a spoofed source IP address of the zombie system to the
+    scan target system.
+  id: totrans-23
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 发送一个伪造源IP地址为僵尸系统的SYN包到扫描目标系统。
+- en: 'Depending on the status of the port on the scan target, one of the following
+    two things will happen:'
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 根据扫描目标端口的状态，以下两种情况之一将发生：
+- en: If the port is open, the scan target will return a SYN+ACK packet to the zombie
+    host, which it believes sent the original SYN request. In this case, the zombie
+    host will respond to this unsolicited SYN+ACK packet with an RST packet and thereby
+    increment its IPID value by one.
+  id: totrans-25
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果端口开放，扫描目标将返回一个SYN+ACK包给僵尸主机，它认为是该主机发送了原始的SYN请求。在这种情况下，僵尸主机将对这个未经请求的SYN+ACK包响应一个RST包，从而将其IPID值增加一。
+- en: If the port is closed, the scan target will return an RST response to the zombie
+    host, which it believes sent the original SYN request. This RST packet will solicit
+    no response from the zombie, and the IPID will not be incremented.
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果端口关闭，扫描目标将返回一个RST响应给僵尸主机，它认为是该主机发送了原始的SYN请求。此RST包不会引发僵尸主机的响应，IPID不会递增。
+- en: Send another SYN+ACK packet to the zombie host, and evaluate the final IPID
+    value of the returned RST response. If this value has incremented by one, then
+    the port on the scan target is closed, and if the value has incremented by two,
+    then the port on the scan target is open.
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次向僵尸主机发送一个SYN+ACK包，并评估返回的RST响应的最终IPID值。如果该值递增了1，则扫描目标的端口是关闭的；如果该值递增了2，则扫描目标的端口是开放的。
+- en: 'The following diagram shows the interactions that take place when a zombie
+    host is used to scan an open port:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图展示了使用僵尸主机扫描开放端口时的交互过程：
+- en: '![](../images/00345.jpeg)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00345.jpeg)'
+- en: To perform a zombie scan, an initial **SYN/ACK** request should be sent to the
+    zombie system to determine the current **IPID** value in the returned **RST**
+    packet. Then, a spoofed **SYN** packet is sent to the scan target with a source
+    IP address of the zombie system. If the port is open, the scan target will send
+    a **SYN/ACK** response back to the zombie. Since the zombie did not actually send
+    the initial **SYN** request, it will interpret the **SYN/ACK** response as unsolicited
+    and send an **RST** packet back to the target, thereby incrementing its **IPID**
+    by one. Finally, another **SYN/ACK** packet should be sent to the zombie, which
+    will return an **RST** packet and increment the **IPID** one more time. An **IPID**
+    that has incremented by two from the initial response is indicative of the fact
+    that all of these events have transpired and that the destination port on the
+    scanned system is open. Alternatively, if the port on the scan target is closed,
+    a different series of events will transpire, which will only cause the final **RST**
+    response **IPID** value to increment by one.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要执行僵尸扫描，首先应向僵尸系统发送一个初始的 **SYN/ACK** 请求，以确定返回的 **RST** 数据包中的当前 **IPID** 值。然后，向扫描目标发送伪造的
+    **SYN** 数据包，源 IP 地址为僵尸系统的 IP。如果端口开放，扫描目标将向僵尸系统发送 **SYN/ACK** 响应。由于僵尸系统并没有实际发送初始的
+    **SYN** 请求，它会将 **SYN/ACK** 响应视为未经请求的响应，并将 **RST** 数据包返回给目标，从而将其 **IPID** 增加 1。最后，应向僵尸系统发送另一个
+    **SYN/ACK** 数据包，僵尸系统会返回一个 **RST** 数据包，并再次增加 **IPID**。从初始响应中增加了两个 **IPID** 表明所有这些事件已经发生，扫描系统上的目标端口是开放的。相反，如果扫描目标的端口关闭，则会发生一系列不同的事件，最终
+    **RST** 响应的 **IPID** 值仅增加 1。
+- en: 'The following diagram is an illustration of the sequence of events associated
+    with the zombie scan of a closed port:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图示展示了与关闭端口的僵尸扫描相关的事件顺序：
+- en: '![](../images/00426.jpeg)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00426.jpeg)'
+- en: If the destination port on the scan target is closed, an **RST** packet will
+    be sent to the zombie system in response to the initially spoofed **SYN** packet.
+    Since the **RST** packet solicits no response, the **IPID** value of the zombie
+    system will not be incremented. As a result, the final **RST** packet returned
+    to the scanning system in response to the **SYN/ACK** packet will have the **IPID**
+    incremented by only one. This process can be performed for each port that is to
+    be scanned, and it can be used to map open ports on a remote system without leaving
+    any evidence that a scan was performed by the scanning system.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果扫描目标的目标端口关闭，**RST** 数据包将作为响应发送到僵尸系统，回应最初伪造的 **SYN** 数据包。由于 **RST** 数据包不会请求响应，僵尸系统的
+    **IPID** 值将不会增加。因此，最终返回扫描系统的 **RST** 数据包在响应 **SYN/ACK** 数据包时，**IPID** 仅增加 1。此过程可以对每个要扫描的端口进行操作，并可用于在远程系统上映射开放端口，而不会留下扫描系统执行扫描的任何证据。
+- en: Port scanning with Scapy (UDP, stealth, connect, and zombie)
+  id: totrans-34
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 进行端口扫描（UDP、隐形扫描、连接扫描和僵尸扫描）
+- en: Scapy is a tool that can be used to craft and inject custom packets into a network.
+    We will begin by using Scapy to scan for active UDP services. This can be done
+    by sending an empty UDP packet to destination ports and then identifying the ports
+    that do not respond with an ICMP port-unreachable response.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Scapy 是一个可以用来构造并注入自定义数据包到网络中的工具。我们将首先使用 Scapy 扫描活动的 UDP 服务。可以通过向目标端口发送空的 UDP
+    数据包，然后识别那些没有以 ICMP 端口不可达响应回传的端口来完成这项任务。
+- en: Next, we will use Scapy to perform a TCP stealth scan. A TCP port stealth scan
+    performs a partial, three-way TCP handshake on target ports to identify whether
+    the ports are accepting connections or not. This type of scan is referred to as
+    a stealth scan, SYN scan, or half-open scan.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将使用 Scapy 执行 TCP 隐形扫描。TCP 端口隐形扫描通过在目标端口上执行部分三次握手来确定端口是否接受连接。这种类型的扫描被称为隐形扫描、SYN
+    扫描或半开扫描。
+- en: Next, we will use Scapy to perform a TCP connect scan. Generally, TCP connect
+    scanning is an easier process than SYN scanning. This is because TCP connect scanning
+    does not require the elevated privileges that are needed to generate and inject
+    the raw packets used in SYN scanning. Scapy is the one major exception to this.
+    It is actually very difficult and impractical to perform a full, three-way TCP
+    handshake with Scapy. However, for the sake of understanding the process better,
+    we will see how to use Scapy to perform a connect scan.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将使用 Scapy 执行 TCP 连接扫描。通常，TCP 连接扫描比 SYN 扫描要简单一些。这是因为 TCP 连接扫描不需要生成和注入 SYN
+    扫描中使用的原始数据包所需的高级权限。Scapy 是这一规则的一个重要例外。实际上，使用 Scapy 完成一个完整的三次握手 TCP 连接非常困难且不切实际。然而，为了更好地理解这个过程，我们将看看如何使用
+    Scapy 执行连接扫描。
+- en: Finally, we will use Scapy to perform zombie scans. It is possible to identify
+    the open ports on a target system without ever giving that system any indication
+    that you interacted with it. This extremely stealthy form of scanning is referred
+    to as zombie scanning and can only be performed if another system exists on the
+    network that has low network activity and incremental IPID sequencing.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们将使用 Scapy 执行僵尸扫描。通过这种扫描方法，可以识别目标系统上开放的端口，而不向该系统发出任何互动的信号。这种极其隐匿的扫描方式被称为僵尸扫描，只有在网络中存在另一个低网络活动且具有递增
+    IPID 序列的系统时，才能进行这种扫描。
+- en: Getting ready
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Scapy to perform UDP scanning, you will need to have a remote system
+    that is running network services over UDP. In the examples provided, an instance
+    of Metasploitable2 is used to perform this task. To use Scapy to perform stealth
+    and connect TCP scans, you will need to have a remote system that is running accessible
+    network services over TCP. In the examples provided, an instance of Metasploitable2
+    is used to perform this task. To use Scapy to perform a zombie scan, you will
+    need to have a remote system that is running TCP services and another remote system
+    that has incremental IPID sequencing. In the examples provided, an installation
+    of Metasploitable2 is used as a scan target, and an installation of Windows XP
+    is used as an incremental IPID zombie.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 Scapy 执行 UDP 扫描，你需要有一个远程系统，该系统通过 UDP 运行网络服务。在提供的示例中，使用的是 Metasploitable2
+    实例来执行此任务。要使用 Scapy 执行隐匿式和连接式 TCP 扫描，你需要有一个远程系统，该系统通过 TCP 运行可访问的网络服务。在提供的示例中，使用的是
+    Metasploitable2 实例来执行此任务。要使用 Scapy 执行僵尸扫描，你需要有一个运行 TCP 服务的远程系统和另一个具有递增 IPID 序列的远程系统。在提供的示例中，使用
+    Metasploitable2 安装作为扫描目标，Windows XP 安装作为递增 IPID 僵尸。
+- en: For more information on how to set up Metasploitable2, refer to [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*. Additionally, this section will require a script to be written
+    to the filesystem using a text editor such as Vim or GNU nano. For more information
+    on how to write scripts, refer to the *Using text editors (Vim and GNU nano)*
+    recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting
+    Started*.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关如何设置 Metasploitable2 的更多信息，请参见[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门*。此外，本节还需要使用
+    Vim 或 GNU nano 等文本编辑器编写脚本到文件系统中。有关如何编写脚本的更多信息，请参见[第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门*中的*使用文本编辑器（Vim
+    和 GNU nano）*。
+- en: How to do it…
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何执行…
+- en: Let's start with UDP port scanning with Scapy.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们从使用 Scapy 进行 UDP 端口扫描开始。
+- en: UDP port scanning with Scapy
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 进行 UDP 端口扫描
+- en: 'Using Scapy, we can quickly develop an understanding of the underlying principles
+    of UDP scanning. To positively confirm the existence of a UDP service on any given
+    port, we will need to solicit a reply from that service. This can prove to be
+    very difficult, as many UDP services will only reply to service-specific requests.
+    Knowledge of any particular service can make it easier to positively identify
+    that service; however, there are general techniques that can be used to determine,
+    with a reasonable amount of accuracy, whether a service is running on a given
+    UDP port. The technique that we will use with Scapy is to identify closed UDP
+    ports with ICMP port-unreachable replies:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Scapy，我们可以快速理解 UDP 扫描的基本原理。为了准确确认某个端口上是否存在 UDP 服务，我们需要从该服务获取回应。这可能非常困难，因为许多
+    UDP 服务只会对特定的服务请求做出回应。了解特定服务的信息可以让我们更容易准确识别该服务；然而，也有一些通用技术可以用来确定某个 UDP 端口上是否运行服务，并且这些方法具有一定的准确性。我们将使用的技术是通过
+    ICMP 端口不可达回复来识别关闭的 UDP 端口：
+- en: 'To send a UDP request to any given port, we first need to build layers of that
+    request. The first layer that we will need to construct is the IP layer:'
+  id: totrans-46
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要向任何给定端口发送 UDP 请求，我们首先需要构建该请求的各个层。我们需要构建的第一层是 IP 层：
+- en: '![](../images/00430.jpeg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00430.jpeg)'
+- en: 'To build the IP layer of our request, we need to assign the `IP` object to
+    the `i` variable. By calling the `display()` function, we can identify the attribute
+    configurations of the object. By default, both the sending and receiving addresses
+    are set to the loopback address, `127.0.0.1`. These values can be modified by
+    changing the destination address, by setting `i.dst` to be equal to the string
+    value of the address we wish to scan. On calling the `display()` function again,
+    we see that not only has the destination address been updated, but Scapy also
+    automatically updates the source IP address to the address associated with the
+    default interface. Now that we have constructed the IP layer of the request, we
+    can proceed to the UDP layer:'
+  id: totrans-48
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建我们请求的 IP 层，我们需要将 `IP` 对象赋值给 `i` 变量。通过调用 `display()` 函数，我们可以识别对象的属性配置。默认情况下，发送和接收地址都设置为回环地址
+    `127.0.0.1`。这些值可以通过更改目标地址来修改，将 `i.dst` 设置为我们希望扫描的地址的字符串值。再次调用 `display()` 函数时，我们看到不仅目标地址已更新，而且
+    Scapy 还自动将源 IP 地址更新为与默认接口相关联的地址。现在我们已经构建了请求的 IP 层，可以继续构建 UDP 层：
+- en: '![](../images/00399.jpeg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00399.jpeg)'
+- en: 'To build the UDP layer of our request, we use the same technique we used for
+    the IP layer. In the example provided, the UDP object was assigned to the `u`
+    variable. As mentioned previously, the default configurations can be identified
+    by calling the `display()` function. Here, we can see that the default value for
+    both the source and destination ports are listed as `domain`. As you might likely
+    suspect, this is to indicate the DNS service associated with port the `53`. DNS
+    is a common service that can often be discovered on networked systems. To confirm
+    this, one can call the value directly by referencing the variable name and attribute.
+    This can then be modified by setting the attribute equal to the new port destination
+    value, as follows:'
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建我们请求的 UDP 层，我们使用与构建 IP 层时相同的技术。在提供的示例中，UDP 对象被赋值给了 `u` 变量。如前所述，可以通过调用 `display()`
+    函数来查看默认配置。在这里，我们可以看到源端口和目标端口的默认值都列为 `domain`。正如你可能猜到的那样，这是为了指示与端口 `53` 相关联的 DNS
+    服务。DNS 是一种常见的服务，通常可以在网络化系统上发现。为了确认这一点，可以通过直接引用变量名和属性来调用其值。然后，可以通过将属性设置为新的端口目标值来修改它，如下所示：
+- en: '![](../images/00419.jpeg)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00419.jpeg)'
+- en: 'In the preceding example, the destination port is set to `123`, which is the
+    **Network Time Protocol** (**NTP**) port. Now that we have created both the IP
+    and UDP layers, we need to construct the request by stacking these layers:'
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，目标端口被设置为 `123`，这是 **网络时间协议**（**NTP**）端口。现在我们已经创建了 IP 和 UDP 层，接下来我们需要通过堆叠这些层来构建请求：
+- en: '![](../images/00438.jpeg)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00438.jpeg)'
+- en: 'We can stack the IP and UDP layers by separating the variables with a forward
+    slash. These layers can then be set equal to a new variable that will represent
+    the entire request. We can then call the `display()` function to view the configurations
+    for the request. Once the request has been built, it can be passed to the `sr1()`
+    function so that we can analyze the response:'
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过用斜杠分隔变量来堆叠 IP 和 UDP 层。然后可以将这些层设置为一个新的变量，代表整个请求。接着，我们可以调用 `display()` 函数来查看请求的配置。一旦请求构建完成，它可以传递给
+    `sr1()` 函数，以便我们分析响应：
+- en: '![](../images/00441.jpeg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00441.jpeg)'
+- en: 'This same request can be performed without independently building and stacking
+    each layer. Instead, we can use a single one-line command by calling the functions
+    directly and passing them the appropriate arguments, as follows:'
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 也可以在不独立构建和堆叠每一层的情况下执行相同的请求。相反，我们可以通过直接调用函数并传递适当的参数，使用单行命令来完成，如下所示：
+- en: '![](../images/00444.jpeg)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00444.jpeg)'
+- en: 'Note that the response for these requests includes an ICMP packet that has
+    the type field indicating that the host is unreachable and code field indicating
+    that the port is unreachable. This response is commonly returned if the UDP port
+    is closed. Now, we should attempt to modify the request so that it is sent to
+    a destination port that corresponds to an actual service on the remote system.
+    To do this, we change the destination port back to the port `53` and then send
+    the request again, as follows:'
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，这些请求的响应包含一个 ICMP 包，其中类型字段指示主机不可达，代码字段指示端口不可达。如果 UDP 端口关闭，通常会返回此响应。现在，我们应该尝试修改请求，将其发送到与远程系统实际服务对应的目标端口。为此，我们将目标端口改回端口
+    `53`，然后再次发送请求，如下所示：
+- en: '![](../images/00328.jpeg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00328.jpeg)'
+- en: 'When the same request is sent to an actual service, no reply is received. This
+    is because the DNS service running on the system''s UDP port `53` will only respond
+    to service-specific requests. Knowledge of this discrepancy can be used to scan
+    for ICMP host-unreachable replies, and we can then identify potential services
+    by flagging the non-responsive ports:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当相同的请求发送到实际服务时，不会收到任何回复。这是因为系统上运行的 DNS 服务在 UDP 端口 `53` 上只会响应服务特定的请求。了解这一差异后，可以用于扫描
+    ICMP 主机不可达的回复，然后通过标记未响应的端口来识别潜在的服务：
+- en: '[PRE0]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The provided Python script sends a UDP request to each of the first hundred
+    ports in sequence. In case no response is received, the port is identified as
+    being open. Make sure you modify the permissions of the file by running `chmod
+    777 udp_scan.py`. By running this script, we can identify all the ports that don''t
+    return an ICMP host-unreachable reply:'
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 提供的 Python 脚本按顺序向前一百个端口发送 UDP 请求。如果没有收到响应，则认为该端口是开放的。确保通过运行 `chmod 777 udp_scan.py`
+    修改文件的权限。运行此脚本后，我们可以识别所有没有返回 ICMP 主机不可达回复的端口：
+- en: '![](../images/00450.jpeg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00450.jpeg)'
+- en: A timeout of 5 seconds is used to adjust for latent responses that result from
+    ICMP host-unreachable rate limiting. Even with this rather large response acceptance
+    window, scanning in this fashion can still be unreliable at times. It is for this
+    reason that UDP probing scans are often a more effective alternative.
+  id: totrans-64
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 5 秒的超时来调整由于 ICMP 主机不可达限速所导致的延迟响应。即使在这个相对较大的响应接受窗口下，这种扫描方式有时仍然不可靠。因此，UDP 探测扫描通常是一个更有效的替代方案。
+- en: Stealth scanning with Scapy
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 进行隐形扫描
+- en: 'The following steps demonstrate scanning with Scapy:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下步骤演示了如何使用 Scapy 进行扫描：
+- en: To demonstrate how a SYN scan is performed, we craft a TCP SYN request using
+    Scapy and identify the responses associated with an open port, closed port, and
+    non-responsive system.
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了演示如何执行 SYN 扫描，我们使用 Scapy 构建一个 TCP SYN 请求，并识别与开放端口、关闭端口和未响应系统相关的响应。
+- en: 'To send a TCP SYN request to any given port, we first need to build the layers
+    of this request. The first layer that we need to construct is the IP layer:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要向任何给定端口发送 TCP SYN 请求，首先需要构建该请求的各层。我们需要构建的第一层是 IP 层：
+- en: '![](../images/00494.jpeg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00494.jpeg)'
+- en: To build the IP layer for our request, we need to assign the `IP` object to
+    the `i` variable. By calling the `display()` function, we identify the attribute
+    configurations for the object. By default, both the sending and receiving addresses
+    are set to the loopback address, `127.0.0.1`. These values can be modified by
+    changing the destination address, by setting `i.dst` equal to the string value
+    of the address that we wish to scan. By calling the `display()` function again,
+    we see that not only has the destination address been updated, but Scapy also
+    automatically updates the source IP address to the address associated with the
+    default interface.
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要为我们的请求构建 IP 层，我们需要将 `IP` 对象分配给 `i` 变量。通过调用 `display()` 函数，我们可以识别该对象的属性配置。默认情况下，发送和接收地址都设置为回送地址
+    `127.0.0.1`。可以通过修改目标地址来更改这些值，将 `i.dst` 设置为我们希望扫描的地址的字符串值。再次调用 `display()` 函数后，我们可以看到，不仅目标地址已经更新，Scapy
+    还会自动将源 IP 地址更新为与默认接口关联的地址。
+- en: 'Now that we have constructed the IP layer for the request, we can proceed to
+    the TCP layer:'
+  id: totrans-71
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经构建了请求的 IP 层，接下来可以进行 TCP 层的构建：
+- en: '![](../images/00457.jpeg)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00457.jpeg)'
+- en: To build the TCP layer for our request, we use the same technique that we used
+    for the IP layer. In the example provided, the `TCP` object was assigned to the
+    `t` variable. As mentioned previously, we can identify the default configurations
+    by calling the `display()` function. Here, we can see that the default value for
+    the destination port is the HTTP port `80`. For our initial scan, we leave the
+    default TCP configuration as is.
+  id: totrans-73
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了构建我们请求的 TCP 层，我们使用与构建 IP 层时相同的技术。在提供的示例中，`TCP` 对象被分配给 `t` 变量。如前所述，我们可以通过调用
+    `display()` 函数来识别默认配置。在这里，我们可以看到目标端口的默认值是 HTTP 端口 `80`。对于我们的初始扫描，我们保持默认的 TCP 配置不变。
+- en: 'Now that we have created both the IP and TCP layers, we need to construct the
+    request by stacking these layers as follows:'
+  id: totrans-74
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经创建了 IP 层和 TCP 层，我们需要通过堆叠这些层来构建请求，具体如下：
+- en: '![](../images/00624.jpeg)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00624.jpeg)'
+- en: 'We can stack the IP and TCP layers by separating the variables with a forward
+    slash. These layers can then be set equal to a new variable that will represent
+    the entire request. We can then call the `display()` function to view the configurations
+    for the request. Once the request has been built, it can then be passed to the
+    `sr1()` function so that we can analyze the response, as follows:'
+  id: totrans-76
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过用斜杠分隔变量来堆叠 IP 和 TCP 层。然后，可以将这些层赋值给一个新变量，这个变量将代表整个请求。接着，我们可以调用 `display()`
+    函数来查看请求的配置。一旦请求构建完成，它就可以传递给 `sr1()` 函数，以便我们分析响应，具体如下：
+- en: '![](../images/00016.jpeg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00016.jpeg)'
+- en: 'We can perform this same request without independently building and stacking
+    each layer. Instead, we can use a single, one-line command by calling the functions
+    directly and passing them the appropriate arguments, as follows:'
+  id: totrans-78
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以在不独立构建和堆叠每个层的情况下执行相同的请求。相反，我们可以通过直接调用函数并传递适当的参数，使用一个单行命令，具体如下：
+- en: '![](../images/00030.jpeg)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00030.jpeg)'
+- en: 'Note that when a SYN packet is sent to the TCP port `80` of a target web server,
+    which is running an HTTP service on that port, the response has a TCP flag value
+    of `SA`, which indicates that both the SYN and ACK flag bits are activated. This
+    response indicates that the specified destination port is open and accepting connections.
+    A different response will be returned if the same type of packet is sent to a
+    port that is not accepting connections:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，当 SYN 数据包发送到目标 Web 服务器的 TCP 端口 `80` 时，服务器在该端口运行 HTTP 服务，响应的 TCP 标志值为 `SA`，表示
+    SYN 和 ACK 标志位都被激活。该响应表示指定的目标端口已打开并接受连接。如果同样类型的数据包发送到一个不接受连接的端口，将返回不同的响应：
+- en: '![](../images/00356.jpeg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00356.jpeg)'
+- en: 'When a SYN request is sent to a closed port, a response is returned with a
+    TCP flag value of `RA`, which indicates that both the RST and ACK flag bits are
+    activated. The ACK bit is merely used to acknowledge that the request was received,
+    and the RST bit is used to discontinue the communication because the port is not
+    accepting connections. Alternatively, if a SYN packet is sent to a system that
+    is down or behind a firewall that is filtering such requests, it is likely that
+    no response will be received. Due to this, a timeout option should always be used
+    when the `sr1()` function is used in a script, to ensure that the script does
+    not get hung up on unresponsive hosts:'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当一个 SYN 请求发送到一个关闭的端口时，会返回一个 TCP 标志值为 `RA` 的响应，这表明 RST 和 ACK 标志位都被激活。ACK 标志位只是用来确认请求已被接收，而
+    RST 标志位则用来终止通信，因为端口不接受连接。或者，如果 SYN 数据包发送到一个处于关闭状态或处于防火墙后面的系统（该防火墙过滤此类请求），则很可能不会收到响应。因此，在脚本中使用
+    `sr1()` 函数时，应该始终使用超时选项，以确保脚本不会在无响应的主机上卡住：
+- en: '![](../images/00056.jpeg)'
+  id: totrans-83
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00056.jpeg)'
+- en: If the timeout value is not specified when this function is used against an
+    unresponsive host, the function will continue indefinitely. In the demonstration,
+    a timeout value of 1 second was provided for the completion of the function. The
+    response value can be evaluated to determine whether a reply was received. Let's
+    check that out.
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果在对无响应主机使用该函数时未指定超时值，函数将会无限期地继续。在演示中，为函数的完成提供了 1 秒的超时值。可以评估响应值，以确定是否收到了回复。我们来检查一下。
+- en: 'Using Python makes it easy to test the variable to identify whether a value
+    has been assigned to it by the `sr1()` function. This can be used as a preliminary
+    check to determine whether any responses are being received. For responses that
+    are received, subsequent checks can be performed to determine whether the response
+    is indicating a port that is open or closed. All of this can easily be sequenced
+    in a Python script, as follows:'
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用Python可以轻松测试变量，以识别是否已经通过`sr1()`函数为其分配了一个值。这可以作为一个初步检查，判断是否接收到了任何响应。对于已接收到的响应，可以执行后续检查，确定该响应是否表示一个开放或关闭的端口。所有这些都可以轻松地在Python脚本中按顺序实现，如下所示：
+- en: '[PRE1]'
+  id: totrans-86
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'In the provided Python script, the user is prompted to enter an IP address,
+    and the script then performs a SYN scan on the defined port sequence. The script
+    then evaluates the response from each connection attempt to determine whether
+    the response has the SYN and ACK TCP flags activated. The TCP flag for SYN+ACK
+    is 0x12, which translates to 18 in decimal. If these flags, and only these flags,
+    are present in the response, the corresponding port number received is then output:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的Python脚本中，用户被提示输入一个IP地址，然后脚本对定义的端口序列执行SYN扫描。接着，脚本评估每次连接尝试的响应，以确定响应中是否激活了SYN和ACK
+    TCP标志。SYN+ACK的TCP标志是0x12，即十进制的18。如果响应中仅包含这些标志，则会输出接收到的相应端口号：
+- en: '![](../images/00069.jpeg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00069.jpeg)'
+- en: 'Upon running the script, the output will indicate any of the first `100` ports
+    that are open on the system by providing the IP address:'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行脚本后，输出将指示系统中任何开放的前`100`个端口，并提供IP地址：
+- en: '![](../images/00082.jpeg)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00082.jpeg)'
+- en: Connect scanning with Scapy
+  id: totrans-91
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Scapy进行连接扫描
+- en: 'Let''s perform the following steps to run the connect scan with Scapy:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们执行以下步骤，通过Scapy运行连接扫描：
+- en: It can be difficult to run a full connect scan with Scapy because the system
+    kernel remains unaware of your packet meddling with Scapy and attempts to prevent
+    you from establishing a full three-way handshake with the remote system.
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用Scapy运行完整的连接扫描可能比较困难，因为系统内核对你使用Scapy修改数据包的行为并不知情，并且试图阻止你与远程系统建立完整的三次握手。
+- en: You can see this activity in action by sending a SYN request and sniffing the
+    associated traffic with Wireshark or TCP dump.
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你可以通过发送SYN请求并使用Wireshark或TCP dump嗅探相关流量来看到这种活动的实际操作。
+- en: 'When you receive a SYN+ACK response from the remote system, the Linux kernel
+    will interpret it as an unsolicited response because it remains unaware of your
+    request made in Scapy, and the system will automatically respond with a TCP RST
+    packet, thereby discontinuing the handshake process. Consider the following example:'
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当你从远程系统收到SYN+ACK响应时，Linux内核会将其解释为未经请求的响应，因为它无法得知你在Scapy中发出的请求，系统会自动响应一个TCP RST数据包，从而终止握手过程。考虑以下示例：
+- en: '[PRE2]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: This Python script can be used as a proof of concept to demonstrate the problem
+    of the system breaking the three-way handshake. The script assumes that you are
+    directing it toward a live system with an open port and therefore assumes that
+    a SYN+ACK reply will be returned in response to the initial SYN request. Even
+    though the final ACK reply is sent to complete the handshake, the RST packet prevents
+    the connection from being established.
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这个Python脚本可以作为一个概念验证示例，演示系统破坏三次握手的问题。该脚本假设你将其指向一个具有开放端口的实时系统，因此假定在响应初始SYN请求时会返回SYN+ACK回复。尽管最终的ACK回复会被发送以完成握手，但RST数据包会阻止连接的建立。
+- en: 'We can demonstrate this further by viewing the packets being sent and received:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过查看发送和接收的数据包进一步演示这一点：
+- en: '[PRE3]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'In this Python script, each sent packet is displayed prior to transmission,
+    and each received packet is displayed when it arrives. On examining the TCP flags
+    that are activated in each packet, it becomes clear that the three-way handshake
+    has failed. Consider the output that is generated by the script:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这个Python脚本中，每个发送的数据包都会在传输之前显示，每个接收到的数据包都会在到达时显示。通过检查每个数据包中激活的TCP标志，可以清楚地看到三次握手失败。请看脚本生成的输出：
+- en: '![](../images/00098.jpeg)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00098.jpeg)'
+- en: In the output from the script, four packets can be seen. The first packet is
+    the sent SYN request, the second packet is the received SYN+ACK reply, the third
+    packet is the sent ACK reply, and an RST packet is then received in response to
+    the final ACK reply. It is this final packet that indicates that a problem was
+    encountered when establishing the connection. It is possible to perform a full
+    three-way handshake with Scapy, but it requires some tampering with the local
+    iptables on the system. Specifically, you can only complete the handshake if you
+    suppress the RST packets that are sent to the remote system that you are trying
+    to connect with. By establishing a filtering rule using iptables, it is possible
+    to drop the RST packets to complete the three-way handshake without interference
+    from the system (this configuration is not recommended for continued functional
+    usage).
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在脚本的输出中，可以看到四个数据包。第一个数据包是发送的SYN请求，第二个数据包是接收到的SYN+ACK回复，第三个数据包是发送的ACK回复，随后接收到一个RST数据包，作为对最终ACK回复的响应。正是这个最终的数据包表明在建立连接时遇到了问题。虽然可以使用Scapy完成完整的三次握手，但这需要对本地iptables进行一些干扰。具体来说，只有在抑制发送到远程系统的RST数据包时，才能完成握手。通过使用iptables建立过滤规则，可以丢弃RST数据包，从而在不被系统干扰的情况下完成三次握手（不建议在持续使用中使用此配置）。
+- en: 'To demonstrate the successful completion of the full three-way handshake, we
+    establish a listening TCP service using Netcat and then attempt to connect to
+    the open socket using Scapy:'
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了演示完整的三次握手成功完成，我们使用Netcat建立了一个监听的TCP服务，然后使用Scapy尝试连接到打开的套接字：
+- en: '![](../images/00111.jpeg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00111.jpeg)'
+- en: 'In the example provided, a listening service was opened on the TCP port `4444`.
+    We can then modify the script that was discussed previously to attempt to connect
+    to the Netcat TCP service on the port `4444`, as follows:'
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，在TCP端口`4444`上打开了一个监听服务。然后，我们可以修改之前讨论过的脚本，尝试连接到端口`4444`上的Netcat TCP服务，如下所示：
+- en: '[PRE4]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: In this script, a SYN request was sent to the listening port, and then an ACK
+    reply was sent in response to the anticipated SYN+ACK reply. To validate that
+    the connection attempt is still interrupted by a system-generated RST packet,
+    this script should be executed while Wireshark is being run to capture the request
+    sequence.
+  id: totrans-107
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这个脚本中，向监听端口发送了一个SYN请求，然后发送了一个ACK回复，回应预期的SYN+ACK回复。为了验证连接尝试是否仍被系统生成的RST数据包中断，应在运行Wireshark捕获请求序列时执行此脚本。
+- en: 'We apply a filter to Wireshark to isolate the connection attempt sequence.
+    The filter used was `tcp && (ip.src == 172.16.69.128 || ip.dst == 172.16.69.128)`.
+    This filter is used to only display the TCP traffic going to or from the system
+    being scanned. This is shown in the following screenshot:'
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们在Wireshark中应用了一个过滤器，以隔离连接尝试序列。使用的过滤器是`tcp && (ip.src == 172.16.69.128 || ip.dst
+    == 172.16.69.128)`。这个过滤器仅用于显示与被扫描系统之间的TCP流量。如下截图所示：
+- en: '![](../images/00375.jpeg)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00375.jpeg)'
+- en: 'Now that we have identified the exact problem, we can establish a filter that
+    will allow us to suppress this system-generated RST response. This filter can
+    be established by modifying the local iptables, as follows:'
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经识别出了具体的问题，我们可以建立一个过滤器，允许我们压制该系统生成的RST响应。可以通过修改本地iptables来建立这个过滤器，如下所示：
+- en: 'Modifying the local iptables in the following manner will impair the way your
+    system handles the TCP/IP transactions with the destination system by blocking
+    all outbound RST responses. Ensure that the created iptables rule is removed upon
+    completion of this recipe, or flush the iptables afterward with the following
+    command: `iptables --flush`.![](../images/00135.jpeg)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按照以下方式修改本地iptables会影响系统与目标系统之间的TCP/IP事务处理，阻止所有出站的RST响应。确保在完成此操作后删除创建的iptables规则，或者使用以下命令清空iptables：`iptables
+    --flush`。![](../images/00135.jpeg)
+- en: 'In the example provided, the local iptables were modified to suppress all TCP
+    RST packets going to the destination address of our scanned host. The `--list`
+    option can then be used to view the iptable entries and verify that a configuration
+    change has been made. To perform another connection attempt, we need to ensure
+    that Netcat is still listening on the port `4444` of our target, as follows:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，修改了本地的iptables，以压制所有发送到我们扫描目标地址的TCP RST数据包。然后可以使用`--list`选项查看iptables条目并验证配置更改已生效。为了进行另一次连接尝试，我们需要确保Netcat仍在目标的端口`4444`上监听，如下所示：
+- en: '![](../images/00148.jpeg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00148.jpeg)'
+- en: 'The same Python script that was introduced previously should be run again,
+    with Wireshark capturing the traffic in the background. Using the previously discussed
+    display filter, we can easily focus on the traffic we need. Note that all of the
+    steps of the three-way handshake have now been completed without any interruption
+    by system-generated RST packets, as shown in the following screenshot:'
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 前面介绍过的相同的 Python 脚本应该再次运行，并让 Wireshark 在后台捕获流量。使用之前讨论过的显示过滤器，我们可以轻松地聚焦于我们需要的流量。注意，三次握手的所有步骤现在已经完成，并且没有受到系统生成的
+    RST 数据包的干扰，如下图所示：
+- en: '![](../images/00164.jpeg)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00164.jpeg)'
+- en: Additionally, if we take a look at our Netcat service, which is running on the
+    target system, we notice that a connection has been established. This is further
+    evidence to confirm that a successful connection was established.
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此外，如果我们查看运行在目标系统上的 Netcat 服务，我们会注意到已经建立了连接。这进一步证实了成功建立连接的证据。
+- en: 'While this is a useful exercise to understand and troubleshoot TCP connections,
+    it is important not to leave the iptable entry in place. RST packets are an important
+    component of TCP communications, and suppressing these responses altogether can
+    drastically impair proper communication functionality. The following commands
+    can be used to flush our iptables rules and verify that the flush was successful:'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 虽然这是一个有用的练习，用于理解和排查 TCP 连接，但重要的是不要让 iptable 规则保持不变。RST 数据包是 TCP 通信的重要组成部分，完全抑制这些响应可能会严重影响正常的通信功能。以下命令可以用来清空我们的
+    iptables 规则，并验证清空是否成功：
+- en: '![](../images/00179.jpeg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00179.jpeg)'
+- en: As is demonstrated in the example provided, the `--flush` option should be used
+    to clear the iptable entries that were made. We can verify that the iptable entries
+    have been removed using the `--list` option one more time.
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正如示例所示，应该使用 `--flush` 选项来清除已做的 iptable 条目。我们可以通过使用 `--list` 选项再次验证 iptable 条目是否已被移除。
+- en: Zombie scanning with Scapy
+  id: totrans-120
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Scapy 进行僵尸扫描
+- en: 'A value that exists in all IP packets is an ID number. Depending on the system,
+    this ID number might be generated randomly, might always be zeroed out, or might
+    increment by one with each IP packet that is sent. If a host with incremental
+    IPID sequencing is discovered and that host is not interacting with other networked
+    systems, it can be used as a means to identify open ports on other systems. We
+    can identify the IPID sequencing patterns of a remote system by sending a series
+    of IP packets and analyzing the responses:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有 IP 数据包中都有一个 ID 号。根据系统的不同，这个 ID 号可能是随机生成的，可能始终为零，或者每发送一个 IP 数据包时，它会递增。如果发现一个主机具有增量的
+    IPID 序列，并且该主机没有与其他联网系统交互，它可以用作识别其他系统开放端口的手段。我们可以通过发送一系列 IP 数据包并分析响应来识别远程系统的 IPID
+    序列模式：
+- en: '![](../images/00391.jpeg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00391.jpeg)'
+- en: If we send two IP packets to an idle Windows system, we can examine the integer
+    value of the ID attribute under the IP layer of the response.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们向一个空闲的 Windows 系统发送两个 IP 数据包，我们可以检查响应中 IP 层的 ID 属性的整数值。
+- en: Note that the reply to the first request had the ID `61`, and the reply to the
+    second request had the ID `62`.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，第一个请求的回复 ID 为 `61`，第二个请求的回复 ID 为 `62`。
+- en: 'This host does, indeed, have incremental IPID sequencing, and assuming it remains
+    idle, it can be used as an effective zombie for zombie scanning:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个主机确实有增量的 IPID 序列，如果假设它保持空闲状态，它可以作为一个有效的僵尸主机进行僵尸扫描：
+- en: To perform a zombie scan, an initial SYN+ACK request must be sent to the zombie
+    system to determine the current IPID value in the returned RST packet.
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要执行僵尸扫描，必须先向僵尸系统发送初始的 SYN+ACK 请求，以确定返回的 RST 数据包中的当前 IPID 值。
+- en: Then, a spoofed SYN packet is sent to the scan target with the source IP address
+    of the zombie system. If the port is open, the scan target will send a SYN+ACK
+    response back to the zombie. Since the zombie did not actually send the initial
+    SYN request, it will interpret the SYN+ACK request as unsolicited and send an
+    RST packet back to the target, thereby incrementing its IPID by one.
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，发送一个伪造的 SYN 数据包到扫描目标，源 IP 地址为僵尸系统的地址。如果端口开放，扫描目标将会向僵尸主机发送一个 SYN+ACK 响应。由于僵尸主机并没有实际发送初始的
+    SYN 请求，它将会将这个 SYN+ACK 请求视为非预期的，并向目标发送一个 RST 数据包，从而使其 IPID 增加 1。
+- en: Finally, another SYN+ACK packet should be sent to the zombie, which will return
+    an RST packet and increment the IPID one more time. An IPID that has incremented
+    by two from the initial response indicates that all of these events have transpired
+    and that the destination port on the scanned system is open.
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，应向僵尸系统发送另一个SYN+ACK数据包，僵尸系统将返回一个RST数据包，并再增加一次IPID。如果IPID从最初的响应增加了两次，则表示所有这些事件已经发生，且扫描的系统的目的端口是开放的。
+- en: Alternatively, if the port on the scan target is closed, a different series
+    of events will transpire, which will only cause the final RST response to be incremented
+    by one. If the destination port on the scan target is closed, an RST packet will
+    be sent to the zombie system in response to the initially spoofed SYN packet.
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 另外，如果扫描目标上的端口关闭，将会发生一系列不同的事件，这些事件只会导致最终的RST响应增加一个。如果扫描目标上的目的端口关闭，将会向僵尸系统发送一个RST数据包，作为对最初伪造的SYN数据包的响应。
+- en: Since an RST packet solicits no response, the IPID value of the zombie system
+    is not incremented. As a result, the final RST packet returned to the scanning
+    system in response to the SYN+ACK packet will have incremented by only one.
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 由于一个RST数据包不会要求回应，僵尸系统的IPID值不会增加。因此，作为对SYN+ACK数据包响应返回给扫描系统的最终RST数据包，其IPID只会增加一个。
+- en: 'To streamline this process, the following script can be written in Python,
+    which will both identify a usable zombie system and also perform the zombie scan
+    against the scan target:'
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了简化此过程，可以编写以下Python脚本，该脚本不仅能识别一个可用的僵尸系统，还能对扫描目标执行僵尸扫描：
+- en: '[PRE5]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Upon executing this script, the user is prompted with two options. By selecting
+    option `1`, we can scan or evaluate a target's IPID sequence to determine whether
+    the host is a usable zombie. Assuming that the host is idle and has incremental
+    IPID sequencing, the host will be flagged as a zombie, and the user will be asked
+    to use the zombie to perform a scan.
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行此脚本后，用户会被提示选择两个选项。选择选项`1`，我们可以扫描或评估目标的IPID序列，以确定主机是否是一个可用的僵尸。如果假设该主机处于空闲状态并且IPID序列递增，则该主机会被标记为僵尸，用户将被要求使用该僵尸进行扫描。
+- en: 'If the scan is performed, the previously discussed process will be executed
+    for each of the first 100 TCP port addresses, as follows:'
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果进行扫描，将会为前100个TCP端口地址执行之前讨论的过程，如下所示：
+- en: '![](../images/00394.jpeg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00394.jpeg)'
+- en: How it works…
+  id: totrans-136
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: In this recipe, UDP scanning is performed by identifying the ports that do not
+    respond with ICMP port-unreachable responses. This process can be highly time
+    consuming as ICMP port-unreachable responses are often throttled. It can also,
+    at times, be an unreliable approach as some systems do not generate these responses,
+    and ICMP is often filtered by firewalls.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个方案中，UDP扫描是通过识别那些没有回应ICMP端口不可达响应的端口来进行的。由于ICMP端口不可达响应通常会被限流，这个过程可能非常耗时。有时它也可能是一种不可靠的方法，因为有些系统不会生成这些响应，而且防火墙通常会过滤ICMP响应。
+- en: Stealth scans are performed by sending an initial SYN packet request to a target
+    TCP port on a remote system, and the status of this port is determined by the
+    type of response that is returned. If the remote system returns a SYN+ACK response,
+    then it is prepared to establish a connection, and one can assume that the port
+    is open. If the service returns an RST packet, it is an indication that the port
+    is closed and not accepting connections. Furthermore, if no response is returned,
+    then a firewall might be present between the scanning system and remote system
+    that is dropping the requests. This could also be an indication that the machine
+    is down or that there is no system associated with the destination IP address.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 隐匿扫描通过向远程系统上的目标TCP端口发送初始SYN数据包请求来执行，端口的状态通过返回的响应类型来确定。如果远程系统返回SYN+ACK响应，则表示它准备建立连接，可以认为该端口是开放的。如果服务返回RST数据包，则表示该端口已关闭，不接受连接。此外，如果没有返回任何响应，则可能表示扫描系统和远程系统之间存在防火墙，防火墙正在丢弃请求。这也可能表示机器已经关闭，或者目的IP地址没有对应的系统。
+- en: TCP connect scans operate by performing a full three-way handshake to establish
+    a connection with all of the scanned ports on the remote target system. A port's
+    status is determined based on whether a connection was established or not. If
+    a connection was established, the port is determined to be open. If a connection
+    could not be established, the port is determined to be closed.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TCP 连接扫描通过执行完整的三次握手来与远程目标系统上所有扫描的端口建立连接。端口的状态基于是否建立了连接来确定。如果建立了连接，则该端口被判定为开放。如果无法建立连接，则该端口被判定为关闭。
+- en: Zombie scanning is a stealthy way to enumerate open ports on a target system
+    without leaving any trace of interaction with it. Using a combination of spoofed
+    requests sent to the target system and legitimate requests sent to the zombie
+    system, we can map the open ports on the target system by evaluating the IPID
+    values of the responses from the zombie.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 僵尸扫描是一种隐蔽的方式，用于枚举目标系统上的开放端口，而不会留下与目标系统交互的痕迹。通过向目标系统发送伪造的请求和向僵尸系统发送合法请求的组合，我们可以通过评估来自僵尸系统的响应的
+    IPID 值，映射目标系统上的开放端口。
+- en: Port scanning with Nmap (UDP, stealth, connect, zombie)
+  id: totrans-141
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Nmap 进行端口扫描（UDP、隐形扫描、连接扫描、僵尸扫描）
+- en: Nmap can be utilized to perform UDP, TCP stealth, TCP connect, and zombie scans.
+    In this section, we will discuss how to conduct each of these types of scans.
+    The Nmap approach to UDP scanning is more complex and attempts to identify live
+    services by injecting service-specific probe requests in an effort to solicit
+    a positive response that confirms the existence of a given service. We will also
+    discuss how Nmap handles stealth and TCP connect scanning. Finally, we will look
+    at a highly effective scanning mode Nmap has for zombie scanning.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nmap 可以用于执行 UDP、TCP 隐形扫描、TCP 连接扫描和僵尸扫描。在本节中，我们将讨论如何进行每种类型的扫描。Nmap 执行 UDP 扫描的方法更为复杂，尝试通过注入特定服务的探测请求来识别活动服务，从而获取确认服务存在的正面响应。我们还将讨论
+    Nmap 如何处理隐形扫描和 TCP 连接扫描。最后，我们将介绍 Nmap 的一种非常有效的扫描模式——僵尸扫描。
+- en: Getting ready
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Nmap to perform UDP, TCP stealth, TCP connect, or zombie scans, you will
+    need to have a remote system that is running network services over UDP and TCP.
+    In the examples provided, an instance of Metasploitable2 is used as a scan target,
+    and an installation of Windows XP is used as an incremental IPID zombie. In the
+    examples provided, a combination of Linux and Windows systems is used.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 Nmap 执行 UDP、TCP 隐形扫描、TCP 连接扫描或僵尸扫描，您需要一台远程系统，该系统正在通过 UDP 和 TCP 提供网络服务。在提供的示例中，使用
+    Metasploitable2 实例作为扫描目标，使用安装了 Windows XP 的系统作为增量 IPID 僵尸。在提供的示例中，使用了 Linux 和
+    Windows 系统的组合。
+- en: For more information on how to set up systems in a local lab environment, refer
+    to the *Installing Metasploitable2* and *Installing Windows Server* recipes in
+    [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*.
+    Additionally, this section will require a script to be written to the filesystem
+    using a text editor such as Vim or GNU nano. For more information on how to write
+    scripts, refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关如何在本地实验环境中设置系统的更多信息，请参考 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)
+    中的 *安装 Metasploitable2* 和 *安装 Windows Server* 配方，*入门* 部分。此外，本节内容将需要使用文本编辑器（如 Vim
+    或 GNU nano）将脚本写入文件系统。有关如何编写脚本的更多信息，请参考 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)
+    中的 *使用文本编辑器（Vim 和 GNU nano）* 配方，*入门* 部分。
+- en: How to do it…
+  id: totrans-146
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: Let's start with UDP scanning with Nmap.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从使用 Nmap 进行 UDP 扫描开始。
+- en: UDP scanning with Nmap
+  id: totrans-148
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Nmap 进行 UDP 扫描
+- en: UDP scanning can often be challenging, time consuming, and tedious. Many systems
+    will rate-limit ICMP host-unreachable replies and can drastically increase the
+    amount of time required to scan a large number of ports and/or systems. Fortunately,
+    the developers of Nmap have a more complex and much more effective tool to identify
+    UDP services on remote systems.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: UDP 扫描通常具有挑战性、耗时且枯燥。许多系统会限制 ICMP 主机不可达回复，这可能会显著增加扫描大量端口和/或系统所需的时间。幸运的是，Nmap
+    的开发者提供了一个更复杂且更加高效的工具，可以用来识别远程系统上的 UDP 服务。
+- en: 'To perform a UDP scan with Nmap, the `-sU` option should be used with the IP
+    address of the host that is to be scanned:'
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用 Nmap 执行 UDP 扫描，应使用 `-sU` 选项，并指定要扫描的主机的 IP 地址：
+- en: '![](../images/00396.jpeg)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00396.jpeg)'
+- en: 'Although Nmap is built to solicit replies from UDP ports with custom payloads
+    for many services, it still requires a large amount of time to even scan the default
+    1,000 ports when no other arguments are used to specify the destination ports.
+    As you can see from the scan metadata at the bottom of the output, the default
+    scan required nearly 20 minutes to complete. Alternatively, we can shorten the
+    required scan time by performing targeted scans, as shown in the following command:'
+  id: totrans-152
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尽管Nmap是为了通过自定义有效负载从UDP端口请求回复以支持多种服务，但当没有使用其他参数指定目标端口时，它仍然需要大量时间来扫描默认的1,000个端口。从输出底部的扫描元数据中可以看到，默认扫描几乎需要20分钟才能完成。或者，我们可以通过执行有针对性的扫描来缩短所需的扫描时间，如下命令所示：
+- en: '![](../images/00239.jpeg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00239.jpeg)'
+- en: The amount of time required to perform UDP scans can be drastically reduced
+    if we specify the particular ports that need to be scanned. This can be done by
+    performing a UDP scan and specifying the port with the `-p` option.
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果我们指定需要扫描的特定端口，执行UDP扫描所需的时间可以大幅减少。这可以通过执行UDP扫描并使用`-p`选项指定端口来完成。
+- en: 'In the preceding example, we are performing a scan only on the port `53` to
+    attempt to identify a DNS service. A scan can also be performed on multiple specified
+    ports, as follows:'
+  id: totrans-155
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，我们仅对端口`53`进行了扫描，尝试识别DNS服务。也可以对多个指定端口进行扫描，如下所示：
+- en: '![](../images/00404.jpeg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00404.jpeg)'
+- en: In the example provided, a scan was performed on the first 100 ports. This was
+    done using dash notation and specifying both the first and last port to be scanned.
+    Nmap then spins up multiple processes that will be used to simultaneously scan
+    all of the ports between and including these two values.
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，扫描了前100个端口。使用破折号符号并指定要扫描的第一个和最后一个端口来完成此操作。然后，Nmap会启动多个进程，用于同时扫描这两个值之间的所有端口。
+- en: 'On some occasions, a UDP analysis will need to be performed on multiple systems.
+    A range of hosts can be scanned with Nmap using dash notation and by defining
+    the range of values for the last octet, as follows:'
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 有时，需要对多个系统执行UDP分析。可以使用Nmap通过破折号符号和定义最后一个八位组的值范围来扫描一系列主机，如下所示：
+- en: '![](../images/00407.jpeg)'
+  id: totrans-159
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00407.jpeg)'
+- en: In the example provided, scans were performed on all live hosts within the `172.16.69.0/24`
+    range. Each host was scanned to identify whether a DNS service was running on
+    the port `53`. Another alternative option would be to scan multiple hosts using
+    an input list of IP addresses.
+  id: totrans-160
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对`172.16.69.0/24`范围内的所有在线主机进行了扫描。每个主机都被扫描以确定端口`53`上是否正在运行DNS服务。另一种替代选项是使用IP地址输入列表扫描多个主机。
+- en: 'To do this, the `-iL` option should be used, and it should be passed as either
+    the name of a file in the same directory or the full path of a file in a separate
+    directory. An example of the former is as follows:'
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为此，应该使用`-iL`选项，并将其传递为同一目录中文件的名称或其他目录中文件的完整路径。以下是前者的示例：
+- en: '![](../images/00412.jpeg)'
+  id: totrans-162
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00412.jpeg)'
+- en: In the example provided, a scan was performed to determine whether an NTP service
+    was running on the port `123` on any of the systems within the `iplist.txt` file
+    in the execution directory.
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，执行了扫描，以确定在执行目录中的`iplist.txt`文件中的任何系统上，端口`123`是否正在运行NTP服务。
+- en: Stealth scanning with Nmap
+  id: totrans-164
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Nmap进行隐形扫描
+- en: 'As with most scanning requirements, Nmap has an option that simplifies and
+    streamlines the process of performing TCP stealth scans:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与大多数扫描要求一样，Nmap有一个选项可以简化和优化执行TCP隐形扫描的过程：
+- en: 'To perform TCP stealth scans with Nmap, the `-sS` option should be used with
+    the IP address of the host that is to be scanned:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用Nmap执行TCP隐形扫描，应该使用`-sS`选项，并指定要扫描的主机的IP地址：
+- en: '![](../images/00297.jpeg)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00297.jpeg)'
+- en: 'In the example provided, a SYN scan was performed on the TCP port `80` of the
+    specified IP address. Similar to the technique explained with Scapy, Nmap listens
+    for a response and identifies the open ports by analyzing the TCP flags that are
+    activated in any responses received. We can also use Nmap to perform scans on
+    multiple specified ports by passing a comma-delimited list of port numbers, as
+    follows:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定IP地址的TCP端口`80`执行了SYN扫描。与使用Scapy时解释的技术类似，Nmap监听响应并通过分析接收到的响应中激活的TCP标志来识别开放端口。我们还可以通过传递逗号分隔的端口号列表，使用Nmap对多个指定端口进行扫描，如下所示：
+- en: '![](../images/00312.jpeg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00312.jpeg)'
+- en: 'In the example provided, a SYN scan was performed on the ports `21`, `80`,
+    and `443` of the specified target IP address. We can also use Nmap to scan a sequential
+    series of hosts by indicating the first and last port numbers to be scanned, separated
+    using dash notation:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定目标 IP 地址的`21`、`80`和`443`端口进行了 SYN 扫描。我们还可以使用 Nmap 通过指定要扫描的第一个和最后一个端口号（用破折号分隔）来扫描一系列主机：
+- en: '![](../images/00329.jpeg)'
+  id: totrans-171
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00329.jpeg)'
+- en: 'In the example provided, a SYN scan was performed on the TCP ports `20` through
+    `25`. In addition to providing us with the ability to specify the ports to be
+    scanned, Nmap also has a preconfigured list of 1,000 commonly used ports. We can
+    perform a scan on these ports by running Nmap without supplying any port specifications:'
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对 TCP 端口`20`至`25`进行了 SYN 扫描。除了可以指定要扫描的端口外，Nmap 还预先配置了 1,000 个常用端口的列表。我们可以通过不提供任何端口规格来扫描这些端口，只需运行
+    Nmap：
+- en: '![](../images/00423.jpeg)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00423.jpeg)'
+- en: In the example provided, the 1,000 common ports defined by Nmap were scanned
+    to identify a large number of open ports on the Metasploitable2 system. Although
+    this technique is effective in identifying most services, it might fail to identify
+    obscure services or uncommon port associations.
+  id: totrans-174
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，扫描了 Nmap 定义的 1,000 个常用端口，以识别 Metasploitable2 系统上大量开放端口。虽然这种技术有效地识别了大多数服务，但它可能无法识别较为隐蔽的服务或不常见的端口关联。
+- en: 'If a scan is to be performed on all possible TCP ports, all of the possible
+    port address values need to be scanned. The portions of the TCP header that define
+    the source and destination port addresses are both 16 bits in length. Moreover,
+    each bit can retain a value of 1 or 0\. As such, there are 2^(16), or 65,536,
+    possible TCP port addresses. For the total possible address space to be scanned,
+    a port range of 0 to 65535 needs to be supplied, as follows:'
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果要对所有可能的 TCP 端口进行扫描，则需要扫描所有可能的端口地址值。定义源端口和目标端口地址的 TCP 头部分长度均为 16 位。此外，每个位可以保持
+    1 或 0 的值。因此，共有 2^(16)，即 65,536 个可能的 TCP 端口地址。为了扫描整个可能的地址空间，需要提供一个从 0 到 65535 的端口范围，如下所示：
+- en: '![](../images/00361.jpeg)'
+  id: totrans-176
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00361.jpeg)'
+- en: 'In the example provided, all of the 65,536 possible TCP addresses were scanned
+    on the Metasploitable2 system. Take note of the fact that more services were identified
+    in this scan than were identified in the standard Nmap 1,000 scan. This is evidence
+    of the fact that a full scan is always best practice when attempting to identify
+    all of the possible attack surface on a target. Nmap can also be used to scan
+    TCP ports on a sequential series of hosts, using dash notation:'
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对 Metasploitable2 系统上所有 65,536 个可能的 TCP 地址进行了扫描。请注意，在此扫描中，识别到的服务比标准
+    Nmap 1,000 扫描识别到的服务要多。这证明了在尝试识别目标的所有可能攻击面时，进行完整扫描始终是最佳实践。Nmap 还可以用于扫描一系列主机的 TCP
+    端口，使用破折号符号：
+- en: '![](../images/00381.jpeg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00381.jpeg)'
+- en: 'In the example provided, a SYN scan of the TCP port `80` was performed on all
+    of the hosts within the range of addresses specified. Although this particular
+    scan was only performed on a single port, Nmap also has the ability to scan multiple
+    ports and ranges of ports on multiple systems simultaneously. Additionally, Nmap
+    can also be configured to scan hosts based on an input list of IP addresses. This
+    can be done using the `-iL` option and then specifying either the filename, if
+    the file exists in the execution directory, or the path of the file. Nmap then
+    cycles through each address in the input list and performs the specified scan
+    against that address:'
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定地址范围内的所有主机的 TCP 端口`80`进行了 SYN 扫描。尽管此扫描仅在单个端口上执行，Nmap 还可以同时扫描多个系统上的多个端口和端口范围。此外，Nmap
+    还可以配置为基于输入的 IP 地址列表扫描主机。这可以使用`-iL`选项，并指定文件名（如果文件存在于执行目录中）或文件路径。然后，Nmap 会循环遍历输入列表中的每个地址，并对该地址执行指定的扫描：
+- en: '![](../images/00434.jpeg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00434.jpeg)'
+- en: Connect scanning with Nmap
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Nmap 进行连接扫描
+- en: 'Nmap has an option that simplifies and streamlines the process of performing
+    TCP connect scans:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nmap 具有一个选项，可以简化并精简执行 TCP 连接扫描的过程：
+- en: 'To perform TCP connect scans with Nmap, the `-sT` option should be used with
+    the IP address of the host to be scanned, as follows:'
+  id: totrans-183
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用 Nmap 执行 TCP 连接扫描，应使用`-sT`选项并指定要扫描的主机的 IP 地址，如下所示：
+- en: '![](../images/00436.jpeg)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00436.jpeg)'
+- en: 'In the example provided, a TCP connect scan was performed on the TCP port `80`
+    of the specified IP address. Similar to the technique used with Scapy, Nmap listens
+    for a response and identifies open ports by analyzing the TCP flags that are activated
+    in any responses received. We can also use Nmap to perform scans on multiple specified
+    ports by passing a comma-delimited list of port numbers, as follows:'
+  id: totrans-185
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定 IP 地址的 TCP 端口`80`进行了 TCP 连接扫描。类似于使用 Scapy 的技术，Nmap 会监听响应并通过分析收到的响应中激活的
+    TCP 标志来识别开放端口。我们还可以使用 Nmap 执行多端口扫描，只需传递一个以逗号分隔的端口号列表，如下所示：
+- en: '![](../images/00439.jpeg)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00439.jpeg)'
+- en: 'In the example provided, a TCP connect scan was performed on the ports `21`,
+    `80`, and `443` of the specified target IP address. We can also use Nmap to scan
+    a sequential series of hosts by indicating the first and last port numbers to
+    be scanned, separated using dash notation:'
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定目标 IP 地址的端口`21`、`80`和`443`进行了 TCP 连接扫描。我们还可以使用 Nmap 通过指定要扫描的第一个和最后一个端口号，并使用短横线符号分隔它们，来扫描一系列顺序主机：
+- en: '![](../images/00455.jpeg)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00455.jpeg)'
+- en: 'In the example provided, a TCP connect scan was performed on the TCP ports
+    `20` through `25`. In addition to providing the ability to specify the ports to
+    be scanned, Nmap also has a preconfigured list of 1,000 commonly used ports. We
+    can scan these ports by running Nmap without supplying any port specifications:'
+  id: totrans-189
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对 TCP 端口`20`至`25`进行了 TCP 连接扫描。除了可以指定要扫描的端口外，Nmap 还预配置了一个包含1,000个常用端口的列表。我们可以通过不提供任何端口规格直接运行
+    Nmap 来扫描这些端口：
+- en: '![](../images/00274.jpeg)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00274.jpeg)'
+- en: In the example provided, the 1,000 common ports defined by Nmap were scanned
+    to identify a large number of open ports on the Metasploitable2 system. Although
+    this technique is effective in identifying most services, it might fail to identify
+    obscure services or uncommon port associations.
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，扫描了 Nmap 定义的 1,000 个常见端口，以识别 Metasploitable2 系统上的大量开放端口。尽管这种技术在识别大多数服务时有效，但它可能无法识别一些不常见的服务或端口关联。
+- en: 'To scan all of the possible TCP ports, all possible port address values must
+    be scanned. The portions of the TCP header that define the source and destination
+    port addresses are both 16 bits in length. Furthermore, each bit can retain a
+    value of 1 or 0\. As such, there are 2^(16), or 65,536, possible TCP port addresses.
+    For the total possible address space to be scanned, a port range of `0-65535`
+    needs to be supplied, as follows:'
+  id: totrans-192
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要扫描所有可能的 TCP 端口，必须扫描所有可能的端口地址值。定义源端口和目标端口地址的 TCP 头部部分均为 16 位长。此外，每个位可以保留 1 或
+    0 的值。因此，有 2^(16)，即 65,536 个可能的 TCP 端口地址。为了扫描所有可能的地址空间，需要提供一个端口范围`0-65535`，如下所示：
+- en: '![](../images/00447.jpeg)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00447.jpeg)'
+- en: 'In the example provided, all of the possible 65,536 TCP addresses were scanned
+    on the Metasploitable2 system. Take note of the fact that more services were identified
+    in this scan than in the standard Nmap 1,000 scan. This is evidence of the fact
+    that a full scan is always best practice when attempting to identify all of the
+    possible attack surfaces on a target. Nmap can also be used to scan TCP ports
+    on a sequential series of hosts using dash notation:'
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，扫描了 Metasploitable2 系统上的所有 65,536 个 TCP 地址。请注意，在此扫描中识别出的服务数量多于标准 Nmap
+    1,000 扫描。这证明了当试图识别目标上的所有可能攻击面时，全面扫描始终是最佳实践。Nmap 还可以通过使用短横线符号来扫描一系列顺序主机上的 TCP 端口：
+- en: '![](../images/00446.jpeg)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00446.jpeg)'
+- en: In the example provided, a TCP connect scan of the TCP port `80` was performed
+    on all hosts within the range of hosts specified. Although this particular scan
+    was only performed on a single port, Nmap can also scan multiple ports and ranges
+    of ports on multiple systems simultaneously. Additionally, Nmap can also be configured
+    to scan hosts based on an input list of IP addresses.
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定主机范围内的所有主机的 TCP 端口`80`进行了 TCP 连接扫描。虽然此扫描仅针对单个端口进行，但 Nmap 也可以同时扫描多个系统上的多个端口和端口范围。此外，Nmap
+    还可以配置为基于输入的 IP 地址列表扫描主机。
+- en: 'This can be done using the `-iL` option and then by specifying either the filename,
+    whether the file exists in the execution directory, or the path of the file. Nmap
+    then cycles through each address in the input list and performs the specified
+    scan against that address, as follows:'
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这可以使用`-iL`选项完成，然后指定文件名（文件是否存在于执行目录中）或文件的路径。Nmap 然后会遍历输入列表中的每个地址，并对该地址执行指定的扫描，如下所示：
+- en: '![](../images/00453.jpeg)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00453.jpeg)'
+- en: Zombie scanning with Nmap
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Nmap进行僵尸扫描
+- en: 'These steps will help you to perform a zombie scan on the Nmap:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些步骤将帮助你在Nmap上执行僵尸扫描：
+- en: Zombie scans can also be performed with an option in Nmap. However, prior to
+    using the Nmap zombie scan, we can quickly find any viable zombie candidates by
+    sweeping an entire address range and assessing the IPID sequencing patterns with
+    Metasploit.
+  id: totrans-201
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 也可以使用Nmap中的选项执行僵尸扫描。然而，在使用Nmap的僵尸扫描之前，我们可以通过扫描整个地址范围并使用Metasploit评估IPID序列模式，快速找到任何可用的僵尸候选主机。
+- en: 'To do this, we need to open Metasploit with the `msfconsole` command and then
+    select the IPID sequencing `auxiliary` module for use, as follows:'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为此，我们需要通过`msfconsole`命令打开Metasploit，并选择IPID序列`auxiliary`模块，如下所示：
+- en: '![](../images/00583.jpeg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00583.jpeg)'
+- en: 'This `auxiliary` module can be used to perform a scan on a sequential series
+    of host addresses or on a network range, as defined by the CIDR notation. For
+    the speed of the scan to be increased, the `THREADS` variable should be increased
+    to the desired number of concurrent tasks, as follows:'
+  id: totrans-204
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此`auxiliary`模块可以用于扫描一系列连续的主机地址或网络范围（如CIDR表示法定义的）。为了提高扫描速度，应将`THREADS`变量增加到所需的并发任务数，如下所示：
+- en: '![](../images/00460.jpeg)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00460.jpeg)'
+- en: 'Once the desired values for the required variables have been populated, we
+    can verify the configurations of the scan again using the `show options` command.
+    The IPID sequence scan can then be executed using the `run` command:'
+  id: totrans-206
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦所需的变量值被填充完成，我们可以再次使用`show options`命令验证扫描配置。然后，可以使用`run`命令执行IPID序列扫描：
+- en: '![](../images/00557.jpeg)'
+  id: totrans-207
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00557.jpeg)'
+- en: As the IPID sequence scanning module sweeps through the provided network range,
+    it will identify the IPID sequencing patterns of discovered hosts and indicate
+    whether they are zeros, randomized, or incremental.
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当IPID序列扫描模块遍历所提供的网络范围时，它将识别已发现主机的IPID序列模式，并指示它们是零、随机还是增量。
+- en: 'An ideal candidate for zombie scanning is a host that has both incremental
+    IPID sequencing and is not interacting heavily with other systems on the network.
+    Once an incremental idle host has been identified, we can perform the zombie scan
+    in Nmap using the `-sI` option and by passing it the IP address of the zombie
+    host that needs to be used for scanning:'
+  id: totrans-209
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 僵尸扫描的理想候选主机是具有增量IPID序列且不会与网络上其他系统频繁交互的主机。一旦识别出增量空闲主机，我们可以使用Nmap中的`-sI`选项，并传递需要用作扫描的僵尸主机的IP地址，来执行僵尸扫描：
+- en: '![](../images/00137.jpeg)'
+  id: totrans-210
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00137.jpeg)'
+- en: In the example provided, a zombie scan was performed on the first 100 TCP ports
+    of the scan target, `172.16.69.128`. The idle host at `172.16.69.128` was used
+    as the zombie, and the `-Pn` option was used to prevent Nmap from attempting to
+    ping the scan target.
+  id: totrans-211
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，针对扫描目标`172.16.69.128`的前100个TCP端口进行了僵尸扫描。`172.16.69.128`作为空闲主机被用作僵尸主机，并使用了`-Pn`选项，防止Nmap尝试ping扫描目标。
+- en: In this demonstration, we identified and enumerated all of the listed open ports
+    and never interacted directly with the scanned target. Instead, source-spoofed
+    packets were sent to the scan target, and the only direct interaction was between
+    the scanning system and the zombie host.
+  id: totrans-212
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在此演示中，我们识别并枚举了所有列出的开放端口，并且从未直接与扫描目标交互。相反，源地址伪造的包被发送到扫描目标，唯一的直接交互是在扫描系统与僵尸主机之间。
+- en: How it works…
+  id: totrans-213
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: While Nmap still has to contend with many of the same challenges associated
+    with UDP scanning, it is still a highly effective solution because it is optimized
+    to use a combination of the most effective and quickest techniques possible to
+    identify live services.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管Nmap仍需应对与UDP扫描相关的许多挑战，但它仍然是一个非常有效的解决方案，因为它经过优化，能够使用最有效、最快的技术组合来识别活动服务。
+- en: The underlying principle behind how SYN scanning is performed with Nmap is the
+    same as has already been discussed. However, with multithreaded capabilities,
+    Nmap is a fast and highly effective way to perform these types of scans.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用Nmap进行SYN扫描的基本原理与之前讨论的一致。然而，借助多线程能力，Nmap成为执行这类扫描的快速且高效的工具。
+- en: Tools that perform TCP connect scans operate by performing a full three-way
+    handshake to establish a connection with all scanned ports on the remote target
+    system. A port's status is determined based on whether a connection was established
+    or not. If a connection was established, the port is determined to be open. If
+    a connection could not be established, the port is determined to be closed.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行 TCP 连接扫描的工具通过执行完整的三次握手来与远程目标系统上的所有扫描端口建立连接。端口的状态是根据是否建立了连接来确定的。如果建立了连接，则该端口被认为是开放的；如果未能建立连接，则该端口被认为是关闭的。
+- en: The underlying principle behind zombie scanning is the same as was discussed
+    when performing this task with Scapy in the previous recipe. However, using the
+    Nmap zombie-scanning mode allows us to use an integrated and well-known tool to
+    perform this same task quickly.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 僵尸扫描的基本原理与前面使用 Scapy 执行该任务时讨论的相同。然而，使用 Nmap 的僵尸扫描模式使我们能够使用一个集成的、广为人知的工具快速执行相同的任务。
+- en: Port scanning with Metasploit (UDP, stealth, and connect)
+  id: totrans-218
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 进行端口扫描（UDP、隐匿和连接）
+- en: Metasploit has auxiliary modules that can be used to perform UDP, SYN, and TCP
+    connect scanning. Using Metasploit for scanning as well as exploitation can be
+    an effective way to cut down on the total number of tools required to complete
+    a penetration test. This specific recipe demonstrates how we can use Metasploit
+    to perform port scanning.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploit 具有辅助模块，可以用来执行 UDP、SYN 和 TCP 连接扫描。使用 Metasploit 进行扫描以及利用漏洞可以有效减少完成渗透测试所需的工具总数。本示例展示了如何使用
+    Metasploit 执行端口扫描。
+- en: Getting ready
+  id: totrans-220
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use Metasploit to perform UDP, TCP stealth, and TCP full connect scans, you
+    will need to have a remote system that is running network services over UDP and
+    TCP. In the examples provided, an instance of Metasploitable2 is used to perform
+    this task. For more information on how to set up Metasploitable2, refer to [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 Metasploit 执行 UDP、TCP 隐匿扫描和 TCP 完全连接扫描，你需要一个运行 UDP 和 TCP 网络服务的远程系统。在提供的示例中，使用
+    Metasploitable2 实例来执行此任务。有关如何设置 Metasploitable2 的更多信息，请参阅 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门*。
+- en: How to do it…
+  id: totrans-222
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: Let's start with UDP scanning with Metasploit.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从使用 Metasploit 进行 UDP 扫描开始。
+- en: UDP scanning with Metasploit
+  id: totrans-224
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 进行 UDP 扫描
+- en: 'Prior to defining the module to be run, Metasploit needs to be opened:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在定义要运行的模块之前，需要先打开 Metasploit：
+- en: 'To open Metasploit in Kali Linux, we use the `msfconsole` command in a Terminal
+    session, as follows:'
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在 Kali Linux 中打开 Metasploit，我们在终端会话中使用 `msfconsole` 命令，方法如下：
+- en: '![](../images/00215.jpeg)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00215.jpeg)'
+- en: 'To run the UDP sweep module in Metasploit, we call the `use` command with the
+    relative path of the `auxiliary` module. Once the module has been selected, the
+    `show options` command can be used to identify and/or modify scan configurations.
+    This command will display four column headers to include: `Name`, `Current Setting`,
+    `Required`, and `Description`. The `Name` column identifies the name of each configurable
+    variable. The `Current Setting` column lists the existing configuration for any
+    given variable. The `Required` column identifies whether a value is required for
+    any given variable. The `Description` column describes the function of each variable.
+    The value for any given variable can be changed using the `set` command and by
+    providing the new value as an argument:'
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在 Metasploit 中运行 UDP 扫描模块，我们使用 `use` 命令，并指定 `auxiliary` 模块的相对路径。选择模块后，可以使用
+    `show options` 命令来识别和/或修改扫描配置。该命令将显示四个列标题，包括：`Name`（名称）、`Current Setting`（当前设置）、`Required`（是否必需）和
+    `Description`（描述）。`Name` 列标识每个可配置变量的名称；`Current Setting` 列列出任何给定变量的现有配置；`Required`
+    列标识是否需要为某个变量提供值；`Description` 列描述每个变量的功能。任何给定变量的值都可以使用 `set` 命令修改，并提供新值作为参数：
+- en: '![](../images/00286.jpeg)'
+  id: totrans-229
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00286.jpeg)'
+- en: 'In the example provided, the `RHOSTS` value was changed to the IP address of
+    the remote system that we wish to scan. Additionally, the number of threads has
+    changed to `20`. The `THREADS` value defines the number of concurrent tasks that
+    will be performed in the background. Determining thread values consists of finding
+    a good balance that will noticeably improve the speed of the task without overly
+    depleting system resources. For most systems, `20` threads is a fast and reasonably
+    safe number of concurrent processes. After the necessary variables have been updated,
+    the configurations can be verified using the `show options` command again. Once
+    the desired configurations have been verified, the scan can be launched, as follows:'
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`RHOSTS`值已更改为我们希望扫描的远程系统的IP地址。此外，线程数已更改为`20`。`THREADS`值定义了将在后台执行的并发任务数。确定线程值的关键是找到一个合理的平衡点，既能显著提高任务速度，又不会过度消耗系统资源。对于大多数系统，`20`个线程是一个快速且相对安全的并发进程数量。更新必要的变量后，可以再次使用`show
+    options`命令验证配置。一旦验证了所需的配置，即可启动扫描，如下所示：
+- en: '![](../images/00469.jpeg)'
+  id: totrans-231
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00469.jpeg)'
+- en: 'The `run` command is used in Metasploit to execute the selected `auxiliary`
+    module. In the example provided, the `run` command executed a UDP sweep against
+    the specified IP address. The `udp_sweep` module can also be run against a sequential
+    series of addresses using dash notation:'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`run`命令用于在Metasploit中执行选定的`auxiliary`模块。在所提供的示例中，`run`命令执行了针对指定IP地址的UDP扫描。`udp_sweep`模块也可以使用破折号符号对一系列地址进行扫描：'
+- en: '![](../images/00621.jpeg)'
+  id: totrans-233
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00621.jpeg)'
+- en: 'In the example provided, a UDP scan was performed against ten host addresses
+    that were specified by the `RHOSTS` variable. Similarly, `RHOSTS` can be used
+    to define a network range using the CIDR notation, as follows:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对通过`RHOSTS`变量指定的十个主机地址执行了UDP扫描。同样，`RHOSTS`也可以用来通过CIDR表示法定义网络范围，如下所示：
+- en: '![](../images/00475.jpeg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00475.jpeg)'
+- en: Stealth scanning with Metasploit
+  id: totrans-236
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Metasploit进行隐匿扫描
+- en: 'Metasploit has an `auxiliary` module that can be used to perform SYN scans
+    on specified TCP ports:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploit具有一个`auxiliary`模块，可用于对指定的TCP端口执行SYN扫描：
+- en: 'To open up Metasploit in Kali Linux, we use the `msfconsole` command in a Terminal
+    session, as follows:'
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Kali Linux中打开Metasploit，我们在终端会话中使用`msfconsole`命令，如下所示：
+- en: '![](../images/00642.jpeg)'
+  id: totrans-239
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00642.jpeg)'
+- en: 'To run the SYN scan module in Metasploit, call the `use` command with the relative
+    path of the `auxiliary` module. Once the module has been selected, the `show options`
+    command can be used to identify and/or modify scan configurations. This command
+    will display four column headers to include `Name`, `Current Setting`, `Required`,
+    and `Description`. The `Name` column identifies the name of each configurable
+    variable. The `Current Setting` column lists the existing configuration for any
+    given variable. The `Required` column identifies whether a value is required for
+    any given variable. Finally, the `Description` column describes the function of
+    each variable. The value for any given variable can be changed using the `set`
+    command and by providing the new value as an argument:'
+  id: totrans-240
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在Metasploit中运行SYN扫描模块，使用`use`命令并指定`auxiliary`模块的相对路径。一旦选择了模块，可以使用`show options`命令来识别和/或修改扫描配置。此命令会显示四个列标题，分别是`Name`（名称）、`Current
+    Setting`（当前设置）、`Required`（是否必需）和`Description`（描述）。`Name`列标识每个可配置变量的名称，`Current
+    Setting`列列出了任何给定变量的现有配置，`Required`列标识是否需要为任何给定变量提供值，最后，`Description`列描述了每个变量的功能。可以使用`set`命令和提供的新值作为参数来更改任何给定变量的值：
+- en: '![](../images/00646.jpeg)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00646.jpeg)'
+- en: 'In the example provided, the `RHOSTS` value was changed to the IP address of
+    the remote system that we wish to scan. Additionally, the number of threads is
+    changed to `20`. The `THREADS` value defines the number of concurrent tasks that
+    will be performed in the background. Determining thread values consists of finding
+    a good balance that will noticeably improve the speed of the task without overly
+    depleting system resources. For most systems, `20` threads is a fast and reasonably
+    safe number of concurrent processes. The `PORTS` value is set to the TCP port
+    `80` (HTTP). After the necessary variables have been updated, the configurations
+    can again be verified using the `show options` command. Once the desired configurations
+    have been verified, the scan can be launched as follows:'
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`RHOSTS` 值更改为我们希望扫描的远程系统的 IP 地址。此外，线程数更改为 `20`。`THREADS` 值定义了将在后台执行的并发任务数。确定线程值的关键是找到一个良好的平衡，以便显著提高任务速度，同时不过度消耗系统资源。对于大多数系统，`20`
+    个线程是一个快速且相对安全的并发进程数。`PORTS` 值设置为 TCP 端口 `80`（HTTP）。更新必要的变量后，可以使用 `show options`
+    命令再次验证配置。一旦验证了所需的配置，可以按如下方式启动扫描：
+- en: '![](../images/00481.jpeg)'
+  id: totrans-243
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00481.jpeg)'
+- en: 'The `run` command is used in Metasploit to execute the selected `auxiliary`
+    module. In the example provided, the `run` command executed a TCP SYN scan against
+    the port `80` of the specified IP address. We can also run this TCP SYN scan module
+    against a sequential series of TCP ports by supplying the first and last values,
+    separated using dash notation:'
+  id: totrans-244
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`run` 命令在 Metasploit 中用于执行所选的 `auxiliary` 模块。在提供的示例中，`run` 命令执行了对指定 IP 地址的端口
+    `80` 进行的 TCP SYN 扫描。我们还可以通过提供第一个和最后一个端口值，并使用破折号表示法，运行该 TCP SYN 扫描模块以扫描一系列连续的 TCP
+    端口：'
+- en: '![](../images/00669.jpeg)'
+  id: totrans-245
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00669.jpeg)'
+- en: 'In the example provided, a TCP SYN scan was performed on the first 100 TCP
+    port addresses of the remote host that was specified. Although this scan identified
+    multiple services on the target system, we cannot possibly be sure that all services
+    have been identified unless all of the possible port addresses have been scanned.
+    The portions of the TCP header that define the source and destination port addresses
+    are both 16 bits in length. Furthermore, each bit can retain a value of 1 or 0\.
+    As such, there are 2^(16), or 65,536, possible TCP port addresses. For the total
+    possible address space to be scanned, a port range of 0 to 65535 needs to be supplied,
+    as follows:'
+  id: totrans-246
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定的远程主机的前 100 个 TCP 端口地址进行了 TCP SYN 扫描。尽管此扫描识别了目标系统上的多个服务，但除非扫描了所有可能的端口地址，否则我们无法确定是否已经识别了所有服务。定义源端口和目标端口地址的
+    TCP 头部部分都是 16 位长。此外，每个位可以保持值 1 或 0。因此，共有 2^(16)，即 65,536 个可能的 TCP 端口地址。要扫描整个可能的地址空间，需要提供从
+    0 到 65535 的端口范围，如下所示：
+- en: '![](../images/00154.jpeg)'
+  id: totrans-247
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00154.jpeg)'
+- en: 'In the example provided, all of the open TCP ports on the remote system were
+    identified by scanning all of the possible TCP port addresses. We can also modify
+    the scan configurations to scan a sequential series of addresses using dash notation:'
+  id: totrans-248
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，通过扫描所有可能的 TCP 端口地址，识别了远程系统上所有开放的 TCP 端口。我们还可以修改扫描配置，使用破折号表示法扫描一系列连续的地址：
+- en: '![](../images/00014.jpeg)'
+  id: totrans-249
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00014.jpeg)'
+- en: 'In the example provided, a TCP SYN scan was performed on the port `80` against
+    all of the host addresses specified by the `RHOSTS` variable. Similarly, `RHOSTS`
+    can be used to define a network range using CIDR notation:'
+  id: totrans-250
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对由 `RHOSTS` 变量指定的所有主机地址执行了端口 `80` 的 TCP SYN 扫描。同样，`RHOSTS` 可以用来通过 CIDR
+    表示法定义一个网络范围：
+- en: '![](../images/00303.jpeg)'
+  id: totrans-251
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00303.jpeg)'
+- en: Connect scanning with Metasploit
+  id: totrans-252
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit 进行连接扫描
+- en: 'Metasploit has an `auxiliary` module that can be used to perform TCP connect
+    scans on specified TCP ports:'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploit 有一个 `auxiliary` 模块，可以用来对指定的 TCP 端口执行 TCP 连接扫描：
+- en: 'To open up Metasploit in Kali Linux, use the `msfconsole` command in a Terminal
+    session, as follows:'
+  id: totrans-254
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在 Kali Linux 中打开 Metasploit，请在终端会话中使用 `msfconsole` 命令，如下所示：
+- en: '![](../images/00389.jpeg)'
+  id: totrans-255
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00389.jpeg)'
+- en: 'To call the TCP connect scan module in Metasploit, use the `use` command with
+    the relative path of the `auxiliary` module. Once the module has been selected,
+    the `show options` command can be used to identify and/or modify scan configurations.
+    This command will display four column headers to include: `Name`, `Current Setting`,
+    `Required`, and `Description`. The `Name` column identifies the name of each configurable
+    variable. The `Current Setting` column lists the existing configuration for any
+    given variable. The `Required` column identifies whether a value is required for
+    any given variable. Finally, the `Description` column describes the function of
+    each variable. We can change the value for any given variable using the `set`
+    command and by providing the new value as an argument, as follows:'
+  id: totrans-256
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要调用 Metasploit 中的 TCP 连接扫描模块，请使用 `use` 命令和 `auxiliary` 模块的相对路径。选择模块后，可以使用 `show
+    options` 命令来识别和/或修改扫描配置。此命令将显示四个列标题，包括：`Name`（名称）、`Current Setting`（当前设置）、`Required`（是否必需）和
+    `Description`（描述）。`Name` 列标识每个可配置变量的名称。`Current Setting` 列列出了给定变量的现有配置。`Required`
+    列标识某个变量是否需要值。最后，`Description` 列描述了每个变量的功能。我们可以使用 `set` 命令并通过提供新值作为参数来更改任何给定变量的值，如下所示：
+- en: '![](../images/00474.jpeg)'
+  id: totrans-257
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00474.jpeg)'
+- en: In the example provided, the `RHOSTS` value was changed to the IP address of
+    the remote system that we wish to scan. The `PORTS` value is set to the TCP port
+    `80` (HTTP). After the necessary variables have been updated, the configurations
+    can be verified again using the `show options` command. Once the desired configurations
+    have been verified, the scan is launched. The `run` command is used in Metasploit
+    to execute the selected `auxiliary` module. In the example provided, the `run`
+    command executes a TCP connect scan against the port `80` of the specified IP
+    address.
+  id: totrans-258
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，`RHOSTS` 值被更改为我们希望扫描的远程系统的 IP 地址。`PORTS` 值设置为 TCP 端口 `80`（HTTP）。在更新必要的变量后，可以使用
+    `show options` 命令再次验证配置。验证完所需的配置后，启动扫描。`run` 命令用于在 Metasploit 中执行选定的 `auxiliary`
+    模块。在提供的示例中，`run` 命令执行了对指定 IP 地址的端口 `80` 进行 TCP 连接扫描。
+- en: 'This TCP connect scan can also be performed against a sequential series of
+    TCP ports by supplying the first and last values, separated by a dash:'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个 TCP 连接扫描也可以通过提供起始和结束端口值，并用破折号分隔，来对一系列顺序的 TCP 端口进行扫描：
+- en: '![](../images/00497.jpeg)'
+  id: totrans-260
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00497.jpeg)'
+- en: 'In the example provided, the first 100 TCP port addresses were set to be scanned.
+    Additionally, the number of threads was changed to `20.` The `THREADS` value defines
+    the number of concurrent tasks that will be performed in the background. Determining
+    thread values consists of finding a good balance that will noticeably improve
+    the speed of the task without overly depleting system resources. For most systems,
+    `20` threads is a fast and reasonably safe number of concurrent processes. Although
+    this scan identified multiple services on the target system, one cannot be sure
+    that all services have been identified unless all of the possible port addresses
+    have been scanned. The portions of the TCP header that define the source and destination
+    port addresses are both 16 bits in length. Moreover, each bit can retain a value
+    of 1 or 0\. As such, there are 2^(16), or 65,536, possible TCP port addresses.
+    For the total possible address space to be scanned, a port range of 0 to 65535
+    needs to be supplied, as follows:'
+  id: totrans-261
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，设置扫描了前 100 个 TCP 端口地址。此外，线程数被更改为 `20`。`THREADS` 值定义了后台执行的并发任务数。确定线程值的过程是找到一个合适的平衡点，以显著提高任务速度，同时不至于过度消耗系统资源。对于大多数系统来说，`20`
+    个线程是一个快速且相对安全的并发进程数。尽管这个扫描识别了目标系统上的多个服务，但如果没有扫描所有可能的端口地址，就无法确保识别出所有服务。定义源端口和目标端口地址的
+    TCP 头部部分的长度均为 16 位。而且，每一位可以保留 1 或 0 的值。因此，可能的 TCP 端口地址有 2^(16) 或 65,536 个。为了扫描所有可能的地址空间，需要提供一个从
+    0 到 65535 的端口范围，如下所示：
+- en: '![](../images/00079.jpeg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00079.jpeg)'
+- en: 'In the example provided, all of the open TCP ports on the remote system were
+    identified by scanning all of the possible TCP port addresses. We can also modify
+    the scan configurations to scan a sequential series of addresses using dash notation:'
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，通过扫描所有可能的 TCP 端口地址，识别出了远程系统上的所有开放的 TCP 端口。我们还可以修改扫描配置，使用破折号符号扫描一系列顺序的地址：
+- en: '![](../images/00657.jpeg)'
+  id: totrans-264
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00657.jpeg)'
+- en: 'In the example provided, a TCP connect scan is performed on the ports `22`,
+    `80`, and `443` on all of the host addresses specified by the `RHOSTS` variable.
+    Similarly, `RHOSTS` can be used to define a network range using CIDR notation:'
+  id: totrans-265
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在所提供的示例中，对 `RHOSTS` 变量指定的所有主机地址上的端口 `22`、`80` 和 `443` 执行了 TCP 连接扫描。类似地，可以使用
+    `RHOSTS` 来使用 CIDR 表示法定义网络范围：
+- en: '![](../images/00506.jpeg)'
+  id: totrans-266
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00506.jpeg)'
+- en: How it works…
+  id: totrans-267
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: UDP scanning with the Metasploit `auxiliary` module is less comprehensive than
+    UDP scanning with Nmap. It only targets a limited number of services, but it is
+    highly effective at identifying live services on these ports and faster than most
+    other available UDP scanning solutions.
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Metasploit `auxiliary` 模块进行 UDP 扫描不如使用 Nmap 进行的 UDP 扫描全面。它仅针对有限数量的服务，但在这些端口上识别活动服务的效果非常好，并且比大多数其他可用的
+    UDP 扫描解决方案更快。
+- en: The underlying principle behind Metasploit's SYN scan the `auxiliary` module
+    is essentially the same as any other SYN scanning tool. For each port that is
+    scanned, a SYN packet is sent, and the SYN+ACK responses are used to identify
+    live services. Using Metasploit might be more appealing to some because of the
+    interactive console and also because it is a tool that is already well known by
+    most penetration testers.
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploit 的 SYN 扫描背后的基本原理与 `auxiliary` 模块与其他任何 SYN 扫描工具基本相同。对于每个被扫描的端口，都会发送一个
+    SYN 数据包，并使用 SYN+ACK 响应来识别活动服务。使用 Metasploit 对某些人来说可能更具吸引力，因为它提供了交互式控制台，并且它是大多数渗透测试人员已经熟知的工具。
+- en: The underlying principle that defines how a TCP connect scan is performed by
+    Metasploit is the same as previously discussed with other tools. The advantage
+    of performing this type of scan using Metasploit is that it can cut down on the
+    total number of tools that one needs to familiarize oneself with.
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 定义如何通过 Metasploit 执行 TCP 连接扫描的基本原理与之前讨论的其他工具相同。使用 Metasploit 执行此类型扫描的优势在于，它可以减少一个人需要熟悉的工具数量。
+- en: Port scanning with hping3 (stealth)
+  id: totrans-271
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 hping3 进行端口扫描（隐身扫描）
+- en: In addition to the discovery techniques that we've learned, the `hping3` command
+    can also be used to perform port scans. This specific recipe demonstrates how
+    we can use the `hping3` command to perform a TCP stealth scan.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了我们已经学到的发现技术，`hping3` 命令还可以用于执行端口扫描。这个具体的操作示例展示了如何使用 `hping3` 命令来执行 TCP 隐身扫描。
+- en: Getting ready
+  id: totrans-273
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the `hping3` command to perform a TCP stealth scan, you will need to
+    have a remote system that is running accessible network services over TCP. In
+    the examples provided, an instance of Metasploitable2 is used to perform this
+    task. For more information on how to set up Metasploitable2, refer to [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*.
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 `hping3` 命令执行 TCP 隐身扫描，您需要有一个远程系统，该系统正在通过 TCP 提供可访问的网络服务。在所提供的示例中，使用的是 Metasploitable2
+    实例来执行此任务。有关如何设置 Metasploitable2 的更多信息，请参见 [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门*。
+- en: How to do it…
+  id: totrans-275
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作……
+- en: 'In addition to the discovery capabilities that have already been mentioned,
+    the `hping3` command can also be used to perform a TCP port scan:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了已经提到的发现功能外，`hping3` 命令还可以用于执行 TCP 端口扫描：
+- en: 'To perform a port scan with `hping3`, we need to use the `--scan` mode with
+    an integer value to indicate the port number to be scanned:'
+  id: totrans-277
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要使用 `hping3` 执行端口扫描，我们需要使用 `--scan` 模式，并通过整数值来指示要扫描的端口号：
+- en: '![](../images/00121.jpeg)'
+  id: totrans-278
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00121.jpeg)'
+- en: 'In the example provided, a SYN scan was performed against the TCP port `80`
+    of the IP address indicated. The `-S` option identifies the TCP flags activated
+    in the packet sent to the remote system. The table indicates the attributes of
+    the packet received in response. As indicated by the output, a SYN+ACK response
+    was received, thereby indicating that port `80` is open on the target host. Additionally,
+    we can scan multiple ports by passing a comma-delimited series of port numbers,
+    as follows:'
+  id: totrans-279
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在所提供的示例中，执行了对指定 IP 地址的 TCP 端口 `80` 的 SYN 扫描。`-S` 选项标识发送到远程系统的数据包中激活的 TCP 标志。表格显示了接收到的响应包的属性。如输出所示，收到了
+    SYN+ACK 响应，这表明目标主机的端口 `80` 是开放的。此外，我们还可以通过传递以逗号分隔的端口号系列来扫描多个端口，如下所示：
+- en: '![](../images/00511.jpeg)'
+  id: totrans-280
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00511.jpeg)'
+- en: 'In the scan output provided, you can see that the results are only displayed
+    if a SYN+ACK response is received. Note that the response associated with the
+    SYN request sent to the port `443` is not displayed. As indicated in the output,
+    we can view all of the responses by increasing the verbosity with the `-v` option.
+    Additionally, a sequential range of ports can be scanned by passing the first
+    and last port address values separated with dash notation, as follows:'
+  id: totrans-281
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的扫描输出中，可以看到只有在接收到 SYN+ACK 响应时，结果才会显示。注意，发送到端口 `443` 的 SYN 请求所对应的响应没有显示。如输出中所示，我们可以通过增加
+    `-v` 选项来查看所有响应。此外，可以通过传递第一个和最后一个端口地址值，使用破折号符号表示法扫描连续范围的端口，如下所示：
+- en: '![](../images/00513.jpeg)'
+  id: totrans-282
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00513.jpeg)'
+- en: 'In the example provided, the 100-port scan was sufficient to identify several
+    services on the Metasploitable2 system. However, to perform a scan of all possible
+    TCP ports, all of the possible port address values need to be scanned. The portions
+    of the TCP header that define the source and destination port addresses are both
+    16 bits in length, and each bit can retain a value of 1 or 0\. As such, there
+    are 2^(16), or 65,536 possible TCP port addresses. For the total possible address
+    space to be scanned, a port range of 0 to 65535 needs to be supplied, as follows:'
+  id: totrans-283
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，100 个端口的扫描足以识别 Metasploitable2 系统上的多个服务。然而，要执行所有可能的 TCP 端口扫描，需要扫描所有可能的端口地址值。定义源和目标端口地址的
+    TCP 头部部分的长度都是 16 位，每个位可以保持 1 或 0 的值。因此，共有 2^(16)，即 65,536 个可能的 TCP 端口地址。为了扫描所有可能的地址空间，需提供一个端口范围，从
+    0 到 65535，如下所示：
+- en: '![](../images/00324.jpeg)'
+  id: totrans-284
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00324.jpeg)'
+- en: How it works…
+  id: totrans-285
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The `hping3` utility differs from some of the other tools that have been mentioned
+    since it doesn't have a SYN scanning mode, but rather it allows you to specify
+    the TCP flag bits that are activated when the TCP packets are sent. In the example
+    provided in this recipe, the `-S` option instructed `hping3` to use the SYN flag
+    for the TCP packets that were sent.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`hping3` 工具与之前提到的一些其他工具有所不同，因为它没有 SYN 扫描模式，而是允许你指定在发送 TCP 数据包时启用的 TCP 标志位。在本食谱中提供的示例中，`-S`
+    选项指示 `hping3` 使用 SYN 标志来发送 TCP 数据包。'
+- en: Port scanning with DMitry (connect)
+  id: totrans-287
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 DMitry 进行端口扫描（连接）
+- en: Another alternative tool that can be used to perform TCP connect scans on remote
+    systems is DMitry. Unlike Nmap and Metasploit, DMitry is a very simple tool that
+    we can use to perform quick and easy scans without the overhead of managing configurations.
+    This specific recipe demonstrates how we can use DMitry to perform a TCP connect
+    scan.
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个可以用来对远程系统执行 TCP 连接扫描的工具是 DMitry。与 Nmap 和 Metasploit 不同，DMitry 是一个非常简单的工具，我们可以使用它进行快速且轻松的扫描，而无需管理复杂的配置。这个具体的食谱展示了如何使用
+    DMitry 执行 TCP 连接扫描。
+- en: Getting ready
+  id: totrans-289
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the `dmitry` command to perform a full connect scan, you will need to
+    have a remote system that is running network services over TCP. In the examples
+    provided, an instance of Metasploitable2 is used to perform this task. For more
+    information on how to set up Metasploitable2, refer to [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 `dmitry` 命令执行完整的连接扫描，你需要有一个远程系统，该系统通过 TCP 提供网络服务。在提供的示例中，使用了 Metasploitable2
+    实例来执行此任务。有关如何设置 Metasploitable2 的更多信息，请参考 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门指南*。
+- en: How to do it…
+  id: totrans-291
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'DMitry is a multipurpose tool that can be used to perform a TCP scan on a target
+    system. Its capabilities are somewhat limited, but it is a simple tool that can
+    be used quickly and effectively:'
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DMitry 是一个多用途工具，可以用于对目标系统执行 TCP 扫描。它的功能有限，但它是一个简单的工具，可以快速有效地使用：
+- en: 'To view the options available for the `dmitry` command, we execute the following
+    program in a Terminal without any arguments:'
+  id: totrans-293
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看 `dmitry` 命令的可用选项，我们在终端中执行以下程序，不带任何参数：
+- en: '![](../images/00517.jpeg)'
+  id: totrans-294
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00517.jpeg)'
+- en: 'As indicated in the usage output, the `-p` option can be used to perform a
+    TCP port scan. To do this, we use this option with the IP address of the system
+    to be scanned. DMitry has 150 commonly used preconfigured ports that it will scan
+    for. Out of these ports, it will display any that it finds open. Consider the
+    following example:'
+  id: totrans-295
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如使用说明中所示，`-p` 选项可以用于执行 TCP 端口扫描。为此，我们将此选项与要扫描的系统的 IP 地址一起使用。DMitry 有 150 个常用的预配置端口，它会扫描这些端口，并显示任何找到的开放端口。考虑以下示例：
+- en: '![](../images/00492.jpeg)'
+  id: totrans-296
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00492.jpeg)'
+- en: 'There is not much customization available for TCP port scanning with DMitry,
+    but it can be a quick and effective way to assess the commonly used services on
+    a single host. We can also output the results of a DMitry scan to a text file
+    using the `-o` option and by specifying the name of the file to be output in the
+    execution directory:'
+  id: totrans-297
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用DMitry进行TCP端口扫描的自定义选项较少，但它可以快速有效地评估单个主机上常用的服务。我们还可以使用`-o`选项将DMitry扫描的结果输出到文本文件，并在执行目录中指定输出文件名：
+- en: '![](../images/00522.jpeg)'
+  id: totrans-298
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00522.jpeg)'
+- en: How it works…
+  id: totrans-299
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理…
+- en: The underlying principle that defines how a TCP connect scan is performed by
+    the `dmitry` command is the same as was previously discussed with other tools.
+    The usefulness of DMitry mostly lies in its simplicity in comparison with other
+    tools. Rather than managing several configuration options, as we need to with
+    Nmap or Metasploit, we can easily launch DMitry by specifying the appropriate
+    mode and passing it the target IP address. It quickly scans the most commonly
+    used 150 ports and outputs the values of all of the open ports among these.
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dmitry`命令执行TCP连接扫描的基本原理与之前讨论的其他工具相同。DMitry的实用性主要体现在与其他工具相比，它的简便性。与Nmap或Metasploit需要管理多个配置选项不同，我们只需指定适当的模式并传递目标IP地址，就可以轻松启动DMitry。它会快速扫描150个最常用的端口，并输出这些端口中所有开放的端口值。'
+- en: Port scanning with Netcat (connect)
+  id: totrans-301
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Netcat进行端口扫描（连接）
+- en: Since Netcat is a network socket connection and management utility, it can easily
+    be transformed into a TCP port-scanning utility. This specific recipe demonstrates
+    how we can use Netcat to perform a TCP connect scan.
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于Netcat是一个网络套接字连接和管理工具，它可以轻松地转变为TCP端口扫描工具。本示例展示了如何使用Netcat执行TCP连接扫描。
+- en: Getting ready
+  id: totrans-303
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: To use Netcat to perform a full connect scan, you will need to have a remote
+    system that is running network services over TCP. In the examples provided, an
+    instance of Metasploitable2 is used to perform this task. For more information
+    on how to set up Metasploitable2, refer to [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用Netcat执行完整的连接扫描，你需要有一台运行TCP网络服务的远程系统。在提供的示例中，使用Metasploitable2实例来执行此任务。有关如何设置Metasploitable2的更多信息，请参见[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门*。
+- en: How to do it…
+  id: totrans-305
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Netcat is an extremely useful, multipurpose networking utility that can be
+    used for a plethora of purposes. One effective use of Netcat is to perform port
+    scans:'
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Netcat是一个极其有用的多功能网络工具，可以用于各种用途。Netcat的一个有效用途是执行端口扫描：
+- en: 'To identify the usage options, Netcat (`nc`) should be called with the `-h`
+    option, as follows:'
+  id: totrans-307
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要识别使用选项，可以使用`-h`选项调用Netcat(`nc`)，如下所示：
+- en: '![](../images/00225.jpeg)'
+  id: totrans-308
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00225.jpeg)'
+- en: 'As indicated by the usage output, the `-z` option can effectively be used for
+    scanning. To scan the TCP port `80` on a target system, we use the `-n` option
+    to indicate that an IP address will be used, the `-v` option for verbose output,
+    and the `-z` option for scanning, as follows:'
+  id: totrans-309
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如使用输出所示，`-z`选项可以有效用于扫描。要扫描目标系统的TCP端口`80`，我们使用`-n`选项表示将使用IP地址，`-v`选项用于详细输出，`-z`选项用于扫描，具体如下：
+- en: '![](../images/00671.jpeg)'
+  id: totrans-310
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00671.jpeg)'
+- en: 'Performing a scan attempt against an open port will return the IP address,
+    port address, and port status. Performing the same scan against a closed port
+    on a live host will indicate that the connection was refused. We can automate
+    this in a loop, as shown in the following command:'
+  id: totrans-311
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对开放端口进行扫描尝试将返回IP地址、端口地址和端口状态。对活动主机的封闭端口进行相同的扫描将显示连接被拒绝。我们可以将此过程自动化，使用以下命令进行循环扫描：
+- en: '![](../images/00527.jpeg)'
+  id: totrans-312
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00527.jpeg)'
+- en: 'A sequential series of port numbers can be passed through a loop, and all of
+    the ports can be scanned easily and quickly. However, in the example provided,
+    the output for both open and closed ports is included. This is acceptable only
+    if a small number of ports are being scanned. However, if a large number of ports
+    are being scanned, it might be inconvenient to sort through all of the closed
+    ports to find the ones that are open. As such, we can instinctively try to pipe
+    over the output and grep out the lines associated with the open ports, as follows:'
+  id: totrans-313
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一系列连续的端口号可以通过循环传递，并且所有端口可以轻松快速地扫描。然而，在提供的示例中，开放和关闭的端口的输出都被包含了。如果扫描的端口数量较少，这样是可以接受的。但如果扫描大量端口，可能会很不方便逐一筛选出开放的端口，因为要找到开放的端口需要从所有关闭的端口中筛选出来。因此，我们可以本能地尝试将输出管道化，并通过grep命令过滤出与开放端口相关的行，如下所示：
+- en: '![](../images/00124.jpeg)'
+  id: totrans-314
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00124.jpeg)'
+- en: 'However, in attempting to pipe over the output and grepping from it, the total
+    output is still returned. This is because Netcat outputs to `STDERR` instead of
+    `STDOUT`. To effectively grep from the output of this tool, one must redirect
+    the output to `STDOUT` with `2>&1`, as follows:'
+  id: totrans-315
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然而，在尝试将输出管道化并从中使用grep命令时，仍然会返回全部的输出。这是因为Netcat将输出传递给`STDERR`而不是`STDOUT`。为了有效地从此工具的输出中grep，需要使用`2>&1`将输出重定向到`STDOUT`，如下所示：
+- en: '![](../images/00532.jpeg)'
+  id: totrans-316
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00532.jpeg)'
+- en: 'By passing the output to `STDOUT` and then grepping from that output, we are
+    able to isolate the lines of output that provide details on the open ports. We
+    can be even more concise by only extracting the information that we need from
+    these lines. If a single host is being scanned, we will likely only benefit from
+    the third and fourth fields:'
+  id: totrans-317
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过将输出传递给`STDOUT`，然后从中使用grep命令，我们能够隔离出提供开放端口详细信息的输出行。我们还可以更加简洁，仅提取我们需要的信息。如果正在扫描的是单个主机，我们可能只需要关注第三和第四个字段：
+- en: '![](../images/00543.jpeg)'
+  id: totrans-318
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00543.jpeg)'
+- en: 'To extract these fields from the output, the `cut` function can be used to
+    separate the line with a space delimiter and then by specifying the fields to
+    be output. However, there is also an effective way to specify a range of ports
+    within Netcat without passing the tool through a loop. By passing `nc` as a sequential
+    series of port address values, Netcat will automatically display only the open
+    ports:'
+  id: totrans-319
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要从输出中提取这些字段，可以使用`cut`函数将行以空格为分隔符分割，然后指定要输出的字段。然而，还有一种有效的方法可以在不通过循环传递工具的情况下，在Netcat中指定端口范围。通过将`nc`作为一系列连续的端口地址值传递，Netcat将自动只显示开放的端口：
+- en: '![](../images/00536.jpeg)'
+  id: totrans-320
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00536.jpeg)'
+- en: 'Just the same, however, we need to pass its output to `STDOUT` to be able to
+    pipe it over to the `cut` function. By displaying fields `2` through `4`, we can
+    limit the output to the IP address, port address, and associated service, as follows:'
+  id: totrans-321
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 同样地，我们需要将其输出传递给`STDOUT`，才能将其管道化到`cut`函数。通过显示字段`2`到`4`，我们可以将输出限制为IP地址、端口地址和相关服务，如下所示：
+- en: '![](../images/00325.jpeg)'
+  id: totrans-322
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00325.jpeg)'
+- en: 'Using a loop function in bash, we can scan multiple sequential host addresses
+    with Netcat and then extract the same details to identify which ports are open
+    on the various scanned IP addresses:'
+  id: totrans-323
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用bash中的循环函数，我们可以用Netcat扫描多个连续的主机地址，然后提取相同的详细信息，以识别不同扫描的IP地址上哪些端口是开放的：
+- en: '![](../images/00343.jpeg)'
+  id: totrans-324
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00343.jpeg)'
+- en: How it works…
+  id: totrans-325
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: Tools that perform TCP connect scans operate by performing a full three-way
+    handshake to establish a connection with all of the scanned ports on the remote
+    target system. A port's status is determined based on whether a connection was
+    established or not. If a connection was established, the port is determined to
+    be open. If a connection could not be established, the port is determined to be
+    closed.
+  id: totrans-326
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行TCP连接扫描的工具通过执行完整的三次握手与远程目标系统上扫描的所有端口建立连接。端口的状态是根据是否建立了连接来判断的。如果连接成功，端口被认为是开放的；如果无法建立连接，端口则被认为是关闭的。
+- en: Port scanning with masscan (stealth)
+  id: totrans-327
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用masscan进行端口扫描（隐匿扫描）
+- en: The `masscan` utility is the fastest Internet port scanner; in fact, it is capable
+    of scanning the entire Internet in under 6 minutes. This obviously requires adequate
+    hardware and network bandwidth. The `masscan` utility runs using asynchronous
+    transmission, which is what allows it to scan so quickly. One thing to be aware
+    of with masscan is that it utilizes its own custom TCP/IP stack, so some care
+    needs to be taken to avoid conflicts with the local TCP/IP stack. This specific
+    recipe demonstrates how we can use the `masscan` command to perform a TCP stealth
+    scan.
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`masscan` 工具是最快的互联网端口扫描器；事实上，它能够在不到 6 分钟的时间内扫描整个互联网。这显然需要充足的硬件和网络带宽。`masscan`
+    工具通过异步传输运行，这正是它能够如此快速扫描的原因。使用 `masscan` 时需要注意的一点是，它使用的是自定义的 TCP/IP 协议栈，因此需要小心避免与本地
+    TCP/IP 协议栈发生冲突。本示例演示了如何使用 `masscan` 命令执行 TCP 隐形扫描。'
+- en: Getting ready
+  id: totrans-329
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: To use the `masscan` command to perform a stealth scan, you will need to have
+    a remote system that is running network services over TCP. In the examples provided,
+    an instance of Metasploitable2 is used to perform this task. For more information
+    on how to set up Metasploitable2, refer to [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要使用 `masscan` 命令进行隐形扫描，您需要有一台运行网络服务的远程系统。在提供的示例中，使用了 Metasploitable2 实例来执行此任务。有关如何设置
+    Metasploitable2 的更多信息，请参阅 [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)，*入门指南*。
+- en: How to do it…
+  id: totrans-331
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Follow along to stealth scan using the `masscan` command:'
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 跟随以下步骤，使用 `masscan` 命令进行隐形扫描：
+- en: 'The `masscan` utility is an extraordinarily fast port scanner. To see the `masscan`
+    help file, the `masscan` command should be called with the `-h` option, as follows:'
+  id: totrans-333
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`masscan` 工具是一个极其快速的端口扫描器。要查看 `masscan` 帮助文件，应使用 `-h` 选项调用 `masscan` 命令，如下所示：'
+- en: '![](../images/00368.jpeg)'
+  id: totrans-334
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00368.jpeg)'
+- en: 'The makers of masscan did their best to make the usage similar to Nmap. To
+    see `masscan` usage options, call the `masscan` command followed by the `--nmap`
+    option, as follows:'
+  id: totrans-335
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`masscan` 的开发者尽力使其用法与 `Nmap` 相似。要查看 `masscan` 的使用选项，使用 `--nmap` 选项调用 `masscan`
+    命令，如下所示：'
+- en: '![](../images/00387.jpeg)'
+  id: totrans-336
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00387.jpeg)'
+- en: 'When using `masscan` instead of `nmap`, you can think of it as if the `-sS`
+    flag were permanently set. So we do not need to tell it we are doing a stealth
+    scan. One difference between `masscan` and `nmap` is there are no default ports
+    set, so we must define what ports we want to check. A masscan scan will use the `masscan`
+    command, the IP address of the host to be scanned, and `-p` (port/s) to be scanned,
+    as follows:'
+  id: totrans-337
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当使用 `masscan` 替代 `nmap` 时，可以将其视为默认启用了 `-sS` 标志。因此我们不需要告诉它我们正在进行隐形扫描。`masscan`
+    和 `nmap` 之间的一个区别是，`masscan` 没有设置默认端口，因此我们必须定义要检查的端口。一个 `masscan` 扫描将使用 `masscan`
+    命令、要扫描的主机的 IP 地址和 `-p`（端口）来进行扫描，如下所示：
+- en: '![](../images/00172.jpeg)'
+  id: totrans-338
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00172.jpeg)'
+- en: 'In the example provided, a SYN scan was performed on the TCP port `80` of the
+    specified IP address. Similar to the technique explained with Nmap, `masscan`
+    listens for a response and identifies the open ports by analyzing the TCP flags
+    that are activated in any responses received. We can also use the `masscan` command to
+    perform scans on multiple specified ports by passing a comma-delimited list of
+    port numbers, as follows:'
+  id: totrans-339
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定 IP 地址的 TCP 端口 `80` 执行了 SYN 扫描。与使用 Nmap 时解释的技术类似，`masscan` 监听响应，并通过分析接收到的任何响应中激活的
+    TCP 标志来识别开放的端口。我们还可以使用 `masscan` 命令通过传递逗号分隔的端口号列表，在多个指定端口上执行扫描，如下所示：
+- en: '![](../images/00425.jpeg)'
+  id: totrans-340
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00425.jpeg)'
+- en: 'In the example provided, a SYN scan was performed on the ports `21`, `80`,
+    and `443` of the specified target IP address. We can also use Nmap to scan a sequential
+    series of hosts by indicating the first and last port numbers to be scanned, separated
+    using dash notation:'
+  id: totrans-341
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，针对指定目标 IP 地址的端口 `21`、`80` 和 `443` 执行了 SYN 扫描。我们也可以通过使用破折号符号分隔扫描的首尾端口号，使用
+    Nmap 扫描一系列连续的主机：
+- en: '![](../images/00443.jpeg)'
+  id: totrans-342
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00443.jpeg)'
+- en: 'If a scan is to be performed on all possible TCP ports, all of the possible
+    port address values need to be scanned. The portions of the TCP header that define
+    the source and destination port addresses are both 16 bits in length. Moreover,
+    each bit can retain a value of 1 or 0\. As such, there are 2^(16), or 65,536,
+    possible TCP port addresses. For the total possible address space to be scanned,
+    a port range of 0 to 65535 needs to be supplied, as follows:'
+  id: totrans-343
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果需要对所有可能的 TCP 端口进行扫描，则需要扫描所有可能的端口地址值。定义源端口和目标端口地址的 TCP 头部分都长 16 位。此外，每个比特位可以保持值
+    1 或 0。因此，存在 2^(16) 或 65,536 个可能的 TCP 端口地址。为了扫描所有可能的地址空间，需要提供端口范围 0 到 65535，如下所示：
+- en: '![](../images/00180.jpeg)'
+  id: totrans-344
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00180.jpeg)'
+- en: 'In the example provided, all of the 65,536 possible TCP addresses were scanned
+    on the Metasploitable2 system. A full scan is always best practice when attempting
+    to identify all of the possible attack surface on a target. The `masscan` command can
+    also be used to scan TCP ports on a sequential series of hosts using dash notation:'
+  id: totrans-345
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对 Metasploitable2 系统上的 65,536 个可能的 TCP 地址进行了扫描。在尝试识别目标的所有潜在攻击面时，完整扫描始终是最佳实践。`masscan`
+    命令也可以用于按顺序扫描一系列主机的 TCP 端口，使用短横线表示法：
+- en: '![](../images/00183.jpeg)'
+  id: totrans-346
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00183.jpeg)'
+- en: 'In the example provided, a SYN scan of the TCP port `80` was performed on all
+    of the hosts within the range of addresses specified. Although this particular
+    scan was only performed on a single port, `masscan` also has the ability to scan
+    multiple ports and ranges of ports on multiple systems simultaneously. Additionally,
+    masscan can also be configured to scan hosts based on an input list of IP addresses.
+    This can be done using the `-iL` option and then specifying either the filename,
+    if the file exists in the execution directory, or the path of the file. The `masscan`
+    utility then cycles through each address in the input list and performs the specified
+    scan against that address:'
+  id: totrans-347
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在提供的示例中，对指定地址范围内的所有主机执行了 TCP 端口 `80` 的 SYN 扫描。虽然此次扫描仅针对单个端口执行，但 `masscan` 也能够扫描多个端口和多个系统上的端口范围。此外，masscan
+    还可以配置为基于输入的 IP 地址列表来扫描主机。可以使用 `-iL` 选项，然后指定文件名（如果文件存在于执行目录中）或文件路径。然后，`masscan`
+    工具会依次遍历输入列表中的每个地址，并针对该地址执行指定的扫描：
+- en: '![](../images/00487.jpeg)'
+  id: totrans-348
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00487.jpeg)'
+- en: How it works…
+  id: totrans-349
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: The underlying principle behind SYN scanning with `masscan` is the same as has
+    already been discussed. However, with asynchronous mode, `masscan` is a fast and
+    highly effective way to perform these types of scans. The `masscan` utility provides
+    you with the fastest way to scan the Internet and collect information. It uses
+    a custom TCP/IP stack to avoid conflicts and offer you the best compatibility
+    and flexibility.
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 `masscan` 进行 SYN 扫描的基本原理与前面讨论的相同。然而，在异步模式下，`masscan` 是执行这类扫描的快速且高效的方法。`masscan`
+    工具为您提供了扫描互联网并收集信息的最快方式。它使用自定义的 TCP/IP 堆栈，以避免冲突，并为您提供最佳的兼容性和灵活性。

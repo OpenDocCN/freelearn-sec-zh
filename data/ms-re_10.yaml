@@ -1,0 +1,1378 @@
+- en: Packing and Encryption
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 打包和加密
+- en: As a continuation of what we have learned about obfuscation, we will now introduce
+    a set of tools which are categorized to defend software from reverse engineering.
+    The result of using these tools, such as packers and crypters, is a transformed
+    version of the original executable file which still behaves exactly as the original
+    flow of code behavior did. Based on the tool used, we will discuss what a transformed
+    executable would look like and how execution of the transformed file takes place.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为我们学习混淆的延续，我们现在将介绍一组工具，这些工具被分类用于防止软件被逆向工程。使用这些工具（如打包器和加密器）的结果是将原始可执行文件转换成一个新的版本，而新版本的文件仍然完全保持原有的代码行为流。根据所使用的工具，我们将讨论转换后的可执行文件会是什么样子，以及转换后的文件是如何执行的。
+- en: We have picked the UPX tool to demonstrate how packers work at low-level and
+    to show techniques that can be used to reverse it.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们选择了 UPX 工具来演示打包器如何在低级别上工作，并展示可以用来反向工程的技术。
+- en: There are many free packers available in the internet that are commonly used
+    by malicious author to pack their software (fsg, yoda, aspack), but for the sake
+    of simplicity we will focus on the simplest of them all UPX.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 互联网上有很多免费的打包器，通常被恶意作者用来打包他们的软件（如 fsg、yoda、aspack），但为了简便起见，我们将重点介绍最简单的 UPX。
+- en: This chapter will use Windows as our environment and will be debugging with
+    `x86Dbg` or `OllyDbg`. We will also show how the Volatility tool may come in handy.
+    We will touch on obfuscation in the scripting language, and then use a bit of
+    Cyber Chef to decipher data.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将以 Windows 作为我们的环境，并使用`x86Dbg`或`OllyDbg`进行调试。我们还将展示如何使用 Volatility 工具。我们会涉及脚本语言中的混淆，并使用一些
+    Cyber Chef 来解密数据。
+- en: 'We will cover the following topics in this chapter:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Unpacking with the UPX tool
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 UPX 工具解包
+- en: Identifying unpacking stubs, and setting breakpoints for memory extraction using
+    debuggers
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别解包存根，并使用调试器设置断点以提取内存
+- en: Dumping memory, and extracting programs executing in memory
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 转储内存，提取在内存中执行的程序
+- en: Identifying and decrypting segments using keys within executables
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用可执行文件中的密钥识别和解密段
+- en: A quick review on how native executables are loaded by the OS
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 回顾原生可执行文件如何被操作系统加载
+- en: 'For better understanding on how packers modify files, let us have a quick review
+    of how executable files are loaded by the operating system. Native executables
+    are better known as PE files for Windows and ELF files for Linux. These files
+    are compiled down to their low-level format; that is, using assembly language
+    like `x86` instructions. Every executable is structured with a header, code section,
+    data section, and other pertinent sections. The code section contains the actual
+    low-level instruction codes, while the data section contains actual data used
+    by the code. The header contains information about the file, the sections, and
+    how the file should be mapped as a process in the memory. This is shown in the
+    following diagram:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更好地理解打包程序如何修改文件，我们先快速回顾一下操作系统如何加载可执行文件。原生可执行文件通常被称为 Windows 的 PE 文件和 Linux
+    的 ELF 文件。这些文件被编译成低级格式；也就是说，使用类似于`x86`指令的汇编语言。每个可执行文件都由头部、代码段、数据段和其他相关部分组成。代码段包含实际的低级指令代码，而数据段包含代码使用的实际数据。头部包含关于文件、各个段以及文件如何映射为内存中的进程的信息。以下图示展示了这一过程：
+- en: '![](img/c3f6cd0f-df22-4a7c-a644-dd44a50531a7.png)'
+  id: totrans-12
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c3f6cd0f-df22-4a7c-a644-dd44a50531a7.png)'
+- en: 'The header information can be classified as raw and virtual. Raw information
+    consists of appropriate information about the physical file, such as file offsets
+    and size. The offsets are relative to file offset 0\. While virtual information
+    consists of appropriate information regarding memory offsets in a process, virtual
+    offsets are usually relative to the image base, which is the start of the process
+    image in memory. The image base is an address in the process space allocated by
+    the operating system. Basically, the header tells us how the operating system
+    should map the file (raw) and its sections to the memory (virtual). In addition,
+    every section has an attribute which tells us whether the section can be used
+    for reading, writing, or executing. *In [chapter 4](1017358e-f842-4115-8779-f721299bbe3c.xhtml),
+    Static and Dynamic Reversing,* under Memory Regions and Mapping of a Process,
+    we showed how a raw file gets mapped in virtual memory space. The following figure
+    shows how the file on a disk (left) would look when mapped in virtual memory space
+    (right):'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 头部信息可以分为原始信息和虚拟信息。原始信息包含关于物理文件的相关信息，如文件偏移量和大小。偏移量是相对于文件偏移量0的。虚拟信息则包含关于进程中内存偏移的相关信息，虚拟偏移通常是相对于图像基址的，图像基址是进程映像在内存中的起始位置。图像基址是操作系统分配的进程空间中的一个地址。基本上，头部信息告诉我们操作系统应如何将文件（原始）及其各个部分映射到内存（虚拟）。此外，每个部分都有一个属性，告诉我们该部分是否可以用于读取、写入或执行。*在[第4章](1017358e-f842-4115-8779-f721299bbe3c.xhtml)，静态与动态逆向分析*中，我们在“进程的内存区域与映射”一节中展示了如何将原始文件映射到虚拟内存空间。下图显示了当磁盘上的文件（左）映射到虚拟内存空间（右）时的样子：
+- en: '![](img/a8515ba2-47c7-4331-a0d2-997a973d91c1.png)'
+  id: totrans-14
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a8515ba2-47c7-4331-a0d2-997a973d91c1.png)'
+- en: The libraries or modules containing functions required by the code are also
+    listed in a portion of the file that can be seen in sections other than the code
+    and data sections. This is called the import table. It is a list of API functions
+    and the libraries it is from. After the file is mapped, the operating system loads
+    all the libraries in the same process space. The libraries are loaded in the same
+    manner as the executable file but in a higher memory region of the same process
+    space. More about where the libraries are loaded can be found in *[Chapter 4](1017358e-f842-4115-8779-f721299bbe3c.xhtml),
+    Static and Dynamic Reversing,* under Memory Regions and Mapping of a Process.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 包含代码所需函数的库或模块也列在文件的一个部分中，该部分可以在代码和数据部分之外的其他部分看到。这部分称为导入表。它是一个API函数及其所属库的列表。文件映射后，操作系统在相同的进程空间中加载所有库。这些库的加载方式与可执行文件相同，但位于同一进程空间的较高内存区域。关于库加载位置的更多信息，请参阅*第4章](1017358e-f842-4115-8779-f721299bbe3c.xhtml)，静态与动态逆向分析*中的“进程的内存区域与映射”部分。
+- en: When everything is mapped and loaded properly, the OS reads the entry point
+    address from the header then passes the code execution to that address.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当所有内容都正确映射并加载后，操作系统从头部信息中读取入口点地址，然后将代码执行传递到该地址。
+- en: 'There are other sections of the file that make the operating system behave
+    in a special manner. An example of this is the icons displayed by the file explorer,
+    which can be found in the resource section. The file can also contain digitally
+    signed signatures which are used as indicators if the file is allowed to run in
+    the operating system. The CFF Explorer tool should be able to help us to view
+    the header information and these sections, as shown in the following screenshot:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件中还有其他部分会使操作系统以特殊方式运行。例如，文件资源部分中包含的图标就是一个例子，它们会在文件资源管理器中显示。文件还可以包含数字签名，作为指示文件是否允许在操作系统中运行的标志。CFF
+    Explorer工具应该能帮助我们查看头部信息及这些部分，如下图所示：
+- en: '![](img/a4fe8056-8050-4655-9f41-3cbe76dc4269.png)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a4fe8056-8050-4655-9f41-3cbe76dc4269.png)'
+- en: 'We have covered the basics so far but all these structures are well documented
+    by Microsoft and the Linux community. The structure of the Windows PE file can
+    be found in the following link: [https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format](https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format).
+    While the structure for a Linux ELF file can be found in the following link: [http://refspecs.linuxbase.org/elf/elf.pdf](http://refspecs.linuxbase.org/elf/elf.pdf)[.](http://refspecs.linuxbase.org/elf/elf.pdf)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经涵盖了基础内容，但所有这些结构都已由微软和Linux社区进行良好的文档化。Windows PE文件的结构可以在以下链接中找到：[https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format](https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format)。而Linux
+    ELF文件的结构可以在以下链接中找到：[http://refspecs.linuxbase.org/elf/elf.pdf](http://refspecs.linuxbase.org/elf/elf.pdf)[.](http://refspecs.linuxbase.org/elf/elf.pdf)
+- en: Packers, crypters, obfuscators, protectors and SFX
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 打包器、加密器、混淆器、保护器和自解压文件（SFX）
+- en: Executable files can have the code packed, encrypted and obfuscated but remain
+    executable with all of the program intact. These techniques are primarily aimed
+    at protecting the program from being reversed. The rule is that if the original
+    program works properly, it can be reversed. For the rest of the chapter, we will
+    define the term host or original program as the executable file, data, or code
+    before it gets packed, encrypted, obfuscated or protected.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可执行文件可以通过打包、加密和混淆来保护其代码，但仍然保持可执行，且程序本身完好无损。这些技术主要旨在防止程序被反向工程。规则是，如果原始程序能够正常运行，那么它是可以被反向的。接下来我们将定义术语“宿主”或“原始程序”，指的是在文件被打包、加密、混淆或保护之前的可执行文件、数据或代码。
+- en: Packers or compressors
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 打包器或压缩器
+- en: Packers, also known as compressors, are tools used to compress the host down
+    to a smaller size. The concept of compressing data helps us to reduce the time
+    taken to transfer any data. At the obfuscation side, compressed data will most
+    likely not show complete readable text.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包器，也称为压缩器，是用于将宿主文件压缩为更小文件的工具。压缩数据的概念帮助我们减少传输数据时所需的时间。在混淆方面，压缩后的数据通常不会显示完整的可读文本。
+- en: 'In the following figure, the left pane shows the code''s binary and data before
+    getting compressed, while the one on the right shows its compressed form. Notice
+    that the text strings are not completely found in the compressed form:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，左侧窗格显示了压缩前的代码的二进制和数据，而右侧则显示其压缩后的形式。注意，压缩后的文本字符串并不完全显示出来：
+- en: '![](img/02c8d137-d8f9-44f2-ab8b-77eee87e984f.png)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/02c8d137-d8f9-44f2-ab8b-77eee87e984f.png)'
+- en: Given that the code and data are now compressed, executing the file would require
+    a code that decompresses it. This code is called the decompression code stub.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于代码和数据现在已被压缩，执行文件时需要一个解压缩的代码。这个代码被称为解压缩代码段。
+- en: 'In the following figure, the original structure of the file is shown at the
+    left with the program entry point in the code section. A probable packed version
+    would have a new structure (right) with the entry point starting in the decompression
+    stub:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，左侧显示的是文件的原始结构，其中程序的入口点位于代码段。一个可能的打包版本将会有一个新的结构（右侧），其中入口点位于解压缩代码段。
+- en: '![](img/3ee41652-bfc8-4808-843d-5fc24d65f369.png)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3ee41652-bfc8-4808-843d-5fc24d65f369.png)'
+- en: When the packed executable is executed, the stub runs first and, afterwards,
+    passes the code execution to the decompressed code. The entry point in the header
+    should point to the address of the stub.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当打包的可执行文件被执行时，首先运行的是代码段，然后将代码执行权交给解压后的代码。文件头中的入口点应指向代码段的地址。
+- en: Packers reduce the size of some of the sections and thus must change values
+    in the file header. The raw location and size of the sections are modified. As
+    a matter of fact, some packers would treat the file as one big section containing
+    both the code and data within it. The trick is to set this one big section with
+    readable, writable, and executable attributes. However, this may run the risk
+    of having improper error handling, especially when code accidentally writes to
+    a supposedly read-only area, or executes code to a supposedly non-executable area.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包器减少了部分段的大小，因此必须修改文件头中的值。文件头中各段的原始位置和大小会被修改。事实上，一些打包器会将文件视为一个包含代码和数据的大段。诀窍是将这个大段设置为可读、可写且可执行。然而，这可能会带来错误处理不当的风险，尤其是当代码不小心写入一个应为只读的区域，或执行代码时访问了一个应为不可执行的区域。
+- en: The end result of a packed file is to get the host behavior intact with a packed
+    file having a smaller file size.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包文件的最终结果是保留宿主的行为完整，同时使打包文件的大小变小。
+- en: Crypters
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密器
+- en: Obfuscation by encryption is done by crypters. Packers compress the sections
+    while crypters encrypt the sections. Similar to packers, crypters have a stub
+    used to decrypt encrypted code and data. As a result, crypters may instead increase
+    the file size of the host.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过加密进行的混淆是由加密程序完成的。打包程序压缩段，而加密程序则加密段。与打包程序类似，加密程序也有一个存根用于解密加密的代码和数据。因此，加密程序可能会增加宿主文件的大小。
+- en: 'The following image shows a file `crypted` by `Yoda Crypter`:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图像展示了一个由`Yoda Crypter`加密的文件：
+- en: '![](img/2e3deb0e-e216-40e0-a2a3-a94c94e6921d.png)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2e3deb0e-e216-40e0-a2a3-a94c94e6921d.png)'
+- en: The section offsets and sizes have been retained but encrypted. The stub was
+    placed in a newly added section named `*yC*`. If we compare how the original opcode
+    bytes look with the encrypted bytes, we'll notice that opcode bytes have zero
+    bytes spread out. This is a trait that can be used to identify encrypted bytes.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 段偏移量和大小已被保留，但已加密。存根被放置在一个新添加的名为`*yC*`的段中。如果我们比较原始操作码字节和加密后的字节，就会注意到操作码字节中有零字节分布。这是一个可以用来识别加密字节的特征。
+- en: 'Another trait for packers and crypters is about how they import API functions.
+    Using CFF Explorer to check out the Import Directory, we only see two imported
+    APIs: `LoadLibrary` and `GetProcAddress`. Both functions are from `Kernel32.DLL`,
+    and notice that it has its name in mixed character casing: `KeRnEl32.Dll`, as
+    shown in the following example:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包程序和加密程序的另一个特征是它们如何导入API函数。使用CFF Explorer查看导入目录时，我们只看到两个导入的API：`LoadLibrary`和`GetProcAddress`。这两个函数都来自`Kernel32.DLL`，并且注意到它的名称使用了混合字符大小写：`KeRnEl32.Dll`，如下所示：
+- en: '![](img/ae22180c-68cc-4a2c-84c8-293e9b53f055.png)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ae22180c-68cc-4a2c-84c8-293e9b53f055.png)'
+- en: With only these two API functions, every function it requires can be dynamically
+    loaded.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 仅通过这两个API函数，它所需的每个功能都可以动态加载。
+- en: 'The following image shows the `GetProcAddress` API:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图像展示了`GetProcAddress` API：
+- en: '![](img/1f2e11de-2cf2-464f-b3ea-bd1004f0bb7f.png)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1f2e11de-2cf2-464f-b3ea-bd1004f0bb7f.png)'
+- en: 'While the following image shows the `LoadLibrary` API:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图像展示了`LoadLibrary` API：
+- en: '![](img/a3f62daa-9d13-4845-aee1-43dca870c8bc.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a3f62daa-9d13-4845-aee1-43dca870c8bc.png)'
+- en: 'Looking at the stub, we expected it to have a loop code that contains the decryption
+    algorithm. The following image shows the decryption algorithm used by `Yoda Crypter`:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看存根时，我们预计它会包含一个包含解密算法的循环代码。以下图像展示了`Yoda Crypter`使用的解密算法：
+- en: '![](img/79b7a8d7-418e-4385-aa6c-9462e3b6f9ab.png)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/79b7a8d7-418e-4385-aa6c-9462e3b6f9ab.png)'
+- en: Obfuscators
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 混淆器
+- en: Obfuscators are also classified as code modifiers which change the structure
+    of the code while retaining the flow of the program. In the previous chapter,
+    we introduced the control flow flattening (CFF) technique. The CFF technique converts
+    a small code to run in a loop which gets controlled by a control flag. However,
+    obfuscation is not limited to the CFF technique. The compiled file structure can
+    also be modified, especially for a psuedocode based execution, like Visual Basic 
+    and .NET compiled programs.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 混淆器也被归类为代码修改器，它们在保留程序流程的同时更改代码的结构。在前一章中，我们介绍了控制流扁平化（CFF）技术。CFF技术将小段代码转换为在循环中运行，并通过控制标志进行控制。然而，混淆不仅限于CFF技术。编译后的文件结构也可以被修改，特别是对于基于伪代码执行的程序，如Visual
+    Basic和.NET编译程序。
+- en: One of the main techniques to obfuscate is to garble, or encrypt, the name of
+    functions so that decompilers wouldn't be able to recognize the function correctly.
+    Examples of these high-level obfuscating tools are `Obfuscar`, `CryptoObfuscator`
+    and `Dotfuscator`.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 混淆的主要技术之一是使函数名变得模糊不清或加密，使反编译器无法正确识别函数。此类高阶混淆工具的例子有`Obfuscar`、`CryptoObfuscator`和`Dotfuscator`。
+- en: The renaming of variable names with random generated text strings, converting
+    the code text to hexadecimal text, and splitting text for the code to concatenate
+    the text are some obfuscation techniques used for scripts such as JavaScript and
+    visual basic scripts.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 变量名的重命名，使用随机生成的文本字符串，转换代码文本为十六进制文本，以及将文本分割供代码拼接，是用于脚本（如JavaScript和Visual Basic脚本）的一些混淆技术。
+- en: 'The following screenshot gives an example of an obfuscated JavaScript code
+    using an online obfuscation tool:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了一个使用在线混淆工具的混淆JavaScript代码示例：
+- en: '![](img/bb99bd91-6156-48c5-96f5-962b4d062135.png)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bb99bd91-6156-48c5-96f5-962b4d062135.png)'
+- en: The original code is at the left while its obfuscated version is at the right.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 原始代码在左侧，混淆后的版本在右侧。
+- en: Protectors
+  id: totrans-53
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 保护程序
+- en: The protectors employ the combination of packers and crypters, and other anti-reversing
+    features. Protected software usually has multiple layers of decompression and
+    decryption that may use cipher algorithms like `blowfish`, `sha512`, or `bcrypt`.
+    Some sophisticated protectors even use their own code virtualization which is
+    similar to the pseudocode concept. Protectors are usually sold commercially and
+    used for anti-piracy.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 保护工具通过结合使用打包器和加密器，以及其他反调试特性来保护软件。受保护的软件通常有多层解压和解密过程，可能会使用像`blowfish`、`sha512`或`bcrypt`这样的加密算法。一些复杂的保护工具甚至使用自己的代码虚拟化技术，这类似于伪代码的概念。保护工具通常是商业销售的，并用于防止盗版。
+- en: Examples of Windows executable protectors are `Themida`, `VMProtect`, `Enigma`,
+    and `Asprotect`.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows可执行文件保护工具的示例包括`Themida`、`VMProtect`、`Enigma`和`Asprotect`。
+- en: SFX  Self-extracting archives
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SFX 自解压归档
+- en: 'We usually archive our files using ZIP and RAR. But, did you know that these
+    archived files can be turned into a self-extracting executable (SFX)? The intention
+    for these tools is to easily produce installers for any software requiring multiple
+    files, such as the main program and its dependent library modules. Embedded in
+    the SFX archive is an SFX script. This script is responsible for instructing which
+    directories the files are destined to be extracted to. This can be seen in the
+    following diagram:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们通常使用ZIP和RAR来归档文件。但是，你知道这些归档文件可以转换为自解压执行文件（SFX）吗？这些工具的目的在于轻松地为任何需要多个文件的软件生成安装程序，比如主程序及其依赖的库模块。SFX归档中嵌入了一个SFX脚本。该脚本负责指示文件要解压到哪些目录。如下图所示：
+- en: '![](img/34e695d6-380e-4829-aead-208370444121.png)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/34e695d6-380e-4829-aead-208370444121.png)'
+- en: 'Usually, SFX have scripting features that can:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，SFX具有可以执行以下操作的脚本功能：
+- en: Extract archived files
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 提取归档文件
+- en: Run a file from the extracted files
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从提取的文件中运行文件
+- en: Run any file from the system
+  id: totrans-62
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从系统中运行任何文件
+- en: Delete files
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 删除文件
+- en: Make registry entries
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建注册表项
+- en: Visit sites from the internet
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从互联网访问网站
+- en: Create files
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建文件
+- en: Basically, it can pretty much do what a regular program can do to the system. 
+    Examples of SFX tools are `Winzip SFX`, `RARSFX` and `NSIS`.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基本上，它几乎可以做任何常规程序能对系统做的事情。SFX工具的示例包括`Winzip SFX`、`RARSFX`和`NSIS`。
+- en: Unpacking
+  id: totrans-68
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解包
+- en: At this stage, using `x86dbg`, we are going to unpack a packed executable. In
+    this debugging session, we will be unpacking a UPX packed file. Our target will
+    be to reach the original host's entry point. Besides this UPX packed file, we
+    have provided packed samples in our GitHub page that can be used for practice.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一阶段，使用`x86dbg`，我们将解包一个已压缩的可执行文件。在这个调试会话中，我们将解包一个UPX打包的文件。我们的目标是达到原始主机的入口点。除了这个UPX压缩文件外，我们在GitHub页面上还提供了可以用于练习的压缩样本。
+- en: The UPX tool
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: UPX工具
+- en: 'The Ultimate Packer for `eXecutables`, also known as UPX, can be downloaded
+    from [https://upx.github.io/](https://upx.github.io/). The tool itself can pack
+    Windows executables. It is also able to restore or unpack UPX packed files. To
+    see it in action, we used the tool on the file `original.exe`. This is shown in
+    the following example:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`eXecutables`的终极打包器，也称为UPX，可以从[https://upx.github.io/](https://upx.github.io/)下载。该工具本身可以打包Windows可执行文件。它还能够恢复或解包UPX打包的文件。为了展示其功能，我们使用该工具对文件`original.exe`进行了操作，如下所示：'
+- en: '![](img/1243d625-3205-433a-b970-f6da7804e079.png)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1243d625-3205-433a-b970-f6da7804e079.png)'
+- en: Notice that the original file size reduced after being packed.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，在被打包后，原文件的大小已经减少。
+- en: Debugging though the packer
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过打包器进行调试
+- en: Major modifications in the file, especially in the PE file header, have been
+    made by the packer.  To better understand how packers work, let us compare the
+    host and the packed version of the executable file. Using the CFF tool, let us
+    inspect the header differences.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包器对文件做了重大修改，特别是在PE文件头中。为了更好地理解打包器如何工作，让我们比较主机和打包后的可执行文件版本。使用CFF工具，我们将检查头部的差异。
+- en: 'The figure above shows the NT header difference between the original and the
+    UPX packed version:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上图显示了原始版本和UPX压缩版本之间的NT头差异：
+- en: '![](img/6a76527a-ff15-48a6-8899-12d0314adb9c.png)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6a76527a-ff15-48a6-8899-12d0314adb9c.png)'
+- en: 'The only difference here is the number of sections, which was reduced from
+    four down to three, as demonstrated by the following example:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里唯一的区别是节的数量，从四个减少到三个，如下例所示：
+- en: '![](img/ebdcd8a3-15fd-494c-9d0d-70711802c495.png)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ebdcd8a3-15fd-494c-9d0d-70711802c495.png)'
+- en: 'In the optional header comparison in the preceding example, the changes are:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中的可选头比较中，变化如下：
+- en: 'SizeOfCode: `0x0C00 to 0x1000`'
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'SizeOfCode: `0x0C00 到 0x1000`'
+- en: 'SizeOfInitializedData: `0x0e00 to 0x5000`'
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'SizeOfInitializedData: `0x0e00` 到 `0x5000`'
+- en: 'AddressOfEntryPoint: `0x157e to 0x6b90`'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'AddressOfEntryPoint: `0x157e` 到 `0x6b90`'
+- en: 'BaseOfCode: `0x1000 to 0x6000`'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'BaseOfCode: `0x1000` 到 `0x6000`'
+- en: 'BaseOfData: `0x2000 to 0x7000`'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'BaseOfData: `0x2000` 到 `0x7000`'
+- en: 'SizeOfImage: `0x5000 to 0x8000`'
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'SizeOfImage: `0x5000` 到 `0x8000`'
+- en: 'SizeOfHeaders: `0x0400 to 0x1000`'
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'SizeOfHeaders: `0x0400` 到 `0x1000`'
+- en: 'CheckSum: `0x4a92` to `0`'
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 'CheckSum: `0x4a92` 到 `0`'
+- en: The image below shows a comparison between the data directory table of the original
+    and UPXed version of the program.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图展示了原始和UPX压缩后版本的数据目录表之间的对比。
+- en: '![](img/15625b6d-22e6-47d1-83b9-0df8a48da825.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/15625b6d-22e6-47d1-83b9-0df8a48da825.png)'
+- en: 'The previous example shows that the changes in the data directory are:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的示例展示了数据目录中的变化：
+- en: 'Import Directory RVA: `0x234c to 0x71b4`'
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '导入目录RVA: `0x234c` 到 `0x71b4`'
+- en: 'Import Directory Size: `0x0078 to 0x017c`'
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '导入目录大小: `0x0078` 到 `0x017c`'
+- en: 'Resource Directory RVA: `0x4000` to `0x7000`'
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '资源目录RVA: `0x4000` 到 `0x7000`'
+- en: 'Resource Directory Size: `0x01b0` to `0x01b4`'
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '资源目录大小: `0x01b0` 到 `0x01b4`'
+- en: 'Debug Directory RVA: `0x2110` to `0`'
+  id: totrans-96
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '调试目录RVA: `0x2110` 到 `0`'
+- en: 'Debug Directory Size: `0x001c` to `0`'
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '调试目录大小: `0x001c` 到 `0`'
+- en: 'Configuration Directory RVA: `0x2240` to `0x6d20`'
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '配置目录RVA: `0x2240` 到 `0x6d20`'
+- en: 'Configuration Directory Size: `0x40` t0 `0x48`'
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '配置目录大小: `0x40` 到 `0x48`'
+- en: 'Import Address Directory RVA: `0x2000` to `0`'
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '导入地址目录RVA: `0x2000` 到 `0`'
+- en: 'Import Address Directory Size: `0xf4` t0 `0`'
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '导入地址目录大小: `0xf4` 到 `0`'
+- en: The image below shows a comparison between the header sections between the original
+    and the UPXed version of the program.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面的图片展示了原始程序和UPX压缩后版本之间头部节区的对比。
+- en: '![](img/dd3f387d-8b4e-4cae-a8d0-f43d49803da5.png)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dd3f387d-8b4e-4cae-a8d0-f43d49803da5.png)'
+- en: The previous example shows that almost all of the information in the original
+    section header has changed in the UPXed version. The raw and virtual offsets,
+    sizes, and characteristics have changed.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的示例展示了在UPX压缩版本中，原始节区头部几乎所有信息都发生了变化。原始和虚拟偏移量、大小及特性都已变化。
+- en: 'For the `UPX0` section, the meaning of the bit flags in the Characteristics
+    field are listed in the following example:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 `UPX0` 节区，Characteristics 字段中位标志的含义在下面的示例中列出：
+- en: '![](img/1b3ef49a-2408-4680-9ce0-2c0f0f04e783.png)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1b3ef49a-2408-4680-9ce0-2c0f0f04e783.png)'
+- en: 'The following example shows that the number of imported API functions has been
+    reduced, but the original static import library files are still the same:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例显示，虽然导入的API函数数量减少，但原始的静态导入库文件依然保持不变：
+- en: '![](img/067b898a-afc5-4376-948f-b22bd7e26264.png)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/067b898a-afc5-4376-948f-b22bd7e26264.png)'
+- en: 'The following figure shows the API functions that will be imported for `KERNEL32.dll`.
+    They have totally different API functions:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图展示了将要为 `KERNEL32.dll` 导入的API函数。它们拥有完全不同的API函数：
+- en: '![](img/b677cb7b-916c-4426-a6ae-16898b2cb3cc.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b677cb7b-916c-4426-a6ae-16898b2cb3cc.png)'
+- en: 'As for the resource directory contents, it looks like the size did not change
+    except for the offset, as can be seen in the following example:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 至于资源目录的内容，似乎大小没有变化，唯一的变化是偏移量，以下示例中可以看到这一点：
+- en: '![](img/9c33933a-f6b7-43b6-9238-3926b7faecf5.png)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9c33933a-f6b7-43b6-9238-3926b7faecf5.png)'
+- en: 'The following list shows the changes on which the traits are based in the packed
+    file:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下列表展示了在压缩文件中基于哪些特征所做的更改：
+- en: 'There are three sections, namely `UPX0`, `UPx1` and `.rsrc`:'
+  id: totrans-114
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 有三个节区，即 `UPX0`、`UPx1` 和 `.rsrc`：
+- en: '`UPX0` has virtual section properties but has no raw section properties.  This
+    only means that the section will be allocated by the operating system but no data
+    will be mapped to it from the file. This section is set with read, write, and
+    execute flags.'
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`UPX0`具有虚拟节区属性，但没有原始节区属性。这仅意味着该节区将由操作系统分配，但不会从文件中映射数据到该节区。该节区设置了读、写和执行标志。'
+- en: The entry point address is within the `UPX1` section. The stub should be located
+    in this section, along with the compressed code and data.
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 入口点地址位于 `UPX1` 节区内。存根应位于此节区内，并且压缩的代码和数据也应存放在此处。
+- en: The `.rsrc` section seems to retain its contents. Retaining the resource section
+    should still give out the proper icons and program details read by the operating
+    system's file explorer.
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.rsrc` 节区似乎保留了其内容。保留资源节区仍能提供操作系统文件浏览器读取的正确图标和程序详细信息。'
+- en: With the packer having its own structure causing major changes in the sections,
+    some header fields, like the `BaseOfCode` and `BaseOfData`, were totally modified.
+  id: totrans-118
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 由于打包程序具有自己结构，导致节区发生了重大变化，像 `BaseOfCode` 和 `BaseOfData` 这样的头部字段已完全修改。
+- en: Virtual sizes were aligned based on the `SectionAlignment`. For example, the
+    `.rsrc's` virtual size was originally `0x1b0`, aligning it with the `SectionAlignment`,
+    which should make it `0x1000`.
+  id: totrans-119
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 虚拟大小是基于`SectionAlignment`对齐的。例如，`.rsrc`的虚拟大小最初为`0x1b0`，通过与`SectionAlignment`对齐，使其变为`0x1000`。
+- en: The ImageSize has increased since a stub was inserted by the packer.
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 由于打包器插入了一个存根，`ImageSize`已经增加。
+- en: The entry point is the sum of the `ImageBase` and `AddressOfEntryPoint`. The
+    original entry point is located at `0x0040157e`. This address is located within
+    the range of `UPX0`, which begins at `0x00401000` with a size of `0x5000`. The
+    stub is located at the packed file's entry point in the `UPX1` section. The outcome
+    we are expecting is that the packer decompresses the code, dynamically imports
+    the API functions, and finally passes the code execution to the original entry
+    point. To hasten our debugging, what we should be looking for is an instruction,
+    or a set of instructions, that will pass execution to `0x0040157e`, which is the
+    original entry point.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 入口点是`ImageBase`和`AddressOfEntryPoint`之和。原始入口点位于`0x0040157e`。该地址位于`UPX0`区段范围内，`UPX0`从`0x00401000`开始，大小为`0x5000`。存根位于打包文件的入口点，位于`UPX1`区段内。我们期望的结果是，打包器解压代码，动态导入API函数，最后将代码执行传递给原始入口点。为了加快调试，我们应该寻找一条或一组指令，将执行传递到`0x0040157e`，即原始入口点。
+- en: 'Let us see this in action by opening `upxed.exe` in `x86dbg`. We start off
+    at the entry point at `0x00406b90`, as shown in the following screenshot:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过在`x86dbg`中打开`upxed.exe`来观察这一过程。我们从入口点`0x00406b90`开始，如下图所示：
+- en: '![](img/6c6f2f87-a06c-46ce-bf7f-d417842a3b8a.png)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6c6f2f87-a06c-46ce-bf7f-d417842a3b8a.png)'
+- en: The operating system maps the file to the memory, and we have all the virtual
+    sections allocated as well. The first instruction uses `pushad` to save all the
+    initial flag states. If it saves all the flags, it should restore these flags
+    before it jumps towards the original entry point. The next instruction stores
+    the address `0x00406000` to register `esi`. This address is the start of the `UPX1`
+    section. This is where the compressed data is. The next line stores `0x00401000`
+    to register edi. It is easy to tell that the compressed data will be decompressed
+    from `esi` to `edi`. With debugging on, the decompression codes are from `0x00406b91`
+    to `0x00406c5d`.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统将文件映射到内存，并且所有虚拟区段也都已分配。第一条指令使用`pushad`保存所有初始标志状态。如果它保存了所有标志，那么在跳转到原始入口点之前，应该恢复这些标志。接下来的指令将地址`0x00406000`存储到寄存器`esi`中。这个地址是`UPX1`区段的起始位置，压缩数据就在这里。下一行将`0x00401000`存储到寄存器`edi`中。可以清楚地看出，压缩数据将从`esi`解压到`edi`。开启调试后，解压代码位于`0x00406b91`到`0x00406c5d`之间。
+- en: 'Before placing a breakpoint at `0x00406c62`, set a dump window with the address
+    `0x00401000`.  This should help us view a decompressed portion of the host. Running
+    through the code until `0x00406c62` should complete the decompression. This is
+    shown in the following screenshot:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`0x00406c62`处放置断点之前，设置一个地址为`0x00401000`的转储窗口。这将帮助我们查看主机的解压部分。一直运行代码直到`0x00406c62`，应完成解压过程。下图展示了这一过程：
+- en: '![](img/793dcfef-c8fc-4822-9a1b-fba54d8439cf.png)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/793dcfef-c8fc-4822-9a1b-fba54d8439cf.png)'
+- en: The next set of instructions fixes call instructions using relative jump addresses.
+    This code runs from `0x00406c65` to `0x00406c94`. Just place another breakpoint,
+    or instead use a Run until selection at the `0x00406c96` line, to run through
+    the loop of this call fixing code.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一组指令修复使用相对跳转地址的调用指令。该代码从`0x00406c65`运行到`0x00406c94`。只需放置另一个断点，或者使用“运行直到”选项，选择在`0x00406c96`这一行，便可通过这段修复调用的代码循环。
+- en: The next lines are the portion of the packer that dynamically load the API functions
+    used by the host. The code stores `0x00405000` to register edi. This address contains
+    data where it can locate the list of names of the original modules and API function
+    names associated with each module.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的几行是打包器动态加载主机使用的API函数的部分。代码将`0x00405000`存储到寄存器`edi`中。这个地址包含了数据，可以在其中找到原始模块的名称列表以及与每个模块相关的API函数名称。
+- en: 'For every module name, it uses `LoadLibraryA` to load the libraries that the
+    host will use later. This is shown in the following screenshot:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个模块名称，它使用`LoadLibraryA`来加载主机稍后将使用的库。下图展示了这一过程：
+- en: '![](img/551f9041-3358-4832-a14d-2c131ec6fb89.png)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/551f9041-3358-4832-a14d-2c131ec6fb89.png)'
+- en: 'Right after loading a module, it uses `GetProcAddress` to retrieve the addresses
+    of the APIs the host will use, as shown in the following screenshot:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加载模块后，它使用 `GetProcAddress` 获取主机将使用的 API 地址，如以下截图所示：
+- en: '![](img/1e125dac-f447-4748-a176-8a6d0e3471a0.png)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1e125dac-f447-4748-a176-8a6d0e3471a0.png)'
+- en: Every retrieved API address is stored at the host import table which is located
+    at `0x00402000`. Restoring the function addresses to the same import table address
+    should make the host call the APIs without any issues. Placing a breakpoint at
+    `0x00406cde` should execute the dynamic import routine.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个检索到的 API 地址都存储在主机的导入表中，位于 `0x00402000`。将函数地址恢复到相同的导入表地址应该可以让主机正常调用 API。在 `0x00406cde`
+    处设置断点应执行动态导入例程。
+- en: 'The next routine is about to set the mapped header''s access permission to
+    read-only, preventing it from being written to or code executed, as shown in the
+    following screenshot:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一例程将设置映射头部的访问权限为只读，防止其被写入或执行代码，如以下截图所示：
+- en: '![](img/5cccd84a-3b6d-4639-a27c-278a3a2cf00e.png)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5cccd84a-3b6d-4639-a27c-278a3a2cf00e.png)'
+- en: 'VirtualProtect is used to set memory access flags and also takes four parameters. 
+    The following code shows the parameters according to MSDN:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VirtualProtect 用于设置内存访问标志，并且还需要四个参数。以下代码显示了根据 MSDN 的参数：
+- en: '[PRE0]'
+  id: totrans-137
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The first call to VirtualProtect is set with an `lpAddress` equal to `0x00400000`, 
+    dwSize with 0x1000 bytes, and the protect flags with a value of 4.  The value
+    4 denotes the constant for PAGE_READWRITE. The succeeding calls to VirtualProtect
+    are set with a protect flag `PAGE_READONLY`. This is shown in the following screenshot:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一次调用 VirtualProtect 时，`lpAddress` 设置为 `0x00400000`，`dwSize` 设置为 0x1000 字节，保护标志设置为
+    4。值 4 表示 PAGE_READWRITE 常量。之后的 VirtualProtect 调用将保护标志设置为 `PAGE_READONLY`。如以下截图所示：
+- en: '![](img/602b8972-1555-4e58-8974-bb1257e51220.png)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/602b8972-1555-4e58-8974-bb1257e51220.png)'
+- en: Remember that, at the start of the code, we encountered a `pushad` instruction.
+    At this point, we are on its counterpart instruction, `popad`. This is most likely
+    the part where execution will be passed to the original entry point. Looking at
+    the `jmp` instruction at `0x00406D1B`, the address jumps to an address in the
+    `UPX0` section. Looking at our host-packed comparison, the original entry point
+    is indeed located at `0x0040157e`.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记住，在代码开始时，我们遇到了一个 `pushad` 指令。此时，我们正处于其对立指令 `popad` 处。这很可能是执行将传递给原始入口点的部分。查看
+    `0x00406D1B` 处的 `jmp` 指令，地址跳转到 `UPX0` 区段中的某个地址。根据我们的主机打包比较，原始入口点确实位于 `0x0040157e`。
+- en: Reaching the original entry point should conclude debugging the packer code.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到达原始入口点应结束调试打包程序代码。
+- en: Dumping processes from memory
+  id: totrans-142
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从内存中转储进程
+- en: A packed file's data cannot be seen in plain sight, but if we let it run, everything
+    is expected to be unpacked in its process space. What we aim to do is to  produce
+    a version of the file in its unpacked state. To do that, we need to dump the whole
+    memory then extract the executable's process image to a file.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包文件的数据无法直接看到，但如果让它运行，所有内容都应解包到其进程空间中。我们的目标是生成一个解包状态下的文件版本。为此，我们需要转储整个内存，然后将可执行文件的进程映像提取到文件中。
+- en: Memory dumping with VirtualBox
+  id: totrans-144
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 VirtualBox 进行内存转储
+- en: 'We will be using Volatility to dump the process from a suspended VirtualBox
+    image. First of all, we need to learn how to dump a VirtualBox image:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用 Volatility 从暂停的 VirtualBox 映像中转储进程。首先，我们需要了解如何转储 VirtualBox 映像：
+- en: 'Enable the VirtualBox''s debug menu:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启用 VirtualBox 的调试菜单：
+- en: 'For Windows VirtualBox hosts:'
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对于 Windows VirtualBox 主机：
+- en: 'Enter a new environment variable named `VBOX_GUI_DBG_ENABLED` and set it to
+    `true`. This is shown in the following screenshot:'
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 输入一个名为 `VBOX_GUI_DBG_ENABLED` 的新环境变量，并将其设置为 `true`。如以下截图所示：
+- en: '![](img/ccf3b225-dc8c-42fd-a412-fc7ae1849729.png)'
+  id: totrans-149
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ccf3b225-dc8c-42fd-a412-fc7ae1849729.png)'
+- en: 'For Linux hosts:'
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对于 Linux 主机：
+- en: Edit/etc/environment as a root user
+  id: totrans-151
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以 root 用户身份编辑 /etc/environment
+- en: Add a new entry `VBOX_GUI_DBG_ENABLED=true`
+  id: totrans-152
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 添加一个新的条目 `VBOX_GUI_DBG_ENABLED=true`
+- en: Execute the command: `source /etc/environment`
+  id: totrans-153
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 执行命令：`source /etc/environment`
+- en: Restart VirtualBox if already opened
+  id: totrans-154
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果 VirtualBox 已经打开，请重新启动
+- en: Run the packed executable in the Windows guest. We are going to run `upxed.exe`
+    from our GitHub page.
+  id: totrans-155
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Windows 客户机中运行打包的可执行文件。我们将从我们的 GitHub 页面运行 `upxed.exe`。
+- en: 'From the VBoxDbg console, execute these lines to save the whole memory dump
+    to a file. Note that there should be a dot before the `pgmphystofile` command,
+    as shown in the following example:'
+  id: totrans-156
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 VBoxDbg 控制台中，执行以下命令将整个内存转储保存到文件中。注意，`pgmphystofile` 命令前应该加上一个点，如下所示：
+- en: '[PRE1]'
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: memory.dmp is the filename and is stored at the logged-in user's home directory. 
+    That is the `%userprofile%` folder in Windows and the `~/` folder in Linux.
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: memory.dmp是文件名，并存储在登录用户的主目录中。它是Windows中的`%userprofile%`文件夹，Linux中的`~/`文件夹。
+- en: Next, we will be using Volatility to parse the memory dump and extract the data
+    we need.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将使用Volatility解析内存转储并提取我们需要的数据。
+- en: Extracting the process to a file using Volatility
+  id: totrans-160
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Volatility将进程提取到文件
+- en: Volatility can be downloaded from [https://www.volatilityfoundation.org/releases](https://www.volatilityfoundation.org/releases).
+    For this section, our VirtualBox host is in a Linux Ubuntu machine. The Volatility
+    command parameters shown here should also be the same when used in Windows.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility可以从[https://www.volatilityfoundation.org/releases](https://www.volatilityfoundation.org/releases)下载。在这一部分中，我们的VirtualBox主机运行的是Linux
+    Ubuntu系统。这里展示的Volatility命令参数，在Windows中使用时也应该是一样的。
+- en: 'First, we need to identify the exact operating system version using Volatility
+    using the `imageinfo` parameter, as shown in the following examples:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要使用Volatility的`imageinfo`参数来识别确切的操作系统版本，以下是一些示例：
+- en: '[PRE2]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '![](img/1e74b79c-f4b7-4a24-9f6a-a4ced051a377.png)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1e74b79c-f4b7-4a24-9f6a-a4ced051a377.png)'
+- en: Again, `~/memory.dmp` is the file path of the memory we just dumped. The result
+    should show a list of the identified OS profile. For Windows 7 SP1 32-bit, we
+    would be using `Win7SP1x86` as our profile for succeeding `Volatility` commands.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次说明，`~/memory.dmp`是我们刚刚转储的内存文件路径。结果应显示已识别的操作系统配置文件列表。对于Windows 7 SP1 32位，我们将使用`Win7SP1x86`作为后续`Volatility`命令的配置文件。
+- en: 'Next, we will have to list down the running processes and identify which is
+    our packed executable. To list down running processes, we will be using the `pslist`
+    parameter, as shown in the following examples:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要列出正在运行的进程并识别哪个是我们的打包可执行文件。为了列出运行的进程，我们将使用`pslist`参数，如以下示例所示：
+- en: '[PRE3]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '![](img/18117a63-4071-4796-8744-5ef99fd0d456.png)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/18117a63-4071-4796-8744-5ef99fd0d456.png)'
+- en: 'Looking at the second column''s last line in the previous screenshot, we find
+    `upxed.exe`. We need to note down the process ID (PID) which has a value of `2656`.
+    Now that we have retrieved the PID of our packed executable, we can dump the process
+    to file using the `procdump` parameter, as shown in the following code:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看上一张截图中第二列的最后一行，我们发现`upxed.exe`。我们需要记下进程ID（PID），它的值是`2656`。现在我们已经获取了打包可执行文件的PID，我们可以使用`procdump`参数将进程导出为文件，如以下代码所示：
+- en: '[PRE4]'
+  id: totrans-170
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '`procdump` will save the process executable in the `dump/` folder set by the
+    `-D` parameter, as shown in the following screenshot:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`procdump`将把进程可执行文件保存在`-D`参数设置的`dump/`文件夹中，如下图所示：'
+- en: '![](img/b6bb2c9b-fecf-451e-8455-204a21ac8c7d.png)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b6bb2c9b-fecf-451e-8455-204a21ac8c7d.png)'
+- en: Volatility has a wide range of features to choose from. Feel free to explore
+    these arguments as these may help in fitting analysis situations.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility有很多功能可供选择。请随意探索这些参数，它们可能有助于适应分析情况。
+- en: How about an executable in its unpacked state?
+  id: totrans-174
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解包后的可执行文件怎么样？
+- en: 'Now that we have an executable file from Volatility, running this back in our
+    Windows guest sandbox gives us the following message:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们从Volatility获取了一个可执行文件，将其在我们的Windows虚拟沙盒中运行，得到以下信息：
+- en: '![](img/54d1cf48-4267-4422-957f-c42b5ca3c349.png)'
+  id: totrans-176
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/54d1cf48-4267-4422-957f-c42b5ca3c349.png)'
+- en: Remember that the packed executable has its own PE header and stub and not that
+    of the original host's. The header, stub and compressed data were directly mapped
+    to the process space. Every API function was dynamically imported. Even with the
+    code and data decompressed, the entry point set in the header is still of the
+    packed executables and not of the original hosts.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，打包的可执行文件有自己的PE头和存根，而不是原始主机的。头部、存根和压缩数据被直接映射到进程空间。每个API函数都是动态导入的。即使代码和数据已经解压，头部中设置的入口点仍然是打包可执行文件的，而不是原始主机的。
+- en: Fortunately, `x86dbg` has a plugin known as Scylla. After reaching the original
+    entry point, which means we are in the unpacked state, we can rebuild the process
+    being debugged into a brand new executable file. The new executable file is already
+    unpacked and can be executed alone.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，`x86dbg`有一个插件叫做Scylla。在到达原始入口点后，这意味着我们已经进入解包状态，我们可以将正在调试的进程重建为一个全新的可执行文件。这个新的可执行文件已经解包，可以单独执行。
+- en: 'This still requires us to debug the packed executable until we reach the original
+    entry point (OEP). Once at the OEP, open up Scylla from the plugins'' drop-down
+    menu. This should open up the Scylla window, as shown in the following example:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这仍然要求我们调试打包后的可执行文件，直到我们到达原始入口点（OEP）。一旦到达OEP，从插件下拉菜单中打开Scylla。这应该会打开Scylla窗口，如以下示例所示：
+- en: '![](img/c86e5f9d-594c-43b4-bfda-1e132d7de025.png)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c86e5f9d-594c-43b4-bfda-1e132d7de025.png)'
+- en: 'The active process is already set to the `upxed.exe` process. The OEP is also
+    set to where the instruction pointer is. The next thing to do is click on IAT
+    Autosearch to make Scylla parse the process space and locate the most probable
+    import table. This fills up the VA and `Size` fields in the IAT info frame with
+    the probable import table location and size. Click on `Get Imports` to make Scylla
+    scan for the imported library and API functions. This is shown in the following
+    screenshot:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当前活动进程已经设置为`upxed.exe`进程。OEP也已经设置为指令指针所在的位置。接下来要做的是点击IAT Autosearch，让Scylla解析进程空间并定位最可能的导入表。这将填充IAT信息框中的VA和`Size`字段，显示可能的导入表位置和大小。点击`Get
+    Imports`，让Scylla扫描已导入的库和API函数。如下图所示：
+- en: '![](img/07a1de67-a50b-41dd-92f0-302c20a24d93.png)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/07a1de67-a50b-41dd-92f0-302c20a24d93.png)'
+- en: 'Expand one of the libraries and it will show the API functions it found. Now,
+    under the Dump frame, click on the Dump button. This brings up a dialog that asks
+    where to save the executable file. This simply dumps the executable file''s process.
+    We still need to apply the IAT info and imports. Click on Fix Dump and open the
+    dumped executable file. This produces a new file with the `_SCY` appended to the
+    file name, as shown in the following screenshot:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 展开其中一个库，它会显示出它找到的API函数。现在，在Dump框架下，点击Dump按钮。这会弹出一个对话框，询问保存可执行文件的位置。这只是将可执行文件的进程转储出来。我们仍然需要应用IAT信息和导入。点击Fix
+    Dump并打开转储的可执行文件。这会生成一个新的文件，并在文件名后附加`_SCY`，如下图所示：
+- en: '![](img/4c440597-7e46-4672-9ca4-fd983ffdc793.png)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4c440597-7e46-4672-9ca4-fd983ffdc793.png)'
+- en: Running this new executable file should give us the same result as the original
+    host's behavior.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行这个新的可执行文件应该会给我们与原始主机行为相同的结果。
+- en: In Volatility, we did not have enough information to reconstruct the executable
+    file. Using `x86dbg` and Scylla, though requiring us to get past debugging the
+    packer stub, we were able to have a reconstructed executable file.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Volatility中，我们没有足够的信息来重建可执行文件。然而，使用`x86dbg`和Scylla，尽管需要我们绕过打包器的调试，我们仍然能够得到一个重建后的可执行文件。
+- en: Other file-types
+  id: totrans-187
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 其他文件类型
+- en: Nowadays, websites usually convert binary data to printable ASCII text in order
+    for the site developers to easily embed this data along with the HTML scripts.
+    Others simply convert data to something that is not easy for humans to read. In
+    this section, we will aim to decode data that has been hidden from plain understandable
+    form. In *[Chapter 13 ](0aefc43b-86b5-4596-a467-c499a15d192d.xhtml)Reversing various
+    File-types*, we will deal more with how to reverse other File-Types besides Windows
+    and Linux executables. In the meantime, we will just decode obvious data.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如今，网站通常将二进制数据转换为可打印的ASCII文本，以便网站开发人员轻松地将这些数据与HTML脚本一起嵌入。其他网站则将数据转换成不容易被人类读取的形式。在本节中，我们将目标是解码那些已被隐藏的不可直观理解的数据。在*[第13章](0aefc43b-86b5-4596-a467-c499a15d192d.xhtml)
+    反向工程各种文件类型*中，我们将处理如何反向工程除了Windows和Linux可执行文件之外的其他文件类型。在此之前，我们将仅解码明显的数据。
+- en: 'Let us head to our browsers and visit [www.google.com](http://www.google.com),
+    at the time of writing (we stored a copy of the source at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch10/google_page_source.txt](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch10/google_page_source.txt)),
+    viewing the source would show us a portion that has a `b64` encoded text, as in
+    the following screenshot:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们去浏览器并访问[www.google.com](http://www.google.com)，在写作时（我们存储了该页面的源代码副本，见[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch10/google_page_source.txt](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch10/google_page_source.txt)），查看源代码时会显示一部分包含`b64`编码文本，如下图所示：
+- en: '![](img/ce52a38e-2e88-42e5-bfb4-513d2cf6eae3.png)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ce52a38e-2e88-42e5-bfb4-513d2cf6eae3.png)'
+- en: 'Using Cyberchef, a tool which can help decode various types of encoded data
+    including base 64, we can deduce this data to something we understand. Just copy
+    and paste the base-64 data into the input box then double-click *From Base64*.
+    This should display the decoded binary content in the output box, as shown in
+    the following screenshot:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Cyberchef 工具，这个工具可以帮助解码多种编码数据，包括 base 64，我们可以将这些数据转化为我们能理解的内容。只需将 base-64
+    数据复制并粘贴到输入框中，然后双击 *From Base64*。这样应该会在输出框中显示解码后的二进制内容，如下图所示：
+- en: '![](img/54e29fc8-9791-4041-b84f-2b421c999112.png)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/54e29fc8-9791-4041-b84f-2b421c999112.png)'
+- en: 'Notice that the output has a `PNG` written at the beginning. This is most likely
+    a PNG image file. In addition, if we carefully look at the source code, we can
+    see that the type of data was also indicated before the base-64 encoded data,
+    as shown in the following example:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，输出开头写有 `PNG`。这很可能是一个 PNG 图像文件。此外，如果我们仔细查看源代码，还可以看到在 base-64 编码数据之前也有标明数据类型，如以下示例所示：
+- en: '[PRE5]'
+  id: totrans-194
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'If we click on the disk icon, we can save the output data to a file and name
+    it with a `.png` extension. That should enable us to view the image, as shown
+    in the following screenshot:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们点击磁盘图标，我们可以将输出数据保存到文件并命名为 `.png` 扩展名。这样我们就能查看图像，如以下截图所示：
+- en: '![](img/f4a2eed5-75d1-4f0b-a267-c3f1debad7b6.png)'
+  id: totrans-196
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f4a2eed5-75d1-4f0b-a267-c3f1debad7b6.png)'
+- en: There are other supported encoded types from the Cyberchef tool. If we ever
+    encounter similar encoded text, the internet has all the available tools to help
+    us out.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Cyberchef 工具支持其他编码类型。如果我们遇到类似的编码文本，互联网提供了所有可用的工具来帮助我们。
+- en: Summary
+  id: totrans-198
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Reverse engineering is about how we work with the tools in their proper situations.
+    Even with packed, encrypted, and obfuscated executables, hidden information can
+    still be extracted.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逆向工程就是如何在正确的情境中使用工具。即使是经过压缩、加密和混淆的可执行文件，隐藏的信息仍然可以被提取出来。
+- en: In this chapter, we introduced various concepts of how data can be hidden using
+    packers, crypters, obfuscators, protectors, and even SFX tools. We encountered
+    a packed file produced by the UPX tool which we were still able to reverse using
+    a debugger. Being aware of where the instruction pointer is, we can determine
+    if we are already at the original entry point. As a general rule, if the instruction
+    pointer has jumped from a different section, we can say that we are already at
+    the original entry point.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们介绍了如何通过打包工具、加密工具、混淆器、保护器甚至自解压工具隐藏数据的各种概念。我们遇到了一个由 UPX 工具生成的打包文件，并且我们仍然能够通过调试器进行逆向工程。通过注意指令指针的位置，我们可以判断自己是否已经到达原始入口点。通常来说，如果指令指针已经跳转到不同的区域，我们可以认为自己已经到达了原始入口点。
+- en: Using another solution to viewing the unpacked state of a program, we used Volatility
+    with a memory dump from a VirtualBox guest and extracted the process of the executable
+    that we just ran. Using the Scylla tool, we were also able to rebuild an unpacked
+    state of the packed executable.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用另一种查看程序解包状态的方案，我们使用 Volatility 结合来自 VirtualBox 虚拟机的内存转储，并提取了我们刚刚运行的可执行文件的进程。通过
+    Scylla 工具，我们还能够重建解包后的可执行文件状态。
+- en: We ended this chapter by introducing the CyberChef tool, which is able to decode
+    popular encoded data like base-64\. This tool might come in useful when we encounter
+    encoded data not only in scripts found in websites but in every executable we
+    encounter.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章最后我们介绍了 CyberChef 工具，它能够解码流行的编码数据，如 base-64。这个工具可能在我们遇到编码数据时非常有用，不仅在网站上的脚本中，在我们遇到的每个可执行文件中都可能出现。
+- en: In the next chapter, we will proceed further in our journey by identifying malicious
+    behaviors executed by malware.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将继续我们的旅程，通过识别恶意软件执行的恶意行为。

@@ -1,0 +1,1820 @@
+- en: Chapter 7. Registry Analysis
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第7章 注册表分析
+- en: Understanding system configuration and settings and user activities is always
+    an important step in the forensics analysis process. This configuration used to
+    be stored in INI files, which were text files with a simple format. However, starting
+    from Windows 3.1, the concept of registry was introduced to store the com-based
+    components only. **COM** or **Component Object Model** was introduced by Microsoft
+    in 1993 to enable inter-process communication and dynamic object creation in a
+    wide range of programming languages. Since then, it has been used on a larger
+    scale to include most of the Windows settings.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理解系统配置、设置和用户活动始终是取证分析过程中的重要步骤。过去，这些配置存储在 INI 文件中，这些文件是简单格式的文本文件。然而，从 Windows
+    3.1 开始，引入了注册表的概念，仅用于存储基于 COM 的组件。**COM** 或 **组件对象模型** 是微软在1993年推出的，用于支持跨进程通信和在多种编程语言中动态创建对象。从那时起，它被广泛用于存储大多数
+    Windows 设置。
+- en: The registry can be considered as the Windows-structured database. It contains
+    the operating system's configurations and settings, and also contains the settings
+    of running services and installed applications along with users' preferences.
+    It is not mandatory for the installed applications to use the registry to store
+    its configurations and settings. Some programs use XML or text files to store
+    their configurations.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表可以看作是一个 Windows 结构化的数据库。它包含操作系统的配置和设置，也包含正在运行的服务和已安装应用程序的设置以及用户的偏好设置。安装的应用程序不必使用注册表来存储其配置和设置。有些程序使用
+    XML 或文本文件来存储它们的配置。
+- en: Portable applications usually keep their configuration data within files in
+    the directory or folder from where the application executable runs. The registry
+    also keeps track of users' activities, stores their settings, and supports the
+    multi-profile structure, where each user has their configuration for their account.
+    The registry of each user stores under that user's directory in a separate file
+    called `NTUSER.DAT`, which will be discussed in detail later in this chapter.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 便携应用程序通常将其配置信息保存在应用程序可执行文件所在目录或文件夹中的文件里。注册表还会跟踪用户的活动，保存他们的设置，并支持多用户配置结构，每个用户都有自己的账户配置。每个用户的注册表存储在该用户目录下的一个独立文件中，文件名为
+    `NTUSER.DAT`，本章稍后将详细讨论。
+- en: Registry analysis in the digital forensics process is a valuable source of evidential
+    information for investigators. Malicious programs are like any other program.
+    They use the system resources while running, so they may leave some traces in
+    the registry. These traces will help in understanding the circumstances of the
+    incident under investigation.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数字取证过程中对注册表的分析是调查人员获取证据的重要来源。恶意程序与其他程序一样，在运行时会使用系统资源，因此它们可能在注册表中留下某些痕迹。这些痕迹将有助于了解正在调查的事件的具体情况。
+- en: In this chapter, we will discuss the structure of the registry and some tools
+    that are used to perform analysis.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将讨论注册表的结构以及用于执行分析的一些工具。
+- en: The registry structure
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 注册表结构
+- en: The registry has a specific structure, which is divided into key and value.
+    Like the directory structure, main root keys represent the root directory, sub-keys
+    represent the sub folders, and values represent the files. Figure 1 depicts the
+    registry structure opened from Windows native tool "registry editor". This tool
+    can be opened in editable mode by typing regedit.exe in Run.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表有一个特定的结构，分为键和值。像目录结构一样，根键表示根目录，子键表示子文件夹，值表示文件。图1展示了通过 Windows 原生工具 "注册表编辑器"
+    打开的注册表结构。通过在运行窗口中输入 regedit.exe 可以以可编辑模式打开该工具。
+- en: 'The items in the round-edged rectangle are the root keys, while the items in
+    the rectangle below it are the sub-keys. The items inside the oval are the values
+    of the registry. Each value has these three entries:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 圆角矩形中的项目是根键，而下方矩形中的项目是子键。椭圆形中的项目是注册表的值。每个值都有以下三个条目：
+- en: Name
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 名称
+- en: Type
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 类型
+- en: Data
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据
+- en: 'To access a specific value, the user needs to know the path to this value.
+    The path can be found in the tail of the regedit window. In our example, the path
+    is `Computer\HKEY_CURRENT_USER\Environment`:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要访问特定的值，用户需要知道该值的路径。路径可以在 regedit 窗口的末尾找到。在我们的例子中，路径是 `Computer\HKEY_CURRENT_USER\Environment`：
+- en: '![The registry structure](img/image_07_001.jpg)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_IMG
+  zh: '![注册表结构](img/image_07_001.jpg)'
+- en: 'Figure1: The main components of the registry'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图1：注册表的主要组件
+- en: Root keys
+  id: totrans-15
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 根键
+- en: 'The Windows system, in this case Windows 8.1, has five root keys. Each root
+    key stores different information and settings about the running system and the
+    system''s users. Each root key shown in the registry editor is actually a file
+    in the filesystem called **registry hive**. The root keys are as follows:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 系统，在本例中为 Windows 8.1，拥有五个根键。每个根键存储有关正在运行的系统和系统用户的不同信息和设置。在注册表编辑器中显示的每个根键实际上是文件系统中的一个名为**注册表哈希**的文件。这些根键如下所示：
+- en: '`HKEY_CLASSES_ROOT`'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CLASSES_ROOT`'
+- en: '`HKEY_LOCAL_MACHINE`'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE`'
+- en: '`HKEY_USERS`'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_USERS`'
+- en: '`HKEY_CURRENT_USER`'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER`'
+- en: '`HKEY_CURRENT_CONFIG`'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_CONFIG`'
+- en: In the following section, we will discuss each root key in brief and the registry
+    hive structure, before discussing the analysis programs to explain how it could
+    be useful in the analysis process.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将简要讨论每个根键及注册表哈希结构，然后讨论分析程序，解释它如何在分析过程中发挥作用。
+- en: HKEY_CLASSES_ROOT or HKCR
+  id: totrans-23
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: HKEY_CLASSES_ROOT 或 HKCR
+- en: This key contains subkeys. Each subkey is named after one extension that can
+    be found in the system, such as `.exe` and `.jpeg`. This root key describes the
+    default program that has to be used to open this extension to the system. Also,
+    this key stores the right-click menu's details and the icon of the program.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此键包含子键。每个子键以系统中可以找到的扩展名命名，例如 `.exe` 和 `.jpeg`。此根键描述了必须使用的默认程序来打开系统中的该扩展名。此外，该键还存储了右键菜单的详细信息和程序的图标。
+- en: 'Consider that during an analysis, we (the investigator) need to know which
+    program is used to open a specific file type, such as the executable files with
+    the flv extension. We would then use the following process:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设在分析过程中，我们（调查员）需要知道哪个程序用于打开特定的文件类型，例如带有 flv 扩展名的可执行文件。然后我们将使用以下过程：
+- en: First, we need to search for the subkey named `.flv`, without quotes, under
+    the root key and locate the associated value of this subkey.
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 首先，我们需要在根键下搜索名为 `.flv` 的子键（不带引号），并定位该子键的关联值。
+- en: Then, we need to search under the same root key for another subkey named after
+    the associated value `VLC.flv`. This subkey contains some values about how the
+    operating system deals with `.flv` media files:![HKEY_CLASSES_ROOT or HKCR](img/image_07_002.jpg)
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 然后，我们需要在相同的根键下搜索另一个名为 `VLC.flv` 的子键。此子键包含有关操作系统如何处理 `.flv` 媒体文件的一些值：![HKEY_CLASSES_ROOT
+    或 HKCR](img/image_07_002.jpg)
+- en: 'Figure 2: The flv extension associated value in the registry'
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 2：注册表中与 flv 扩展名关联的值
+- en: On searching for the `VLC.flv` value in the same registry key, we will locate
+    the executable that was used to run the `.flv` file types. In this case, this
+    is the VLC media player. It also mentions the location of the executable in the
+    filesystem:![HKEY_CLASSES_ROOT or HKCR](img/image_07_003.jpg)
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在同一注册表键下搜索 `VLC.flv` 值时，我们将定位到用于运行 `.flv` 文件类型的可执行文件。在这种情况下，它是 VLC 媒体播放器。它还提到文件系统中可执行文件的位置：![HKEY_CLASSES_ROOT
+    或 HKCR](img/image_07_003.jpg)
+- en: 'Figure 3: location of the VLC player used to run the .flv file type'
+  id: totrans-30
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3：VLC 播放器的所在位置，用于运行 .flv 文件类型
+- en: For example, in a multiuser Windows environment, if two different users have
+    installed two different programs to open PDF files, then when one user logs in
+    to the system, the operating system will load the profile of this specific user,
+    including their selected program to open the PDF file.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，在多用户 Windows 环境中，如果两个不同的用户安装了两个不同的程序来打开 PDF 文件，则当一个用户登录系统时，操作系统将加载该特定用户的配置文件，包括其选择的打开
+    PDF 文件的程序。
+- en: 'However, the information in the HKCR comes from two different locations:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，HKCR 中的信息来自两个不同的位置：
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Classes`'
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Classes`'
+- en: '`HKEY_CURRENT_USER\SOFTWARE\Classes`'
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\SOFTWARE\Classes`'
+- en: Usually, this is an alias to only `HKEY_LOCAL_MACHINE\SOFTWARE\Classes`. When
+    a user registers a different association to specific file type, it uses the per-user
+    class registration feature to register the new association to this user only.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，这是仅指向 `HKEY_LOCAL_MACHINE\SOFTWARE\Classes` 的别名。当用户为特定文件类型注册不同的关联时，它使用每个用户的类注册功能，仅将新关联注册到该用户。
+- en: In this case, if the user opens one file of a specific type, and this file type
+    has two different associations in `HKEY_LOCAL_MACHINE\SOFTWARE\Classes` and `HKEY_CURRENT_USER\SOFTWARE\Classes`,
+    then the one in `HKEY_CURRENT_USER\SOFTWARE\Classes`, which relates to this specific
+    user, will be used.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，如果用户打开一个特定类型的文件，并且该文件类型在 `HKEY_LOCAL_MACHINE\SOFTWARE\Classes` 和 `HKEY_CURRENT_USER\SOFTWARE\Classes`
+    中有两个不同的关联，那么将使用与该特定用户相关的 `HKEY_CURRENT_USER\SOFTWARE\Classes` 中的关联。
+- en: HKEY_LOCAL_MACHINE
+  id: totrans-37
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: HKEY_LOCAL_MACHINE
+- en: 'This key contains configuration and settings that are used by the system during
+    start-up. It is independent from the user login. This root key contains the following
+    five subkeys:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此键包含系统启动过程中使用的配置和设置。它与用户登录无关。该根键包含以下五个子键：
+- en: '**System**: This contains system configuration, such as the computer name,
+    system time zone, and network interfaces.'
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**系统**：此项包含系统配置，例如计算机名称、系统时区和网络接口。'
+- en: '**Software**: This contains settings and configuration about the installed
+    applications on the system and the operating system services.'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**软件**：此项包含有关系统中已安装应用程序和操作系统服务的设置和配置。'
+- en: '**SAM**: This is the Security Account Manager, and it stores the user and group
+    security information. It summarizes the total rights of the user that are granted
+    by the administrator on the local system and domain. It contains the username,
+    the unique SID of the user, and a hash message of the user''s password. This file
+    will be empty if opened from a running system by the `regedit.exe` tool because
+    of Windows security. It can be extracted and opened in a different analysis machine
+    to display all its contents.'
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SAM**：这是安全帐户管理器，存储用户和组的安全信息。它总结了管理员在本地系统和域上授予用户的所有权限。它包含用户名、用户的唯一 SID 和用户密码的哈希消息。由于
+    Windows 安全性，从运行中的系统通过 `regedit.exe` 工具打开时此文件将为空。可以将其提取并在另一台分析机上打开，以显示所有内容。'
+- en: '**Security**: This contains the security policy in the system, if any. This
+    is the same as SAM, its contents can''t be viewed from a live system.'
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**安全**：此项包含系统中的安全策略（如果有的话）。它与 SAM 相同，其内容无法从运行中的系统查看。'
+- en: '**Hardware**: This holds information about the hardware devices connected to
+    the system. This information is stored during the system boot.'
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**硬件**：此项包含有关连接到系统的硬件设备的信息。这些信息在系统启动时存储。'
+- en: HKEY_USERS or HKU
+  id: totrans-44
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: HKEY_USERS 或 HKU
+- en: 'The HKU registry root key contains a number of subkeys. We will use Windows
+    8.1 for this example:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: HKU 注册表根键包含多个子键。我们将使用 Windows 8.1 作为本示例：
+- en: '![HKEY_USERS or HKU](img/image_07_004.jpg)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![HKEY_USERS 或 HKU](img/image_07_004.jpg)'
+- en: 'Figure 4: HKEY_USERS'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4：HKEY_USERS
+- en: 'Its subkeys are as follows:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其子键如下：
+- en: '**S-1-5-18**: This is the system profile located at `%systemroot%\system32\config\systemprofile`.'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**S-1-5-18**：这是系统配置文件，位于 `%systemroot%\system32\config\systemprofile`。'
+- en: '**S-1-5-19**: This is related to LocalService and located at `%systemroot%\C:\Windows\ServiceProfiles\LocalService`.'
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**S-1-5-19**：此项与 LocalService 相关，位于 `%systemroot%\C:\Windows\ServiceProfiles\LocalService`。'
+- en: '**S-1-5-20**: This is related to the NetworkService and located under `%systemroot%\C:\Windows\ServiceProfiles\NetworkService`.'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**S-1-5-20**：此项与 NetworkService 相关，位于 `%systemroot%\C:\Windows\ServiceProfiles\NetworkService`。'
+- en: '**S-1-5-21-4123892437-111928464-3716307427-1002**: This is the currently signed
+    in user with their full SID. Ours is located in the user directory `C:\Users\Forensics2`.'
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**S-1-5-21-4123892437-111928464-3716307427-1002**：这是当前登录的用户及其完整的 SID。我们的位置在用户目录
+    `C:\Users\Forensics2`。'
+- en: '**Default user**: This is the default profile for any new user. It is located
+    at `%SystemDrive%\Users\Default`. When a new user was created, a copy of this
+    profile is copied for this user, and all the changes in configuration made by
+    this user are recorded under this profile. This process doesn''t happen until
+    the first login for this new user. The system starts building this user profile,
+    as we can see in the following figure:![HKEY_USERS or HKU](img/image_07_005.jpg)'
+  id: totrans-53
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**默认用户**：这是任何新用户的默认配置文件，位于 `%SystemDrive%\Users\Default`。当创建新用户时，该配置文件的副本会被复制到该用户下，用户在配置中所做的所有更改都会记录在该配置文件下。该过程直到该用户第一次登录时才会发生。系统开始构建该用户配置文件，如下图所示：![HKEY_USERS
+    或 HKU](img/image_07_005.jpg)'
+- en: 'Figure 5: Creating a new user profile in Windows'
+  id: totrans-54
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 5：在 Windows 中创建新用户配置文件
+- en: Only the logged on user can be found under HKU, not all the users. However,
+    on a live system, we can find the location and more details about the system's
+    users in the `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
+    key in the registry.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 HKU 下只能找到当前登录的用户，而不是所有用户。然而，在运行中的系统中，我们可以通过注册表中的 `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows
+    NT\CurrentVersion\ProfileList` 键找到系统用户的位置及更多详细信息。
+- en: 'In this key, we can find basic information about all the system users'' profiles,
+    including the location of each profile, but not the configurations and settings
+    of each user. In the following screenshot, we can find another user profile with
+    SID ends with 1002, which we can''t find under HKU:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个键中，我们可以找到关于所有系统用户配置文件的基本信息，包括每个配置文件的位置，但不能找到每个用户的配置和设置。在以下截图中，我们可以找到另一个 SID
+    以 1002 结尾的用户配置文件，这在 HKU 下找不到：
+- en: '![HKEY_USERS or HKU](img/image_07_006.jpg)'
+  id: totrans-57
+  prefs: []
+  type: TYPE_IMG
+  zh: '![HKEY_USERS 或 HKU](img/image_07_006.jpg)'
+- en: 'Figure 6: The list of system profiles'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6：系统配置文件列表
+- en: HKEY_CURRENT_USER or HKCU
+  id: totrans-59
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: HKEY_CURRENT_USER 或 HKCU
+- en: 'HKCU is only a pointer to the current user under the HKU,  with the same configuration
+    and settings:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: HKCU 只是当前用户在 HKU 下的一个指针，具有相同的配置和设置：
+- en: '![HKEY_CURRENT_USER or HKCU](img/image_07_007.jpg)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![HKEY_CURRENT_USER 或 HKCU](img/image_07_007.jpg)'
+- en: 'Figure 7: HKCU VS HKU'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图7：HKCU 与 HKU 对比
+- en: Mapping a hive to the filesystem
+  id: totrans-63
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 将配置单元映射到文件系统
+- en: Each root key in the registry is actually mapped to a single file in the filesystem,
+    which differs from one Windows version to another. In the following table, we
+    target Windows NT to Windows 10\. These files have specific formats, which the
+    operating system parses for either read or write data in the registry.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表中的每个根键实际上映射到文件系统中的一个文件，这在不同版本的 Windows 中有所不同。在下表中，我们针对 Windows NT 到 Windows
+    10。 这些文件具有特定的格式，操作系统根据格式解析数据以读取或写入注册表。
+- en: 'We can view the location of each hive in the filesystem in the following table:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以在下表中查看每个配置单元在文件系统中的位置：
+- en: '| **Hive name** | **Location in the filesystem** |'
+  id: totrans-66
+  prefs: []
+  type: TYPE_TB
+  zh: '| **配置单元名称** | **文件系统中的位置** |'
+- en: '| `HKEY_LOCAL_MACHINE\System` | `%WINDIR%\system32\config\System` |'
+  id: totrans-67
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_LOCAL_MACHINE\System` | `%WINDIR%\system32\config\System` |'
+- en: '| `HKEY_LOCAL_MACHINE\SAM` | `%WINDIR%\system32\config\Sam` |'
+  id: totrans-68
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_LOCAL_MACHINE\SAM` | `%WINDIR%\system32\config\Sam` |'
+- en: '| `HKEY_LOCAL_MACHINE\Security` | `%WINDIR%\system32\config\Security` |'
+  id: totrans-69
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_LOCAL_MACHINE\Security` | `%WINDIR%\system32\config\Security` |'
+- en: '| `HKEY_LOCAL_MACHINE\Software` | `%WINDIR%\system32\config\Software` |'
+  id: totrans-70
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_LOCAL_MACHINE\Software` | `%WINDIR%\system32\config\Software` |'
+- en: '| `HKEY_USERS\User SID` | This is the user profile (`NTUSER.DAT`); `Documents
+    and Settings\User` (this was changed to `Users\User` in Vista). Each profile under
+    HKU must be linked to one `NTUSER.DAT` file under the user profile directory.
+    This directory can be determined, as in Figure 6, under:`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows
+    NT\CurrentVersion\ProfileList` |'
+  id: totrans-71
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_USERS\User SID` | 这是用户配置文件（`NTUSER.DAT`）；`Documents and Settings\User`（在
+    Vista 中已更改为 `Users\User`）。每个 HKU 下的配置文件必须链接到用户配置文件目录下的一个 `NTUSER.DAT` 文件。该目录可以通过图6中的路径确定：`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows
+    NT\CurrentVersion\ProfileList` |'
+- en: '| `HKEY_CURRENT_USER` | This acts as a pointer to the HKU of the currently
+    logged in user. |'
+  id: totrans-72
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_CURRENT_USER` | 作为指向当前登录用户的 HKU 的指针。 |'
+- en: '| `HKEY_USERS\.Default` | `%WINDIR%\system32\config\default` |'
+  id: totrans-73
+  prefs: []
+  type: TYPE_TB
+  zh: '| `HKEY_USERS\.Default` | `%WINDIR%\system32\config\default` |'
+- en: 'Table 1: Hive to filesystem mapping'
+  id: totrans-74
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 表1：配置单元与文件系统映射
+- en: Backing up the registry files
+  id: totrans-75
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 备份注册表文件
+- en: Windows OS backs up the hive files by default every 10 days. The backup files
+    are located at `%WINDIR%\repair` in Windows XP and at `%WINDIR%\System32\config\RegBack`
+    starting from Windows Vista. The backup hives are useful in determining the changed
+    configuration from the last update. They are also useful in case the normal hives
+    are corrupted.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 操作系统默认每10天备份一次配置单元文件。备份文件位于 Windows XP 中的 `%WINDIR%\repair`，在 Windows
+    Vista 及更高版本中位于 `%WINDIR%\System32\config\RegBack`。备份的配置单元文件对于确定自上次更新以来的配置变化非常有用。如果正常的配置单元文件损坏，它们也能发挥重要作用。
+- en: 'The backup is done by the local system in Windows tasks under `%WINDIR%\System32\Tasks\Microsoft\Windows\Registry`:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 备份由本地系统在 Windows 任务下完成，路径为`%WINDIR%\System32\Tasks\Microsoft\Windows\Registry`：
+- en: '![Backing up the registry files](img/image_07_008.jpg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![备份注册表文件](img/image_07_008.jpg)'
+- en: 'Figure 8: The registry backup task in Windows'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8：Windows 中的注册表备份任务
+- en: Extracting registry hives
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 提取注册表配置单元
+- en: Performing a postmortem analysis on the system registry requires extracting
+    the hives from the filesystem. In this section, we will look at extracting files
+    from a live system and from a forensic image.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行系统注册表的事后分析需要从文件系统中提取配置单元。在本节中，我们将介绍如何从实时系统和法医镜像中提取文件。
+- en: Extracting registry files from a live system
+  id: totrans-82
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从实时系统中提取注册表文件
+- en: 'Copying the backup files on a live system is quite easy; simply copy and paste
+    or type the following command in the administrator command prompt:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实时系统中复制备份文件非常简单；只需复制并粘贴，或在管理员命令提示符下键入以下命令：
+- en: '[PRE0]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'As discussed earlier, these files could be 10 days old. This may not contain
+    any traces of the incident under investigation. So, we need to extract the working
+    hive files, which won''t be allowed by the system because these files are in use
+    in the live system:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，这些文件可能是10天前的。这可能不包含任何与正在调查的事件相关的痕迹。因此，我们需要提取正在使用的蜂窝文件，而系统是不允许这么做的，因为这些文件在实时系统中正在使用：
+- en: '![Extracting registry files from a live system](img/image_07_009.jpg)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![从实时系统中提取注册表文件](img/image_07_009.jpg)'
+- en: 'Figure 9: Error in copying registry files in live system'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图9：在实时系统中复制注册表文件时出现的错误
+- en: 'In order to copy registry files from the live system, we need to use a program,
+    such as FTK imager. We will use the lite version in this exercise, which is better
+    in case of live analysis because it does not leave large traces in the system
+    as compared to the installation version:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了从实时系统中复制注册表文件，我们需要使用一些程序，如FTK Imager。在本次练习中，我们将使用精简版，这在实时分析时更加有效，因为与安装版相比，它不会在系统中留下大量痕迹：
+- en: In the Windows live system, open the FTK imager lite program.
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Windows实时系统中，打开FTK Imager Lite程序。
+- en: Select ****add evidence item**** from **File**.
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从**文件**中选择****添加证据项****。
+- en: This will ask you to select a source. In this case, we can either select a physical
+    or logical drive. It won't make a difference in our case here; we can anyway select
+    a logical drive:![Extracting registry files from a live system](img/image_07_010.jpg)
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这将要求你选择一个源。在这种情况下，我们可以选择物理驱动器或逻辑驱动器。在我们这里没有区别；我们可以选择逻辑驱动器：![从实时系统中提取注册表文件](img/image_07_010.jpg)
+- en: 'Figure 10: FTK source type'
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图10：FTK源类型
+- en: After this we need to select the source drive, and we need to select the Windows
+    working partition, which in our case is partition C:![Extracting registry files
+    from a live system](img/image_07_011.jpg)
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 之后，我们需要选择源驱动器，并选择Windows工作分区，在我们的例子中是分区C：![从实时系统中提取注册表文件](img/image_07_011.jpg)
+- en: 'Figure 11: Source partition'
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图11：源分区
+- en: The contents of partition C will be in the left pane of the program.
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 分区C的内容将在程序的左侧窗格中显示。
+- en: We need to browse to the registry files location. Select the hive file, and
+    export these files to the external connected storage or shared folder over the
+    network and not to the local machine. This avoids overwriting possible related
+    evidential data, as shown in the following image:![Extracting registry files from
+    a live system](img/image_07_012.jpg)
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们需要浏览到注册表文件所在的位置。选择注册表蜂窝文件，并将这些文件导出到外部连接的存储设备或网络共享文件夹中，而不是导出到本地计算机。这可以避免覆盖可能相关的证据数据，如下图所示：![从实时系统中提取注册表文件](img/image_07_012.jpg)
+- en: 'Figure 12: Exporting registry files by FTK imager'
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图12：通过FTK Imager导出注册表文件
+- en: After this, we can take the extracted files to our Linux machine for analysis.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，我们可以将提取的文件带到我们的Linux机器上进行分析。
+- en: It is worth mentioning here that FTK Imager has a built-in feature to acquire
+    all the registry files and protected system files. It can be accessed by navigating
+    to File à Obtain protected system files from a live system without adding any
+    devices or partitions.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得一提的是，FTK Imager具有一个内置功能，可以获取所有注册表文件和受保护的系统文件。可以通过导航到“文件” à 获取实时系统中的受保护系统文件，而无需添加任何设备或分区来访问此功能。
+- en: Extracting registry files from a forensic image
+  id: totrans-100
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从取证镜像中提取注册表文件
+- en: To extract files from a forensic image in Linux, we need to mount the system
+    partition to the system first as read only and then perform a simple copy and
+    paste operation of the registry files.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要从取证镜像中提取文件到Linux中，我们需要首先将系统分区挂载到系统中作为只读，然后进行简单的复制和粘贴操作来提取注册表文件。
+- en: 'To mount one partition from a forensic image in Linux, we need to know the
+    offset of this partition in the forensic image in the first place. This task can
+    be done using the mmls command from the TSK or The Sleuth Kit. TSK will be discussed
+    later in detail:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在Linux中从取证镜像挂载一个分区，首先需要知道该分区在取证镜像中的偏移量。这个任务可以通过使用TSK（The Sleuth Kit）中的mmls命令来完成。TSK将在后续详细讨论：
+- en: '![Extracting registry files from a forensic image](img/image_07_013.jpg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![从取证镜像中提取注册表文件](img/image_07_013.jpg)'
+- en: 'Figure 13: Windows partition'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图13：Windows分区
+- en: 'The results show that the system partition starts at sector 2048\. Using this
+    piece of information, we can mount this partition as read only:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果显示，系统分区从扇区2048开始。利用这一信息，我们可以将该分区挂载为只读：
+- en: First, we need to create a directory as the mount point at `</mnt/mountpoint>`,
+    and then we run the mount command, as follows:![Extracting registry files from
+    a forensic image](img/image_07_014.jpg)
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们需要在`</mnt/mountpoint>`创建一个目录作为挂载点，然后运行挂载命令，如下所示：![从取证映像中提取注册表文件](img/image_07_014.jpg)
+- en: 'Figure 14: Creating a mount point and mounting the image'
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图14：创建挂载点并挂载映像
+- en: As we can see, the offset must be in bytes. So, we need to put it in this formula
+    (512*2048), where 512 is the sector size and the 2048 is the sector number. In
+    this command, we also selected to mount the image as read only, show system files,
+    and ignore case, to make it easier to browse through the files without mistakes.
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如我们所见，偏移量必须以字节为单位。因此，我们需要将其代入此公式（512*2048），其中512为扇区大小，2048为扇区号。在此命令中，我们还选择将映像挂载为只读，显示系统文件，并忽略大小写，以便更容易浏览文件而不会出错。
+- en: So, we can see that all the filesystem structure can be accessed easily from
+    the mount point:![Extracting registry files from a forensic image](img/image_07_015.jpg)
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 因此，我们可以看到，所有的文件系统结构都可以从挂载点轻松访问：![从取证映像中提取注册表文件](img/image_07_015.jpg)
+- en: 'Figure 15: Mounted system partition'
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图15：挂载的系统分区
+- en: As we know the location of the registry files in the system, we can start copying
+    them:![Extracting registry files from a forensic image](img/image_07_016.jpg)
+  id: totrans-111
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 由于我们知道系统中注册表文件的位置，因此可以开始复制它们：![从取证映像中提取注册表文件](img/image_07_016.jpg)
+- en: 'Figure 16: Copying registry files'
+  id: totrans-112
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图16：复制注册表文件
+- en: The same can be done with the users' profiles. Here, we have two users, forensics
+    and forensics2:![Extracting registry files from a forensic image](img/image_07_017.jpg)
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 同样也可以对用户配置文件执行此操作。这里我们有两个用户：forensics和forensics2：![从取证映像中提取注册表文件](img/image_07_017.jpg)
+- en: 'Figure 17: Copying users'' profiles'
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图17：复制用户配置文件
+- en: Parsing registry files
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析注册表文件
+- en: Suppose that you have a corrupted registry file, or you need to recover some
+    data, or you want to verify the results of a new analysis tool. All these reasons,
+    besides your need to know how the analysis tools work to parse and recover registry
+    files, make it important to understand the registry file structure.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你有一个损坏的注册表文件，或者你需要恢复一些数据，或者你想验证一个新分析工具的结果。除了你需要知道分析工具如何解析和恢复注册表文件外，这些原因使得理解注册表文件结构变得非常重要。
+- en: The registry file consists of blocks with the same concept of clusters in the
+    filesystem. The block size is 4Kb. The hive expands in the whole block, again
+    like the clusters in the filesystem. The first cluster is called the **base block**.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表文件由与文件系统中集群相同概念的块组成。块大小为4KB。hive会扩展到整个块，就像文件系统中的集群一样。第一个集群被称为**基块**。
+- en: The base block
+  id: totrans-118
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基块
+- en: 'The base block is the first 4KB of the hive file. It contains the following:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基块是hive文件的前4KB，它包含以下内容：
+- en: The hive signature, which identifies this file as a hive file.
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: hive签名，用于标识该文件为hive文件。
+- en: A timestamp of the last write operation on this hive.
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 此hive的最后写入操作时间戳。
+- en: Checksum.
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 校验和。
+- en: The hive format, which differs from one OS version to another. There are differences
+    in how data treated in different versions.
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: hive格式，不同操作系统版本之间有所不同。在不同版本中，数据的处理方式也有所不同。
+- en: The real name of the hive file and its full path in the system.
+  id: totrans-124
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: hive文件的真实名称及其在系统中的完整路径。
+- en: The offset to the root cell, which is relative to the beginning of the hbin.
+    (Both will be explained shortly.)
+  id: totrans-125
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 根单元的偏移量，相对于hbin的起始位置。（这两者稍后将会解释。）
+- en: The two sequence numbers. We can consider the sequence number as a way to preserve
+    the integrity of the hive file.
+  id: totrans-126
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这两个序列号。我们可以将序列号视为一种保护hive文件完整性的方法。
+- en: When one write operation needs to be performed in the registry hives, it is
+    first done in memory. The operating system needs to write these changes to the
+    nonvolatile on-disk file to keep it updated. The operating system keeps tracking
+    all the sectors of the hive.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当需要在注册表hive中执行写入操作时，首先会在内存中进行。这时操作系统需要将这些更改写入非易失性磁盘文件，以保持其更新。操作系统会跟踪所有hive的扇区。
+- en: To write to the on-disk file, the operating system schedules what is called
+    a lazy write operation or hive sync. The lazy write starts synchronizing the hive
+    changes from memory to the on-disk file and updates the last write time. If something
+    crashed during the synchronization process, the file will be corrupted.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了写入磁盘文件，操作系统会调度所谓的惰性写入操作或hive同步。惰性写入开始将内存中的hive更改同步到磁盘文件，并更新最后的写入时间。如果在同步过程中发生崩溃，文件将被损坏。
+- en: In order to avoid this, the lazy write updates the first number of the sequence
+    before it starts the synchronization process. After finishing the write process,
+    it updates the second sequence number with the same value. If the operating system
+    finds two different values in the sequence numbers, it knows that there was a
+    crash during the last synchronization process. It then starts the recovery process
+    following the log file of the hive to keep the file consistent.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了避免这种情况，延迟写入会在开始同步过程之前更新序列号的第一个数字。完成写入过程后，它会将第二个序列号更新为相同的值。如果操作系统发现序列号中有两个不同的值，它会知道在上次同步过程中发生了崩溃。接着，操作系统会启动恢复过程，按照注册表文件的日志文件进行恢复，以保持文件的一致性。
+- en: In this section, we will consider an example of the `forensics2.dat` registry
+    file. To view the registry file as raw data, we will use the hexdump utility or
+    hd and start to interpret the registry file data.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将考虑一个 `forensics2.dat` 注册表文件的示例。为了以原始数据查看注册表文件，我们将使用 hexdump 工具或 hd，并开始解析注册表文件数据。
+- en: 'From the forensic machine, run the following command to view only the first
+    200 bytes of the base block:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在法医机器上，运行以下命令以查看基块的前 200 个字节：
+- en: '![The base block](img/image_07_018.jpg)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![基块](img/image_07_018.jpg)'
+- en: 'Figure 18: First 200 bytes of the base block'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 18：基块的前 200 个字节
+- en: 'Now, let''s interpret the values in the previous image. Note that now that
+    these values are little endian, we need to read them byte by byte from right to
+    left:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们解释上一张图片中的值。请注意，当前这些值是小端格式的，因此我们需要从右到左逐字节读取它们：
+- en: '| **Offset** | **Length (Bytes)** | **Value** | **Description** |'
+  id: totrans-135
+  prefs: []
+  type: TYPE_TB
+  zh: '| **偏移量** | **长度（字节）** | **值** | **描述** |'
+- en: '| 0x0000 | 4 | Regf | This is the registry file signature. |'
+  id: totrans-136
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0000 | 4 | Regf | 这是注册表文件的签名。 |'
+- en: '| 0x0004 | 4 | 0x00000055 | This is the first sequence number that the OS writes
+    before editing the registry. |'
+  id: totrans-137
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0004 | 4 | 0x00000055 | 这是操作系统在编辑注册表之前写入的第一个序列号。 |'
+- en: '| 0x0008 | 4 | 0x00000055 | This is the second sequence number. The first and
+    second sequence numbers are the same, which means that the last write operation
+    was successful. |'
+  id: totrans-138
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0008 | 4 | 0x00000055 | 这是第二个序列号。第一个和第二个序列号相同，这意味着上一次写操作成功。 |'
+- en: '| 0x000C | 8 | 0x01D048BC17BA58E0 | This is the timestamp of the last write
+    operation. This value can be decoded with the `dcode.exe` program, from [http://digitaldetective.com/](http://digitaldetective.com/):![The
+    base block](img/image_07_019.jpg)From these results, we can see that the last
+    write time was Sunday, February 15, 2015, at 01:09:48 UTC. |'
+  id: totrans-139
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x000C | 8 | 0x01D048BC17BA58E0 | 这是最后一次写操作的时间戳。这个值可以通过 `dcode.exe` 程序解码，程序来自
+    [http://digitaldetective.com/](http://digitaldetective.com/)：![基块](img/image_07_019.jpg)
+    从这些结果中，我们可以看到最后一次写入时间是 2015 年 2 月 15 日星期天，协调世界时（UTC）01:09:48。 |'
+- en: '| 0x0014 | 4 | 0x00000001 | This is the major version of the file. In this
+    case, it is 1. |'
+  id: totrans-140
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0014 | 4 | 0x00000001 | 这是文件的主要版本号。在这个例子中，它是 1。 |'
+- en: '| 0x0018 | 4 | 0x00000003 | This is the minor version of the file. In this
+    case, it is 3\. So, the file format version is 1.3. |'
+  id: totrans-141
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0018 | 4 | 0x00000003 | 这是文件的次要版本号。在这个例子中，它是 3。所以，文件格式版本是 1.3。 |'
+- en: '| 0x0024 | 4 | 0x00000020 | This is the offset of the first cell relative to
+    the first hbin. |'
+  id: totrans-142
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0024 | 4 | 0x00000020 | 这是第一个单元格相对于第一个 hbin 的偏移量。 |'
+- en: '| 0x0030 | 64 maximum | `C:\Users\Forensics2\ntuser.dat` | This is the location
+    and the name of the file. From this piece of information, we know that this file
+    is the user''s profile under `C:\Users\Forensics2`. Despite the name of the file
+    under investigation, the file name is `ntuser.dat`. |'
+  id: totrans-143
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x0030 | 64 最大值 | `C:\Users\Forensics2\ntuser.dat` | 这是文件的位置和名称。从这条信息中，我们可以知道该文件是
+    `C:\Users\Forensics2` 下的用户配置文件。尽管调查中的文件名为 `ntuser.dat`，但文件的名称为 `ntuser.dat`。 |'
+- en: '*Table 2 : Parsing base block*'
+  id: totrans-144
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*表 2：解析基块*'
+- en: Hbin and CELL
+  id: totrans-145
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Hbin 和 CELL
+- en: The cell is the data container in the registry file; it contains a key, subkey,
+    or value. Each type has a different signature and a different data structure within
+    the cell. If the cell signature is kn or key node, then the following information
+    will be interpreted as for a key. The operating system allocates these cells within
+    another container called HBIN. The HBIN can contain more than one cell, and it
+    has its own header in the signature file. For our example here, let's take the
+    first cell within the first hbin.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 单元格是注册表文件中的数据容器；它包含一个键、子键或值。每种类型在单元格内有不同的签名和数据结构。如果单元格签名是 kn 或键节点，那么以下信息将被解释为键。操作系统将在另一个容器中分配这些单元格，该容器称为
+    HBIN。HBIN 可以包含多个单元格，并且它在签名文件中有自己的头部。对于我们这里的示例，假设我们取第一个 hbin 内的第一个单元格。
+- en: 'The first hbin can be found directly after the base block, that is, 4,096 bytes
+    from the beginning of the file. We will display the first 200 bytes after the
+    first 4,096 bytes or 0x1000 in hex:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个hbin可以直接在基本块之后找到，即从文件开头的4,096字节处开始。我们将显示第一个4,096字节后或0x1000十六进制后的前200字节：
+- en: '![Hbin and CELL](img/image_07_020.jpg)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Hbin和CELL](img/image_07_020.jpg)'
+- en: 'Figure 19: The first 200 bytes of the first HBIN'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图19：第一个HBIN的前200字节
+- en: 'We can interpret the information in the header as follows:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以解释头部信息如下：
+- en: '| **Offset** | **Length (Bytes)** | **Value** | **Description** |'
+  id: totrans-151
+  prefs: []
+  type: TYPE_TB
+  zh: '| **偏移量** | **长度（字节）** | **值** | **描述** |'
+- en: '| 0x1000 | 4 | hbin | This is the beginning of the hbin signature. |'
+  id: totrans-152
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1000 | 4 | hbin | 这是hbin签名的开始。 |'
+- en: '| 0x1004 | 4 | 0x00000000 | This is the offset, which is relative to the first
+    hbin structure. The value here is 0, which means that this is the first hbin in
+    the file. |'
+  id: totrans-153
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1004 | 4 | 0x00000000 | 这是相对于第一个hbin结构的偏移量。此处的值为0，表示这是文件中的第一个hbin。 |'
+- en: '| 0x1008 | 2 | 0x1000 | This is the size of the current hbin. It is 4096 bytes.
+    Usually, it is either equal to 4096 bytes or a multiple of this number. |'
+  id: totrans-154
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1008 | 2 | 0x1000 | 这是当前hbin的大小。它为4096字节。通常情况下，它要么等于4096字节，要么是这个数字的倍数。
+    |'
+- en: '*Table 3: The header of hbin*'
+  id: totrans-155
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*表3：hbin的头部*'
+- en: From parsing the base block at 0x0024, the offset to the first cell is 0x20
+    relative to the first hbin.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从解析0x0024处的基本块开始，相对于第一个hbin，第一个单元格的偏移量为0x20。
+- en: 'So, to find the header of the first cell, we need to go to offset 0x1020 at
+    the current hbin:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，要找到第一个单元格的头部，我们需要转到当前hbin的偏移量0x1020：
+- en: '| **Offset** | **Length (Bytes)** | **Value** | **Description** |'
+  id: totrans-158
+  prefs: []
+  type: TYPE_TB
+  zh: '| **偏移量** | **长度（字节）** | **值** | **描述** |'
+- en: '| 0x1020 | 4 | 0xFFFFFF78 | This is the size of the cell in negative implementation.
+    The negative sign indicates that this cell is in use.The value here is (-136).
+    This cell is used, and it has a size of 136. |'
+  id: totrans-159
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1020 | 4 | 0xFFFFFF78 | 这是负实现中单元格的大小。负号表示此单元格正在使用。这里的值为(-136)，表示此单元格被使用，其大小为136。
+    |'
+- en: '| 0x1024 | 2 | nk | This is the nk signature, which means that this cell contains
+    a key node value. |'
+  id: totrans-160
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1024 | 2 | nk | 这是nk签名，表示此单元格包含一个键节点值。 |'
+- en: '| 0x1026 | 2 | 0x002C | This is the properties flag of the record; it has different
+    values. The binary representation or the value here is 00101100, which indicates
+    that the file is:CompressedName: (00100000)[2]NoDelete: (00001000)[2]HiveEntryRootKey:
+    (00000100)[2]As we expected before, this entry holds root key information. |'
+  id: totrans-161
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1026 | 2 | 0x002C | 这是记录的属性标志；它具有不同的值。二进制表示或这里的值为00101100，指示文件为：CompressedName:
+    (00100000)[2]NoDelete: (00001000)[2]HiveEntryRootKey: (00000100)[2]正如我们之前预期的那样，此条目包含根键信息。
+    |'
+- en: '| 0x1028 | 8 | 0x01D048B03FC412EF | This is the timestamp of the last write
+    time of this entry. The value is Sat, 14 February 2015 23:45:01 UTC, according
+    to the decode value from `Dcode.exe`![Hbin and CELL](img/image_07_021.jpg) |'
+  id: totrans-162
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1028 | 8 | 0x01D048B03FC412EF | 这是此条目的最后写入时间戳。根据`Dcode.exe`的解码值，该值是UTC时间Sat,
+    14 February 2015 23:45:01。 |'
+- en: '| 0x1034 | 2 | 0x0600 | This value is the offset to the parent key record.
+    As this is the parent kn record, this value can be ignored here as long as this
+    is already the kn root key record. |'
+  id: totrans-163
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1034 | 2 | 0x0600 | 此值是父键记录的偏移量。由于这是父kn记录，此值在这里可以忽略，只要这已经是kn根键记录。 |'
+- en: '| 0x1038 | 4 | 0x0000000B | This is the number or subkeys list under this root
+    key. Here, the value is 11, so there are 11 subkey under this key. |'
+  id: totrans-164
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1038 | 4 | 0x0000000B | 这是此根键下子键列表的数量。在这里，该值为11，因此该键下有11个子键。 |'
+- en: '| 0x1040 | 4 | 0x00011E28 | This is a pointer to the list of the subkeys under
+    this root key. |'
+  id: totrans-165
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1040 | 4 | 0x00011E28 | 这是指向此根键下子键列表的指针。 |'
+- en: '| 0x104C | 4 | 0xFFFFFFFF | This is a pointer to the list of the values under
+    this root key. The value here is 0xFFFFFFFF, which means that there are no values
+    under this root key. |'
+  id: totrans-166
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x104C | 4 | 0xFFFFFFFF | 这是指向此根键下值列表的指针。这里的值为0xFFFFFFFF，表示此根键下没有值。 |'
+- en: '| 0x106C | 2 | 0x0034 | The size of the key name. In this case, it is 52 bytes.
+    |'
+  id: totrans-167
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x106C | 2 | 0x0034 | 键名的大小。在这种情况下，它是52字节。 |'
+- en: '| 0x1070 | 52 | CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC} | This
+    is the name of the root key. Its length is 52 bytes or character. |'
+  id: totrans-168
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x1070 | 52 | CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC} | 这是根键的名称。其长度为52字节或字符。
+    |'
+- en: '*Table 4: Cell analysis*'
+  id: totrans-169
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*表4：单元格分析*'
+- en: Now, we can conclude that this is a root key named `CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC}`
+    with a size of 136 bytes, and this contains 11 subkeys and no values. Now, we
+    need to find the names of the subkeys under this root key.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以得出结论，这是一个名为`CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC}`的根键，大小为136字节，包含11个子键，没有值。现在，我们需要找出这个根键下的子键名称。
+- en: 'From the previous analysis, the offset to the subkeys list is 0x11E28 relative
+    to the beginning of the hbin. So, we need to add 0x1000 to get it from the beginning
+    of the hive file itself. The offset will be 0x12E28:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据之前的分析，从hbin开始，子键列表的偏移量为0x11E28。因此，我们需要加上0x1000，从hive文件的开头获取它。最终偏移量为0x12E28：
+- en: '![Hbin and CELL](img/image_07_022.jpg)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Hbin 和 CELL](img/image_07_022.jpg)'
+- en: 'Figure 20: The subkeys list'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图20：子键列表
+- en: 'We can see that this is a new cell that needs to be parsed, as follows:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到这是一个新的单元格，需要解析，内容如下：
+- en: '| **Offset** | **Length (Bytes)** | **Value** | **Description** |'
+  id: totrans-175
+  prefs: []
+  type: TYPE_TB
+  zh: '| **偏移量** | **长度（字节）** | **值** | **描述** |'
+- en: '| 0x12E28 | 4 | 0xFFFFFFA0 | This is the size of the cell in negative implementation.
+    The negative sign indicates that this cell is in use.The value here is (-96).
+    This cell is used, and it has a size of 96. |'
+  id: totrans-176
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x12E28 | 4 | 0xFFFFFFA0 | 这是单元格的负值实现大小。负号表示该单元格正在使用。此处的值为（-96）。该单元格已被使用，大小为96。
+    |'
+- en: '| 0x12E2C | 2 | lf | The lf signature indicates that this contains a list of
+    subkeys. |'
+  id: totrans-177
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x12E2C | 2 | lf | lf签名表示这包含一个子键列表。 |'
+- en: '| 0x12E2E | 2 | 0x000B | This is the number of elements in the list. In this
+    case, this is 11, which matches the value from the previous analysis. |'
+  id: totrans-178
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x12E2E | 2 | 0x000B | 这是列表中元素的数量。在这种情况下，数量为11，与之前分析的值匹配。 |'
+- en: '| 0x12E30 | --- | ---- | Starting from this point, each 8 bytes represent one
+    subkey. The first 4 bytes are the offset to the subkey location relative to the
+    beginning of the hbin. The second 4 bytes are used as the checksum. |'
+  id: totrans-179
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0x12E30 | --- | ---- | 从此点开始，每8个字节代表一个子键。前4个字节是子键相对于hbin开头位置的偏移量，后4个字节作为校验和。
+    |'
+- en: '*Table 5: The lf entry analysis*'
+  id: totrans-180
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: '*表5：lf条目分析*'
+- en: 'From the previous analysis, we can determine the location of each subkey to
+    be to the following offsets:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据之前的分析，我们可以确定每个子键的位置对应以下偏移量：
+- en: '0x00011DC8'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00011DC8'
+- en: '0x00003C30'
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00003C30'
+- en: '0x00000EB8'
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00000EB8'
+- en: '0x00000318'
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00000318'
+- en: '0x00018BF0'
+  id: totrans-186
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00018BF0'
+- en: '0x000499F0'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x000499F0'
+- en: '0x0001E2F0'
+  id: totrans-188
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x0001E2F0'
+- en: '0x00006820'
+  id: totrans-189
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00006820'
+- en: '0x00006BD8'
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00006BD8'
+- en: '0x00000160'
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00000160'
+- en: '0x00000C60'
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '0x00000C60'
+- en: 'To see the contents that are related to the beginning of the hive file, we
+    need to add 0x1000 to each offset, which represents the size of the base block,
+    and then view the first 100 bytes. We will see that each offset will point to
+    another entry with a different name, as shown in the following screenshot:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看与hive文件开头相关的内容，我们需要在每个偏移量上加上0x1000，表示基块的大小，然后查看前100个字节。我们将看到每个偏移量会指向另一个具有不同名称的条目，如下图所示：
+- en: '![Hbin and CELL](img/image_07_023.jpg)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Hbin 和 CELL](img/image_07_023.jpg)'
+- en: We can see that in the new entries, the parent cell offset in the new entries
+    is 0x0020, which is the offset of the first entry named `CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC}`.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，在新的条目中，父单元格偏移量为0x0020，这是名为`CMI-CreateHive{D43B12BB-09B5-40DB-B4F6-F6DFEB78DAEC}`的第一个条目的偏移量。
+- en: 'The complete list of subkeys is as follows:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 子键的完整列表如下：
+- en: AppEvents
+  id: totrans-197
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 应用事件
+- en: Console
+  id: totrans-198
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 控制台
+- en: Control Panel
+  id: totrans-199
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 控制面板
+- en: Environment
+  id: totrans-200
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 环境
+- en: EUDC
+  id: totrans-201
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: EUDC
+- en: Identities
+  id: totrans-202
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 身份
+- en: Keyboard Layout
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 键盘布局
+- en: Network
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络
+- en: Printers
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打印机
+- en: Software
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 软件
+- en: System
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 系统
+- en: 'To confirm these results with the actual case, we can display the registry
+    in our test live machine using the native regedit tool. If the list matched the
+    results, then the parsing went well, as we can see in the following screenshot:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了通过实际案例验证这些结果，我们可以使用本地的regedit工具在我们的测试机上显示注册表。如果列表与结果匹配，则说明解析成功，如下图所示：
+- en: '![Hbin and CELL](img/image_07_024.jpg)'
+  id: totrans-209
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Hbin 和 CELL](img/image_07_024.jpg)'
+- en: 'Figure 21: Actual subkeys from the live machine'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图21：来自实际测试机的子键
+- en: Auto-run keys
+  id: totrans-211
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 自动运行键
+- en: 'Malware programs usually tend to preserve their existence in the system in
+    case the system was rebooted or different users log on to the system. The following
+    listing shows two important autorun keys that run when the system boots:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意程序通常会试图在系统中保留其存在，以防系统重启或不同的用户登录系统。以下列出了在系统启动时运行的两个重要自动运行键：
+- en: '`HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services`'
+  id: totrans-213
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services`'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\ShellServiceObjectDelayLoad`'
+  id: totrans-214
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\ShellServiceObjectDelayLoad`'
+- en: These locations can host malware that targets the machine itself, such as rootkit,
+    botnet, or backdoor. Other malware executables target some users on the system
+    and run when the specific user or any user logs on to the system.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些位置可能会托管针对机器本身的恶意软件，如 rootkit、僵尸网络或后门。其他恶意软件可执行文件则针对系统上的某些用户，在特定用户或任何用户登录系统时运行。
+- en: 'They can be found in the following locations:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它们可以在以下位置找到：
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Runonce`'
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Runonce`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsNT\CurrentVersion\Winlogon\Userinit`'
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsNT\CurrentVersion\Winlogon\Userinit`'
+- en: 'An example of these keys is the Zeus banking malware. It adds its executable
+    in the Userinit key to run when anyone logs on to the system:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些键的一个例子是 Zeus 银行木马。它将其可执行文件添加到 Userinit 键中，以便在任何人登录系统时运行：
+- en: '![Auto-run keys](img/image_07_025.jpg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Auto-run keys](img/image_07_025.jpg)'
+- en: 'Figure 22: The Zeus autorun technique'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 22：Zeus 自动运行技术
+- en: Registry analysis
+  id: totrans-225
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 注册表分析
+- en: After we have extracted the registry files from the live system or the forensic
+    image, we need to analyze them.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们从实时系统或取证镜像中提取注册表文件后，需要对它们进行分析。
+- en: We will use RegistryRipper, and sysinternals for registry parsing and analysis.
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用 RegistryRipper 和 sysinternals 进行注册表解析和分析。
+- en: RegistryRipper
+  id: totrans-228
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: RegistryRipper
+- en: Regripper is a Perl open source and cross-platform tool by Harlan Carvey, which
+    can be downloaded from [https://code.google.com/p/regripper/](https://code.google.com/p/regripper/)
+    . It parses the registry structure, searches for the forensically important areas,
+    and lists the contents of these areas. The investigator needs to understand the
+    results and extract the anomalies from the output.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Regripper 是由 Harlan Carvey 开发的一个 Perl 开源跨平台工具，可以从 [https://code.google.com/p/regripper/](https://code.google.com/p/regripper/)
+    下载。它解析注册表结构，搜索取证中重要的区域，并列出这些区域的内容。调查人员需要理解结果，并从输出中提取异常。
+- en: 'The tool is a command line tool, and it also has a simple GUI to carve different
+    types of hives. Through the GUI, the investigator will be able to select one hive
+    file for analysis and the list of plugins to run against this hive file by selecting
+    the type of the hive file from the Profile dropdown. The report will be created
+    in the txt format, and a log file will be created through the analysis process
+    in order to view the successful and failed plugins:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具是一个命令行工具，它也有一个简单的 GUI，可以分析不同类型的 hive。通过图形界面，调查人员可以选择一个 hive 文件进行分析，并通过从配置文件下拉框中选择
+    hive 文件的类型来选择要在该 hive 文件上运行的插件列表。报告将以 txt 格式创建，并且在分析过程中会创建一个日志文件，以便查看成功和失败的插件：
+- en: '![RegistryRipper](img/image_07_026.jpg)'
+  id: totrans-231
+  prefs: []
+  type: TYPE_IMG
+  zh: '![RegistryRipper](img/image_07_026.jpg)'
+- en: 'Figure 23: The RegRipper GUI'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 23：RegRipper 图形界面
+- en: 'RegRipper also has a command line interface, which can be used with other Linux
+    tools, such as grep, to directly filter the analysis results. The command line
+    is simple, as follows:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RegRipper 还提供了一个命令行接口，可以与其他 Linux 工具（如 grep）一起使用，直接过滤分析结果。命令行非常简单，如下所示：
+- en: Run the complete profile against the hive file, where the profile will provide
+    you with a list of the plugins that run against this specific hive:![RegistryRipper](img/image_07_027.jpg)
+  id: totrans-234
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对 hive 文件运行完整配置文件，其中配置文件将提供针对特定 hive 运行的插件列表：![RegistryRipper](img/image_07_027.jpg)
+- en: 'Figure 24: Run a complete profile against the hive file'
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 24：对 hive 文件进行完整配置文件分析
+- en: Alternatively, you can run only one plugin against a hive file to extract a
+    single piece of information from this hive. In the following figure, only the
+    appcompatcache plugin is running against the system hive:![RegistryRipper](img/image_07_028.jpg)
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 或者，你也可以只运行一个插件来分析 hive 文件，从中提取一条单独的信息。在以下图中，只有 appcompatcache 插件在系统 hive 上运行：![RegistryRipper](img/image_07_028.jpg)
+- en: 'Figure 25: Extracting single information from a hive file.'
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 25：从 hive 文件中提取单个信息。
+- en: It is worth mentioning that appcompatcache parses the registry for the Application
+    compatibility cache, which stores information about runnable programs in the system.
+    It stores information about the path, size, the timestamp of the last modification,
+    and the time of the most recent run of the executable file and also whether it
+    was executed in the system.
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得一提的是，appcompatcache 会解析注册表中的应用程序兼容性缓存，该缓存存储有关系统中可运行程序的信息。它存储有关路径、大小、最后修改时间戳、可执行文件的最近运行时间以及是否在系统中执行过的信息。
+- en: 'One of the malicious results that can be an indication of malware installation
+    on a system is the executable related to one of the banking malware in the following
+    figure:'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个可能表明系统上安装了恶意软件的恶意结果是与以下图示的某银行恶意软件相关的可执行文件：
+- en: '![RegistryRipper](img/image_07_029.jpg)'
+  id: totrans-240
+  prefs: []
+  type: TYPE_IMG
+  zh: '![RegistryRipper](img/image_07_029.jpg)'
+- en: 'Figure 26: Malware in the Application compatibility cache'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 26：应用程序兼容性缓存中的恶意软件
+- en: Here, we can find an executable in the temp folder, which can be an indication
+    of downloading this executable from the Internet during browsing. It had a malicious
+    name and was executed in the system under investigation.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以在临时文件夹中找到一个可执行文件，这可能是指示在浏览过程中从互联网下载此可执行文件的迹象。它有一个恶意的名字，并在被调查的系统中执行。
+- en: Sysinternals
+  id: totrans-243
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Sysinternals
+- en: Sysinternals is a suite used to troubleshoot the Windows system. It was developed
+    by Mark Russinovich and can be found at [https://technet.microsoft.com/en-us/sysinternals/bb545021.aspx](https://technet.microsoft.com/en-us/sysinternals/bb545021.aspx).
+    It can be used in the forensic analysis to give an indication of infection. It
+    usually runs and parses a live system, but it can also work on an offline system.
+    We just need to point to the registry locations; these are Windows directory and
+    username directory in the offline system.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Sysinternals 是一个用于故障排除 Windows 系统的工具集。它由 Mark Russinovich 开发，可以在 [https://technet.microsoft.com/en-us/sysinternals/bb545021.aspx](https://technet.microsoft.com/en-us/sysinternals/bb545021.aspx)
+    找到。它可以用于取证分析，以提供感染的指示。它通常运行并解析实时系统，但也可以在离线系统上工作。我们只需指向注册表位置；这些是离线系统中的 Windows
+    目录和用户名目录。
+- en: In Linux, under the Wine environment, privilege escalation is not available,
+    and this program needs to run as administrator. So, we need to run this tool on
+    any Windows machine. It won't run if you provide the program with the read-only
+    mounted image. From the forensics perspective, mounting an image as read/write
+    is not acceptable.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 系统中，Wine 环境下无法进行权限提升，且该程序需要以管理员身份运行。因此，我们需要在任何 Windows 机器上运行此工具。如果提供的是只读挂载的镜像，程序将无法运行。从取证的角度来看，将镜像挂载为读写模式是不可接受的。
+- en: 'In such cases, we only need to simulate the locations of the registry files:'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们只需要模拟注册表文件的位置：
+- en: '`Windows`: This should be a folder with the following subfolder:'
+  id: totrans-247
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Windows`：这应该是一个包含以下子文件夹的文件夹：'
+- en: '`System32`: This should be a folder with the following subfolder and files:'
+  id: totrans-248
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`System32`：这应该是一个包含以下子文件夹和文件的文件夹：'
+- en: '`Config`: This should be a folder with the following files:'
+  id: totrans-249
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Config`：这应该是一个包含以下文件的文件夹：'
+- en: '`SYSTEM`: This is an extracted registry hive'
+  id: totrans-250
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SYSTEM`：这是一个提取的注册表蜂巢'
+- en: '`SOFTWARE`: This is an extracted registry hive'
+  id: totrans-251
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SOFTWARE`：这是一个提取的注册表蜂巢'
+- en: '`SAM`: This is an extracted registry hive'
+  id: totrans-252
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SAM`：这是一个提取的注册表蜂巢'
+- en: '`SECURITY`: This is an extracted registry hive'
+  id: totrans-253
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SECURITY`：这是一个提取的注册表蜂巢'
+- en: '`ntdll.dll`: Copy this file from the mounted image as well (or just empty file
+    with that name)'
+  id: totrans-254
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ntdll.dll`：也要从挂载的镜像中复制此文件（或者只是一个同名的空文件）'
+- en: '`<Username>`: This should be a folder with the following files:'
+  id: totrans-255
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`<Username>`：这应该是一个包含以下文件的文件夹：'
+- en: '`NTUSER.DAT`: This is an extracted registry hive:![Sysinternals](img/image_07_030.jpg)'
+  id: totrans-256
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`NTUSER.DAT`：这是一个提取的注册表蜂巢：![Sysinternals](img/image_07_030.jpg)'
+- en: 'Figure 27: Simulate Windows registry folders'
+  id: totrans-257
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 27：模拟 Windows 注册表文件夹
+- en: Then, we run the `autoruns.exe` within Wine. The `autoruns.exe` tool will display
+    many autoruns registry keys and services along with much more useful information
+    for analysis.
+  id: totrans-258
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们在 Wine 中运行 `autoruns.exe`。`autoruns.exe` 工具将显示许多自动运行的注册表项和服务，以及更多有用的分析信息。
+- en: Select **Analyze Offline System…** from File and browse to the newly created
+    folders:![Sysinternals](img/image_07_031.jpg)
+  id: totrans-259
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从文件中选择 **分析离线系统...**，并浏览到新创建的文件夹：![Sysinternals](img/image_07_031.jpg)
+- en: 'Figure 28: Open the simulated directories'
+  id: totrans-260
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 28：打开模拟的目录
+- en: 'The program has different tabs to filter the registry. For example, the Logon
+    tab filters the entire registry, which runs while logging to the system. These
+    keys are usually used by malware executables in order to preserve its existence
+    in the system after a reboot, as discussed earlier:'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序具有不同的选项卡来过滤注册表。例如，登录选项卡会过滤整个注册表，在系统登录时运行。这些键通常由恶意软件可执行文件使用，以在重新启动后保持其在系统中的存在，正如前面讨论的那样：
+- en: '![Sysinternals](img/image_07_032.jpg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_IMG
+  zh: '![Sysinternals](img/image_07_032.jpg)'
+- en: 'Figure 29: An example of offline system registry analysis'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图29：离线系统注册表分析示例
+- en: As we can see in Figure 29, for all the entries thst are in yellow and under
+    `Image Path` we will find File not found. This is normal because the related system
+    isn't actually running.
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如图29所示，对于所有处于黄色并且在`Image Path`下的条目，我们将找到文件未找到。这是正常的，因为相关系统实际上未运行。
+- en: Tip
+  id: totrans-265
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 小贴士
+- en: The Scheduled Tasks list is important; it needs to be checked. One technique
+    for a malicious executable to preserve its existence is to add itself as a task
+    to run every period of time.
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计划任务列表很重要，需要进行检查。一个恶意可执行文件保持其存在的技术是将自身添加为定期运行的任务。
+- en: MiTeC Windows registry recovery
+  id: totrans-267
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: MiTeC Windows注册表恢复
+- en: 'MiTeC WRR is another registry analysis program worth mentioning. It opens one
+    hive at a time, and you can open all the hives concurrently. Besides viewing the
+    registry in its structured format, it filters the registry based on tasks, such
+    as start-up programs and userdata. WRR can be run under Linux within the Wine
+    environment:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MiTeC WRR是另一个值得一提的注册表分析程序。它一次只能打开一个注册表集合，并且可以同时打开所有注册表集合。除了以结构化格式查看注册表之外，它还可以根据任务过滤注册表，例如启动程序和用户数据。WRR可以在Linux中在Wine环境下运行：
+- en: '![MiTeC Windows registry recovery](img/image_07_033.jpg)'
+  id: totrans-269
+  prefs: []
+  type: TYPE_IMG
+  zh: '![MiTeC Windows注册表恢复](img/image_07_033.jpg)'
+- en: 'Figure 30: MiTeC WRR'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图30：MiTeC WRR
+- en: Summary
+  id: totrans-271
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we got introduced to the registry as one of the most important
+    Windows artifacts, which holds most of the operating system and the installed
+    programs' configurations and settings. We explained the function of each registry
+    hive and its location in the filesystem. Besides this, we parsed the structure
+    of one registry file as an important process in case a corrupted registry file
+    or a recovered fragment of the registry file needs to be analyzed. Then, we explained
+    how malware programs use the registry to preserve their existence in the system
+    and how to discover their presence. We used different tools to view and analyze
+    the registry files.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们介绍了注册表作为Windows操作系统中最重要的工件之一，它包含大部分操作系统和安装程序的配置和设置。我们解释了每个注册表集合的功能及其在文件系统中的位置。此外，我们分析了一个注册表文件的结构，这是在需要分析损坏的注册表文件或恢复的注册表文件片段时的重要过程。然后，我们解释了恶意软件如何利用注册表来保持其在系统中的存在，并介绍了如何发现它们的存在。我们使用不同的工具来查看和分析注册表文件。
+- en: In the next chapter, we will cover another important artifact of the Windows
+    operating system, the Event Log files. We will explore how to use event files
+    to track the activities of the users in the system and how to discover malicious
+    activities within the system.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将介绍Windows操作系统的另一个重要工件，即事件日志文件。我们将探讨如何使用事件文件来跟踪系统用户的活动，以及如何发现系统中的恶意活动。

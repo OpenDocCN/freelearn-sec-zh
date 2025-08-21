@@ -1,0 +1,2111 @@
+- en: '9'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '9'
+- en: Image-Based Deployments
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 基于镜像的部署
+- en: In this chapter, we are going to truly diverge from the existing norms of package-based
+    installs (and updates), which have been the mainstay of Linux for over thirty
+    years. Let’s talk about **immutable image-based systems**. Immutable images have
+    only been around for a few years. Just recently, they have captured the limelight.
+    Some will argue (myself included) that immutable operating systems for appliances
+    are the future of all embedded systems. The very thought of a system that is immutable
+    and unchanging just gives us the impression of something even more secure than
+    the rest. Or does it? If you too assume that it is more secure, you would be correct.
+    More secure – yes – but not perfect...this chapter will give you a great overview
+    of a topic that in my professional opinion deserves its own book due to its complexities
+    and rapidly evolving future. In this chapter, we will review and also go through
+    some focused exercises geared towards providing you with a greater understanding
+    of the levels of security provided by immutable operating systems. We will take
+    a look at some of the tools available and how to leverage them into building,
+    deploying, and, later on, supporting your appliances once your customers have
+    them in hand.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将真正偏离现有的基于软件包的安装（和更新）规范，而这已经是 Linux 三十多年之久的主流方式。让我们来谈谈**不可变的基于镜像的系统**。不可变镜像只出现了几年，最近才引起了广泛关注。有些人会争辩（包括我自己在内），认为面向设备的不可变操作系统是所有嵌入式系统的未来。想到一个不可变且不变的系统，给人的感觉比其他系统更安全。或者它真的是吗？如果你也认为它更安全，那么你是对的。更安全——是的——但并非完美……本章将为您提供一个关于这个话题的概述，在我专业的看法中，由于其复杂性和迅速发展的未来，它应该有一本专门的书。本章中，我们将回顾并进行一些集中练习，帮助您更好地理解不可变操作系统所提供的安全级别。我们将了解一些可用的工具，并且学习如何利用它们构建、部署，并在客户拿到设备后继续支持您的设备。
+- en: By the end of this chapter, you might just convince yourself that this new method
+    of deploying Linux was tailor-made for us in the embedded Linux systems community.
+    Conversely, you may also decide after digging deeper into the technology that
+    perhaps it’s not for you (yet).
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到本章结束时，您可能会说服自己，认为这种新的 Linux 部署方式是为我们嵌入式 Linux 系统社区量身定制的。相反，在深入了解这项技术之后，您也许会决定它并不适合您（至少现在不适合）。
+- en: 'In this chapter, we will have the following main headings:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主要内容：
+- en: Introducing image-based Linux deployments
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 引入基于镜像的 Linux 部署
+- en: bootc and bootable container images
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: bootc 和可启动容器镜像
+- en: Special tooling and support infrastructure differences
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 特殊工具和支持基础设施的差异
+- en: Limitations of image-based deployments
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 基于镜像部署的局限性
+- en: Updating and rolling back changes
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 更新和回滚更改
+- en: Practical exercises – step-by-step walkthrough of how to deploy image-based
+    systems
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 实践练习 —— 按步骤演示如何部署基于镜像的系统
+- en: So, let’s move on and dive deeper.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们继续深入探索。
+- en: Technical requirements
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: To successfully navigate through the exercises in this chapter, you will need
+    two bare metal or virtual machines that you can modify or reinstall the operating
+    system upon. Root access, internet access, and DHCP IP addressing are mandatory.
+    You will also need the ability to download ISO images and have a 16 GB (or greater)
+    USB thumb drive. Finally, you will need a free Red Hat Developer account and access
+    to your own **Quay** registry (also free). The requirements are greater for these
+    exercises as the outcomes are more significant. I am hopeful you’ll even have
+    fun along the way, which in my opinion is also a requirement.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了顺利完成本章中的练习，您将需要两台可以修改或重新安装操作系统的裸机或虚拟机。需要具备根权限、互联网访问权限和 DHCP IP 地址分配。此外，您还需要能够下载
+    ISO 镜像并且拥有一个 16 GB（或更大）USB 闪存驱动器。最后，您需要一个免费的 Red Hat 开发者账户，并能访问您自己的**Quay**注册表（也是免费的）。由于这些练习的结果更为重要，因此对要求的配置也更高。我希望您在过程中能够享受乐趣，在我看来，这也是一个必须的条件。
+- en: For these exercises. I am using CentOS Streams 9 as my build machine’s operating
+    system, and we’ll be creating a CentOS Streams 9 bootable container image. Let’s
+    now move onward to the stars of the show, image-based Linux deployments.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些练习中，我使用 CentOS Streams 9 作为我的构建机器操作系统，并且我们将创建一个 CentOS Streams 9 可启动容器镜像。现在，让我们继续深入探讨本章的主题——基于镜像的
+    Linux 部署。
+- en: Introducing image-based Linux deployments
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 引入基于镜像的 Linux 部署
+- en: This subject is something near and dear to my heart, as I am an embedded systems
+    specialist and have dedicated the past decade to this endeavor. It’s truly my
+    opinion that this set of technologies was virtually tailor made for our embedded
+    Linux systems appliances and the ecosystem of people who build and support them.
+    It would be justifiable for you to question why I, along with many other leaders
+    in the industry, see this as the future. I will give you the short answer here,
+    but we will review it in depth as the chapter progresses. Simplified lifecycle
+    management is the single greatest reason to adopt this new technology for your
+    products.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个主题对我来说非常重要，因为我是嵌入式系统专家，过去十年专注于这项工作。我坚信这套技术几乎是专门为我们的嵌入式 Linux 系统设备以及支持它们的人群量身定制的。你可能会质疑，为什么我和许多行业领袖认为这是未来的技术。我会在这里简短地回答，但在本章的进展中我们将深入讨论。简化的生命周期管理是采纳这项新技术的最大理由。
+- en: In the upcoming sections, I will walk you through two of these methodologies,
+    their features, their limitations, and their tooling, along with some exercises
+    to make it all real for you.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我将介绍这两种方法论、它们的特点、限制以及工具，还有一些实践操作让你更加了解。
+- en: rpm-ostree and atomic images
+  id: totrans-18
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: rpm-ostree 和 atomic images
+- en: The first type of image-based installation method that we’ll review is **rpm-ostree**.
+    This type of deployment is sometimes also called *atomic* because of its immutability.
+    Some vendors have their own marketing name for it. Red Hat® calls it RHEL for
+    Edge™. Whatever they call it, I call it a game-changer. Many other distributions,
+    in recent years, have added rpm-ostree deployment options. Maybe you’d like a
+    few more examples? Fedora® Silverblue, NixOS, openSUSE® MicroOS, Nitrux, Vanilla
+    OS, Talos Linux™, and BlendOS are some of the many purely atomic distributions.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将要审查的第一种基于镜像的安装方法是**rpm-ostree**。这种部署类型有时也被称为*atomic*，因为它是不可变的。一些供应商有他们自己的营销名称。红帽®
+    将其称为 RHEL for Edge™。不管他们怎么称呼，我称之为改变游戏规则的技术。在最近几年，许多其他发行版都添加了 rpm-ostree 部署选项。也许你还想听几个例子？Fedora®
+    Silverblue，NixOS，openSUSE® MicroOS，Nitrux，Vanilla OS，Talos Linux™ 和 BlendOS 是许多完全基于
+    atomic 的发行版之一。
+- en: Any use case for Linux you previously had can be addressed with greater security
+    and stability with an image-based deployment. Where you are deploying is irrelevant;
+    these systems run on bare metal, virtual machines, or cloud instances with ease.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 任何你之前在 Linux 上使用的用例，现在都可以通过基于镜像的部署来提供更高的安全性和稳定性。你部署的位置无关紧要；这些系统可以轻松运行在裸机、虚拟机或云实例上。
+- en: The `/etc` and `/var`. Because of this image format, the old-school methodology
+    of partitioning is essentially moot. …Or should I say immutable?
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/etc` 和 `/var`。由于这种镜像格式，传统的分区方法基本上已经不再适用。……或者说是不可变的？'
+- en: OSTree at its core replicates read-only trees via HTTP. It also has mechanisms
+    for application layering and installation either in `/var` or `/home` (which more
+    details about their actual filesystem layout will be covered next). This mechanism
+    is like how rpm repositories are hosted; however, they are different in the manner
+    of images as reference data (versioning, tags, etc.). For your solution, you will
+    have to create the infrastructure to support your deployed appliances.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OSTree 的核心通过 HTTP 复制只读树。它还具有应用层和安装机制，可以在 `/var` 或 `/home` 中进行（关于它们实际的文件系统布局的更多细节将在下一节介绍）。这种机制类似于
+    rpm 存储库的托管方式；然而，它们在镜像作为参考数据（版本控制、标签等）的方式上有所不同。为了你的解决方案，你需要创建支持已部署设备的基础设施。
+- en: To give you a rough idea of how drastic a change in what might have been its
+    own writable partition in the standard deployment model, here’s a look at how
+    they are handled in this new model. With `/var` being RW, there are several key
+    directory/filesystem mappings that are different from what you are used to in
+    Linux. Pay close attention.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想大概了解在标准部署模型中可能作为其自己可写分区的变化有多大，看看这种新模型的处理方式吧。因为 `/var` 是可写的，这里有几个关键目录/文件系统映射与你在
+    Linux 中习惯的不同。请仔细留意。
+- en: 'Let’s see how filesystems are mapped and their permissions:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看文件系统是如何映射及其权限：
+- en: '`/home` links to `/var/home` as RW'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/home` 链接到 `/var/home` 作为 RW'
+- en: '`/srv` links to `/var/srv` as RW'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/srv` 链接到 `/var/srv` 作为 RW'
+- en: '`/root` links to `/var/roothome` as RW'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/root` 链接到 `/var/roothome` 作为 RW'
+- en: '`/opt` links to `/var/opt` as RW'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/opt` 链接到 `/var/opt` 作为 RW'
+- en: '`/mnt` links to `/var/mnt` as RW'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/mnt` 链接到 `/var/mnt` 作为 RW'
+- en: '`/sysroot` is RO'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sysroot` 是只读的'
+- en: '`/boot` and `/boot/efi` are RW'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/boot` 和 `/boot/efi` 是 RW'
+- en: Note
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: '`rpm-ostree` is the mechanism that enables `ostree` image base. Installing
+    an RPM package with `rpm-ostree` forces the creation of a new image that is merely
+    an update of the base image.'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`rpm-ostree` 是启用 `ostree` 镜像基础的机制。使用 `rpm-ostree` 安装 RPM 包会强制创建一个新镜像，这个镜像只是基础镜像的更新。'
+- en: 'To oversimplify, I will try to relate this methodology as I see it: a series
+    of commits that build upon each other that can be easily rolled back delivered
+    as an immutable image-based appliance-like deployment. I’ll say it again. I feel
+    like sometimes this was tailor-made for embedded Linux systems and custom appliance
+    solutions.'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了简化说明，我会尽量将这种方法论与我自己的理解相联系：一系列相互叠加的提交，可以轻松回滚，并以不可变的镜像部署方式呈现，类似于设备化部署。我再说一遍，我感觉有时这简直是为嵌入式
+    Linux 系统和定制化设备解决方案量身定做的。
+- en: 'So, how can we take advantage of `rpm-ostree` and layer more awesomeness on
+    top? Let’s take a quick look at some of the ways as we already know that the base
+    image itself is immutable. First, I give you this disclaimer: anything you layer
+    on top might not be maintained as part of that image and could induce the risk
+    of being forgotten as updates to that system progress.'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，我们如何利用 `rpm-ostree` 并在其上添加更多强大的功能呢？让我们快速看一下几种方法，因为我们已经知道基础镜像本身是不可变的。首先，给你一个免责声明：你在其上层叠的任何内容可能不会作为该镜像的一部分进行维护，并且随着系统更新的推进，可能会被遗忘。
+- en: That said, we can layer things on top of an rpm-ostree system (outside the image
+    itself). This can be done through fully self-contained applications deployed via
+    flatpacks or as a running container image deployed outside the image. In this
+    use case, the base image is simply the immutable platform for delivering a dynamic
+    application.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也就是说，我们可以在 rpm-ostree 系统之上添加一些东西（镜像本身之外）。这可以通过完全自包含的应用程序（通过 flatpacks 部署）或作为一个运行中的容器镜像（部署在镜像之外）来实现。在这种用例中，基础镜像仅仅是一个提供动态应用程序的平台。
+- en: 'The other method is to install RPM packages on top of the image. I suppose
+    someone has a use case where this makes sense, but I argue that it should just
+    have been made part of the image, and the system should be updated with the latest
+    image containing the additional RPM packages. Now that we understand rpm-ostree
+    and its key features, here are examples of distributions that can be deployed
+    *optionally* as rpm-ostree. Please note that this is a non-exhaustive list:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种方法是将 RPM 包安装到镜像之上。我想可能有人有这种用例，但我认为这应该是镜像的一部分，系统应该通过包含额外 RPM 包的最新镜像进行更新。现在我们了解了
+    rpm-ostree 及其关键特性，下面是可以作为 *可选* rpm-ostree 部署的发行版示例。请注意，这只是一个不完全的列表：
+- en: Red Hat® Enterprise Linux®
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Red Hat® Enterprise Linux®
+- en: Fedora® (many variants; the most common is Silverblue)
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Fedora®（多种变体；最常见的是 Silverblue）
+- en: Vanilla OS (an Ubuntu®/Debian® variant)
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Vanilla OS（基于 Ubuntu®/Debian® 的变体）
+- en: Debian® ostree
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Debian® ostree
+- en: openSUSE® (Slowroll)
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: openSUSE®（Slowroll）
+- en: SUSE Linux Enterprise Server™
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SUSE Linux Enterprise Server™
+- en: CoreOS®
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CoreOS®
+- en: Rocky Linux®
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Rocky Linux®
+- en: AlmaLinux®
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: AlmaLinux®
+- en: Oracle Enterprise Linux™
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Oracle Enterprise Linux™
+- en: CentOS® Stream
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CentOS® Stream
+- en: 'So, please know that you have many options for testing the waters with rpm-ostree,
+    for more details I invite you to check out the libostree documentation online:
+    [https://ostreedev.github.io/ostree/](https://ostreedev.github.io/ostree/).'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，请了解你有许多选项可以测试 rpm-ostree。更多详情，请访问 libostree 在线文档：[https://ostreedev.github.io/ostree/](https://ostreedev.github.io/ostree/)。
+- en: Let’s move on to our next subject and that’s bootable containers.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们进入下一个主题，那就是可启动容器。
+- en: bootc and bootable container images
+  id: totrans-51
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: bootc 和可启动容器镜像
+- en: I have been involved deeply with product teams in the scoping, testing, and
+    documentation of this new leading-edge technology since before I started writing
+    this book. These efforts introduced me to some really amazing engineers who are
+    adept at thinking outside the box.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自从我开始写这本书之前，我就深度参与了与产品团队在这一前沿技术的范围、测试和文档方面的工作。这些努力让我结识了一些非常优秀的工程师，他们善于从不同角度思考问题。
+- en: What is bootc? A simplified way of looking at bootc would be to define it as
+    a tool for layering a Linux kernel into a container image so the container image
+    can boot itself without external operating systems hosting it.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 什么是 bootc？一种简化的理解方式是将 bootc 定义为将 Linux 内核层叠到容器镜像中的工具，这样容器镜像就可以独立启动，无需外部操作系统来托管它。
+- en: 'If you are interested in contributing to this global effort to transform technology
+    (or just learning more), here’s the bootc GitHub repository: [https://github.com/containers/bootc](https://github.com/containers/bootc).
+    There, you can find extensive documentation that is readily maintained.'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你有兴趣参与这一全球技术变革的努力（或者只是想了解更多），这里是bootc的GitHub仓库：[https://github.com/containers/bootc](https://github.com/containers/bootc)。在这里，你可以找到维护得很好的广泛文档。
+- en: Let’s be clear, bootc is bleeding-edge technology. Red Hat® (the organization
+    leading the charge in this new technology) considers this to have *Technology
+    Preview* status and they will not consider it fully supportable until the tooling
+    and support infrastructure are present. Basically, the technology will not be
+    considered fully supportable, or as Red Hat calls it, **Generally Available**
+    (**GA**), and production-workload-ready until the advent of RHEL 10 and RHEL 9.6,
+    which are both released in May of 2025.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们明确一点，bootc是前沿技术。红帽®（引领这一新技术的组织）将其视为*技术预览*状态，直到工具和支持基础设施到位，他们才会考虑其完全可支持性。基本上，在RHEL
+    10和RHEL 9.6发布之前，这项技术将不会被视为完全可支持的，或者像红帽所说的，**一般可用**（**GA**）并且适合生产工作负载，预计这两个版本都将在2025年5月发布。
+- en: This doesn’t mean you should be waiting around. I highly recommend doing an
+    exhaustive level of testing and due diligence to see if this deployment method
+    can add value to your product now and in the future.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这并不意味着你应该坐等。我强烈建议你进行全面的测试和尽职调查，看看这种部署方法现在及未来是否能为你的产品带来价值。
+- en: What exactly is bootc? bootc is an open source project that leverages an **Open
+    Container Initiative** (**OCI**) standard-based container image to create a full
+    operating system image. It leverages the same layering techniques that existing
+    container infrastructures use today for their creation and also for updating themselves.
+    It leverages the functionality of other projects, such as rpm-ostree, to create
+    and update those operating system images.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: bootc究竟是什么？bootc是一个开源项目，利用**开放容器倡议**（**OCI**）标准的容器镜像创建完整的操作系统镜像。它采用了现有容器基础设施中用于创建和更新容器镜像的相同分层技术。它还利用其他项目的功能，例如rpm-ostree，来创建和更新这些操作系统镜像。
+- en: What makes bootc different from rpm-ostree? Both are image-based deployment
+    methods. Both have levels of immutability. What sets them apart is how they are
+    built and how they are updated. The single greatest defining point is bootc’s
+    unique ability to use a container as the basis for an immutable image.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: bootc与rpm-ostree的区别是什么？两者都是基于镜像的部署方法，都具有一定程度的不可变性。它们的不同之处在于构建方式和更新方式。最重要的区别是bootc独特的能力，它能以容器为基础构建不可变镜像。
+- en: Where the bootc methodology absolutely shines is that there’s a vast ecosystem
+    of developers and tools for building containers already. If you can build a container,
+    you can build a whole system now. That whole build chain is now transformational,
+    and for most companies, it will require little tooling to adapt to this new methodology
+    if they’re already using containerized apps today.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: bootc方法的独特优势在于，已经有一个庞大的开发者生态系统和工具集，专门用于构建容器。如果你能构建容器，你现在就可以构建一个完整的系统。这个构建链已经发生了变革，对于大多数公司来说，如果它们现在已经在使用容器化应用，那么适应这种新方法几乎不需要额外的工具。
+- en: But hold on…in corporate America, and elsewhere globally, not every containerized
+    application needs to be converted to an image-based appliance. The true transformations
+    are, for us, the embedded Linux system community. With this technology, we can
+    design, create, build, and automate the lifecycles of the products that drive
+    our company’s success.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但等等……在美国公司和全球其他地区，并不是每个容器化应用都需要转换为基于镜像的设备。对于我们来说，真正的变革是嵌入式Linux系统社区。通过这项技术，我们可以设计、创建、构建和自动化驱动公司成功的产品生命周期。
+- en: Many engineers are currently working feverishly to deliver new tools to support
+    this type of deployment method. By the time RHEL 9.5 ships, the community should
+    have all new functionality available within what is considered the premier tool
+    for building systems images and installers from the RHEL ecosystem and that tool
+    is **Image Builder**. Image Builder has been around since RHEL 8.3 days (quite
+    some time ago), but it has evolved and keeps getting better month by month.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 目前，许多工程师正在努力工作，以提供支持这种部署方法的新工具。等到RHEL 9.5发布时，社区应该已经能够在被认为是构建系统镜像和安装程序的首选工具中，获取所有的新功能，这个工具就是**Image
+    Builder**。Image Builder自RHEL 8.3以来就存在（已经有一段时间了），但它一直在不断发展，并且每个月都在变得更好。
+- en: 'For those of us building images in Fedora and CentOS Stream, we can leverage
+    new functionality today at the risk of being on the bleeding edge without the
+    support and obvious stability of the enterprise distributions. I highly recommend
+    checking out the ongoing development of functionality for Image Builder in this
+    GitHub repository: [https://github.com/osbuild/bootc-image-builder](https://github.com/osbuild/bootc-image-builder).'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于在 Fedora 和 CentOS Stream 中构建镜像的我们来说，我们可以今天就利用新的功能，虽然这样做意味着我们处于前沿阶段，可能缺乏企业发行版的支持和稳定性。我强烈推荐查看在这个
+    GitHub 仓库中关于 Image Builder 功能的持续开发：[https://github.com/osbuild/bootc-image-builder](https://github.com/osbuild/bootc-image-builder)。
+- en: Now that we’ve introduced rpm-ostree and bootc images, let’s continue our journey
+    and see how they differ.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经介绍了 rpm-ostree 和 bootc 镜像，让我们继续前进，看看它们有何不同。
+- en: Special tooling and support infrastructure differences
+  id: totrans-64
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 特殊工具和支持基础设施差异
+- en: This is where we can easily set one methodology against the other. Both methods
+    work eloquently; however, creating, maintaining, and supporting appliances built
+    from rpm-ostree alone is more difficult, and their tooling is more intensively
+    hands-on.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们可以轻松将一种方法论与另一种方法论进行对比的地方。两种方法都能巧妙地工作；然而，仅仅通过 rpm-ostree 来创建、维护和支持构建的设备更加困难，并且它们的工具也更需要动手操作。
+- en: In the next few sections, I will primarily focus on open source tools that are
+    the most relevant for either methodology. Let’s start this investigation by looking
+    at tooling that can help you deliver an rpm-ostree solution.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的几节中，我将主要聚焦于最相关的开源工具，适用于这两种方法论。让我们从查看可以帮助你交付 rpm-ostree 解决方案的工具开始。
+- en: rpm-ostree open source tooling
+  id: totrans-67
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: rpm-ostree 开源工具
+- en: Today, there’s a vast set of tools available within the open source community
+    for your teams to leverage, regardless of the operating system you have selected.
+    That said, each distribution may have some slight alterations or functionality
+    differences that tailor the tools to their specific distribution’s base.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 今天，开源社区为团队提供了大量可用的工具，无论你选择了什么操作系统。也就是说，每个发行版可能会有一些轻微的修改或功能差异，旨在使工具更适应其特定发行版的基础。
+- en: 'Some great examples of tools for building or maintaining functionality in an
+    rpm-ostree image deployment that are available across distributions are:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些很好的示例工具，用于在跨发行版的 rpm-ostree 镜像部署中构建或维护功能，包含：
+- en: '**Composer-cli:** A command-line tool for defining the complex contents of
+    a Linux image and a way of rendering the image into multiple formats'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Composer-cli**: 一款用于定义 Linux 镜像复杂内容的命令行工具，并能够将镜像渲染为多种格式'
+- en: '**Osbuild**: A command-line tool for building Linux images'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Osbuild**: 一款用于构建 Linux 镜像的命令行工具'
+- en: '**Composer** (also known as **Image Builder** in some distributions): A graphical,
+    web-based tool for defining, building, and updating a Linux image'
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Composer**（在一些发行版中也称为 **Image Builder**）：一款图形化的基于 web 的工具，用于定义、构建和更新 Linux
+    镜像'
+- en: '**Cockpit-composer**: A plugin for the web console on a Linux machine that
+    enables a user to use Composer within the cockpit/web console web UI'
+  id: totrans-73
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Cockpit-composer**: 一个在 Linux 机器上的 web 控制台插件，使用户能够在 cockpit/web 控制台的网页 UI
+    中使用 Composer。'
+- en: '**Toolbox:** An interactive command-line tool that assists in the troubleshooting
+    of an operating system'
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Toolbox**: 一款交互式命令行工具，帮助排查操作系统故障'
+- en: Let’s move on to what tools we can leverage for other methods of image-based
+    deployments.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来让我们继续探讨我们可以利用的其他镜像部署方法工具。
+- en: bootc bootable container image tooling
+  id: totrans-76
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: bootc 可启动容器镜像工具
+- en: This is where things get a little interesting, in my opinion. bootc image-based
+    systems don’t exactly require a plethora of complex tools to be built and supported.
+    This concept we will dive into deeply in our hands-on exercises within this chapter.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我看来，这里是事情变得有趣的地方。bootc 基于镜像的系统并不需要一堆复杂的工具来构建和支持。在本章的动手练习中，我们将深入探讨这一概念。
+- en: Please allow me to elaborate. As we will see shortly, all you really need on
+    your build machine is a text editor and access to a registry in order to build
+    and update your appliances. We’ll be leveraging some container tools as well during
+    the build.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请允许我详细说明。正如我们将很快看到的，你在构建机上所需的只是一款文本编辑器和对注册表的访问权限，就能构建和更新你的应用程序。在构建过程中，我们还将利用一些容器工具。
+- en: 'Here’s an example list of the tools that you can leverage to create and support
+    the lifecycle of a bootc image-based system:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个可以利用的工具列表示例，用于创建和支持 bootc 基于镜像系统的生命周期：
+- en: 'Editors (vi, emacs, nano, etc.): Simple text editing programs that are console-based
+    or graphical, yet not as feature-rich as an IDE suite.'
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 编辑器（vi、emacs、nano 等）：简单的文本编辑程序，可以是基于控制台或图形界面的，但功能不如 IDE 套件丰富。
+- en: 'Podman: A container management tool used for building, running, and managing
+    containers on top of Linux'
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Podman：一个容器管理工具，用于在 Linux 上构建、运行和管理容器
+- en: 'IDE’s (Podman-Desktop, Eclipse, Visual Studio): Various graphical comprehensive
+    development tools'
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: IDE（Podman-Desktop、Eclipse、Visual Studio）：各种图形化的综合开发工具
+- en: 'Image Builder: A graphical, web-based tool for defining, building, and updating
+    a Linux image.'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Image Builder：一个图形化的基于 Web 的工具，用于定义、构建和更新 Linux 镜像。
+- en: 'Cockpit-composer: A plugin for the web console on a Linux machine that enables
+    a user to use Composer within the cockpit/web console web UI.'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Cockpit-composer：一个用于 Linux 机器上 Web 控制台的插件，允许用户在 cockpit/Web 控制台 Web UI 中使用
+    Composer。
+- en: 'Console.redhat.com: A comprehensive service hosted by Red Hat®, that can assist
+    in the building, maintaining, and introspection of systems'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Console.redhat.com：由 Red Hat® 托管的一个全面服务，可以协助系统的构建、维护和自检
+- en: 'Registries: A registry is crucial for hosting container images and providing
+    a central location to distribute updates, for example, Quay™, Amazon Elastic Container
+    Registry™ (ECR), Harbor, Azure Container Registry (ACR), GitHub Container Registry™,
+    Google Container Registry™ (GCR), JFrog Container Registry™.'
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 注册表：注册表对于托管容器镜像并提供分发更新的中心位置至关重要，例如 Quay™、Amazon Elastic Container Registry™（ECR）、Harbor、Azure
+    Container Registry（ACR）、GitHub Container Registry™、Google Container Registry™（GCR）、JFrog
+    Container Registry™。
+- en: Let’s move onto a more serious topic, the limitations of images-based deployments
+    today.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们进入一个更严肃的话题，今天基于镜像的部署的局限性。
+- en: Limitations of image-based deployments
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 基于镜像的部署的局限性
+- en: While image-based deployments are a paradigm shift in how we can create and
+    maintain solutions, they do have idiosyncrasies that standard package-based deployments
+    do not have. For image-based systems, updates happen at the speed of a reboot.
+    Package-based systems’ update operations can take hours and require multiple reboots,
+    all while hoping no dependencies are broken and everything works in the end.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然基于镜像的部署是我们创建和维护解决方案的范式转变，但它们确实具有标准基于包的部署所没有的特殊性。对于基于镜像的系统，更新以重启的速度进行。而基于包的系统更新操作可能需要数小时，并且需要多次重启，同时希望没有依赖关系被破坏，最后一切正常。
+- en: One significant perceived limitation is that filesystems are defined as non-writable.
+    While many see the broader concept of immutability as a feature, if you are trying
+    to install a third-party solution into your image and said solution expects to
+    be installed in a very specific location (filesystem) that is readable and writable,
+    but the actual location is read-only, issues are instantaneous.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个显著的被认为的局限性是文件系统被定义为不可写。尽管许多人将不可变性的更广泛概念视为一项特性，但如果你试图将第三方解决方案安装到镜像中，而该解决方案期望被安装在一个非常特定的位置（文件系统），该位置需要是可读可写的，而实际位置是只读的，那么问题会立刻显现。
+- en: This is a perceived limitation, not an actual one. With some creative usage
+    of symbolic links, this most likely can easily be circumvented.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个被认为的局限性，而非实际局限性。通过创造性地使用符号链接，这个问题很可能可以轻松绕过。
+- en: For those not involved in the ecosystem, these deployments can sometimes be
+    miscategorized or perceived as inflexible, or as having limited ability to customize
+    or tailor the solution easily, and often the necessary software may need to be
+    layered onto them into non-standard filesystem locations so that those applications
+    can function in read/write mode. Some of that is a myth, but not all of it. Let’s
+    go deeper.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于那些未参与生态系统的人来说，这些部署有时可能会被误分类或被认为是缺乏灵活性，或者认为它们在定制或调整解决方案方面的能力有限，而且通常必要的软件可能需要被添加到非标准文件系统位置，以便这些应用程序能够在读/写模式下运行。这其中有些是误解，但并非全是。让我们深入探讨一下。
+- en: rpm-ostree image limitations
+  id: totrans-93
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: rpm-ostree 镜像局限性
+- en: Alright, rpm-ostree is a great solution. It really is. I have to give credit
+    where it’s due. I love it. That said, I have to address the perception that it
+    can be inflexible. I propose the statement that in all actuality it’s meant to
+    be just that. It is a very secure, immutable image-based deployment. The very
+    tooling itself helps to keep rpm-ostree a very prescriptive type of deployment
+    methodology. rpm-ostree was basically designed to be a secure platform that can
+    easily host containerized apps or virtual machines while retaining a very minimal
+    footprint.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，rpm-ostree 是一个很好的解决方案。它确实很棒，我必须给予它应有的赞扬。我非常喜欢它。话虽如此，我也必须回应一些人认为它可能不够灵活的看法。我提出这样一个说法，实际上它的确是有意如此的。它是一个非常安全、不可变的基于镜像的部署方式。它的工具本身有助于使
+    rpm-ostree 成为一种非常规范化的部署方法。rpm-ostree 的设计本质上是为了成为一个安全的平台，能够轻松地托管容器化应用或虚拟机，同时保持非常小的系统占用。
+- en: 'There are some limitations and frustrations that I must bring to light for
+    you. First, kernel customizations are a bit of a challenge as the tooling does
+    not help you in that endeavor (yet). I would say that if you have some customizations
+    for anything in the end-state that you desire, your team should create custom
+    RPM packages for them to be implemented. This also requires that you have a deep
+    understanding of the exact hardware that you plan to leverage as your appliances’
+    baseline. Managing operating-system-level user accounts can be a significant challenge
+    because any changes, layered on such as passwords or group affiliations, that
+    are added on after the deployment can easily be lost as they run the risk of being
+    overwritten by the next image update deployment. In [*Chapter 10*](B22104_10.xhtml#_idTextAnchor305),
+    we will cover this in more depth; we’ll review the best practice of not having
+    your end-users ever log into the operating system itself on your appliance. I
+    can see how in a corporate environment, this can be seen as a massive issue, but
+    in a secure appliance, I beg the question: is it an issue at all?'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但我必须揭示一些限制和难点。首先，内核定制是一项挑战，因为目前的工具并没有在这方面提供帮助（还没有）。我认为，如果你有任何想在最终状态中实现的定制需求，你的团队应该为这些定制创建自定义的
+    RPM 包。这还要求你对计划作为设备基础的具体硬件有深入了解。管理操作系统级别的用户账户可能会是一个重要的挑战，因为任何添加到部署后，诸如密码或用户组关联等修改，都可能会丢失，因为它们有可能被下一个镜像更新覆盖。在
+    [*第十章*](B22104_10.xhtml#_idTextAnchor305) 中，我们会更深入地探讨这一点；我们将回顾最佳实践，即永远不要让最终用户直接登录到操作系统。
+    我能理解在企业环境中，这可能被看作一个巨大的问题，但在一个安全的设备中，我想问：这真的是问题吗？
+- en: Additionally, the places where data is actually in a read/write capability does
+    add additional work in the design and support process. Users’ data, application
+    data, and so on – these are seen as some of the complexities of this method of
+    deployment. Planning, testing, and creative usage of symbolic links to locations
+    that are writable will be key concepts that shall help you overcome most of these
+    perceived issues.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，数据实际上是可读/写的地方，确实会增加设计和支持过程中的额外工作。用户数据、应用数据等，都是这种部署方法中的一些复杂因素。规划、测试，以及创造性地使用符号链接到可写位置，将是帮助你克服大部分这些感知问题的关键概念。
+- en: I often argue that these facets mentioned are truly not limitations but simply
+    design considerations because if you choose to deploy via rpm-ostree, you are
+    embarking on a different and complex journey with many security rewards. Remember
+    when I stated that security begins at the design table?
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我经常争辩说，前面提到的这些方面其实并不是限制，而只是设计上的考虑，因为如果你选择通过 rpm-ostree 部署，你将开始一段不同且复杂的旅程，并且能获得许多安全上的好处。记得我曾说过，安全从设计桌开始吗？
+- en: Let’s move on to how other systems could be perceived as limited.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们继续讨论其他系统为何可能被视为受限。
+- en: bootc bootable container image limitations
+  id: totrans-99
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: bootc 可启动容器镜像的限制
+- en: Here, I feel I must be a bit forgiving as the technology has not even reached
+    version 1.0 status yet. bootc is still evolving, and its potential is astronomical.
+    Additionally, I feel the need to reiterate that the advanced tools to support
+    bootc are also still evolving as well. I might be biased, but I see a massively
+    bright future for bootc images.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我觉得我必须宽容一些，因为这项技术甚至还没有达到 1.0 版本的状态。bootc 仍在不断发展，而且它的潜力巨大。此外，我还需要重申，支持 bootc
+    的先进工具也仍在不断演进。或许我有些偏见，但我看到 bootc 镜像的未来前景极为光明。
+- en: For an embedded appliance, having a stable and secure update methodology is
+    a major design point. Today, bootc images are most easily supported by access
+    to the online registry that created their existence. That’s all good and well
+    if your solution will have access to the internet once the customer has implemented
+    it in their own environment. Today, for an embedded Linux system appliance based
+    upon bootc, being *online* is best.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于嵌入式设备来说，拥有一个稳定且安全的更新方法论是一个重要的设计点。今天，bootc 镜像最容易通过访问其创建者的在线注册表来支持。如果你的解决方案在客户将其部署到自己的环境中后可以访问互联网，那就没问题。今天，对于基于
+    bootc 的嵌入式 Linux 系统设备来说，*在线* 是最佳选择。
+- en: One of the perceived limitations I see today isn’t exactly a limitation, but
+    a serious design consideration that has to be addressed at the design table. Today,
+    an offline bootc image-based deployment is possible. It’s just a little bit more
+    complex. If your product is to be deployed in an **air-gapped environment** or
+    non-networked environment, one must build into the appliance’s interface a way
+    of ingesting its updates. This actually means a way of importing locally a new
+    container image to use as the new baseline for its updates and rebuilding.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我今天看到的一个被认为的限制实际上并不是真正的限制，而是一个必须在设计阶段认真考虑的重大设计问题。今天，离线的 bootc 镜像部署是可能的，只是稍微复杂一些。如果你的产品需要在**隔离环境**或无网络环境中部署，就必须在设备的接口中设计一种更新导入方式。这实际上意味着要有一种方式，能够在本地导入新的容器镜像，作为更新和重建的基准。
+- en: Again, as with rpm-ostree, I recommend obscuring the operating system from the
+    end-user by only allowing them application-based access and keeping the operating
+    system accounts limited. This will address the similar difficulty of maintaining
+    operating systems’ user accounts through each update/image rerendering. Yes, managing
+    or controlling operating-system-level users is a concern in bootc images too.
+    I suspect that there shall be additional tooling developed for this as bootc evolves.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次提醒，像 rpm-ostree 一样，我建议通过仅允许应用程序级别的访问并限制操作系统账户，来将操作系统从终端用户面前隐藏。这将解决在每次更新/镜像重构时，操作系统用户账户维护的类似难题。是的，在
+    bootc 镜像中，管理或控制操作系统级别的用户也是一个问题。我猜随着 bootc 的发展，可能会为此开发更多的工具。
+- en: In comparison with rpm-ostree, bootc exceeds flexibility and customization.
+    Kernel modifications are easier to achieve. Why? Containers are incredibly flexible
+    themselves and they’re easier to maintain.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 rpm-ostree 相比，bootc 超越了灵活性和定制化。内核修改变得更容易实现。为什么？因为容器本身非常灵活，并且更容易维护。
+- en: My professional opinion is that this is a technology worth keeping a very close
+    eye on because it can transform and simplify how you build appliances. I won’t
+    say that it’s without pain points, but I do have the opinion that it has a very
+    bright future. Let’s move on to how we can update or, in the worst cases, roll
+    back.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我的专业观点是，这项技术值得密切关注，因为它可以改变并简化你构建设备的方式。我不会说它没有痛点，但我确实认为它有着非常光明的未来。接下来我们来看看如何更新或者在最糟糕的情况下回滚。
+- en: Updating and rolling back changes
+  id: totrans-106
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 更新和回滚更改
+- en: '**Package-based systems**, regardless of the package system (RPM, DNF, APT,
+    Zypper, etc.) can have issues and artifacts when either moving to a newer version
+    of their operating system or during an attempt to roll back installations that
+    produce unintended consequences. If you have ever experienced this, you know exactly
+    what I mean and I offer my condolences. For those of you who have been blessed
+    or simply lucky enough to not have suffered a failed package update process, here’s
+    the difference.'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**基于包的系统**，无论是哪个包管理系统（RPM、DNF、APT、Zypper 等），在升级操作系统版本或尝试回滚安装时，都可能出现问题和遗留问题，导致一些意想不到的后果。如果你曾经遇到过这种情况，你一定明白我说的意思，我向你表示同情。对于那些幸运或没有遭遇过失败包更新过程的人来说，这就是区别所在。'
+- en: Package-based systems are forced to do their dependency checks in real time
+    when they process their updates. What this process amounts to is some packages
+    may be added or deprecated that you might not even be aware of during the process.
+    Not only can it be clunky and obtuse, but it consumes significant time. Hopefully,
+    you tested this process for each release *ad nauseum* before presenting updates
+    to your customers. Sometimes, oftentimes, multiple reboots are required. I feel
+    for anyone enduring this. This is downtime. Hopefully, it just works the first
+    time, because if it doesn’t, roll backs often require a recovery from a backup
+    or a snapshot, Hahahahaha – if that even exists.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于包管理的系统在处理更新时必须实时检查其依赖项。这一过程的结果是，某些包可能会被添加或废弃，而你可能在过程中都没有意识到。这个过程不仅笨拙且难以理解，而且还会消耗大量时间。希望你在向客户发布更新之前，已经对每个版本进行了*无休止*的测试。有时，甚至经常需要多次重启。我为那些在经历这些的人感到同情。这就是停机时间。希望它第一次就能成功，因为如果不能，回滚通常需要从备份或快照中恢复，哈哈哈哈——如果这些备份或快照甚至存在的话。
+- en: Image-based operating systems do not fall victim to those issues. Whether providing
+    an incremental update or a completely new operating system, this delivery method
+    allows for a rapid in-place upgrade while not impacting user or application data.
+    How? These systems stage their new image and then simply reboot into it. Fast,
+    clean, efficient. More importantly, since you and your team have tested these
+    images, there’s little worrying about whether or not this new image has issues.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于镜像的操作系统不会受到那些问题的困扰。无论是提供增量更新，还是完全新的操作系统，这种交付方式都能快速进行就地升级，而不会影响用户或应用数据。如何做到的？这些系统准备好新的镜像后，直接重启进入新的镜像。快速、干净、高效。更重要的是，由于你和你的团队已经测试过这些镜像，所以几乎不需要担心新镜像是否有问题。
+- en: 'So, let’s assume the worst case: the image had some corruption in downloading.
+    *No problem*. We can recover from the previous image with little to no effort.
+    That’s some amazing upside, right?! Let’s move on to how these systems also can
+    be upgraded in place without stress.'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，假设最坏的情况：镜像在下载过程中出现了某些损坏。*没问题*。我们可以轻松地从之前的镜像中恢复。这真是太棒了，对吧？！接下来，让我们看看这些系统如何在不增加压力的情况下进行就地升级。
+- en: Upgrade of operating system version in place
+  id: totrans-111
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 就地升级操作系统版本
+- en: 'This is yet another area where all image-based deployments shine: upgrades
+    in place.'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是另一个所有基于镜像的部署闪光点：就地升级。
+- en: For atomic/rpm-ostree systems, all we need to do is create a new image based
+    on a newer operating system and get that image staged in the appliance’s update
+    repository. The appliance can download/stage the new image and will be upgraded
+    to the new version of the operating system upon reboot.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于atomic/rpm-ostree系统，我们所需要做的就是基于更新的操作系统创建一个新镜像，并将该镜像放入设备的更新仓库中。设备可以下载并准备新镜像，重启后将升级到操作系统的新版本。
+- en: For bootc-based systems, all we need to do is base our container image upon
+    a newer operating system base image, rebuild the container, and upload the container
+    to the registry. When the system checks for updates, it will pull the new container
+    and rerender itself as an upgraded system.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于bootc-based系统，我们所需要做的就是基于更新的操作系统镜像创建我们的容器镜像，重新构建容器，然后将容器上传到注册表。当系统检查更新时，它会拉取新的容器并重新渲染自己为一个升级后的系统。
+- en: Like I’ve said, it’s almost like these things are tailor-made for embedded Linux
+    systems, right? Let’s move on to our hands-on exercises now and build one for
+    ourselves.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像我说的，这些东西几乎是为嵌入式Linux系统量身定做的，对吧？现在让我们开始动手实践，自己构建一个吧。
+- en: Practical exercises
+  id: totrans-116
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 实践练习
+- en: This is the time when we get to roll up our sleeves and bash the keyboard. If
+    you follow the exercises in the order presented, at the end you will have a bootc
+    image-based deployment ecosystem set up for yourself.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在是我们卷起袖子，敲击键盘的时候了。如果你按照呈现的顺序进行操作，最后你将为自己设置一个基于bootc镜像的部署生态系统。
+- en: Before we begin, I want to share with you some useful information. The tools
+    for this type of infrastructure are evolving rapidly, and there is already more
+    than one way to design, build, and deploy these images. I see this as an amazing
+    opportunity for the Linux community. The method I am demonstrating here is simple
+    and easy to either script or automate via something such as Ansible. Throughout
+    the exercises, I will mention other ways or alternative tools that could enhance
+    the developer experience and make things scale better.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始之前，我想与您分享一些有用的信息。此类基础设施的工具正在快速发展，已经不止一种方法可以设计、构建和部署这些镜像。我认为这是 Linux 社区一个令人惊叹的机会。我在这里展示的方法简单且易于通过像
+    Ansible 这样的工具进行脚本化或自动化。在整个练习过程中，我会提到其他方法或替代工具，它们可以增强开发者体验并使系统更具扩展性。
+- en: As these exercises require precision in the configuration files that we will
+    be creating together, I urge extreme caution should you choose to leverage a method
+    of cutting and pasting to rapidly create the files. It is often too easy to copy
+    over hidden ASCII characters (or formatting characters) that will render your
+    working configuration files utterly useless and virtually impossible to debug
+    because when you enter your text editor you may only see a blank space (if anything).
+    I have added templated files that you can download and tailor yourself to your
+    own lab’s environment. They can be found in the book’s GitHub repository ([https://github.com/PacktPublishing/The-Embedded-Linux-Security-Handbook/tree/main/Chapter09/exercises](https://github.com/PacktPublishing/The-Embedded-Linux-Security-Handbook/tree/main/Chapter09/exercises)),
+    and they will also enlighten you about other options that we have not covered.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这些练习要求我们创建的配置文件要非常精确，我强烈建议你在选择通过复制粘贴的方式快速创建文件时要非常小心。因为这样做很容易将隐藏的 ASCII 字符（或格式化字符）复制到文件中，导致你的配置文件无法正常工作，并且几乎无法调试，因为当你打开文本编辑器时，可能只会看到一个空白空间（如果有的话）。我已经提供了可以下载并根据你自己实验室环境进行定制的模板文件。它们可以在本书的
+    GitHub 仓库中找到（[https://github.com/PacktPublishing/The-Embedded-Linux-Security-Handbook/tree/main/Chapter09/exercises](https://github.com/PacktPublishing/The-Embedded-Linux-Security-Handbook/tree/main/Chapter09/exercises)），同时它们还会为你提供一些我们没有涵盖的其他选项。
+- en: So, grab a formattable 16 GB USB thumb drive along with your favorite beverage
+    (maybe several), and let’s get started.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，拿出一只可格式化的 16 GB USB 闪存驱动器和你最喜欢的饮料（也许不止一瓶），让我们开始吧。
+- en: Exercise 1 – preparing the environment
+  id: totrans-121
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习 1 – 准备环境
+- en: 'In this first exercise, we will install the necessary tools along with some
+    optional tools to create our minimal bootable container image build chain. Let’s
+    do that using the following steps:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第一个练习中，我们将安装必要的工具，并安装一些可选工具，以创建我们的最小可启动容器镜像构建链。让我们按照以下步骤来操作：
+- en: 'First, we will set up a build environment, configure our registry, and create
+    a container that will become the basis for not just our application but our operating
+    system as well:'
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们将设置一个构建环境，配置我们的注册表，并创建一个容器，作为我们应用程序及操作系统的基础：
+- en: '[PRE0]'
+  id: totrans-124
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Now we’ll ensure that the web console has been enabled:'
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们将确保 web 控制台已启用：
+- en: '[PRE1]'
+  id: totrans-126
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'And here, we’ll start the socket for the web console:'
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这里，我们将启动 web 控制台的 socket：
+- en: '[PRE2]'
+  id: totrans-128
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Confirm the web console is active:'
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确认 web 控制台已经启动：
+- en: '[PRE3]'
+  id: totrans-130
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Your output should resemble something like this:'
+  id: totrans-131
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你的输出应类似于以下内容：
+- en: '[PRE4]'
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Click on the link for **centos-bootc/centos-bootc**.
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击链接访问 **centos-bootc/centos-bootc**。
+- en: Make note of the URL as we’ll be using it soon. Consider bookmarking the page
+    too.
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请记下这个 URL，我们很快会用到它，也可以考虑将此页面添加到书签。
+- en: '![Figure 9.1 – Searching for CentOS Stream’s bootc base image](img/B22104_09_01.jpg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.1 – 搜索 CentOS Stream 的 bootc 基础镜像](img/B22104_09_01.jpg)'
+- en: Figure 9.1 – Searching for CentOS Stream’s bootc base image
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.1 – 搜索 CentOS Stream 的 bootc 基础镜像
+- en: 'Back in your terminal, configure your non-root user account to be able to search
+    the registry:'
+  id: totrans-137
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 回到终端，配置你的非 root 用户帐户，使其能够搜索注册表：
+- en: '[PRE5]'
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Create the requisite directories to store your container configuration so Podman
+    will know where to seek for information:'
+  id: totrans-139
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建所需的目录来存储你的容器配置，这样 Podman 就知道从哪里查找信息：
+- en: '[PRE6]'
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Let’s change directories to the one we just created:'
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们切换到刚刚创建的目录：
+- en: '[PRE7]'
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: $ vi registries.conf
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: $ vi registries.conf
+- en: '[PRE8]'
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: we will use these registries only
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我们将仅使用这些注册表
+- en: '[registries.search]'
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '[registries.search]'
+- en: registries = ['registry.redhat.io','quay.io']
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: registries = ['registry.redhat.io','quay.io']
+- en: '[PRE9]'
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Now, we’ll go back to our home directory:'
+  id: totrans-149
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们将返回到我们的主目录：
+- en: '[PRE10]'
+  id: totrans-150
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: Let’s download the CentOS Stream 9 DVD ISO image to be used later in the process
+    when we create our custom installer. Use your web browser to go to [https://centos.org/download/](https://centos.org/download/)
+    and then click on the **x86_64** button.
+  id: totrans-151
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们下载 CentOS Stream 9 DVD ISO 镜像，以便稍后在创建自定义安装程序时使用。使用你的网页浏览器访问 [https://centos.org/download/](https://centos.org/download/)，然后点击
+    **x86_64** 按钮。
+- en: '![Figure 9.2 – CentOS Stream 9 download](img/B22104_09_02.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.2 – CentOS Stream 9 下载](img/B22104_09_02.jpg)'
+- en: Figure 9.2 – CentOS Stream 9 download
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.2 – CentOS Stream 9 下载
+- en: 'Let’s verify the file size and that it’s fully downloaded:'
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们验证文件大小，并确保它已完全下载：
+- en: '[PRE11]'
+  id: totrans-155
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: $ podman login quay.io
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: $ podman login quay.io
+- en: '[PRE12]'
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Login Succeeded!
+  id: totrans-158
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 登录成功！
+- en: '[PRE13]'
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Important note
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: 'If you opted to generate the encrypted CLI password, the `login` command should
+    look a little different. Replace `[your username]` with your own username and
+    `[encrypted pass]` with your long, encrypted password here:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你选择了生成加密的 CLI 密码，`login` 命令应该会有所不同。将 `[your username]` 替换为你自己的用户名，将 `[encrypted
+    pass]` 替换为你长而加密的密码：
+- en: '`$ podman login -u=''[your username]'' -p=''[encrypted` `pass]'' quay.io`'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`$ podman login -u=''[your username]'' -p=''[encrypted` `pass]'' quay.io`'
+- en: 'Let’s pull down our base container image:'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们拉取基础容器镜像：
+- en: '[PRE14]'
+  id: totrans-164
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'The output for this one is astronomically long (again). Here, we’ve truncated
+    the output to show you generally what you can expect to see:'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这个输出非常长（再次）。在这里，我们已经截断了输出，向你展示你一般可以预期看到的内容：
+- en: '[PRE15]'
+  id: totrans-166
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'Let’s check our local container inventory and verify that we have the intended
+    CentOS Stream 9 bootc image in our inventory:'
+  id: totrans-167
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们检查一下本地容器清单，并验证我们是否在清单中拥有预期的 CentOS Stream 9 启动镜像：
+- en: '[PRE16]'
+  id: totrans-168
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Your output should resemble this:'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你的输出应该类似于此：
+- en: '[PRE17]'
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: Now, in the Quay.io web interface, we will create our own public repository
+    for our container image project. We’ll start on the **Repositories** tab.
+  id: totrans-171
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，在 Quay.io 网页界面中，我们将为我们的容器镜像项目创建一个公共仓库。我们将从 **Repositories** 标签开始。
+- en: Important note
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: As a simple reminder, this is not exactly how one should ever do this in production.
+    We’ll be using a public configuration for lab purposes only. Private, secure registries
+    are the only way I would recommend doing this deployment method while being connected
+    to the internet.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简单提醒一下，这不是生产环境中应当采用的方法。我们这里只是为了实验室目的使用公共配置。私有、安全的注册表才是我推荐在连接互联网时使用的部署方式。
+- en: '![Figure 9.3 – Quay – Repositories main page](img/B22104_09_03.jpg)'
+  id: totrans-174
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.3 – Quay – 仓库主页](img/B22104_09_03.jpg)'
+- en: Figure 9.3 – Quay – Repositories main page
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.3 – Quay – 仓库主页
+- en: Next, we’ll click on the `bootc` and ensure that the **Public** radio button
+    is selected along with the **(Empty repository)** radio button. Then, click the
+    **Create Public Repository** button at the bottom.
+  id: totrans-176
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们点击 `bootc`，确保选择了 **Public** 单选按钮，并且选择了 **(Empty repository)** 单选按钮。然后，点击底部的
+    **Create Public Repository** 按钮。
+- en: '![Figure 9.4 – Creating a new repository in Quay](img/B22104_09_04.jpg)'
+  id: totrans-177
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.4 – 在 Quay 中创建一个新仓库](img/B22104_09_04.jpg)'
+- en: Figure 9.4 – Creating a new repository in Quay
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.4 – 在 Quay 中创建一个新仓库
+- en: Make note of the URL for your repository; we’ll be using it soon. I also recommend
+    bookmarking it in your web browser.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记下你的仓库 URL；我们稍后会使用它。我还建议你在浏览器中将其加入书签。
+- en: '![Figure 9.5 – Your custom Quay repository](img/B22104_09_05.jpg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.5 – 你的自定义 Quay 仓库](img/B22104_09_05.jpg)'
+- en: Figure 9.5 – Your custom Quay repository
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.5 – 你的自定义 Quay 仓库
+- en: Now, we have configured a baseline build environment on your system. By configuring
+    how we leverage registries, installed container tools, and staged a container
+    base image and a Linux installer ISO image, we have all we need to be successful.
+    We additionally set up the web console on our build system, which will come in
+    handy later. Let’s move on to building our initial container, which will be the
+    basis for our future immutable image.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们已经在你的系统上配置了基础构建环境。通过配置我们如何利用注册表、安装容器工具，并准备容器基础镜像和 Linux 安装 ISO 镜像，我们已经拥有了成功所需的一切。此外，我们还设置了构建系统的网页控制台，稍后会派上用场。接下来，让我们开始构建我们的初始容器，它将作为未来不可变镜像的基础。
+- en: Exercise 2 – creating a container file
+  id: totrans-183
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习 2 – 创建一个容器文件
+- en: In this exercise, we’ll create a container file that we will build using the
+    base image we downloaded in the previous exercise. The results of this exercise
+    will give us a container that can run a simple **Linux Apache mySQL and PHP**
+    (**LAMP**) stack. If you decide not to type this file, there will be a prebuilt
+    one in the book’s GitHub repository for reference.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本练习中，我们将创建一个容器文件，我们将使用在前一个练习中下载的基础镜像来构建它。此练习的结果将为我们提供一个可以运行简单的 **Linux Apache
+    mySQL 和 PHP**（**LAMP**）堆栈的容器。如果你决定不手动输入此文件，书籍的 GitHub 仓库中有一个预构建的文件供参考。
+- en: 'Let’s build our container:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们构建我们的容器：
+- en: 'Let’s create the container file and name it `mycontainerfile.cf` :'
+  id: totrans-186
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们创建容器文件并命名为`mycontainerfile.cf`：
+- en: '[PRE18]'
+  id: totrans-187
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'Set the contents of the file to look like the following:'
+  id: totrans-188
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将文件内容设置为如下所示：
+- en: '[PRE19]'
+  id: totrans-189
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Let’s build our container image:'
+  id: totrans-190
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们构建我们的容器镜像：
+- en: Important note
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Replace your own Quay.io username where `[my_account]` appears in the command
+    line.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在命令行中，将`[my_account]`替换为你自己的 Quay.io 用户名。
+- en: '[PRE20]'
+  id: totrans-193
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'The output for this one is really long too. We’ve truncated the output somewhat
+    to save space while still showing you what you can expect to see:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个输出也非常长。为了节省空间，我们对输出进行了部分截断，同时仍然展示了你可以预期看到的内容：
+- en: '[PRE21]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'Great! We now have our container image. Let’s do a quick test to see how well
+    it works:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很棒！我们现在有了容器镜像。让我们做一个快速测试，看看它运行得如何：
+- en: Important note
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Replace your own Quay.io username where `[my_account]` appears in the command
+    line.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在命令行中，将`[my_account]`替换为你自己的 Quay.io 用户名。
+- en: '[PRE22]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Your output will resemble something like this:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你的输出大致会像这样：
+- en: '[PRE23]'
+  id: totrans-201
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'With the container started, let’s open a browser window and verify that you
+    can view the served content: http://[your_ip_address]:8080.'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动容器后，让我们打开浏览器窗口并验证你是否可以查看提供的内容：http://[your_ip_address]:8080。
+- en: If the page doesn’t load, double-check your firewall settings. If you are on
+    the same system where you are running the container, your loopback address should
+    also work.
+  id: totrans-203
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果页面没有加载，仔细检查你的防火墙设置。如果你在运行容器的同一系统上，回送地址应该也能正常工作。
+- en: '![Figure 9.6 – Testing our container](img/B22104_09_06.jpg)'
+  id: totrans-204
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 9.6 – 测试我们的容器](img/B22104_09_06.jpg)'
+- en: Figure 9.6 – Testing our container
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.6 – 测试我们的容器
+- en: 'We should now also be able to shell into the container while it’s running:'
+  id: totrans-206
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们应该也能在容器运行时进入容器：
+- en: '[PRE24]'
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'When given the prompt feel free to test some commands but remember to exit:'
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当出现提示时，可以自由测试一些命令，但记得退出：
+- en: '[PRE25]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: You will then be returned to your regular shell prompt on your system.
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后你将返回到系统中的常规 shell 提示符。
+- en: 'Stop the running container since we know that the image works:'
+  id: totrans-211
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 停止正在运行的容器，因为我们知道镜像已经能够正常工作：
+- en: '[PRE26]'
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'Our final step will be saving our functional container image to your own repository
+    within Quay.io:'
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们的最后一步是将我们功能齐全的容器镜像保存到你自己在 Quay.io 中的仓库：
+- en: Important note
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Log back into Quay.io via the command line if you are not logged in already.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你还没有登录，请通过命令行重新登录 Quay.io。
+- en: Replace your own Quay.io username where `[my_account]` appears in the command
+    line.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在命令行中，将`[my_account]`替换为你自己的 Quay.io 用户名。
+- en: '[PRE27]'
+  id: totrans-217
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'The output for this operation will be rather lengthy, so I’ll only show you
+    the last few lines:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个操作的输出会非常长，所以我只展示最后几行：
+- en: '[PRE28]'
+  id: totrans-219
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Excellent! You’ve created the basis of your future operating system via the
+    base image and layered the applications stack, all by creating a working container
+    image. In our next exercise, we’ll create an installer so we can deploy it as
+    a bootable image.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很棒！你通过基础镜像创建了未来操作系统的基础，并叠加了应用堆栈，所有这些都通过创建一个可工作的容器镜像来完成。在接下来的练习中，我们将创建一个安装程序，以便将其部署为可引导镜像。
+- en: Exercise 3 – creating an installer
+  id: totrans-221
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习 3 – 创建一个安装程序
+- en: 'In this exercise, we will create a kickstart file and then take that kickstart
+    along with a standard vendor-provided ISO install image and create our own custom
+    ISO installer image for our amazing new system. This method of installation is
+    great when you’re working in your lab or data center. Alternative methods will
+    be necessary if you are deploying in a cloud services provider. For a great reference
+    on how to build kickstart files, you can check out this guide: [https://docs.fedoraproject.org/en-US/fedora/f36/install-guide/appendixes/Kickstart_Syntax_Reference/](https://docs.fedoraproject.org/en-US/fedora/f36/install-guide/appendixes/Kickstart_Syntax_Reference/).'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个练习中，我们将创建一个 Kickstart 文件，然后将这个 Kickstart 文件与供应商提供的标准 ISO 安装镜像一起，创建我们自己定制的
+    ISO 安装镜像用于我们令人惊叹的新系统。这种安装方式非常适合在实验室或数据中心使用。如果你是在云服务提供商环境中部署系统，可能需要使用其他方法。关于如何构建
+    Kickstart 文件的一个好参考可以参考这个指南：[https://docs.fedoraproject.org/en-US/fedora/f36/install-guide/appendixes/Kickstart_Syntax_Reference/](https://docs.fedoraproject.org/en-US/fedora/f36/install-guide/appendixes/Kickstart_Syntax_Reference/)。
+- en: 'Let’s move on to the first step of this exercise:'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始本练习的第一步：
+- en: 'In this first step, you will create a kickstart file (`mykickstart.ks`). Within
+    this file, you will substitute your own account username, where I state `[you]`,
+    and you’ll also be setting basic configuration for the operating system’s filesystem
+    layout and root password. Save and exit the file when you are done. Should you
+    choose not to type the file in its entirety, there’s an example in the book’s
+    GitHub repository:'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在第一步中，你将创建一个 Kickstart 文件（`mykickstart.ks`）。在这个文件中，你需要将我提到的 `[you]` 替换为你自己的账户用户名，并设置操作系统的文件系统布局和
+    root 密码的基本配置。完成后保存并退出该文件。如果你选择不输入整个文件，书本的 GitHub 仓库中有一个示例：
+- en: Important note
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Replace your own Quay.io username where `[my_account]` appears in the file’s
+    contents.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在文件内容中，将出现`[my_account]`的位置替换为你自己的 Quay.io 用户名。
+- en: '[PRE29]'
+  id: totrans-227
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: mykickstart.ks
+  id: totrans-228
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: mykickstart.ks
+- en: version 1
+  id: totrans-229
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 版本 1
+- en: anaconda installer type
+  id: totrans-230
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: anaconda 安装程序类型
+- en: text
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文本
+- en: ensure that you connect your device to a Ethernet network with active DHCP
+  id: totrans-232
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 确保将设备连接到一个具有活动 DHCP 的以太网网络。
+- en: network -–bootproto=dhcp -–device=link -–activate
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: network -–bootproto=dhcp -–device=link -–activate
+- en: basic partitioning
+  id: totrans-234
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 基本分区
+- en: clearpart –-all -–initlabel -–disklabel=gpt
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: clearpart –-all -–initlabel -–disklabel=gpt
+- en: reqpart --add-boot
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: reqpart --add-boot
+- en: part / --grow --fstype xfs
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: part / --grow --fstype xfs
+- en: here's where we reference the container image
+  id: totrans-238
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 这是我们引用容器镜像的地方
+- en: notice this kickstart has no packages section
+  id: totrans-239
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 注意这个 Kickstart 文件没有包裹部分
+- en: ostreecontainer –-url quay.io/ [quay_username]/bootc/lamp-bootc:latest –-no-signature-verification
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ostreecontainer –-url quay.io/ [quay_username]/bootc/lamp-bootc:latest –-no-signature-verification
+- en: additional settings for demonstration purposes
+  id: totrans-241
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 用于演示目的的附加设置
+- en: in production use better settings
+  id: totrans-242
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在生产环境中使用更好的设置
+- en: the purpose of this exercise is not to tech you kickstart
+  id: totrans-243
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 这个练习的目的是不是教你如何使用 Kickstart。
+- en: but to show how to leverage it in custom installers
+  id: totrans-244
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 但为了展示如何在自定义安装程序中使用它
+- en: firewall –-disabled
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: firewall –-disabled
+- en: services –-enabled=sshd
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: services –-enabled=sshd
+- en: add your own user account to the system
+  id: totrans-247
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将你自己的用户账户添加到系统中
+- en: user –-name=mstonge -–groups=wheel –-plaintext –-password=embedded
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: user –-name=mstonge –-groups=wheel –-plaintext –-password=embedded
+- en: set root password
+  id: totrans-249
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设置 root 密码
+- en: rootpw –-plaintext embedded
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: rootpw –-plaintext embedded
+- en: '[PRE30]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Complete:'
+  id: totrans-252
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 完成：
+- en: '[PRE31]'
+  id: totrans-253
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: '[PRE32]'
+  id: totrans-254
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: $ sudo mkksiso –ks [absolute path to mykickstart.ks] \
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: $ sudo mkksiso –ks [mykickstart.ks 的绝对路径] \
+- en: '[absolute path to the CentOS Stream 9 ISO] \'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[CentOS Stream 9 ISO 的绝对路径] \'
+- en: '[absolute path to the new ISO you want created]'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[你希望创建的新 ISO 的绝对路径]'
+- en: '[PRE33]'
+  id: totrans-258
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: ((( output truncated)))
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ((( 输出已截断)))
+- en: 'xorriso : UPDATE : Writing:     830548s   74.1%   fifo   0%  buf  50%  137.6xD'
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'xorriso : 更新 : 写入： 830548s 74.1% fifo 0% buf 50% 137.6xD'
+- en: 'xorriso : UPDATE : Writing:     932628s   83.2%   fifo   0%  buf  50%  150.7xD'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'xorriso : 更新 : 写入： 932628s 83.2% fifo 0% buf 50% 150.7xD'
+- en: 'xorriso : UPDATE : Writing:    1007616s   89.9%   fifo  29%  buf  50%  110.7xD'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'xorriso : 更新 : 写入： 1007616s 89.9% fifo 29% buf 50% 110.7xD'
+- en: 'xorriso : UPDATE : Writing:    1097728s   97.9%   fifo  10%  buf  50%  133.0xD'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'xorriso : 更新 : 写入： 1097728s 97.9% fifo 10% buf 50% 133.0xD'
+- en: 'ISO image produced: 1120832 sectors'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成的 ISO 镜像：1120832 扇区
+- en: 'Written to medium : 1121008 sectors at LBA 48'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 已写入介质：1121008 个扇区，LBA 48
+- en: Writing to '/home/mstonge/mycustominstaller.iso' completed successfully.
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 写入 '/home/mstonge/mycustominstaller.iso' 完成。
+- en: '[PRE34]'
+  id: totrans-267
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: $ ip addr show
+  id: totrans-268
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: $ ip addr show
+- en: '[PRE35]'
+  id: totrans-269
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: $ vi mycontainerfile2.cf
+  id: totrans-270
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: $ vi mycontainerfile2.cf
+- en: '[PRE36]'
+  id: totrans-271
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: FROM quay.io/centos-bootc/centos-bootc:stream9
+  id: totrans-272
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: FROM quay.io/centos-bootc/centos-bootc:stream9
+- en: RUN dnf install -y httpd mariadb mariadb-server php-fpm php-mysqlnd && dnf clean
+    all
+  id: totrans-273
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: RUN dnf install -y httpd mariadb mariadb-server php-fpm php-mysqlnd && dnf clean
+    all
+- en: RUN systemctl enable httpd mariadb php-fpm
+  id: totrans-274
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: RUN systemctl enable httpd mariadb php-fpm
+- en: this next command is all one line although looks
+  id: totrans-275
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 下面的命令是单行命令，尽管看起来像是多行
+- en: like two or more
+  id: totrans-276
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 像两个或更多
+- en: RUN echo '<h1 style="Text-align:center;">Welcome to My Appliance</h1><?php phpinfo();
+    ?>' >> /var/www/html/index.php
+  id: totrans-277
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 运行 echo '<h1 style="Text-align:center;">Welcome to My Appliance</h1><?php phpinfo();
+    ?>' >> /var/www/html/index.php
+- en: new stuff
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 新内容
+- en: RUN dnf install -y cockpit
+  id: totrans-279
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 运行 dnf 安装 -y cockpit
+- en: RUN systemctl enable cockpit.socket
+  id: totrans-280
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 运行 systemctl enable cockpit.socket
+- en: '[PRE37]'
+  id: totrans-281
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: $ podman build -f mycontainerfile2.cf -t \
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: $ podman build -f mycontainerfile2.cf -t \
+- en: quay.io/[my_account]/lamp-bootc:latest
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: quay.io/[my_account]/lamp-bootc:latest
+- en: '[PRE38]'
+  id: totrans-284
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: (((output truncated)))
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: (((输出被截断)))
+- en: Installed products updated.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 已更新的已安装产品。
+- en: 'Installed:'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 已安装：
+- en: PackageKit-1.2.6-1.el9.x86_64
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PackageKit-1.2.6-1.el9.x86_64
+- en: PackageKit-glib-1.2.6-1.el9.x86_64
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PackageKit-glib-1.2.6-1.el9.x86_64
+- en: abattis-cantarell-fonts-0.301-4.el9.noarch
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: abattis-cantarell-fonts-0.301-4.el9.noarch
+- en: adobe-source-code-pro-fonts-2.030.1.050-12.el9.1.noarch
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: adobe-source-code-pro-fonts-2.030.1.050-12.el9.1.noarch
+- en: ((( output truncated more )))
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ((( 输出被截断更多 )))
+- en: sscg-3.0.0-7.el9.x86_64
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: sscg-3.0.0-7.el9.x86_64
+- en: tracer-common-1.1-2.el9.noarch
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: tracer-common-1.1-2.el9.noarch
+- en: udisks2-iscsi-2.9.4-11.el9.x86_64
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: udisks2-iscsi-2.9.4-11.el9.x86_64
+- en: udisks2-lvm2-2.9.4-11.el9.x86_64
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: udisks2-lvm2-2.9.4-11.el9.x86_64
+- en: webkit2gtk3-jsc-2.44.3-2.el9.x86_64
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: webkit2gtk3-jsc-2.44.3-2.el9.x86_64
+- en: Complete!
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成！
+- en: --> 6ab95e317a3c
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: --> 6ab95e317a3c
+- en: 'STEP 6/6: RUN systemctl enable cockpit.socket'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 步骤 6/6：运行 systemctl enable cockpit.socket
+- en: Created symlink /etc/systemd/system/sockets.target.wants/cockpit.socket → /usr/lib/systemd/system/cockpit.socket.
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 创建符号链接 /etc/systemd/system/sockets.target.wants/cockpit.socket → /usr/lib/systemd/system/cockpit.socket。
+- en: COMMIT quay.io/matt_st_onge/bootc/lamp-bootc:latest
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提交 quay.io/matt_st_onge/bootc/lamp-bootc:latest
+- en: --> fe247cf7e89d
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: --> fe247cf7e89d
+- en: Successfully tagged quay.io/matt_st_onge/bootc/lamp-bootc:latest
+  id: totrans-304
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成功标记 quay.io/matt_st_onge/bootc/lamp-bootc:latest
+- en: fe247cf7e89d97d5832d889718750d63cc5f2f24dcfd5ed4cce39dfafd150778
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: fe247cf7e89d97d5832d889718750d63cc5f2f24dcfd5ed4cce39dfafd150778
+- en: '[PRE39]'
+  id: totrans-306
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: $ podman push quay.io/[my_account]/bootc/lamp-bootc:latest
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: $ podman push quay.io/[my_account]/bootc/lamp-bootc:latest
+- en: '[PRE40]'
+  id: totrans-308
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: (((output truncated)))
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: (((输出被截断)))
+- en: 'Copying blob ad312c5c40cc skipped: already exists'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob ad312c5c40cc 被跳过：已存在
+- en: 'Copying blob bd9ddc54bea9 skipped: already exists'
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob bd9ddc54bea9 被跳过：已存在
+- en: Copying blob 386e8ecea514 done   |
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob 386e8ecea514 完成   |
+- en: 'Copying blob 2463de35bc3e skipped: already exists'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob 2463de35bc3e 被跳过：已存在
+- en: 'Copying blob d4cfe3c3d422 skipped: already exists'
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob d4cfe3c3d422 被跳过：已存在
+- en: Copying blob eedcea4f81f6 done   |
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob eedcea4f81f6 完成   |
+- en: 'Copying blob 2bca4ceb08f4 skipped: already exists'
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制 blob 2bca4ceb08f4 被跳过：已存在
+- en: Copying config fe247cf7e8 done   |
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 复制配置 fe247cf7e8 完成   |
+- en: Writing manifest to image destination
+  id: totrans-318
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将清单写入镜像目标
+- en: '[PRE41]'
+  id: totrans-319
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '#  /usr/bin/bootc update –-apply –-quiet'
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '#  /usr/bin/bootc update –-apply –-quiet'
+- en: '[PRE42]'
+  id: totrans-321
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'

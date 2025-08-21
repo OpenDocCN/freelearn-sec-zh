@@ -1,0 +1,1268 @@
+- en: Anti-analysis Tricks
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反分析技巧
+- en: Anti-debugging, anti-virtual-machine (VM), anti-emulation, and anti-dumping
+    are all tricks that attempt to analysis put a halt to an analysis. In this chapter,
+    we will try to show the concepts of these anti-analysis methods. To help us identify
+    these codes, we will explain the concept and show the actual disassembly codes
+    that makes it work. Being able to identify these tricks will help us to avoid
+    them. With initial static analysis, we would be able to skip these codes.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反调试、反虚拟机（VM）、反仿真和反转储是一些试图阻止分析的技巧。在本章中，我们将尝试展示这些反分析方法的概念。为了帮助我们识别这些代码，我们将解释这些概念并展示实际的反汇编代码。能够识别这些技巧将帮助我们避开它们。通过初步的静态分析，我们将能够跳过这些代码。
+- en: 'In this chapter, we will achieve the following learning outcomes:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将实现以下学习成果：
+- en: Identifying anti-analysis tricks
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别反分析技巧
+- en: Learning how to overcome anti-analysis tricks
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 学习如何克服反分析技巧
+- en: Anti-debugging tricks
+  id: totrans-5
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反调试技巧
+- en: 'Anti-debugging tricks are meant to ensure that the codes are not working under
+    the influence of a debugger. Say we have a program with an anti-debugging code
+    in it. The behavior of the program is just as if it were running without an anti-debugging
+    code. The story becomes different, however, when the program is being debugged.
+    While debugging, we encounter code that goes straight to exiting the program or
+    jumps into code that doesn''t make sense. This process is illustrated in the following
+    diagram:'
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反调试技巧的目的是确保代码在没有调试器干预的情况下运行。假设我们有一个程序，其中包含反调试代码。该程序的行为就像它没有反调试代码一样运行。然而，当程序被调试时，情况就不同了。在调试时，我们会遇到直接退出程序或跳转到不合理代码的情况。这个过程在下图中有所说明：
+- en: '![](img/1c7cfacd-b490-4585-885c-fea0b90b2e1a.png)'
+  id: totrans-7
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1c7cfacd-b490-4585-885c-fea0b90b2e1a.png)'
+- en: Developing anti-debugging code requires understanding the traits of the program
+    and the system, both when normally running and when being debugged. For example,
+    the **Process Environment Block** (**PEB**) contains a flag that is set when a
+    program is being run under a debugger. Another popular trick is to use a **Structured
+    Exception Handler** (**SEH**) to continue code that forces an error exception
+    while debugging. To better understand how these work, let's discuss these tricks
+    in a little more detail.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 开发反调试代码需要了解程序和系统的特征，无论是在正常运行还是在被调试时。例如，**进程环境块**（**PEB**）包含一个标志，该标志在程序在调试器下运行时被设置。另一个常见的技巧是使用
+    **结构化异常处理程序**（**SEH**）来继续在调试时强制产生错误异常的代码。为了更好地理解这些技巧的工作原理，我们来更详细地讨论这些技巧。
+- en: IsDebuggerPresent
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: IsDebuggerPresent
+- en: '`IsDebuggerPresent` is a `Kernel32` API function that simply tells us whether
+    the program is under a debugger. The result is placed in the `eax` register with
+    a value of either true (`1`) or false (`0`). When used, the code looks something
+    like this:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`IsDebuggerPresent` 是一个 `Kernel32` API 函数，它简单地告诉我们程序是否处于调试器下运行。结果存储在 `eax`
+    寄存器中，值为真（`1`）或假（`0`）。使用时，代码大致如下所示：'
+- en: '[PRE0]'
+  id: totrans-11
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The same concept applies with the `CheckRemoteDebuggerPresent` API. The difference
+    is that it checks whether either another process or its *own* process is being
+    debugged. `CheckRemoteDebuggerPresent` requires two arguments: a handle to a process
+    and an output variable that tells us whether the process is being debugged or
+    not. The following code checks whether its own process is being debugged:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样的概念适用于 `CheckRemoteDebuggerPresent` API。不同之处在于，它检查的是另一个进程还是*自身*进程是否正在被调试。`CheckRemoteDebuggerPresent`
+    需要两个参数：一个进程句柄和一个输出变量，告诉我们该进程是否正在被调试。以下代码检查其自身进程是否正在被调试：
+- en: '[PRE1]'
+  id: totrans-13
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: The `GetCurrentProcess` API is used to retrieve the handle to the running process.
+    This usually returns a `-1` (`0xFFFFFFFF`) value, which is the handle to its own
+    process. The `edi` register should be a variable address where the output of `CheckRemoteDebuggerPresent`
+    will be stored.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GetCurrentProcess` API 用于检索正在运行的进程句柄。它通常返回一个 `-1`（`0xFFFFFFFF`）值，这是它自身进程的句柄。`edi`
+    寄存器应该是一个变量地址，用于存储 `CheckRemoteDebuggerPresent` 的输出结果。'
+- en: Debug flags in the PEB
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: PEB 中的调试标志
+- en: A thread is the basic unit of execution.  The process itself is run as a thread
+    entity that is capable of triggering multiple threads in the same process space.
+    The information about the currently running thread is stored in the the Thread
+    Environment Block (TEB).  The TEB is also called the Thread Information Block
+    (TIB) and contains information such as the thread ID, structured error handling
+    frame, stack base address and limit, and the address pointing to information about
+    the process the thread is running under.  Information about the process is stored
+    in the Process Environment Block (PEB).
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 线程是执行的基本单位。进程本身作为线程实体运行，能够在同一进程空间中触发多个线程。当前正在运行的线程信息存储在线程环境块（TEB）中。TEB也叫线程信息块（TIB），其中包含线程ID、结构化错误处理框架、堆栈基地址和限制、以及指向有关线程所在进程的信息的地址。关于进程的信息存储在进程环境块（PEB）中。
+- en: The PEB contains information like pointer to tables that lists the loaded modules,
+    command line parameters used to run the process, information taken from the PE
+    header, and if it is being debugged.  The TIB and PEB structures are documented
+    by Microsoft at https://docs.microsoft.com/en-us/windows/desktop/api/winternl/.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PEB包含诸如指向列出已加载模块的表的指针、用于运行进程的命令行参数、从PE头部提取的信息，以及是否被调试等信息。TIB和PEB结构由微软在 https://docs.microsoft.com/en-us/windows/desktop/api/winternl/
+    中记录。
+- en: '`PEB` has fields that can be used to identify whether a process is being debugged:
+    the `BeingDebugged` and `NtGlobalFlag` flags. In `PEB`, these are located at the
+    following locations:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`PEB`有可以用来识别进程是否正在被调试的字段：`BeingDebugged`和`NtGlobalFlag`标志。在`PEB`中，它们位于以下位置：'
+- en: '| **Offset** | **Information** |'
+  id: totrans-19
+  prefs: []
+  type: TYPE_TB
+  zh: '| **偏移量** | **信息** |'
+- en: '| `0x02` | BeingDebugged (1 for True) - BYTE |'
+  id: totrans-20
+  prefs: []
+  type: TYPE_TB
+  zh: '| `0x02` | BeingDebugged（为真时为 1） - BYTE |'
+- en: '| `0x68` | GlobalNTFlag (usually 0x70 when debugged) - DWORD |'
+  id: totrans-21
+  prefs: []
+  type: TYPE_TB
+  zh: '| `0x68` | GlobalNTFlag（通常在调试时为 0x70） - DWORD |'
+- en: 'Internally, `IsDebuggerPresent` works with this code:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在内部，`IsDebuggerPresent`使用以下代码：
+- en: '![](img/9c4b23ee-ce65-4df9-9e3c-b62d9eeb7aaa.png)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9c4b23ee-ce65-4df9-9e3c-b62d9eeb7aaa.png)'
+- en: 'Let''s check what is happening with the `IsDebuggerPresent` code:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们检查一下`IsDebuggerPresent`代码的运行情况：
+- en: '[PRE2]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The preceding line retrieves the address of the **Thread Environment Block**
+    (**TEB**) from the **Thread Information Block** (**TIB**). The `FS` segment contains
+    `TIB`. `TEB` address is stored at offset `0x18` of `TIB`. `TIB` is stored in the
+    `eax` register.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述行从**线程信息块**（**TIB**）中检索**线程环境块**（**TEB**）的地址。`FS`段包含`TIB`。`TEB`地址存储在`TIB`的偏移量`0x18`处。`TIB`存储在`eax`寄存器中。
+- en: 'The following line retrieves `PEB` address and stores it in the `eax` register.
+    The `PEB` address is located at offset `0x30` of `TEB`:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一行获取`PEB`地址并将其存储在`eax`寄存器中。`PEB`地址位于`TEB`的偏移量`0x30`处：
+- en: '[PRE3]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The byte at offset `2` of `PEB` contains a Boolean value of `1` or `0`, indicating
+    whether the process is being debugged or not:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`PEB`偏移量`2`处的字节包含布尔值`1`或`0`，表示进程是否正在被调试：'
+- en: '[PRE4]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'If we wanted to create our own function, but applied this with `GlobalNTFlag`,
+    we can make the code look like this:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们想创建自己的函数，并且应用了`GlobalNTFlag`，那么我们可以将代码写成这样：
+- en: '[PRE5]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The first three lines of the preceding block basically retrieve `GlobalNTFlag`
+    at offset `0x68` of `PEB`.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码的前三行基本上是从`PEB`的偏移量`0x68`中检索`GlobalNTFlag`。
+- en: 'The following `cmp` instruction will set the zero flag to `1` if the value
+    of `eax` is equal to `0x70`:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的`cmp`指令会在`eax`的值等于`0x70`时将零标志设置为`1`：
+- en: '[PRE6]'
+  id: totrans-35
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The `setz` instruction will set the `al` register with what `ZF` is, which
+    should either be `0` or `1`:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`setz`指令会根据`ZF`的值将`al`寄存器设置为`0`或`1`：'
+- en: '[PRE7]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Finally, the `and` instruction will only retain the first bit for the `eax`
+    register, which, as a result, clears the register, but retains a value of either
+    `1` or `0`, for true or false:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，`and`指令将仅保留`eax`寄存器的第一个位，从而清除寄存器，但保留一个值，值为`1`或`0`，用于表示真假：
+- en: '[PRE8]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Debugger information from NtQueryInformationProcess
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从`NtQueryInformationProcess`获取调试器信息
+- en: 'Querying process information using the `NtQueryInformationProcess` function
+    gives us another way to identify if the process is under a debugger. As sourced
+    from `MSDN`, the `NtQueryInformationProcess` syntax declaration is the following:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`NtQueryInformationProcess`函数查询进程信息为我们提供了另一种识别进程是否在调试中的方法。根据`MSDN`，`NtQueryInformationProcess`的语法声明如下：
+- en: '[PRE9]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: More information about this function can be found at [https://docs.microsoft.com/en-us/windows/desktop/api/winternl/nf-winternl-ntqueryinformationprocess](https://docs.microsoft.com/en-us/windows/desktop/api/winternl/nf-winternl-ntqueryinformationprocess).
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关此函数的更多信息，请参见 [https://docs.microsoft.com/en-us/windows/desktop/api/winternl/nf-winternl-ntqueryinformationprocess](https://docs.microsoft.com/en-us/windows/desktop/api/winternl/nf-winternl-ntqueryinformationprocess)。
+- en: 'Specific information is returned based on what ID is supplied in the second
+    argument, `PROCESSINFOCLASS`. `PROCESSINFOCLASS` is an enumerated list of IDs
+    that we want to query. The IDs we need in order to determine whether the process
+    is being debugged are the following:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据第二个参数 `PROCESSINFOCLASS` 提供的 ID，返回具体的信息。`PROCESSINFOCLASS` 是一个列举的 ID 列表，我们希望查询的
+    ID 包含在内。为了确定进程是否正在被调试，我们需要以下 ID：
+- en: '`ProcessDebugPort (7)`'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ProcessDebugPort (7)`'
+- en: '`ProcessDebugObjectHandle (30)`'
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ProcessDebugObjectHandle (30)`'
+- en: '`ProcessDebugFlags (31)`'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ProcessDebugFlags (31)`'
+- en: In essence, if the output result, filled in the `ProcessInformation` from the
+    third argument, gives us a non-zero result, then it means that the process is
+    being debugged.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本质上，如果第三个参数 `ProcessInformation` 填充后的输出结果为非零值，则意味着该进程正在被调试。
+- en: Timing tricks
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 定时技巧
+- en: Normally, the time it takes for a program to execute lines of instructions from
+    address `A` to address `B` would only take less than a second. But if these instructions
+    were being debugged, a human would probably take about a second per line. Debugging
+    from address `A` to address `B` would at least take a couple of seconds.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，从地址 `A` 到地址 `B` 执行一段程序所需的时间不超过一秒钟。但如果这些指令正在被调试，人工调试可能需要每行约一秒钟。从地址 `A` 调试到地址
+    `B` 至少需要几秒钟。
+- en: Essentially, the concept works just like a stopwatch. If the time it takes for
+    a few lines of code is too long, the trick assumes that the program is being debugged.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本质上，这个概念就像一个计时器。如果几行代码执行的时间过长，技巧就会认为程序正在被调试。
+- en: 'Timing tricks can be applied as an anti-debugging method in any programming
+    language. Setting a stopwatch would only require a function that can read time.
+    Here are some examples of how timing tricks can be implemented in x86 assembly:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 定时技巧可以作为一种反调试方法应用于任何编程语言。设置计时器只需要一个能够读取时间的函数。以下是一些定时技巧在 x86 汇编中的实现示例：
+- en: '[PRE10]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: In x86 processors means **Read Time-Stamp Counter **(**RDTSC**). Every time
+    the processor is reset (either by a hard reset or power-on), the timestamp counter
+    is set to 0\. The timestamp counter increments for every processor clock cycle.
+    In the preceding chunk of `RDTSC` code, the result of the first `RDTSC` instruction
+    is stored in the `ebx` register. After a set of `nop` instructions, the value
+    stored in `ebx` is subtracted from the result of the second `RDTSC` instruction.
+    This takes the difference between the first and second `TSC`. If the difference
+    is greater than `0x100000`, the code jumps to exit. If the program were not being
+    step debugged, the difference should be about less than `0x500`.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 x86 处理器中意味着 **读取时间戳计数器** (**RDTSC**)。每次处理器重置（无论是硬重置还是开机）时，时间戳计数器都会被重置为 0。时间戳计数器在每个处理器时钟周期中递增。在之前的
+    `RDTSC` 代码段中，第一个 `RDTSC` 指令的结果存储在 `ebx` 寄存器中。经过一系列的 `nop` 指令后，存储在 `ebx` 中的值与第二个
+    `RDTSC` 指令的结果相减。这就是计算第一和第二次 `TSC` 的差值。如果差值大于 `0x100000`，则跳转至退出。如果程序没有被逐行调试，差值应该约小于
+    `0x500`。
+- en: On the other hand, `GetSystemTime` and `GetLocalTime`, which are API functions
+    that can retrieve time, can also be used to implement timing tricks. To identify
+    these tricks, the code has to contain two time-retrieving functions.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，`GetSystemTime` 和 `GetLocalTime` 这两个可以获取时间的 API 函数，也可以用来实现定时技巧。为了识别这些技巧，代码必须包含两个时间获取函数。
+- en: Passing code execution via SEH
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过 SEH 传递代码执行
+- en: One of the most popular anti-debugging tricks is to use `SEH` to pass code execution.
+    It is popular trick used in Windows computer viruses.  But before we discuss how
+    this trick is used for anti-debugging, let us discuss how `SEH` works a little.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最流行的反调试技巧之一是通过 `SEH` 传递代码执行。它是 Windows 计算机病毒中常用的技巧。但在讨论该技巧如何用于反调试之前，我们先简要了解一下
+    `SEH` 的工作原理。
+- en: Exceptions are usually triggered from errors, such as reading bytes from inaccessible
+    memory regions, or by something as simple as division by zero. They can also be
+    triggered by debugger interrupts, `INT 3` and `INT 1`. When an exception occurs,
+    the system jumps right to the exception handler. Normally, the exception handler's
+    job is to do something about the error.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 异常通常由错误引发，例如从无法访问的内存区域读取字节，或像除以零这样简单的操作。它们也可以由调试器中断引发，`INT 3` 和 `INT 1`。当异常发生时，系统会跳转到异常处理程序。通常，异常处理程序的工作是处理错误。
+- en: 'Usually, this job gives an error message notification, leading to a graceful
+    termination of the program. In programming terms, this is try-except or `try-catch`
+    handling. The following is an example of exception handling in Python programming:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，这项工作会给出一个错误消息通知，导致程序优雅地终止。从编程的角度来看，这就是 try-except 或 `try-catch` 处理。以下是 Python
+    编程中异常处理的示例：
+- en: '[PRE11]'
+  id: totrans-60
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'An `SEH` record contains two elements: the address of the exception handler
+    and the address of the next `SEH` record. The next `SEH` record contains the address
+    of the `SEH` record next to it. Overall, the `SEH` records are chained to each
+    other. This is called the `SEH` chain. If the current handler was not able to
+    handle the exception, then the next handler takes over. A program crash can happen
+    if ever the `SEH` records were exhausted. This process is shown here:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个 `SEH` 记录包含两个元素：异常处理程序的地址和下一个 `SEH` 记录的地址。下一个 `SEH` 记录包含指向下一个 `SEH` 记录的地址。总体来说，`SEH`
+    记录是彼此相连的，这被称为 `SEH` 链。如果当前处理程序无法处理该异常，则下一个处理程序将接管。如果 `SEH` 记录耗尽，可能会导致程序崩溃。这个过程如下所示：
+- en: '![](img/d9ee4c66-f07f-48a3-a34c-9a4706024131.png)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d9ee4c66-f07f-48a3-a34c-9a4706024131.png)'
+- en: As we can see, the last `SEH` record contains a `-1` (`0xFFFFFFFF` for 32-bit
+    address space) value at the `SEH` record pointer field.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，最后一个 `SEH` 记录在 `SEH` 记录指针字段中包含一个 `-1`（对于 32 位地址空间为 `0xFFFFFFFF`）的值。
+- en: 'Now that we know how `SEH` works, how can this be abused for anti-debugging?
+    Using our try-except Python code, abusing it would look something like this:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们知道 `SEH` 是如何工作的，那么如何将其用于反调试呢？使用我们的 try-except Python 代码，滥用它可能会像这样：
+- en: '[PRE12]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: What we did was force an error (a division-by-zero error, to be precise) to
+    cause an exception. The exception handler displays the `Hello World!` message.
+    But how does it work in x86 assembly language?
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们所做的是强制引发一个错误（准确地说是除以零的错误）以引发异常。异常处理程序会显示 `Hello World!` 消息。那么，在 x86 汇编语言中它是如何工作的呢？
+- en: To set up our new `SEH`, we need to first identify where the current `SEH` is.
+    For every process, there is an `SEH` chain set up by the Windows OS. The current
+    `SEH` record can be retrieved from offset `0` of `TIB`, as denoted by the `FS`
+    segment register.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了设置我们的新 `SEH`，我们首先需要找出当前 `SEH` 的位置。对于每个进程，Windows 操作系统会设置一个 `SEH` 链。当前的 `SEH`
+    记录可以从 `TIB` 的偏移量 `0` 获取，如 `FS` 段寄存器所示。
+- en: 'The following assembly code retrieves the address of the current `SEH` record
+    to the `eax` register:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下汇编代码将当前 `SEH` 记录的地址获取到 `eax` 寄存器：
+- en: '[PRE13]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'To change the handler, we can simply change the address of the current `SEH`
+    record at `FS:[0]` with our `SEH` record. Let''s assume that the handling code''s
+    address will be at `0x00401000`, and that the current SEH record, is located at
+    `0x00200000` has these values in it:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要更改处理程序，我们只需用我们的 `SEH` 记录更改当前 `SEH` 记录的地址，即 `FS:[0]`。假设处理代码的地址为 `0x00401000`，而当前的
+    SEH 记录位于 `0x00200000`，并且包含以下值：
+- en: '| Next SEH record | `0xFFFFFFFF` |'
+  id: totrans-71
+  prefs: []
+  type: TYPE_TB
+  zh: '| 下一个 SEH 记录 | `0xFFFFFFFF` |'
+- en: '| Current handler address | `0x78000000` |'
+  id: totrans-72
+  prefs: []
+  type: TYPE_TB
+  zh: '| 当前处理程序地址 | `0x78000000` |'
+- en: 'The next thing to do is build our `SEH` record, which we can store in the stack.
+    With `FS:[0]` returning the `0x00200000` value, and our handler located at `0x00401000`,
+    here''s a way to build the `SEH` record from the stack:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来要做的是构建我们的 `SEH` 记录，并将其存储在栈中。通过 `FS:[0]` 返回 `0x00200000` 的值，而我们的处理程序位于 `0x00401000`，这里是从栈中构建
+    `SEH` 记录的一种方式：
+- en: '[PRE14]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'The stack should look like something like this:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 栈的状态应该类似于以下样子：
+- en: '| ESP | `0x00200000` |'
+  id: totrans-76
+  prefs: []
+  type: TYPE_TB
+  zh: '| ESP | `0x00200000` |'
+- en: '| ESP+4 | `0x00401000` |'
+  id: totrans-77
+  prefs: []
+  type: TYPE_TB
+  zh: '| ESP+4 | `0x00401000` |'
+- en: 'All we need to do is update the value of `FS:[0]` to the address of this `SEH`
+    record, which is the register `ESP` register (that is, top of the stack):'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要做的就是将 `FS:[0]` 的值更新为该 `SEH` 记录的地址，这就是 `ESP` 寄存器的值（即栈顶）：
+- en: '[PRE15]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: The preceding code should add our `SEH` to the `SEH` chain.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码应该将我们的 `SEH` 添加到 `SEH` 链中。
+- en: Causing exceptions
+  id: totrans-81
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 引发异常
+- en: 'The next thing to do is develop a code that forcefully causes an exception.
+    We have a few known ways to do that:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来要做的是开发一段代码，强制引发一个异常。我们有几种已知的方法来实现这一点：
+- en: Use debug breakpoints (INT 3 / INT 1)
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用调试断点（INT 3 / INT 1）
+- en: Access inaccessible memory spaces
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 访问不可访问的内存空间
+- en: Divide by zero
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 除零错误
+- en: The aim of an `SEH` anti-debugging trick is to direct the debug analysis to
+    an error. This makes an analyst try to trace back to what might have caused the
+    error, eventually wasting time. And, if the analyst is familiar with `SEH`, it
+    would be easy to pinpoint where the handler is and set a breakpoint there.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`SEH` 反调试技巧的目的是将调试分析引导到一个错误。这使得分析师试图追溯可能导致错误的原因，从而浪费时间。而且，如果分析师熟悉 `SEH`，他就能很容易地找到处理程序所在的位置并在那里设置断点。'
+- en: Step debugging works because of `Interrupt 1`, while breakpoints are set using
+    `Interrupt 3`. When the execution of code encounters an `INT 3` instruction, a
+    debug exception occurs. To invoke an `Interrupt 1` exception, the trap flag has
+    to be set first.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 步骤调试之所以有效，是因为 `Interrupt 1`，而断点是通过 `Interrupt 3` 设置的。当代码执行遇到 `INT 3` 指令时，会发生调试异常。要调用
+    `Interrupt 1` 异常，必须首先设置陷阱标志。
+- en: 'When reading data from inaccessible memory, a read error occurs. There are
+    already known memory regions, such as the kernel space, that are not allowed to
+    be directly accessed from the user-mode process. Most of these regions are protected
+    with a `PAGE_GUARD` flag. The `PAGE_GUARD` flag can be set with a `VirtualAlloc`
+    or `VirtualProtect` function. That means we can produce our own inaccessible memory
+    region. Typically, the region from offset `0` of the process space is not accessible.
+    The following line of code will cause an access violation exception:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当读取不可访问的内存时，会发生读取错误。已经有已知的内存区域，例如内核空间，这些区域不允许从用户模式进程直接访问。这些区域大多数被 `PAGE_GUARD`
+    标志保护。可以通过 `VirtualAlloc` 或 `VirtualProtect` 函数设置 `PAGE_GUARD` 标志。这意味着我们可以创建自己的不可访问内存区域。通常，进程空间中的
+    `0` 偏移区域是不可访问的。以下代码行将导致访问违规异常：
+- en: '[PRE16]'
+  id: totrans-89
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'In mathematics, doing actual division by zero is an infinite task. The system
+    explicitly identifies this kind of error and causes an exception. An example line
+    for this is the following:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数学中，实际的除以零操作是一个无限的任务。系统会明确识别此类错误并引发异常。以下是一个示例代码行：
+- en: '[PRE17]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: What the preceding code does is set the `eax` register to `1`, set the `cl`
+    register to `0`, and then divides `eax` with `cl`, causing a divide-by-zero exception.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前述代码的作用是将 `eax` 寄存器设置为 `1`，将 `cl` 寄存器设置为 `0`，然后用 `cl` 除以 `eax`，从而引发除零异常。
+- en: A typical SEH setup
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 一个典型的 SEH 设置
+- en: 'Based on what we''ve learned, let''s make use of a regular flow of code, then
+    use `SEH` as an anti-debugging trick. The following code will be our original
+    code:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于我们所学的内容，让我们利用常规的代码流程，然后使用 `SEH` 作为反调试技巧。以下代码将是我们的原始代码：
+- en: '[PRE18]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'After placing the `SEH` anti-debugging trick, the code would look something
+    like this:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在添加 `SEH` 反调试技巧后，代码看起来大致如下：
+- en: '[PRE19]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: What we did here was to manually set up the `SEH`. Fortunately, Windows has
+    a feature that can also set up exception handlers called Vectored Exception Handler.
+    The API that registers a new handle is `AddVectoredExceptionHandler`. A C source
+    code that implements this can be found at [https://docs.microsoft.com/en-us/windows/desktop/debug/using-a-vectored-exception-handler](https://docs.microsoft.com/en-us/windows/desktop/debug/using-a-vectored-exception-handler).
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在这里做的是手动设置 `SEH`。幸运的是，Windows 还提供了一个可以设置异常处理程序的功能，称为向量化异常处理程序。注册新处理程序的 API
+    是 `AddVectoredExceptionHandler`。实现此功能的 C 语言源代码可以在 [https://docs.microsoft.com/en-us/windows/desktop/debug/using-a-vectored-exception-handler](https://docs.microsoft.com/en-us/windows/desktop/debug/using-a-vectored-exception-handler)
+    找到。
+- en: Anti-VM tricks
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反虚拟机技巧
+- en: This trick's aim is to exit the program when it identifies that it is running
+    in a virtualized environment. The most typical way to identify being in a VM is
+    to check for specific virtualization software artifacts installed in the machine.
+    These artifacts may be located in the registry or a running service. We have listed
+    a few specific artifacts that can be used to identify being run inside a VM.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个技巧的目的是当它检测到程序正在虚拟化环境中运行时退出程序。识别虚拟机环境的最典型方法是检查计算机中是否安装了特定的虚拟化软件痕迹。这些痕迹可能位于注册表或正在运行的服务中。我们列出了一些可以用来识别虚拟机内运行的特定痕迹。
+- en: VM running process names
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 虚拟机运行进程名称
+- en: 'The easiest way for a program to determine whether it is in a VM is by identifying
+    known file names of running processes. Here''s a list for each of the most popular
+    pieces of VM software:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序确定自己是否在虚拟机中的最简单方法是识别运行进程的已知文件名。以下是每种流行虚拟机软件的列表：
+- en: '| **Virtualbox** | **VMWare** | **QEMU** | **Parallels** | **VirtualPC** |'
+  id: totrans-103
+  prefs: []
+  type: TYPE_TB
+  zh: '| **Virtualbox** | **VMWare** | **QEMU** | **Parallels** | **VirtualPC** |'
+- en: '| `vboxtray.exe` `vboxservice.exe`'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `vboxtray.exe` `vboxservice.exe`'
+- en: '`vboxcontrol.exe` | `vmtoolsd.exe` `vmwaretray.exe`'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`vboxcontrol.exe` | `vmtoolsd.exe` `vmwaretray.exe`'
+- en: '`vmwareuser`'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`vmwareuser`'
+- en: '`VGAuthService.exe`'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`VGAuthService.exe`'
+- en: '`vmacthlp.exe` | `qemu-ga.exe` | `prl_cc.exe` `prl_tools.exe` | `vmsrvc.exe`
+    `vmusrvc.exe` |'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`vmacthlp.exe` | `qemu-ga.exe` | `prl_cc.exe` `prl_tools.exe` | `vmsrvc.exe`
+    `vmusrvc.exe` |'
+- en: Existence of VM files and directories
+  id: totrans-109
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 虚拟机文件和目录的存在
+- en: 'Identifying the existence of at least one of the VM software''s files can tell
+    if the program is running in a virtual machine. The following table contains a
+    list of files that can be used to identify if the program is running in a VirtualBox
+    or VMware guest:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定至少存在一个虚拟机软件的文件，可以判断该程序是否正在虚拟机中运行。下表列出了可以用来识别程序是否在 VirtualBox 或 VMware 客户机中运行的文件：
+- en: '| **Virtualbox** | **VMWare** |'
+  id: totrans-111
+  prefs: []
+  type: TYPE_TB
+  zh: '| **VirtualBox** | **VMWare** |'
+- en: '| `%programfiles%\oracle\virtualbox guest additions` `system32\drivers\VBoxGuest.sys`'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `%programfiles%\oracle\virtualbox guest additions` `system32\drivers\VBoxGuest.sys`'
+- en: '`system32\drivers\VBoxMouse.sys`'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\VBoxMouse.sys`'
+- en: '`system32\drivers\VBoxSF.sys`'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\VBoxSF.sys`'
+- en: '`system32\drivers\VBoxVideo.sys`'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\VBoxVideo.sys`'
+- en: '`system32\vboxdisp.dll`'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxdisp.dll`'
+- en: '`system32\vboxhook.dll`'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxhook.dll`'
+- en: '`system32\vboxmrxnp.dll`'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxmrxnp.dll`'
+- en: '`system32\vboxogl.dll`'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxogl.dll`'
+- en: '`system32\vboxoglarrayspu.dll`'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglarrayspu.dll`'
+- en: '`system32\vboxoglcrutil.dll`'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglcrutil.dll`'
+- en: '`system32\vboxoglerrorspu.dll`'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglerrorspu.dll`'
+- en: '`system32\vboxoglfeedbackspu.dll`'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglfeedbackspu.dll`'
+- en: '`system32\vboxoglpackspu.dll`'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglpackspu.dll`'
+- en: '`system32\vboxoglpassthroughspu.dll` | `%programfiles%\VMWare` `system32\drivers\vm3dmp.sys`'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\vboxoglpassthroughspu.dll` | `%programfiles%\VMWare` `system32\drivers\vm3dmp.sys`'
+- en: '`system32\drivers\vmci.sys`'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmci.sys`'
+- en: '`system32\drivers\vmhgfs.sys`'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmhgfs.sys`'
+- en: '`system32\drivers\vmmemctl.sys`'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmmemctl.sys`'
+- en: '`system32\drivers\vmmouse.sys`'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmmouse.sys`'
+- en: '`system32\drivers\vmrawdsk.sys`'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmrawdsk.sys`'
+- en: '`system32\drivers\vmusbmouse.sys` |'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`system32\drivers\vmusbmouse.sys` |'
+- en: Default MAC address
+  id: totrans-132
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 默认 MAC 地址
+- en: 'The first three hexadecimal numbers of the VM''s default MAC address can also
+    be used. But, of course, if the MAC address were changed, these won''t work:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟机默认 MAC 地址的前三个十六进制数字也可以用来识别。但当然，如果 MAC 地址被更改，这些方法就不适用了：
+- en: '| **VirtualBox** | **VMWare** | **Parallels** |'
+  id: totrans-134
+  prefs: []
+  type: TYPE_TB
+  zh: '| **VirtualBox** | **VMWare** | **Parallels** |'
+- en: '| `08:00:27` | `00:05:69` `00:0C:29`'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `08:00:27` | `00:05:69` `00:0C:29`'
+- en: '`00:1C:14`'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`00:1C:14`'
+- en: '`00:50:56` | `00:1C:42` |'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`00:50:56` | `00:1C:42` |'
+- en: Registry entries made by VMs
+  id: totrans-138
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 虚拟机创建的注册表项
+- en: 'Information and configuration of software are usually done in the registry.
+    This also counts for the VM guest software, which makes registry entries. Here''s
+    a short list of registry entries by VirtualBox:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 软件的信息和配置通常保存在注册表中。这同样适用于虚拟机客户机软件，它会创建注册表项。以下是 VirtualBox 创建的注册表项的简短列表：
+- en: '[PRE20]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'Here are registry entries known to be from VMWare:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是已知来自 VMWare 的注册表项：
+- en: '[PRE21]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'A Linux emulation with Wine has the following registry entry:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Wine 模拟的 Linux 有如下注册表项：
+- en: '[PRE22]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'The existence of Microsoft''s Hyper-V'' can also be identified from the registry:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以通过注册表识别出 Microsoft 的 Hyper-V：
+- en: '[PRE23]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: VM devices
+  id: totrans-147
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 虚拟机设备
+- en: 'These are virtual devices created by the VM. Here are the accessible devices
+    created by VirtualBox and VMWare:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些是虚拟机创建的虚拟设备。以下是 VirtualBox 和 VMWare 创建的可访问设备：
+- en: '| **VirtualBox** | **VMWare** |'
+  id: totrans-149
+  prefs: []
+  type: TYPE_TB
+  zh: '| **VirtualBox** | **VMWare** |'
+- en: '| `\\.\VBoxGuest` `\\.\VBoxTrayIPC`'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `\\.\VBoxGuest` `\\.\VBoxTrayIPC`'
+- en: '`\\.\VBoxMiniRdrDN` | `\\.\HGFS` `\\.\vmci` |'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`\\.\VBoxMiniRdrDN` | `\\.\HGFS` `\\.\vmci` |'
+- en: CPUID results
+  id: totrans-152
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: CPUID 结果
+- en: '`CPUID` is an x86 instruction that returns information about the processor
+    it is running under.  Before running the instruction, the type of information,
+    called a leaf, is required and stored in register EAX.  Depending on the leaf,
+    it returns values in registers EAX, EBX, ECX, and EDX.  Every bit stored in the
+    registers may tells if a certain CPU feature is available or not. Details about
+    the returned CPU information can be found at [https://en.wikipedia.org/wiki/CPUID](https://en.wikipedia.org/wiki/CPUID).'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`CPUID` 是一条 x86 指令，用于返回正在运行的处理器的信息。在执行该指令之前，需要指定信息类型，这些信息被称为“叶子”，并存储在寄存器 EAX
+    中。根据叶子的不同，它会在寄存器 EAX、EBX、ECX 和 EDX 中返回值。每个寄存器中存储的每一位都可以指示某个 CPU 特性是否可用。关于返回的 CPU
+    信息的详细内容，可以查看 [https://en.wikipedia.org/wiki/CPUID](https://en.wikipedia.org/wiki/CPUID)。'
+- en: One of then pieces of `CPUID` returned information is a flag that tells whether
+    the system is running on a hypervisor. Hypervisor is a CPU feature that supports
+    running VM guests. For anti-VM, if this flag were enabled, it would mean that
+    the process is in a VM guest.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`CPUID` 返回的信息之一是一个标志，它表示系统是否在超虚拟机监控程序（Hypervisor）上运行。超虚拟机监控程序是一个 CPU 功能，支持运行虚拟机（VM）客户机。对于反虚拟机检测，如果启用此标志，意味着进程运行在虚拟机客户机中。'
+- en: 'The following x86 code checks whether the hypervisor flag is enabled:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下 x86 代码检查是否启用了超虚拟机监控程序标志：
+- en: '[PRE24]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: The preceding code retrieves information from CPUID leaf 1\. The 31^(st) bit
+    result in the `ecx` register is placed in the carry flag. If the bit is set to
+    1, the system is running on a hypervisor.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码从 CPUID 第 1 项获取信息。`ecx` 寄存器中的第 31 位结果被放置在进位标志中。如果该位被设置为 1，则表示系统在超虚拟机监控程序上运行。
+- en: 'Besides the hypervisor information, some specific VM software can be identified
+    from the guest OS. The CPUID instruction can return a unique string ID to identify
+    the VM software the guest is under. The following code checks whether it is running
+    in a VMWare guest:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了超虚拟机监控程序的信息外，一些特定的虚拟机软件可以通过来宾操作系统识别。CPUID 指令可以返回一个唯一的字符串 ID，以识别客户机所运行的虚拟机软件。以下代码检查是否运行在
+    VMWare 客户机中：
+- en: '[PRE25]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'When values of the `ebx`, `ecx`, and `edx` registers are concatenated, it would
+    read as `VMwareVMware`. Here is a list of known string IDs used by other VM software:'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当`ebx`、`ecx` 和 `edx` 寄存器的值拼接在一起时，它会显示为 `VMwareVMware`。以下是其他虚拟机软件使用的已知字符串 ID
+    列表：
+- en: '| **VirtualBox 4.x** | **VMware** | **Hyper-V** | **KVM** | **Xen** |'
+  id: totrans-161
+  prefs: []
+  type: TYPE_TB
+  zh: '| **VirtualBox 4.x** | **VMware** | **Hyper-V** | **KVM** | **Xen** |'
+- en: '| VBoxVBoxVBox | VMwareVMware | Microsoft Hv | KVMKVMKVM | XenVMMXenVMM |'
+  id: totrans-162
+  prefs: []
+  type: TYPE_TB
+  zh: '| VBoxVBoxVBox | VMwareVMware | Microsoft Hv | KVMKVMKVM | XenVMMXenVMM |'
+- en: Anti-emulation tricks
+  id: totrans-163
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反仿真技巧
+- en: Anti-emulation or anti-automated analysis are methods employed by a program
+    to prevent moving further in its code if it identifies that it is being analyzed.
+    The behavior of a program can be logged and analyzed using automated analysis
+    tools such as Cuckoo Sandbox, Hybrid Analysis, and ThreatAnalyzer. The concept
+    of these tricks is in being able to determine that the system in which a program
+    is running is controlled and was set up by a user.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反仿真或反自动化分析是程序用来防止在代码执行过程中继续推进的一种方法，前提是它识别到自己正在被分析。程序的行为可以使用自动化分析工具如 Cuckoo Sandbox、Hybrid
+    Analysis 和 ThreatAnalyzer 来记录和分析。这些技巧的核心在于能够确定程序运行的系统是由用户控制的，并且是用户设置的。
+- en: 'Here are some things that distinguish a user-controlled environment and an
+    automated analysis controlled system from each other:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一些区分用户控制的环境与自动化分析控制的系统之间差异的事项：
+- en: A user-controlled system has mouse movement.
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户控制的系统具有鼠标移动。
+- en: User controlled systems can include a dialog box that waits for a user to scroll
+    down and then click on a button.
+  id: totrans-167
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户控制的系统可能包含一个对话框，等待用户向下滚动然后点击按钮。
+- en: 'The setup of an automated analysis system has the following attributes:'
+  id: totrans-168
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自动化分析系统的设置具有以下特点：
+- en: A low amount of physical memory
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 物理内存不足
+- en: A low disk size
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 磁盘空间过小
+- en: The free space on the disk may be nearly depleted
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 磁盘上的可用空间几乎耗尽
+- en: The number of CPUs is only one
+  id: totrans-172
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CPU 数量只有一个
+- en: The screen size is too small
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 屏幕分辨率过小
+- en: Simply setting up a task that requires a user's manual input would determine
+    that the program is running in a user-controlled environment. Similar to anti-VM,
+    the VM guest setup would make use of the lowest possible requirements, such that
+    it doesn't eat up the VM host's computer resources.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简单地设置一个需要用户手动输入的任务即可确定程序是否在用户控制的环境中运行。类似于反虚拟机检测，虚拟机客户机的设置将尽可能使用最低的资源要求，以免占用虚拟机主机的计算机资源。
+- en: 'Another anti-analysis trick checks for running analysis tools. These tools
+    include the following:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个反分析技巧是检测是否运行分析工具。这些工具包括以下内容：
+- en: OllyDBG (`ollydbg.exe`)
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OllyDBG（`ollydbg.exe`）
+- en: WinDbg (`windbg.exe`)
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: WinDbg（`windbg.exe`）
+- en: IDA Pro (`ida.exe`, `idag.exe`, `ida64.exe`, `idag64.exe`)
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: IDA Pro（`ida.exe`，`idag.exe`，`ida64.exe`，`idag64.exe`）
+- en: 'SysInternals Suite Tools, which includes the following:'
+  id: totrans-179
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SysInternals 套件工具，包括以下内容：
+- en: Process Explorer (`procexp.ex`e)
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 进程浏览器（`procexp.exe`）
+- en: Process Monitor (`procmon.exe`)
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 进程监视器（`procmon.exe`）
+- en: Regmon (`regmon.exe`)
+  id: totrans-182
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Regmon（`regmon.exe`）
+- en: Filemon (`filemon.exe`)
+  id: totrans-183
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Filemon（`filemon.exe`）
+- en: TCPView (`tcpview.exe`)
+  id: totrans-184
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: TCPView（`tcpview.exe`）
+- en: Autoruns (`autoruns.exe`, `autorunsc.exe`)
+  id: totrans-185
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Autoruns（`autoruns.exe`，`autorunsc.exe`）
+- en: Wireshark (`wireshark.exe`)
+  id: totrans-186
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark（`wireshark.exe`）
+- en: A way around these tricks is for automated analysis to trick them back. For
+    example, there are ways to mimic mouse movement and even read dialog window properties,
+    scroll, and click buttons. A simple work-around for anti-analysis trick is to
+    rename the tool we're using to monitor behaviors.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 规避这些技巧的一种方法是通过自动化分析进行反制。例如，可以模拟鼠标移动，甚至读取对话框窗口属性，滚动和点击按钮。一个简单的反分析技巧是重命名我们用来监视行为的工具。
+- en: Anti-dumping tricks
+  id: totrans-188
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反转储技巧
+- en: 'This method does not stop dumping memory to a file. This trick instead prevents
+    the reverser from easily understanding the dumped data. Here are some examples
+    of how this could be applied:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种方法并不会停止将内存转储到文件中。这个技巧实际上是通过让逆向工程师不容易理解转储的数据来起作用。以下是一些应用示例：
+- en: Portions of the PE header have been modified, so that the process dump gives
+    the wrong properties.
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PE 头的部分内容已经被修改，因此进程转储会显示错误的属性。
+- en: Portions of `PEB`, such as `SizeOfImage`, have been modified, so that the process
+    dumping tool dumps wrong.
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PEB` 的部分内容，如 `SizeOfImage`，已经被修改，因此进程转储工具会转储错误的数据。'
+- en: Dumping is very useful for seeing decrypted data. Anti-dumping tricks would
+    re-encrypt the decrypted code or data after use.
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 转储对于查看解密后的数据非常有用。反转储技巧会在使用后重新加密解密的代码或数据。
+- en: To overcome this trick, we can either identify or skip the code that modifies
+    data. For re-encryption, we can also skip the code that re-encrypts, to leave
+    it in a decrypted state.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了克服这个技巧，我们可以识别或跳过修改数据的代码。对于重新加密的情况，我们也可以跳过重新加密的代码，使其保持在解密状态。
+- en: Summary
+  id: totrans-194
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Malware have been evolving by adding new techniques to evade anti-virus and
+    reverse engineering.  These techniques include process hollowing, process injection,
+    process doppelganging, code anti-debugging, and anti-analysis.  Process hollowing
+    and process doppelganging techniques basically overwrites the image of a legit
+    process with a malicious image.  This masks the malicious program with a legit
+    process.  Process injection, on the other hand, inserts and runs code in a remote
+    process space.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件通过加入新技术来规避防病毒软件和逆向工程。这些技术包括进程空洞化、进程注入、进程替换、反调试和反分析。进程空洞化和进程替换技术基本上是用恶意程序替换合法进程的映像，从而伪装成合法进程。另一方面，进程注入技术则是将代码插入并在远程进程空间中运行。
+- en: Anti-debugging, anti-analysis, and the other tricks discussed in this chapter
+    are obstacles for reverse engineering. But knowing the concept for these tricks
+    enables us to overcome them. Doing static analysis with deadlisting, we can identify
+    and then skip the tricky code, or in the case of SEH, place a breakpoint at the
+    handler.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反调试、反分析以及本章讨论的其他技巧是逆向工程的障碍。但了解这些技巧的概念能帮助我们克服它们。通过静态分析和死列表方法，我们可以识别并跳过这些复杂代码，或者在
+    SEH 的情况下，在异常处理程序处设置断点。
+- en: We discussed anti-debugging tricks and their technique of using errors to cause
+    exceptions and hold the rest of its code at the handler. We also discussed other
+    tricks, including anti-VM and anti-emulation tricks, which are able to identify
+    being in an analysis environment.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们讨论了反调试技巧，以及它通过错误导致异常并将剩余代码停留在异常处理程序中的技术。我们还讨论了其他技巧，包括反虚拟机和反仿真技巧，这些技巧能够识别出当前环境是分析环境。
+- en: In the next chapter, we will be using what we have learned here with an actual
+    reverse engineering analysis of an executable file.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将运用这里学到的知识，进行一个可执行文件的逆向工程分析。

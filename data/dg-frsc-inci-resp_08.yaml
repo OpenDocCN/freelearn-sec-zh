@@ -1,0 +1,1899 @@
+- en: '8'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '8'
+- en: Forensic Imaging
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 法医成像
+- en: One critical task that incident response analysts often must perform is imaging
+    digital evidence. As we discussed in prior chapters, a great deal of evidence
+    related to an incident can be found within log files, memory, and other areas
+    and can be acquired relatively quickly. In some incidents, such as internal malicious
+    activity (for example, fraud, industrial espionage, or data leakage), a more detailed
+    search for evidence may be required. This evidence includes master file table
+    entries, files, and specific user data that is contained on the hard drive of
+    a suspect system. If incident response analysts encounter such circumstances,
+    they will be required to obtain an image of a suspect drive. As with any aspect
+    of digital forensics, obtaining a usable and court-defensible image depends on
+    the appropriate tools, techniques, and documentation being used.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件响应分析师通常必须执行的一个关键任务是成像数字证据。正如我们在前几章中讨论的那样，与事件相关的大量证据可以在日志文件、内存和其他区域中找到，并且可以相对迅速地获取。在某些事件中，如内部恶意活动（例如欺诈、工业间谍活动或数据泄漏），可能需要更详细的证据搜索。这些证据包括主文件表条目、文件以及包含在嫌疑系统硬盘上的特定用户数据。如果事件响应分析师遇到这种情况，他们将需要获取嫌疑驱动器的图像。与数字取证的任何方面一样，获得一个可用且可供法庭辩护的图像，依赖于使用适当的工具、技术和文档。
+- en: 'This chapter will explore the fundamental concepts of digital imaging and the
+    preparation and tools that are needed to acquire a forensically sound image of
+    a physical drive or another logical volume. More specifically, we will cover the
+    following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将探讨数字成像的基本概念，以及获取物理驱动器或其他逻辑卷的法医影像所需的准备工作和工具。更具体地，我们将涵盖以下主题：
+- en: Understanding forensic imaging
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解法医成像
+- en: Tools for imaging
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 成像工具
+- en: Preparing a staging drive
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 准备暂存驱动器
+- en: Using write blockers
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用写保护器
+- en: Imaging techniques
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 成像技术
+- en: While this chapter presents some very technical and process-driven material,
+    it is important that responders understand imaging. This process is critical to
+    producing images that can be relied on for **root cause analysis** (**RCA**) and
+    potential courtroom use.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然本章介绍了一些非常技术性和过程驱动的内容，但响应人员必须理解成像过程。这个过程对于生成能够用于**根本原因分析**（**RCA**）和潜在法庭使用的图像至关重要。
+- en: Understanding forensic imaging
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解法医成像
+- en: Imaging a storage drive is a process where details matter. This section provides
+    a solid foundation on forensic imaging, how it is accomplished, the various types
+    of digital imaging processes, and the various proprietary file formats.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成像存储驱动器是一个注重细节的过程。本节为法医成像提供了坚实的基础，介绍了如何完成成像、各种数字成像过程以及各种专有文件格式。
+- en: Having a solid understanding of the facets of forensic imaging is important
+    for incident response analysts. Understanding the tools, techniques, and procedures
+    involved ensures that evidence is handled properly and that analysts have confidence
+    in the evidence they’ve acquired. In addition, understanding the necessary terminology
+    allows analysts to accurately prepare reports and testify as to their findings
+    if the need arises.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对法医成像各个方面有透彻理解，对于事件响应分析师来说至关重要。了解涉及的工具、技术和程序可以确保证据得到妥善处理，并且分析师对其所获取的证据充满信心。此外，了解必要的术语使分析师能够准确地准备报告，并在需要时就其发现提供证词。
+- en: Image versus copy
+  id: totrans-13
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 图像与复制
+- en: One of the first concepts that should be understood is the difference between
+    forensic imaging and copying. Copying files from a suspect hard drive or another
+    medium only provides analysts with the actual data associated with that file.
+    Imaging, on the other hand, allows the analyst to capture the entire drive. This
+    includes areas such as slack space, unallocated space, and possibly accessing
+    deleted files. Imaging also maintains metadata on the volume, including file timestamps.
+    This becomes critical if a timeline analysis is conducted to determine when specific
+    files were accessed or deleted.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先应理解的一个概念是法医成像与复制之间的区别。从嫌疑人硬盘或其他介质中复制文件，只能为分析师提供与该文件相关的实际数据。另一方面，成像允许分析师捕捉整个驱动器的数据。这包括如空闲空间、未分配空间以及可能访问已删除文件的区域。成像还会保留卷上的元数据，包括文件时间戳。如果进行时间线分析以确定特定文件何时被访问或删除，这一点至关重要。
+- en: Often, the terms *cloning* and *imaging* are utilized in place of each other.
+    This is a common improper use of terminology in the IT realm. When cloning a drive,
+    a one-to-one copy of the drive is made. This means that the drive can then be
+    inserted into a system and booted. Cloning a drive is often done to make a fully
+    functional backup of a critical drive. While a cloned drive contains all the necessary
+    files, it is cumbersome to work with, especially with forensic tools. As a result,
+    an image file is taken. An image of a drive contains all the necessary files;
+    its configuration permits a detailed examination while utilizing forensic tools.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 经常会将*克隆*和*影像*这两个术语互换使用。这在IT领域中是一个常见的术语误用。在克隆一个驱动器时，会制作一个一对一的驱动器副本。这意味着该驱动器可以插入系统并启动。克隆驱动器通常是为了对关键驱动器进行完全备份而进行的。虽然克隆的驱动器包含所有必要的文件，但在使用取证工具时它比较笨重。因此，会制作一个影像文件。驱动器的影像包含所有必要的文件；其配置允许在使用取证工具时进行详细的检查。
+- en: Logical versus physical volumes
+  id: totrans-16
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 逻辑卷与物理卷
+- en: The second concept that needs to be understood is the types of volumes that
+    can be imaged. Volumes can be separated into physical or logical volumes. Physical
+    volumes can be thought of as containing the entirety of a hard drive. This includes
+    any partitions, as well as the `D:` drive. When imaging a logical volume, the
+    analyst would only capture data contained within the `D:` drive.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要理解的第二个概念是可以被影像化的卷类型。卷可以分为物理卷和逻辑卷。物理卷可以被认为包含整个硬盘。这包括任何分区以及`D:`驱动器。当影像化一个逻辑卷时，分析员只会捕获`D:`驱动器中的数据。
+- en: 'The following diagram illustrates data that is captured while imaging either
+    a physical or logical volume:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图表说明了在影像化物理卷或逻辑卷时所捕获的数据：
+- en: '![Figure 8.1 – Physical versus logical volumes ](img/B18571_08_001.jpg)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图8.1 – 物理卷与逻辑卷](img/B18571_08_001.jpg)'
+- en: Figure 8.1 – Physical versus logical volumes
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.1 – 物理卷与逻辑卷
+- en: The type of incident that is being investigated largely dictates the type of
+    imaging that is conducted. For example, if an analyst can identify a potentially
+    malicious file being executed from the `D:` drive and is intent on only capturing
+    that data, it might be faster to acquire a logical image of only that volume.
+    Furthermore, a logical acquisition may be necessary in cases where **Full Disk
+    Encryption** (**FDE**) is being used. Without the encryption key, logically acquiring
+    files while the system is running is often the only option that’s available.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正在调查的事件类型在很大程度上决定了所进行的影像类型。例如，如果分析员能够识别出从`D:`驱动器执行的潜在恶意文件，并且仅打算捕获该数据，那么获取该卷的逻辑影像可能会更快。此外，在使用**全盘加密**（**FDE**）的情况下，可能需要进行逻辑获取。没有加密密钥的情况下，在系统运行时进行文件的逻辑获取通常是唯一可用的选项。
+- en: The one key drawback that a logical image has is that it will not capture unallocated
+    data or data that is not part of the filesystem. Deleted files and other trace
+    evidence will not be part of a logical image. In cases where an activity such
+    as employee misconduct is suspected, the analyst will need to trace as much activity
+    as possible, so a full image of the physical volume will be conducted. Time isn’t
+    a necessary factor here.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逻辑影像的一个关键缺点是，它不会捕获未分配的数据或不是文件系统一部分的数据。已删除的文件和其他痕迹证据不会成为逻辑影像的一部分。在怀疑如员工不当行为等活动的情况下，分析员需要尽可能追踪所有活动，因此将对物理卷进行完整影像。时间不是一个必要因素。
+- en: In *Chapter 5*, we discussed the acquisition of evidence such as log files and
+    running memory from a live or powered-up system. In much the same way, incident
+    response analysts have the capability to obtain a logical volume from a running
+    system. This technique is referred to as live imaging. Live imaging may be the
+    best option if a potentially compromised system cannot be taken offline—say, in
+    a **high availability** (**HA**) production server—and potential evidence is located
+    within a logical volume.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*第五章*中，我们讨论了从正在运行或开机的系统中获取证据，例如日志文件和内存。以类似的方式，事件响应分析员能够从运行中的系统获取逻辑卷。这个技术被称为实时影像。如果一个潜在被入侵的系统无法下线——比如在**高可用性**（**HA**）的生产服务器中——而潜在证据位于逻辑卷中，那么实时影像可能是最好的选择。
+- en: Dead imaging is performed on a system that has been powered down and the hard
+    drive removed. In this type of imaging, the analyst can capture the entire disk,
+    including all the volumes and the MBR. This may become necessary in incidents
+    where analysts want to ensure that they capture the entirety of the source evidence
+    so that there is no location that hasn’t been examined.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 死机影像是对已经断电并移除硬盘的系统进行的影像。在这种影像类型中，分析师可以捕获整个磁盘，包括所有卷和MBR。这在分析师希望确保捕获源证据的完整性时变得必要，确保没有任何未被检查的区域。
+- en: Types of image files
+  id: totrans-25
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 图像文件的类型
+- en: 'Another aspect of forensic imaging that an analyst should have knowledge of
+    is the types of image files that can be created and leveraged during an investigation.
+    There are several types of image files, some of which are very specialized, but
+    for the purposes of this book, we will focus on the three most common types of
+    evidence files that analysts will most likely create and work with during an incident:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 取证影像的另一个方面是分析师需要了解的图像文件类型，这些文件可以在调查过程中创建并被利用。图像文件有多种类型，其中一些非常专业，但本书的目的在于重点讨论分析师在事件处理中最常创建和使用的三种最常见的证据文件类型：
+- en: '`.raw`, `.img`, and `.dd` extensions. Some software, such as the Linux `dd`
+    command, provides a flexible option when speed and compatibility with forensic
+    tools may be an issue.'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.raw`、`.img` 和 `.dd` 扩展名。一些软件，如 Linux 中的 `dd` 命令，在速度和与取证工具的兼容性可能成为问题时提供了灵活的选项。'
+- en: '**Advanced Forensics File Format** (**AFF4**): AFF4 is an open source format
+    for image files. First proposed in 2009, the format is used to support several
+    tools, such as **Google Rapid** **Response** (**GRR**).'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**高级取证文件格式**（**AFF4**）：AFF4 是一种开源图像文件格式。该格式首次在 2009 年提出，用于支持多个工具，如 **Google
+    快速响应**（**GRR**）。'
+- en: '**EnCase evidence files**: An EnCase evidence file, or E01 or EX01 file, is
+    a proprietary file format that was developed by OpenText as part of its EnCase
+    forensic tools in 1998\. This format was based on the **Expert Witness Format**
+    (**EWF**), which was found in ASR Data’s Expert Witness Compression Format. The
+    E01 file contains metadata about the image. The metadata that is contained in
+    both the header and footer captures and stores information about the drive type,
+    operating system, and timestamps. Another key feature of an E01 file is the inclusion
+    of a **Cyclical Redundancy Check** (**CRC**). This CRC is a file integrity verification
+    that takes place after every 64 KB of data is written to the image file. The CRC
+    ensures the integrity of the preceding block of data over the entire image file.
+    Finally, an E01 file contains a **Message Digest 5** (**MD5**) hash within the
+    footer of the file. The following diagram illustrates which components of an E01
+    file are created during the imaging process:'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**EnCase 证据文件**：EnCase 证据文件，或 E01 或 EX01 文件，是 OpenText 于 1998 年作为其 EnCase 取证工具的一部分开发的专有文件格式。该格式基于
+    **专家证人格式**（**EWF**），该格式在 ASR Data 的专家证人压缩格式中被发现。E01 文件包含有关影像的元数据。存储在头部和尾部的元数据记录并保存有关驱动类型、操作系统和时间戳的信息。E01
+    文件的另一个关键特性是包含 **循环冗余校验**（**CRC**）。该 CRC 是在每写入 64 KB 数据到影像文件后进行的文件完整性验证。CRC 确保了整个影像文件中前一个数据块的完整性。最后，E01
+    文件在文件尾部包含一个 **信息摘要算法 5**（**MD5**）哈希。下图展示了在影像处理过程中，E01 文件的哪些组件会被创建：'
+- en: '![Figure 8.2 – E01 file format ](img/B18571_08_002.jpg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.2 – E01 文件格式](img/B18571_08_002.jpg)'
+- en: Figure 8.2 – E01 file format
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.2 – E01 文件格式
+- en: SSD versus HDD
+  id: totrans-32
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: SSD 与 HDD
+- en: Another key facet of imaging that incident response analysts need to understand
+    is how to image specific storage media—specifically, understanding the difference
+    between a **hard disk drive** (**HDD**) and a **solid-state drive** (**SSD**).
+    Understanding this difference has become critical, with SSDs being much more common,
+    especially in endpoints such as laptops and desktop computers.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件响应分析师需要理解的另一个关键影像概念是如何对特定存储介质进行影像——特别是理解 **硬盘驱动器**（**HDD**）与 **固态硬盘**（**SSD**）之间的区别。随着
+    SSD 在笔记本电脑和台式机等终端设备中变得越来越普遍，理解这一差异变得至关重要。
+- en: The main difference between the two goes down to the smallest details of how
+    information is stored. Traditional spinning HDDs store information by changing
+    magnetic polarity on actual spinning disks. Therefore, digital forensic and incident
+    response analysts need to be aware of magnetic fields when handling evidence and
+    why dropping an HDD would often prove fatal for the disk.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 两者之间的主要区别在于信息存储的最细节部分。传统的旋转硬盘（HDD）通过改变实际旋转磁盘上的磁极来存储信息。因此，数字取证和事件响应分析师在处理证据时需要了解磁场，以及为什么掉落HDD往往会对磁盘造成致命损害。
+- en: The one aspect of HDDs that is of interest to digital forensic examiners is
+    how data is handled. The data is written to the disk and stays within the sectors
+    that have been assigned to the data. When a user deletes a file, it is not removed.
+    The data may be complete or partially overwritten, and with proper imaging tools,
+    this data can be located and reconstructed for analysis.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 硬盘驱动器（HDD）中一个让数字取证检查员感兴趣的方面是数据的处理方式。数据写入磁盘后会停留在分配给该数据的扇区中。当用户删除一个文件时，数据并不会被移除。数据可能会被完全或部分覆盖，使用适当的镜像工具，这些数据可以被定位并重建进行分析。
+- en: Because of how HDDs work and the potential for reconstruction of data, it is
+    a good practice to create a physical disk image. This involves powering down the
+    system by removing the source of power, not through the operating system shutdown.
+    This preserves the state of the drive now the analyst has accessed it. In those
+    circumstances where this is not possible, a logical image can be taken from a
+    live and powered-up system.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于硬盘驱动器（HDD）的工作原理以及数据重建的可能性，创建物理磁盘镜像是一个很好的实践。这包括通过切断电源而非通过操作系统关闭系统来关闭设备。这可以保留分析人员访问硬盘时的状态。在无法做到这一点的情况下，可以从正在运行且已开机的系统中获取逻辑镜像。
+- en: 'SSDs, on the other hand, hold information based on the state of electrons in
+    cells in the SSD. This type of data storage uses instructions found on the `fsutil
+    behavior query disabledeletenotify` command into Windows’ Command Prompt will
+    produce the following output if the OS is using an SSD:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，SSD通过存储在单元中的电子状态来保存信息。这种数据存储方式使用命令`fsutil behavior query disabledeletenotify`，如果操作系统使用的是SSD，Windows命令提示符会返回以下输出：
+- en: '![Figure 8.3 – TRIM operations enabled ](img/B18571_08_003.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图8.3 – 启用TRIM操作](img/B18571_08_003.jpg)'
+- en: Figure 8.3 – TRIM operations enabled
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.3 – 启用TRIM操作
+- en: Another feature of SSD chipsets that is of concern to digital forensic and incident
+    response analysts is wear leveling. The electrons in an SSD have a finite lifespan
+    and cannot be continually turned on and off. If the operating system only uses
+    the first 100 GB of the drive, it may wear that section out, making the drive
+    useless. To prevent this, SSDs make use of wear leveling, where data is continually
+    moved to different locations on the drive, thereby reducing the potential of making
+    the drive unusable.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 固态硬盘（SSD）芯片组的另一个让数字取证和事件响应分析师关心的特点是“磨损均衡”。SSD中的电子有有限的生命周期，不能持续不断地开关。如果操作系统只使用硬盘的前100GB，它可能会损坏这一部分，导致硬盘无法使用。为了防止这种情况，SSD采用磨损均衡技术，将数据不断地移动到硬盘的不同位置，从而减少使硬盘无法使用的可能性。
+- en: These two features mean that traditional write blockers that are used to ensure
+    that no changes are made to the disk during imaging do not work, as the PCB manages
+    how data is written and leveled on the SSD. While imaging is possible, the analysts
+    cannot ensure that no changes were made to the disk during the process. To limit
+    these changes, analysts should image an SSD in the condition that they found it.
+    If the system is powered off, remove the drive from the system and image. If the
+    system is on, it has to be imaged live.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这两个特性意味着传统的写保护器无法确保在镜像过程中不对硬盘做出任何更改，因为PCB管理着数据的写入和在SSD上的均衡方式。虽然可以进行镜像，但分析人员无法确保在过程中没有对硬盘进行更改。为了限制这些更改，分析人员应在找到硬盘时就开始镜像。如果系统已经关闭，应移除硬盘并进行镜像。如果系统仍在运行，必须进行实时镜像。
+- en: Tools for imaging
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 镜像工具
+- en: As with much of the previous material we covered, there are several tools available
+    to a responder for imaging drives. Understanding these tools provides responders
+    with knowledge about which tool to apply to an incident.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们之前讨论的内容一样，响应人员有多个工具可用于镜像硬盘。了解这些工具能帮助响应人员知道在事件中应用哪个工具。
+- en: 'While there is no court or legal body that certifies digital forensics imaging
+    tools, there are several methods and associated tools that represent best practices
+    when acquiring disk evidence. Let’s go over these now:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然没有法院或法律机构认证数字取证成像工具，但有几种方法和相关工具代表了获取磁盘证据时的最佳实践。让我们现在来看看这些方法：
+- en: '**FTK Imager**: FTK Imager is provided as a free software application by Access
+    Data. This GUI-based application allows for the forensically sound acquisition
+    of logical and physical volumes, memory, and other protected files and outputs
+    those images in a variety of formats. In addition, FTK Imager Lite is a self-contained
+    application that can be run on removable media for the acquisition of digital
+    evidence from running systems (this will be covered in detail later in this chapter).'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**FTK Imager**：FTK Imager是由Access Data提供的免费软件应用程序。这个基于GUI的应用程序允许法医学上可靠地获取逻辑和物理卷、内存以及其他受保护的文件，并以各种格式输出这些镜像。此外，FTK
+    Imager Lite是一个自包含的应用程序，可以在可移动介质上运行，用于从运行中的系统中获取数字证据（稍后将在本章中详细介绍）。'
+- en: '**EnCase Imager**: Provided by Guidance Software, EnCase Imager is another
+    forensic application that allows responders to acquire digital evidence from a
+    variety of systems. As with FTK Imager, EnCase Imager can also be run on an external
+    drive for the acquisition of running systems.'
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**EnCase Imager**：由Guidance Software提供，EnCase Imager是另一个取证应用程序，允许响应者从各种系统中获取数字证据。与FTK
+    Imager一样，EnCase Imager也可以在外部驱动器上运行，以便获取运行中的系统。'
+- en: '**AFF4 Imager**: AFF4 Imager is a command-line executable that serves as the
+    basis for tools such as WinPmem. AFF4 Imager can be used to acquire logical and
+    physical disks such as EnCase or FTK Imager. One advantage of AFF4 Imager is that
+    it can be used to carve out files based on time creation, to slit volumes, and
+    to decrease imaging time with compression.'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**AFF4 Imager**：AFF4 Imager是一个命令行可执行文件，是WinPmem等工具的基础。AFF4 Imager可以用于获取逻辑和物理磁盘，如EnCase或FTK
+    Imager。AFF4 Imager的一个优点是，它可以根据创建时间提取文件，拆分卷，并通过压缩减少成像时间。'
+- en: '`dd` command when using Linux-based forensic platforms for evidence acquisition.'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用基于Linux的取证平台进行证据获取时的`dd`命令。
+- en: '**Virtualization tools**: With the wide adoption of virtualization, responders
+    are most likely going to have to acquire at least a portion of their evidence
+    from virtual systems. There is an advantage to this, though: the entire system
+    can be offloaded for analysis. Depending on the virtualization software, acquisition
+    can be accomplished by pausing the system and offloading the entire directory
+    containing the system. This can also be accomplished using the snapshot feature
+    of many virtualization software platforms.'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**虚拟化工具**：随着虚拟化的广泛采用，响应者很可能需要从虚拟系统中获取至少一部分证据。然而，这也有一个优点：整个系统可以转储以供分析。根据虚拟化软件的不同，可以通过暂停系统并转储包含系统的整个目录来实现证据获取。这也可以通过许多虚拟化软件平台的快照功能来完成。'
+- en: The imaging tools you decide to use will depend on the organization, your training
+    and experience, and which other forensic tools are in use. For example, if an
+    organization uses the **Forensic Toolkit** (**FTK**) for analysis, it may be best
+    to use FTK Imager as part of the process. With any imaging tool, it is good practice
+    to ensure that the tool functions properly and that responders have been adequately
+    trained in its use.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你决定使用的成像工具将取决于组织、你的培训和经验以及使用的其他取证工具。例如，如果一个组织使用**Forensic Toolkit**（**FTK**）进行分析，可能最好将FTK
+    Imager作为过程的一部分使用。使用任何成像工具时，确保工具正常工作，并且响应者已经充分培训如何使用该工具是一个好习惯。
+- en: Once an imaging tool is selected, the next step is to ensure that the other
+    hardware is ready. This includes ensuring that the destination of stored media
+    is correctly prepared.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦选择了成像工具，下一步是确保其他硬件已准备好。这包括确保存储介质的目标位置已正确准备。
+- en: Preparing a staging drive
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备暂存驱动器
+- en: Just as important as learning how to handle the evidence drive, having a forensically
+    sound stage drive to which evidence will be imaged is critical. Responders will
+    be walked through how to prepare this item.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与学习如何处理证据驱动器一样，拥有一个法医学上可靠的暂存驱动器，将证据成像到此驱动器上同样至关重要。响应者将学习如何准备这个设备。
+- en: Beyond having the necessary hardware and software to perform forensic imaging,
+    it is critical to pre-stage a location to hold the image or evidence file. For
+    incident response teams, the best thing to utilize as an evidence repository is
+    an external USB or FireWire disk drive. This allows a degree of portability as
+    incident responders may have to investigate an incident offsite or at a variety
+    of locations without the benefit of a forensic laboratory.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了具备进行取证影像所需的硬件和软件外，至关重要的是提前准备一个存储影像或证据文件的位置。对于事件响应团队来说，最适合作为证据存储库的是外部 USB 或
+    FireWire 硬盘驱动器。这使得具备一定的便携性，因为事件响应人员可能需要在场外或多个地点进行事件调查，而没有取证实验室的帮助。
+- en: There are two tasks that need to be performed on evidence drives prior to their
+    use. The first is to ensure that the repository is free of any data. Incident
+    response teams should have a policy and procedure that dictate that an evidence
+    drive be wiped prior to each use. This includes drives that are new in box. This
+    is since a number of manufacturers ship drives with backup software or other data
+    that needs to be removed prior to use.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用证据驱动器之前，需要执行两项任务。第一项任务是确保存储库没有任何数据。事件响应团队应有一个政策和程序，要求在每次使用之前擦除证据驱动器。这包括全新的驱动器，因为一些制造商出厂时会在驱动器上附带备份软件或其他数据，这些数据需要在使用之前移除。
+- en: Wiping further ensures that previously utilized drives are free of any trace
+    data from another incident. This ensures that the evidence collected on a properly
+    wiped drive is not contaminated with unrelated data.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 擦除还进一步确保先前使用过的驱动器不包含其他事件的任何痕迹数据。这确保了在经过正确擦除的驱动器上收集到的证据不会与不相关的数据混淆。
+- en: This is easily accomplished through a wiping program. There are several programs,
+    both free and commercial, that can be utilized for this. For example, the Eraser
+    program from Heidi Computers is a freeware wiping utility that can be utilized
+    for both file and volume wiping (Eraser can be downloaded at [https://eraser.heidi.ie/](https://eraser.heidi.ie/)).
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可以通过擦除程序轻松完成。有几个程序，无论是免费还是商业的，都可以用于此。例如，Heidi Computers 的 Eraser 程序是一个免费的擦除工具，可以用于文件和磁盘分区的擦除（Eraser
+    可以从 [https://eraser.heidi.ie/](https://eraser.heidi.ie/) 下载）。
+- en: 'In the following example, a 2 TB external hard drive will be erased and prepared
+    for use as an evidence drive. The following sequence should be repeated every
+    time a drive is going to be placed into a state that can be utilized for incident
+    investigation:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下示例中，将擦除一个 2 TB 的外部硬盘驱动器，并将其准备好作为证据驱动器使用。以下过程应该在每次将驱动器置于可以用于事件调查的状态时重复：
+- en: 'Start the Eraser application. In the GUI, click **Erase Schedule** and then
+    **New Task**. You should then see a window like this:'
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 Eraser 应用程序。在图形用户界面中，点击**擦除计划**，然后选择**新任务**。然后您应该会看到如下窗口：
+- en: '![Figure 8.4 – Setting Eraser task ](img/B18571_08_004.jpg)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.4 – 设置 Eraser 任务](img/B18571_08_004.jpg)'
+- en: Figure 8.4 – Setting Eraser task
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.4 – 设置 Eraser 任务
+- en: 'Now, a task name can be assigned. This is helpful when you wish to properly
+    document the erasure of the evidence drive. Click the **Add Data** button. This
+    will open another window:'
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，可以分配任务名称。这在您希望正确记录证据驱动器擦除时非常有帮助。点击**添加数据**按钮。这将打开另一个窗口：
+- en: '![Figure 8.5 – Eraser drive selection ](img/B18571_08_005.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.5 – Eraser 驱动器选择](img/B18571_08_005.jpg)'
+- en: Figure 8.5 – Eraser drive selection
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.5 – Eraser 驱动器选择
+- en: 'For **Target type**, select **Drive/Partition**. In the **Settings** area,
+    there will be a drop-down list of partitions and drive letters. Pay very close
+    attention to the drive letters that are assigned to the various drives and ensure
+    that the external drive that requires wiping is selected. In this case, a new
+    Seagate external HDD is being utilized. Finally, select an erasure method. There
+    are several different options for wiping drives. In this case, the **US DoD 5220.22-M
+    (8-306./E) (3 Pass)** wiping option is selected:'
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于**目标类型**，选择**驱动器/分区**。在**设置**区域，将出现一个包含分区和驱动器字母的下拉列表。请特别注意分配给不同驱动器的驱动器字母，并确保选择需要擦除的外部驱动器。在此案例中，使用的是一款新的
+    Seagate 外部硬盘驱动器。最后，选择擦除方法。有几种不同的擦除驱动器选项。在这种情况下，选择了**美国国防部 5220.22-M (8-306./E)
+    (3 Pass)**擦除选项：
+- en: '![Figure 8.6 – Erasure method selection ](img/B18571_08_006.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.6 – 擦除方法选择](img/B18571_08_006.jpg)'
+- en: Figure 8.6 – Erasure method selection
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.6 – 擦除方法选择
+- en: 'Click **OK**. Now, the wiping task will be listed in the **Erase** **Schedule**
+    section:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**确定**。现在，擦除任务将在**擦除** **计划**部分列出：
+- en: '![Figure 8.7 – Erase Schedule ](img/B18571_08_007.jpg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.7 – 擦除计划](img/B18571_08_007.jpg)'
+- en: Figure 8.7 – Erase Schedule
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.7 – 擦除计划
+- en: 'Right-click the **Partition: Seagate Expansion Drive (E:)** task and click
+    **Run** **Now**. This will start the wiping process. As we mentioned previously,
+    ensure that the correct evidence drive is being wiped.'
+  id: totrans-71
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击**分区：Seagate 扩展驱动器 (E:)**任务并点击**立即运行**。这将启动擦除过程。如前所述，请确保擦除的是正确的证据驱动器。
+- en: Depending on the size of the drive and the system that is performing the wipe,
+    this process can take hours or even days. Once it's complete, the incident response
+    analyst should capture any information that verifies that the evidence drive has
+    been properly wiped. This is important information to include in a written forensic
+    analysis report as it demonstrates that the incident response analyst took appropriate
+    measures to ensure that all evidence files were free from corruption or commingling
+    with other files on the evidence drive.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据驱动器的大小和执行擦除操作的系统，整个过程可能需要数小时甚至几天。完成后，事件响应分析师应捕捉任何验证证据驱动器已正确擦除的信息。这些信息在书面法医分析报告中至关重要，因为它证明事件响应分析师采取了适当措施，确保所有证据文件未被破坏或与其他文件混淆。
+- en: It is recommended that incident response analysts have several drives available
+    and that these drives be pre-wiped before any incident. This will allow incident
+    response analysts to immediately utilize a wiped drive instead of having to wipe
+    a drive on-site, which wastes time that would be better spent on incident-related
+    activities.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 建议事件响应分析师准备多个驱动器，并在任何事件发生之前将这些驱动器预先擦除。这将使事件响应分析师能够立即使用已擦除的驱动器，而无需现场擦除驱动器，这样可以节省本应用于事件相关活动的时间。
+- en: A second preparation step that can be undertaken is to encrypt the evidence
+    drive. Software such as VeraCrypt or another disk encryption platform can be utilized
+    to encrypt the partition of the evidence drive that contains the evidence files.
+    Incident response analysts dealing with confidential information such as credit
+    cards or medical records should encrypt the evidence drive, regardless of whether
+    it leaves the facility or not.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一项可以采取的准备步骤是加密证据驱动器。可以使用如 VeraCrypt 或其他磁盘加密平台加密包含证据文件的证据驱动器分区。处理敏感信息（如信用卡或医疗记录）的事件响应分析师应加密证据驱动器，无论证据是否需要离开设施。
+- en: Two methods can be leveraged to encrypt the evidence drive. The first is to
+    utilize encryption software on the forensic workstation that is utilized in the
+    imaging process. This approach is limited to imaging on drives that have been
+    removed from the system and imaged on dedicated systems that have the encryption
+    software installed. A second option is to include encryption software on the evidence
+    drive. In the previous section, an evidence drive was divided into two partitions.
+    One partition was set aside for evidence files, while the second partition was
+    utilized for tools such as those used for dumping memory files or imaging. In
+    this scenario, the encryption software can be loaded in the tools partition, and
+    the drive can be encrypted during the evidence imaging process. This limits the
+    number of changes that are made to the system under investigation.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有两种方法可以加密证据驱动器。第一种方法是使用法医工作站上的加密软件进行加密，这些工作站在成像过程中使用。这种方法仅限于对已从系统中移除并在安装了加密软件的专用系统上成像的驱动器进行成像。第二种方法是将加密软件安装在证据驱动器上。在前一节中，证据驱动器被划分为两个分区，一个分区留作证据文件，另一个分区用于存储工具，例如用于转储内存文件或成像的工具。在这种情况下，加密软件可以加载到工具分区，并且在证据成像过程中对驱动器进行加密。这可以限制对待调查系统进行的更改数量。
+- en: Once a drive is prepared, another layer of protection is needed to ensure that
+    no changes are made to the suspect system during the imaging process. To ensure
+    that no changes are made, responders should be familiar with and know how to use
+    write blockers.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦驱动器准备就绪，就需要另一层保护，确保在成像过程中不会对嫌疑系统进行任何更改。为确保没有更改发生，响应人员应该熟悉并知道如何使用写保护器。
+- en: Using write blockers
+  id: totrans-77
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用写保护器
+- en: Write blockers are critical components and ensure that evidence is not tainted
+    during the imaging process. In this section, responders will be exposed to physical
+    and software write blockers.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 写保护器是关键组件，确保在成像过程中证据不被篡改。在本节中，响应人员将接触到物理和软件写保护器。
+- en: A key tenet of digital forensics is to ensure that no changes are made to digital
+    evidence while processing and examining it. Any change, no matter how slight,
+    has the potential to bring the entire examination into question. There is a distinct
+    possibility that the evidence may even be excluded from legal proceedings if the
+    responder is unable to articulate how they ensured that the evidence was not tainted
+    during the examination. As a result, it is important to understand how write blockers
+    maintain the integrity of digital evidence.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数字取证的一个关键原则是确保在处理和检查数字证据时不对其进行任何更改。任何变化，无论多么微小，都有可能使整个检查过程受到质疑。如果响应人员无法清楚阐明如何确保证据在检查过程中未被污染，则证据很可能会被排除在法律程序之外。因此，理解写保护器如何保持数字证据的完整性至关重要。
+- en: Write blockers come in two different types. The first of these is a software
+    write blocker. This software sits between the operating system and the evidence.
+    These are often part of any digital forensics tools that are used during the examination
+    phase. They ensure that there is read-only access to the evidence file and that,
+    during the examination, no changes have been made to the evidence. For example,
+    the FTK Imager tool, which will be explored extensively in this chapter, ensures
+    that the acquisition of digital evidence is done without any writes to the disk.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 写保护器有两种类型。第一种是软件写保护器。这种软件位于操作系统和证据之间。它们通常是任何在检查阶段使用的数字取证工具的一部分。它们确保对证据文件仅具有只读访问权限，并且在检查过程中不会对证据进行任何更改。例如，本章将深入探讨的FTK
+    Imager工具，确保数字证据的采集不会对磁盘进行任何写入。
+- en: Another type of write blocker is a physical or hardware write blocker. As its
+    name indicates, this is a physical piece of hardware that sits between the evidence
+    drive and the system performing the acquisition. Data is allowed to pass from
+    the evidence disk to the analysis system but not the other way around. The use
+    of this device allows responders to clearly demonstrate that no evidence was altered
+    during the acquisition phase.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种写保护器是物理或硬件写保护器。顾名思义，这是一种物理硬件，位于证据驱动器和执行采集的系统之间。数据可以从证据磁盘传输到分析系统，但不能反向传输。使用该设备可以清楚地表明，在采集阶段没有修改证据。
+- en: Which type of write blocker is used is largely dependent on the type of acquisition
+    that is being conducted. Ideally, responders should choose tools and techniques
+    that clearly demonstrate that they took every reasonable precaution to ensure
+    that the evidence has not been altered. Doing so significantly decreases the risk
+    that the evidence will be excluded from any legal proceedings, and also affords
+    the responder the ability to rely on the evidence while making a root cause determination.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用哪种类型的写保护器主要取决于正在进行的采集类型。理想情况下，响应人员应选择能够清晰证明他们采取了一切合理预防措施，确保证据未被篡改的工具和技术。这样做能显著降低证据被排除在任何法律程序之外的风险，同时也使响应人员能够在做出根本原因判定时依赖该证据。
+- en: With a properly staged drive and write blocker in place, responders are now
+    able to move on and image evidence drives.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在适当配置好驱动器和写保护器后，响应人员现在可以继续进行证据驱动器的镜像操作。
+- en: Imaging techniques
+  id: totrans-84
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 镜像技术
+- en: This section is the main part of this chapter in which we will focus on techniques
+    that are available to responders who are called upon to image an evidence drive.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节是本章的主要部分，我们将重点介绍响应人员在需要对证据驱动器进行镜像时可用的技术。
+- en: Once a proper repository has been configured for the image file, the incident
+    response analyst is ready to acquire the necessary evidence. Responders will encounter
+    suspect systems that are either powered on or have been shut down. Based on the
+    state that responders find the suspect system in, they will have to utilize one
+    of the following techniques. In any incident, no matter which technique is utilized,
+    incident responders should be prepared to properly document their actions for
+    any subsequent forensic report.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦为镜像文件配置了适当的存储库，事件响应分析师就可以准备获取所需的证据。响应人员可能会遇到已经开机或已关闭的可疑系统。根据他们发现可疑系统的状态，必须使用以下技术之一。在任何事件中，无论使用哪种技术，事件响应人员都应准备好妥善记录他们的操作，以便后续的取证报告。
+- en: Dead imaging
+  id: totrans-87
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 死亡镜像
+- en: Dead imaging is conducted on media that is not powered on and, in the case of
+    hard drives, removed from the potentially compromised system. In terms of evidence
+    preparation, this method is the most comprehensive as it allows the complete preservation
+    and analysis of a physical volume. There are several methods and tools available,
+    both commercial and freeware, that allow proper imaging. In addition to software,
+    incident response analysts will often make use of a hardware write blocker. These
+    devices ensure that no changes are made to the suspect media. As we discussed
+    in [*Chapter 1*](B18571_01.xhtml#_idTextAnchor013), it is critical to be able
+    to demonstrate to a court of law that no changes were made to the original evidence.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 死机成像是对未通电的媒体进行的，对于硬盘来说，就是将其从可能被破坏的系统中移除。在证据准备方面，这种方法是最全面的，因为它允许完整保留和分析物理卷。有多种方法和工具可以用来进行适当的成像，既有商业软件也有免费软件。除了软件，事件响应分析员通常还会使用硬件写保护器。这些设备确保对嫌疑媒体不会进行任何更改。正如我们在[*第1章*](B18571_01.xhtml#_idTextAnchor013)中讨论的那样，能够向法庭证明没有对原始证据进行任何更改是至关重要的。
+- en: One advantage of imaging a hard drive or other digital media in this manner
+    is that the process can be predefined and repeatable. Having a predefined process
+    that is formalized as part of incident response planning and the procedure itself
+    ensures that evidence is handled in a forensically sound manner.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以这种方式成像硬盘或其他数字媒体的一个优点是，该过程可以预定义并可重复。拥有一个已预定义的过程，并将其正式纳入事件响应计划和程序本身，确保证据以法医学上可靠的方式处理。
+- en: One tool that is extremely useful in dead imaging is FTK Imager. This tool,
+    provided by Access Data, is a forensically sound platform for acquiring a disk
+    image.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个在死机成像中非常有用的工具是FTK Imager。这个工具由Access Data提供，是一个法医学上可靠的磁盘映像获取平台。
+- en: Imaging using FTK Imager
+  id: totrans-91
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用FTK Imager进行成像
+- en: 'The following process uses a hard drive and FTK Imager to produce a forensically
+    sound image for analysis. Rushing or deviating from these steps may create a situation
+    where the responder may not be able to rely on the evidence’s integrity, thereby
+    making potential evidence unreliable:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下过程使用硬盘和FTK Imager生成一个法医学上可靠的映像供分析。匆忙或偏离这些步骤可能会导致响应者无法依赖证据的完整性，从而使潜在的证据变得不可靠：
+- en: The first step is to physically inspect the evidence. Two primary focal points
+    should be inspected. The first is the chain of custody form. Any time that you
+    are taking custody of evidence, you should have access to the form, ensure that
+    all steps are properly documented, and complete the entry with your information.
+  id: totrans-93
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一步是对证据进行实物检查。应该检查两个主要焦点。第一个是链条证据表。每次你接管证据时，应该能访问该表，确保所有步骤都已正确记录，并用你的信息完成条目。
+- en: 'Then, you need to inspect the evidence packaging to ensure that no seals have
+    been breached. One quick way to document this is to take a photo of the evidence
+    in the original packaging:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，你需要检查证据包装，以确保没有封印被破坏。记录这一点的一个快速方法是拍摄证据在原包装中的照片：
+- en: '![Figure 8.8 – Packaging integrity check ](img/B18571_08_008.jpg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.8 – 包装完整性检查](img/B18571_08_008.jpg)'
+- en: Figure 8.8 – Packaging integrity check
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.8 – 包装完整性检查
+- en: 'In the preceding photo, we have captured all the information concerning the
+    piece of evidence and demonstrated that, prior to imaging, the integrity of the
+    evidence has been maintained. After the seal has been broken, you need to take
+    another photo of the contents of the packaging:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在前面的照片中，我们捕捉了所有与该证据相关的信息，并表明在成像之前，证据的完整性得到了保持。在封印被破坏后，你需要拍摄包装内容的照片：
+- en: '![Figure 8.9 – Example disk photo ](img/B18571_08_009.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.9 – 示例磁盘照片](img/B18571_08_009.jpg)'
+- en: Figure 8.9 – Example disk photo
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.9 – 示例磁盘照片
+- en: 'Once a photo of the piece of evidence has been taken, you should ensure that
+    it matches the chain of custody form. Errors can occur in an incident, and this
+    is one way to ensure that mistakes in the chain of custody are corrected as early
+    as possible. By confirming the chain of custody, any mix-ups can be rectified.
+    The next step is to configure the physical write blocker. In this case, a Tableau
+    TK35u USB 3.0 Forensic IDE/SATA Bridge Kit is utilized as a physical write blocker.
+    The suspect drive is attached via the included SATA drive adapter and a FireWire
+    connection is made to the imaging laptop. When utilizing a physical write blocker,
+    ensure that the device indicates proper functioning, as demonstrated here:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦拍摄了证据的照片，您应确保它与链条证据表格一致。在事件处理中可能会发生错误，这是确保尽早纠正链条证据错误的一种方式。通过确认链条证据，任何混乱都可以得到纠正。下一步是配置物理写保护器。在这种情况下，使用
+    Tableau TK35u USB 3.0 Forensic IDE/SATA 桥接套件作为物理写保护器。嫌疑驱动器通过附带的 SATA 驱动器适配器连接，并通过
+    FireWire 与成像笔记本连接。使用物理写保护器时，确保设备显示正常工作，如下所示：
+- en: '![Figure 8.10 – Physical write blocker setup ](img/B18571_08_010.jpg)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.10 – 物理写保护器设置](img/B18571_08_010.jpg)'
+- en: Figure 8.10 – Physical write blocker setup
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.10 – 物理写保护器设置
+- en: 'With the physical write blocker in place, the suspect drive is now ready for
+    imaging. In this example, the FTK Imager freeware application will be used. FTK
+    Imager requires administrator privileges to run. Open the executable; the following
+    screen will appear:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在安装物理写保护器后，嫌疑驱动器现在可以进行镜像。在这个示例中，将使用 FTK Imager 免费应用程序。FTK Imager 需要管理员权限才能运行。打开可执行文件后，将显示以下界面：
+- en: '![Figure 8.11 – FTK Imager main menu ](img/B18571_08_011.jpg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.11 – FTK Imager 主菜单](img/B18571_08_011.jpg)'
+- en: Figure 8.11 – FTK Imager main menu
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.11 – FTK Imager 主菜单
+- en: 'Click on **File** and then **Create Disk Image**. This will open a window where
+    you can select the media source. In this case, select **Physical Drive** so that
+    the entire drive, including the MBR, will be captured for further analysis. Then,
+    click **Next**:'
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**文件**，然后选择**创建磁盘镜像**。这将打开一个窗口，您可以在其中选择媒体源。在这种情况下，选择**物理驱动器**，以便将整个驱动器（包括
+    MBR）捕获用于进一步分析。然后，点击**下一步**：
+- en: '![Figure 8.12 – FTK Imager source selection ](img/B18571_08_012.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.12 – FTK Imager 源选择](img/B18571_08_012.jpg)'
+- en: Figure 8.12 – FTK Imager source selection
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.12 – FTK Imager 源选择
+- en: 'The next window allows the analyst to select which drive will be imaged. Incident
+    response analysts should pay close attention to ensure that they are imaging the
+    correct device since all devices that are visible to the operating system are
+    listed. Here, you need to pay attention to the storage space of the drives to
+    differentiate between the suspect and image drives. In this case, four separate
+    drives are listed. Two are drives contained within the imaging laptop. Another
+    drive is the destination drive. In this case, the third drive, labeled `\\.\PHYSICALDRIVE2`,
+    is the correct suspect drive. Highlight this drive and click **Finish**:'
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下一窗口允许分析员选择要进行镜像的驱动器。事件响应分析员应密切注意，确保正在镜像正确的设备，因为所有操作系统可见的设备都会列出。在这里，您需要注意驱动器的存储空间，以区分嫌疑驱动器和镜像驱动器。在这种情况下，列出了四个独立的驱动器。两个是成像笔记本内的驱动器。另一个驱动器是目标驱动器。在这种情况下，第三个驱动器，标记为`\\.\PHYSICALDRIVE2`，是正确的嫌疑驱动器。高亮显示该驱动器并点击**完成**：
+- en: '![Figure 8.13 – Suspect drive selection ](img/B18571_08_013.jpg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.13 – 嫌疑驱动器选择](img/B18571_08_013.jpg)'
+- en: Figure 8.13 – Suspect drive selection
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.13 – 嫌疑驱动器选择
+- en: 'Once the suspect drive has been selected, set the destination drive. Click
+    **Add…**:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦选择了嫌疑驱动器，设置目标驱动器。点击**添加…**：
+- en: '![Figure 8.14 – FTK Imager Create Image window ](img/B18571_08_014.jpg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.14 – FTK Imager 创建图像窗口](img/B18571_08_014.jpg)'
+- en: Figure 8.14 – FTK Imager Create Image window
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.14 – FTK Imager 创建图像窗口
+- en: 'At this point, choose the type of image file you want to create. Four options
+    are available. In this case, **E01** needs to be selected. Click **Next >**:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此时，选择您要创建的图像文件类型。提供四个选项。在这种情况下，需要选择**E01**。点击**下一步 >**：
+- en: '![Figure 8.15 – FTK Imager Select Image Type window ](img/B18571_08_015.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.15 – FTK Imager 选择图像类型窗口](img/B18571_08_015.jpg)'
+- en: Figure 8.15 – FTK Imager Select Image Type window
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.15 – FTK Imager 选择图像类型窗口
+- en: 'In the next window, enter information specific to the image. We will discuss
+    reporting in [*Chapter 13*](B18571_13.xhtml#_idTextAnchor220). For now, the analyst
+    should complete the fields with as much detail as possible since this information
+    will be included in the forensic report. Once the fields have been filled in,
+    click **Next >**:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下一个窗口中，输入与映像相关的具体信息。我们将在[*第 13 章*](B18571_13.xhtml#_idTextAnchor220)讨论报告。目前，分析员应该尽可能详细地填写这些字段，因为这些信息将包含在法医报告中。填写完字段后，点击**下一步
+    >**：
+- en: '![Figure 8.16 – FTK Imager Evidence Item Information window ](img/B18571_08_016.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.16 – FTK Imager 证据项信息窗口](img/B18571_08_016.jpg)'
+- en: Figure 8.16 – FTK Imager Evidence Item Information window
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.16 – FTK Imager 证据项信息窗口
+- en: 'In the next window, verify that the image destination and filenames are correct.
+    In addition to this, you’ll be able to set the image fragmentation size and compression.
+    The fragmentation size can be set to `0` since this is where the entire disk image
+    will be contained within a single file. For now, the defaults will be utilized
+    since mounting a disk image that is fragmented is not an issue. Once the information
+    you’ve entered has been verified as correct, click **Finish**:'
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下一个窗口中，验证映像目标和文件名是否正确。除此之外，您还可以设置映像的碎片化大小和压缩。碎片化大小可以设置为`0`，因为整个磁盘映像将包含在一个文件中。现在，默认设置将被使用，因为挂载一个碎片化的磁盘映像不是问题。验证输入的信息无误后，点击**完成**：
+- en: '![Figure 8.17 – FTK Imager Select Image Destination window ](img/B18571_08_017.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.17 – FTK Imager 选择映像目标窗口](img/B18571_08_017.jpg)'
+- en: Figure 8.17 – FTK Imager Select Image Destination window
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.17 – FTK Imager 选择映像目标窗口
+- en: 'Now, the **Create Image** window will open. This is the final stage and is
+    where the analyst can cancel the creation of the image file. There are also two
+    options that the analyst should enable, depending on the use case. The first of
+    these involves FTK Imager verifying the image after it’s been created. In this
+    feature, FTK Imager will verify that no changes have been made and that the image
+    file is complete and without errors. Second, FTK Imager can create a list of all
+    files on the image. This may be handy for the analyst in the event that a specific
+    file(s) has evidentiary value. The analyst will be able to determine whether the
+    file is on this system. This can save time if several drives have to be examined.
+    Once all the settings have been verified, click **Start**:'
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，**创建映像**窗口将打开。这是最后阶段，分析员可以在此取消映像文件的创建。此外，根据使用场景，分析员应启用两个选项。第一个是FTK Imager在创建映像后验证映像。在此功能下，FTK
+    Imager将验证映像文件未被修改，并且是完整且无错误的。第二个是FTK Imager可以创建映像中所有文件的列表。如果特定文件具有证据价值，这对分析员来说可能非常有用。分析员将能够确定该文件是否存在于该系统中。如果需要检查多个驱动器，这可以节省时间。验证所有设置无误后，点击**开始**：
+- en: '![Figure 8.18 – FTK Imager Create Image window ](img/B18571_08_018.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.18 – FTK Imager 创建映像窗口](img/B18571_08_018.jpg)'
+- en: Figure 8.18 – FTK Imager Create Image window
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.18 – FTK Imager 创建映像窗口
+- en: 'FTK Imager will then begin the process of imaging the drive. This can take
+    several hours or even days, depending on the size of the drive being imaged, the
+    available processing speed of the imaging system, and the type of connection (FireWire,
+    USB, and so on) to the imaging system. While this is happening, the following
+    window will appear:'
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: FTK Imager接下来将开始映像驱动器的过程。根据被映像驱动器的大小、映像系统的可用处理速度以及与映像系统的连接类型（如FireWire、USB等），此过程可能需要数小时甚至数天。在此过程中，将会出现以下窗口：
+- en: '![Figure 8.19 – FTK Imager Creating Image window ](img/B18571_08_019.jpg)'
+  id: totrans-128
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.19 – FTK Imager 创建映像窗口](img/B18571_08_019.jpg)'
+- en: Figure 8.19 – FTK Imager Creating Image window
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.19 – FTK Imager 创建映像窗口
+- en: 'Once FTK Imager has completed the imaging process, a window will open. In this
+    window, FTK Imager will provide the incident response analyst with detailed information.
+    Something that should be of concern to analysts is the hashes that have been computed
+    for both the drive and the image. In this case, both the MD5 and **Secure Hash
+    Algorithm 1** (**SHA1**) hashes match, indicating that the imaging process captured
+    the drive properly and that no changes have been made to the evidence that was
+    taken from the suspect drive. It’s good practice to include this information as
+    part of the forensic report:'
+  id: totrans-130
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦 FTK Imager 完成成像过程，一个窗口将会弹出。在此窗口中，FTK Imager 会向事件响应分析员提供详细信息。分析员应关注的是，已为硬盘和镜像计算的哈希值。在此案例中，MD5
+    和 **安全哈希算法 1**（**SHA1**）哈希值匹配，表明成像过程正确地捕获了硬盘，并且从嫌疑硬盘提取的证据没有发生任何更改。将这些信息作为取证报告的一部分记录下来是一个良好的做法：
+- en: '![Figure 8.20 – FTK Imager result verification ](img/B18571_08_020.jpg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.20 – FTK Imager 结果验证](img/B18571_08_020.jpg)'
+- en: Figure 8.20 – FTK Imager result verification
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.20 – FTK Imager 结果验证
+- en: Navigate to the evidence drive. Here, the entire image can be located. Depending
+    on how FTK has been configured regarding fragment size, there may be several files
+    or a single evidence file. In addition to the evidence files, FTK Imager provides
+    a full list of all files on the hard drive.
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导航到证据驱动器。在这里，可以找到整个镜像文件。根据 FTK 配置的碎片大小，可能会有多个文件或一个单一的证据文件。除了证据文件外，FTK Imager
+    还提供了硬盘上所有文件的完整列表。
+- en: Finally, FTK Imager provides a text file with detailed information concerning
+    the imaging process. This information should be captured and included with any
+    subsequent forensic reporting. At this point, the imaging process has been completed
+    and the evidence drive needs to be returned to secure storage.
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，FTK Imager 会提供一个文本文件，详细说明成像过程中的信息。这些信息应被捕获并随后续的取证报告一起提供。此时，成像过程已经完成，证据驱动器需要返回安全存储。
+- en: Dead imaging provides the most forensically sound acquisition; however, there
+    may be times when responders will have to image a system that is powered on. This
+    would necessitate the responder to perform live imaging of a suspect system.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 死机成像提供了最为取证可靠的采集方式；然而，在某些情况下，响应人员可能需要对开机的系统进行成像。这就需要响应人员对嫌疑系统执行实时成像。
+- en: Live imaging
+  id: totrans-136
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 实时成像
+- en: In live imaging, the system is running, and the analyst uses a USB storage drive
+    to house the imaging program and the storage area. One simple technique is to
+    simply copy the FTK Imager directory installed on an imaging workstation to a
+    USB and execute it from there on the target system. Before that, though, the analyst
+    should perform a few checks on the system.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实时成像中，系统正在运行，分析员使用 USB 存储驱动器来存放成像程序和存储区域。一种简单的技术是将安装在成像工作站上的 FTK Imager 目录复制到
+    USB 上，并从那里执行目标系统的操作。但在此之前，分析员应对系统进行一些检查。
+- en: Exterro FTK Imager guidance
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Exterro FTK Imager 指导
+- en: 'FTK Imager can easily be configured to run from a USB device. It is recommended
+    that analysts have at least one or two of these handy. For detailed information
+    on how to configure a USB device, consult the Exterro website: [https://exterro.freshdesk.com/support/solutions/articles/69000765662-run-ftk-imager-from-a-flash-drive-imager-lite](https://exterro.freshdesk.com/support/solutions/articles/69000765662-run-ftk-imager-from-a-flash-drive-imager-lite).'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: FTK Imager 可以轻松配置为从 USB 设备运行。建议分析员至少准备一两个这样的设备。有关如何配置 USB 设备的详细信息，请参考 Exterro
+    网站：[https://exterro.freshdesk.com/support/solutions/articles/69000765662-run-ftk-imager-from-a-flash-drive-imager-lite](https://exterro.freshdesk.com/support/solutions/articles/69000765662-run-ftk-imager-from-a-flash-drive-imager-lite)。
+- en: Pre-imaging checks
+  id: totrans-140
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 成像前检查
+- en: Introduced over a decade ago, Microsoft BitLocker is the native FDE solution
+    used on Windows OS systems. In addition to BitLocker, there are a host of FDE
+    products. These solutions make it difficult for incident response analysts to
+    conduct an analysis of a system. A handy tool to determine if a system is using
+    BitLocker is Magnet Forensics’ Encrypted Disk Detector tool, available at [https://www.magnetforensics.com/resources/encrypted-disk-detector/](https://www.magnetforensics.com/resources/encrypted-disk-detector/).
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 十多年前，微软 BitLocker 被引入，成为 Windows 操作系统的本地全盘加密（FDE）解决方案。除了 BitLocker，还有许多 FDE
+    产品。这些解决方案使得事件响应分析员难以对系统进行分析。一个方便的工具，可以帮助判断系统是否启用了 BitLocker，那就是 Magnet Forensics
+    的加密磁盘检测工具，工具可通过以下网址获取：[https://www.magnetforensics.com/resources/encrypted-disk-detector/](https://www.magnetforensics.com/resources/encrypted-disk-detector/)。
+- en: 'Simply download the tool and run it via the command line. For example, the
+    following screenshot shows that the target system is running BitLocker:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只需下载工具并通过命令行运行。例如，以下截图显示目标系统正在运行 BitLocker：
+- en: '![Figure 8.21 – Encrypted Disk Detector ](img/B18571_08_021.jpg)'
+  id: totrans-143
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.21 – 加密磁盘检测器](img/B18571_08_021.jpg)'
+- en: Figure 8.21 – Encrypted Disk Detector
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.21 – 加密磁盘检测器
+- en: An additional check that should be performed is determining if the system has
+    an HDD or SSD and if TRIM is enabled. Refer to the previous section on SSDs for
+    the specific command that can be run.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还应进行的一项额外检查是确定系统是使用HDD还是SSD，并检查是否启用了TRIM。请参阅前一节关于SSD的内容，获取可以运行的具体命令。
+- en: Virtual systems
+  id: totrans-146
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 虚拟系统
+- en: Responders will often encounter virtual servers and even workstations as part
+    of an investigation. Virtualized systems can be acquired by simply exporting a
+    paused **virtual machine** (**VM**) to a removable drive. In other instances,
+    responders can make use of the snapshot feature of a virtual system. This creates
+    a separate file that can be analyzed at the date and time a snapshot is taken.
+    In either case, responders should make sure that the drive has been sanitized
+    properly and that the proper documentation has been addressed.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件响应者在调查过程中通常会遇到虚拟服务器甚至工作站。通过简单地将暂停的**虚拟机**（**VM**）导出到可移动驱动器，可以获取虚拟化系统。在其他情况下，响应者可以利用虚拟系统的快照功能。这会创建一个独立的文件，可以在拍摄快照的日期和时间进行分析。在这两种情况下，响应者应确保驱动器已正确清理，并且适当的文档已经处理。
+- en: 'To acquire a VM, simply pause the system and then move the entire directory
+    to the external media. (In some instances, this can even be accomplished remotely.)
+    In Windows virtual platforms such as VMware, several files make up the virtual
+    image:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要获取虚拟机，只需暂停系统，然后将整个目录移至外部介质。（在某些情况下，甚至可以远程完成此操作。）在Windows虚拟平台（如VMware）中，多个文件构成虚拟映像：
+- en: '![Figure 8.22 – ESXi VM files ](img/B18571_08_022.jpg)'
+  id: totrans-149
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.22 – ESXi 虚拟机文件](img/B18571_08_022.jpg)'
+- en: Figure 8.22 – ESXi VM files
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.22 – ESXi 虚拟机文件
+- en: 'Let us look at some of the files:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一下其中的一些文件：
+- en: '`.vmdk`: This is the virtual disk image file. This is the logical volume where
+    the virtual operating system and files reside. Obtaining these files is much like
+    imaging the `C:` drive on a physical system.'
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.vmdk`：这是虚拟磁盘映像文件。这是虚拟操作系统和文件所在的逻辑卷。获取这些文件就像是在物理系统上获取`C:`驱动器的镜像一样。'
+- en: '`.vmem`: The `.vmem` file is the virtual memory file. This is the storage area
+    for the virtual RAM or physical memory. This file can be exported and combined
+    with an additional file for analysis using the methods that will be discussed
+    in [*Chapter 10*](B18571_10.xhtml#_idTextAnchor173).'
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.vmem`：`.vmem`文件是虚拟内存文件。它是虚拟RAM或物理内存的存储区域。此文件可以导出，并与其他文件结合进行分析，方法将在[*第 10
+    章*](B18571_10.xhtml#_idTextAnchor173)中讨论。'
+- en: '`.vmss`: The VMware suspended state file saves the running configuration of
+    a suspended VM. This includes process and network connection data. This file is
+    combined with the `.vmem` file to provide the system memory.'
+  id: totrans-154
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.vmss`：VMware暂停状态文件保存暂停虚拟机的运行配置。这包括进程和网络连接数据。该文件与`.vmem`文件结合提供系统内存。'
+- en: '`.vmsn`: This is the virtual snapshot state file. This file contains the state
+    of the system when the snapshots were taken.'
+  id: totrans-155
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.vmsn`：这是虚拟快照状态文件。此文件包含拍摄快照时系统的状态。'
+- en: Incident responders can use these files in several ways. First, the `.vmdk`
+    file can be mounted the same way as an image file can in various digital forensics
+    software platforms. These will be discussed in [*Chapter 9*](B18571_09.xhtml#_idTextAnchor156).
+    Second, the `.vmsn` file can be used to reconstruct the system by simply copying
+    the file and working with the facsimile. From here, responders can look at the
+    behavior of the system or extract evidence without impacting the original `.``vmsn`
+    file.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 事件响应者可以通过多种方式使用这些文件。首先，`.vmdk`文件可以像图像文件一样挂载在各种数字取证软件平台中。这些将在[*第 9 章*](B18571_09.xhtml#_idTextAnchor156)中讨论。其次，`.vmsn`文件可以通过简单地复制文件并处理副本来重建系统。之后，响应者可以查看系统的行为或提取证据，而不影响原始的`.vmsn`文件。
+- en: 'Finally, the running memory that is captured through the `.vmem` and `.vmss`
+    files can be analyzed in much the same way you would analyze other memory captures.
+    To obtain the proper forensic data, the two files must be combined. This can be
+    done by utilizing the `vmss2core.exe` tool, which is included as part of the VMware
+    suite of tools. To combine these files, the following command syntax needs to
+    be used:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，通过 `.vmem` 和 `.vmss` 文件捕获的运行内存可以以类似分析其他内存捕获数据的方式进行分析。为了获取正确的取证数据，必须将这两个文件合并。这可以通过使用
+    `vmss2core.exe` 工具来完成，该工具作为 VMware 工具套件的一部分。合并这些文件时，需要使用以下命令语法：
+- en: '[PRE0]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The preceding command will produce a memory dump in the directory containing
+    the two files.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令将生成一个内存转储文件，存放在包含这两个文件的目录中。
+- en: Although virtualization is common in large enterprises, it should not represent
+    a significant challenge. In some ways, the ability to simply pause a system and
+    extract all the necessary files makes extracting the necessary evidence faster.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管虚拟化在大型企业中非常常见，但它不应构成一个重大挑战。从某种意义上来说，能够简单地暂停系统并提取所有必要的文件，使得提取必要证据的速度更快。
+- en: Thus far, the focus has been on Windows tools for imaging. Another option available
+    to incident responders is the use of Linux imaging tools. There are a variety
+    of tools that provide write-blocking and imaging capabilities that are often open
+    source.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，重点一直在 Windows 工具上进行影像处理。事件响应人员的另一种选择是使用 Linux 影像工具。有多种工具提供写保护和影像处理功能，且许多工具是开源的。
+- en: Linux imaging
+  id: totrans-162
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Linux 影像
+- en: '[*Chapter 3*](B18571_03.xhtml#_idTextAnchor046) provided an overview of various
+    forensic tools that are available to the incident response analyst. Some of these
+    tools include Linux distributions that can be leveraged during an incident for
+    various digital forensics tasks. The following example will demonstrate how a
+    Linux distribution with forensics applications can be deployed to capture a forensically
+    sound image of a potentially compromised computer.'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[*第3章*](B18571_03.xhtml#_idTextAnchor046)概述了可供事件响应分析师使用的各种取证工具。这些工具中有些包括可以在事件处理中使用的
+    Linux 发行版，执行各种数字取证任务。以下示例将演示如何部署带有取证应用程序的 Linux 发行版，以捕获潜在被攻破计算机的取证影像。'
+- en: The combination of a Linux distribution and a bootable USB device is an option
+    you can use to conduct forensic imaging of potentially compromised systems. Incident
+    response analysts may find themselves in a situation where multiple systems need
+    to be imaged and the analysts have only one write blocker. A great deal of time
+    will be wasted if the analyst must image each one of these systems in sequence.
+    In this situation, the analyst can avoid this by creating a bootable USB drive
+    for each system and imaging each one at the same time. All that the analyst needs
+    are an evidence drive and a bootable USB drive for each source of evidence. Utilizing
+    this technique will allow the analyst to image each system at the same time, saving
+    time that is better spent on other activities.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Linux 发行版和可启动 USB 设备的组合是一种可以用来对潜在被攻破系统进行取证影像的选项。事件响应分析师可能会遇到多个系统需要被取证影像的情况，而分析师只有一个写保护器。如果分析师必须按顺序对每个系统进行影像处理，将会浪费大量时间。在这种情况下，分析师可以通过为每个系统创建一个可启动的
+    USB 驱动器，并同时对每个系统进行影像处理来避免这种浪费。分析师只需要一个证据驱动器和每个证据来源的可启动 USB 驱动器。使用这种技术可以让分析师同时对每个系统进行影像处理，节省出可以用于其他活动的时间。
+- en: 'In this scenario, the **Computer Aided INvestigative Environment** Live (**CAINE**)
+    Linux distribution will be utilized to image the hard drive from a potentially
+    compromised system. First, the system is powered off and the bootable USB device
+    containing the CAINE OS is installed. The suspect system is then powered on. Incident
+    response analysts should be aware of how to change the boot order of a system
+    to ensure that it boots to the USB device. Analysts should also be prepared to
+    immediately power down the system if it attempts to boot into the native OS and
+    not the USB device. Let’s get started:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个场景中，将使用 **计算机辅助调查环境** 现场版 (**CAINE**) Linux 发行版来对潜在被攻破系统的硬盘进行影像处理。首先，系统关闭，并安装包含
+    CAINE 操作系统的可启动 USB 设备。然后启动嫌疑系统。事件响应分析师应当了解如何更改系统的启动顺序，以确保系统从 USB 设备启动。分析师还应准备好在系统试图从原生操作系统启动而非
+    USB 设备时，立即关闭系统。我们开始吧：
+- en: Ensure that the system with the suspect drive is powered off. Insert the forensic
+    OS drive into one of the available USB ports. Now, power on the computer and access
+    the BIOS. This is usually a combination of the function (*fn*) key and the *F2*,
+    *F8*, or *F12* key. If the system starts the host operating system shut down the
+    system and try again. It is a good practice to find out how to access the BIOS
+    for the system before starting the process.
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保怀疑硬盘所在的系统已关闭电源。将取证操作系统硬盘插入一个可用的 USB 端口。现在，打开计算机并进入 BIOS。这通常是通过按功能键（*fn*）和
+    *F2*、*F8* 或 *F12* 键组合来实现。如果系统启动了主机操作系统，请关闭系统并重试。在开始过程之前，最好了解如何进入系统的 BIOS 设置。
+- en: 'Once you boot into the forensic OS, insert the evidence drive into another
+    available USB port. Open the terminal and type the following command:'
+  id: totrans-167
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动进入取证操作系统后，将证据硬盘插入另一个可用的 USB 端口。打开终端并输入以下命令：
+- en: '[PRE1]'
+  id: totrans-168
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The `fdisk -l` command lists all partitions that are visible to the CAINE OS.
+    The output will look like this:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`fdisk -l` 命令列出了所有 CAINE 操作系统可见的分区。输出将如下所示：'
+- en: '![Figure 8.23 – fdisk output data ](img/B18571_08_023.jpg)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.23 – fdisk 输出数据](img/B18571_08_023.jpg)'
+- en: Figure 8.23 – fdisk output data
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.23 – fdisk 输出数据
+- en: In the preceding screenshot, the first disk indicated is SDA, with 447.13 GB
+    of storage. Further down, the SDA disk is divided into three separate partitions.
+    The partition labeled SDA2 is the boot partition. With the SDA3 partition, it
+    has a size of 387.7 GB, as shown by the cursor arrow. This is the data storage
+    area where the bulk of the digital evidence will be located. It is the SDA disk
+    that will be imaged.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上面的截图中，第一个硬盘是 SDA，存储容量为 447.13 GB。往下看，SDA 硬盘被划分为三个单独的分区。标为 SDA2 的分区是启动分区。SDA3
+    分区的大小为 387.7 GB，正如光标所示。这是存储大部分数字证据的数据存储区域。将对该 SDA 硬盘进行成像。
+- en: 'Scrolling down through the output, the evidence and CAINE OS drive are also
+    visible:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 向下滚动输出内容，可以看到证据硬盘和 CAINE 操作系统硬盘也可见：
+- en: '![Figure 8.24 – fdisk output data ](img/B18571_08_024.jpg)'
+  id: totrans-174
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.24 – fdisk 输出数据](img/B18571_08_024.jpg)'
+- en: Figure 8.24 – fdisk output data
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.24 – fdisk 输出数据
+- en: In the preceding screenshots, there are three separate disks, each with its
+    own partitions. The disk labeled `/dev/sdc` is the USB drive that contains the
+    CAINE OS that the system has been booted from. The `/dev/sdb` disk is the evidence
+    drive that the system will be imaged to. Finally, the target system is labeled
+    as `/dev/sda`.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上面的截图中，有三个独立的硬盘，每个硬盘有自己的分区。标为 `/dev/sdc` 的硬盘是包含 CAINE 操作系统的 USB 驱动器，系统从该驱动器启动。`/dev/sdb`
+    硬盘是系统将要进行成像的证据硬盘。最后，目标系统标记为 `/dev/sda`。
+- en: 'After identifying the proper target drive of the system, we want to confirm
+    that the imaging process will not change the data. The CAINE OS has a built-in
+    software write blocker. On the desktop, you will find **Block on/off**, which
+    is the title of the actual path to the software write blockers. This opens the
+    software write blocker that will be utilized. While examining the list of devices,
+    you will see that the only one that is writable is **SDB**, which we previously
+    identified as the evidence drive. The other drives are set to read-only. This
+    assures the incident response analysts that the imaging process will not alter
+    the target drive (it is a good idea for analysts to take a screenshot of such
+    information for subsequent reporting):'
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在识别出系统的目标硬盘后，我们需要确认成像过程不会改变数据。CAINE 操作系统内置了一个软件写保护器。在桌面上，你会看到 **Block on/off**，这是指向实际软件写保护器路径的标题。点击后会打开用于此过程的写保护器。在检查设备列表时，你会看到唯一可以写入的硬盘是
+    **SDB**，这就是我们之前确认的证据硬盘。其他硬盘都设置为只读。这可以确保事件响应分析人员，成像过程不会改变目标硬盘（分析人员最好截取该信息的屏幕截图，以便后续报告）：
+- en: '![Figure 8.25 – UnBlock device selection ](img/B18571_08_025.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.25 – 解锁设备选择](img/B18571_08_025.jpg)'
+- en: Figure 8.25 – UnBlock device selection
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.25 – 解锁设备选择
+- en: 'After verifying that the evidence drive is in place and that the target system
+    has been set to read-only, configure the evidence drive so that it is mounted
+    properly. Create a directory called `Disk_Images` or a similar name as a repository
+    for this and any subsequent disk images using the following command:'
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在确认证据硬盘已就位并且目标系统已设置为只读后，配置证据硬盘以确保其正确挂载。使用以下命令创建一个名为 `Disk_Images` 或类似名称的目录，作为此及任何后续磁盘镜像的存储库：
+- en: '[PRE2]'
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Next, mount the SDB disk on the mount directory that was created in the last
+    step with the following command. Make note that in this case, it is the larger
+    disk partition of the evidence drive:'
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用以下命令将 SDB 磁盘挂载到上一步中创建的挂载目录。请注意，在这种情况下，它是证据驱动器的较大磁盘分区：
+- en: '[PRE3]'
+  id: totrans-183
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Now, the evidence drive has been mounted on the mount point that was created.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，证据驱动器已经挂载到创建的挂载点上。
+- en: 'Next, change the directory to the evidence drive by using the following command:'
+  id: totrans-185
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用以下命令切换到证据驱动器的目录：
+- en: '[PRE4]'
+  id: totrans-186
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Make a directory for the system’s specific image file. In this case, the directory
+    will contain the incident number `Incident2022-034`, as the directory. It is a
+    good idea to make this directory tie indirectly with the incident in some fashion.
+    The following command will create the proper directory:'
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为系统的特定映像文件创建一个目录。在这种情况下，目录将包含事件编号`Incident2022-034`，作为目录名。最好将此目录与事件间接关联。以下命令将创建正确的目录：
+- en: '[PRE5]'
+  id: totrans-188
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Change to the directory created in *step 7* by executing the following command:'
+  id: totrans-189
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过执行以下命令，切换到在*步骤 7*中创建的目录：
+- en: '[PRE6]'
+  id: totrans-190
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Now that you’re in the proper directory, all you need to do is image the suspect
+    drive. There are several tools available for doing this. In this example, the
+    Dc3dd tool will be used. This tool was developed by the **Department of Defense
+    Cyber Crime Center** (**DC3**) forensic specialist Jesse Kornblum. This application
+    has additional features that aren’t found in the dd Linux imaging application.
+    These include error reporting and multiple hashing algorithms that can be leveraged
+    on the fly. To start the imaging process, enter the following command:'
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，您已经进入了正确的目录，接下来要做的就是对嫌疑人驱动器进行成像。现在有多个工具可用于此操作。在此示例中，将使用 Dc3dd 工具。该工具是由**国防部网络犯罪中心**（**DC3**）的取证专家
+    Jesse Kornblum 开发的。此应用程序具有 dd Linux 映像应用程序中没有的附加功能。这些功能包括错误报告和可以即时使用的多种哈希算法。要开始成像过程，输入以下命令：
+- en: '[PRE7]'
+  id: totrans-192
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: The preceding command contains `dc3dd`. Start by imaging the disk at `sda` to
+    the evidence drive and output the image file with the name `ACMELaptop056`.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的命令包含`dc3dd`。首先，将` sda`磁盘映像到证据驱动器，并输出一个名为`ACMELaptop056`的映像文件：
+- en: 'The command also has Dc3dd hash the image file with the MD5 algorithm. Finally,
+    an `ACMELaptop56.txt` log file is created that can be utilized for reporting purposes.
+    Running the command produces the following output:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令还使 Dc3dd 使用 MD5 算法对映像文件进行哈希计算。最后，创建一个名为`ACMELaptop56.txt`的日志文件，可以用于报告目的。运行该命令会生成以下输出：
+- en: '![Figure 8.26 – dc3dd command and output ](img/B18571_08_026.jpg)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.26 – dc3dd 命令和输出](img/B18571_08_026.jpg)'
+- en: Figure 8.26 – dc3dd command and output
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.26 – dc3dd 命令和输出
+- en: 'Depending on the size of the drive, this process can take hours. During this
+    time, the analyst can keep track of any progress that is made. Upon completion,
+    the application will produce some output indicating how many sectors were utilized
+    for input and how many sectors were used as an output to the image file. Ideally,
+    these should be the same. Finally, an MD5 hash of the image file is calculated
+    and utilized as a part of the output:'
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 根据驱动器的大小，这个过程可能需要几个小时。在此期间，分析师可以跟踪所做的进展。完成后，应用程序将产生一些输出，指示输入使用了多少个扇区，输出到映像文件中使用了多少个扇区。理想情况下，这两个数字应该相同。最后，计算并利用映像文件的
+    MD5 哈希值，作为输出的一部分：
+- en: '![Figure 8.27 – Dc3dd imaging completion ](img/B18571_08_027.jpg)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.27 – Dc3dd 成像完成](img/B18571_08_027.jpg)'
+- en: Figure 8.27 – Dc3dd imaging completion
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.27 – Dc3dd 成像完成
+- en: 'Examining the evidence drive from a Windows system reveals the image and log
+    file that were created with Dc3dd:'
+  id: totrans-200
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 Windows 系统检查证据驱动器，可以看到使用 Dc3dd 创建的映像和日志文件：
+- en: '![Figure 8.28 – Dc3dd output files ](img/B18571_08_028.jpg)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.28 – Dc3dd 输出文件](img/B18571_08_028.jpg)'
+- en: Figure 8.28 – Dc3dd output files
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.28 – Dc3dd 输出文件
+- en: 'Examining the log file reveals the following information, all of which should
+    be incorporated into any subsequent reporting:'
+  id: totrans-203
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查日志文件可以揭示以下信息，所有这些信息都应该纳入后续报告中：
+- en: '[PRE8]'
+  id: totrans-204
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: '[PRE9]'
+  id: totrans-205
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: '[PRE12]'
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-213
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-215
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '[PRE20]'
+  id: totrans-216
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Linux is a viable option when it comes to acquiring disk evidence. One significant
+    advantage it has is that it is easy to scale. In the event that multiple systems
+    have to be acquired, responders can use several USB storage drives and Linux USB
+    devices and acquire them in parallel, rather than waiting for software to become
+    available. CAINE is an excellent option for this as the included write blocker
+    also affords a measure of evidence integrity in the process.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux是获取磁盘证据时一个可行的选择。它的一个重要优势是易于扩展。如果必须获取多个系统，响应者可以使用多个USB存储驱动器和Linux USB设备，并行进行获取，而不是等待软件可用。CAINE是一个极好的选择，因为它包含的写保护器还为过程中提供了一定的证据完整性。
+- en: Imaging is a critical process for responders to understand. The incident will
+    often dictate which technique should be used. In any incident, though, responders
+    should ensure that the process is conducted in a sound manner as the subsequent
+    investigation will often rely on data acquired from these systems.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成像是响应者必须了解的关键过程。事件通常会决定应该使用哪种技术。然而，在任何事件中，响应者应确保该过程以可靠的方式进行，因为后续调查往往依赖于从这些系统中获取的数据。
+- en: Summary
+  id: totrans-219
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Not every incident will dictate the need to obtain an image from a potentially
+    compromised hard drive or another volume. Regardless, incident response analysts
+    should be familiar with, and able to perform, this function when called upon.
+    The evidence that’s found on a hard drive may be critical to determining a sequence
+    of events or to obtaining actual files that can aid in determining the root cause
+    of an incident. This is the central reason why responders need to understand the
+    fundamentals of imaging and the tools and processes involved, how to create a
+    stage drive, how to use write blockers, and how to execute any of the imaging
+    techniques we mentioned in this chapter. As with any process that’s performed
+    in a forensic discipline, imaging should be conducted in a systematic manner in
+    which all the steps are followed and properly documented. This will ensure that
+    any evidence that’s obtained will be sound and admissible in a courtroom.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 并不是每个事件都会要求从潜在受损的硬盘或其他存储卷中获取镜像。无论如何，事件响应分析员应该熟悉并能够在需要时执行此功能。硬盘上找到的证据可能对确定事件的顺序或获取有助于查明事件根本原因的实际文件至关重要。这也是响应者需要了解成像基础知识、相关工具和流程的核心原因，包括如何创建舞台驱动器、如何使用写保护器，以及如何执行本章中提到的任何成像技术。与任何法证学科中执行的过程一样，成像应该以系统的方式进行，确保所有步骤都得到遵循并得到适当的文档记录。这将确保所获取的任何证据都能在法庭上被接受并具备法律效力。
+- en: In the next chapter, we will discuss examining network-based evidence in relation
+    to the network activity that is associated with an incident.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将讨论与事件相关的网络活动相关的网络证据检查。
+- en: Questions
+  id: totrans-222
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What are the two types of write blockers? (Select two)
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 写保护器有哪两种类型？（选择两个）
+- en: Hardware
+  id: totrans-224
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 硬件
+- en: Digital
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 数字
+- en: Software
+  id: totrans-226
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 软件
+- en: Court-approved
+  id: totrans-227
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 法院批准
+- en: Responders should ensure that any storage drive that’s used for imaging is properly
+    sanitized before each use.
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 响应者应确保每次使用前，任何用于成像的存储驱动器都已正确消毒。
+- en: 'True'
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: What type of imaging is used to acquire the entire physical volume of a drive?
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 哪种成像方法用于获取驱动器的整个物理卷？
+- en: Dead imaging
+  id: totrans-232
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 死机成像
+- en: Live imaging
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实时成像
+- en: Remote imaging
+  id: totrans-234
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 远程成像
+- en: Hardware imaging
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 硬件成像
+- en: Which imaging application is found only on Linux systems?
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 哪种成像应用程序仅在Linux系统上找到？
+- en: FTK Imager
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: FTK Imager
+- en: EnCase Imager
+  id: totrans-238
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: EnCase Imager
+- en: AFF4
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: AFF4
+- en: dd
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: dd
+- en: Further reading
+  id: totrans-241
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'Refer to the following resources for more information about the topics covered
+    in this chapter:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考以下资源，了解本章涵盖的主题：
+- en: '*FTK Imager* *Guide*: [https://d1kpmuwb7gvu1i.cloudfront.net/Imager/4_7_1/FTKImager_UserGuide.pdf](https://d1kpmuwb7gvu1i.cloudfront.net/Imager/4_7_1/FTKImager_UserGuide.pdf)'
+  id: totrans-243
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*FTK Imager* *指南*：[https://d1kpmuwb7gvu1i.cloudfront.net/Imager/4_7_1/FTKImager_UserGuide.pdf](https://d1kpmuwb7gvu1i.cloudfront.net/Imager/4_7_1/FTKImager_UserGuide.pdf)'
+- en: '*NIST Computer Forensic Tools & Techniques* *Catalog*: [https://toolcatalog.nist.gov/search/index.php?ff_id=1](https://toolcatalog.nist.gov/search/index.php?ff_id=1)'
+  id: totrans-244
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*NIST计算机取证工具与技术* *目录*：[https://toolcatalog.nist.gov/search/index.php?ff_id=1](https://toolcatalog.nist.gov/search/index.php?ff_id=1)'
+- en: '*An Overview of Disk Imaging Tool in Computer* *Forensics*: [https://www.sans.org/reading-room/whitepapers/incident/overview-disk-imaging-tool-computer-forensics-643](https://www.sans.org/reading-room/whitepapers/incident/overview-disk-imaging-tool-computer-forensics-643)'
+  id: totrans-245
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*计算机取证中磁盘映像工具概述*：[https://www.sans.org/reading-room/whitepapers/incident/overview-disk-imaging-tool-computer-forensics-643](https://www.sans.org/reading-room/whitepapers/incident/overview-disk-imaging-tool-computer-forensics-643)'
+- en: 'Part 3: Evidence Analysis'
+  id: totrans-246
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第三部分：证据分析
+- en: Having completed the acquisition of digital evidence in Part 2, Part 3 will
+    focus on the proper analysis techniques of digital forensics. This part will focus
+    on the proper tools and techniques to determine the root cause of an incident.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成第二部分的数字证据获取后，第三部分将重点讲解数字取证的正确分析技巧。本部分将专注于使用合适的工具和技术来确定事件的根本原因。
+- en: 'This part comprises the following chapters:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本部分包括以下章节：
+- en: '[*Chapter 9*](B18571_09.xhtml#_idTextAnchor156)*, Analyzing Network Evidence*'
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[*第9章*](B18571_09.xhtml#_idTextAnchor156)*，分析网络证据*'
+- en: '[*Chapter 10*](B18571_10.xhtml#_idTextAnchor173)*, Analyzing System Memory*'
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[*第10章*](B18571_10.xhtml#_idTextAnchor173)*，分析系统内存*'
+- en: '[*Chapter 11*](B18571_11.xhtml#_idTextAnchor188)*, Analyzing System Storage*'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[*第11章*](B18571_11.xhtml#_idTextAnchor188)*，分析系统存储*'
+- en: '[*Chapter 12*](B18571_12.xhtml#_idTextAnchor204)*, Analyzing Log Files*'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[*第12章*](B18571_12.xhtml#_idTextAnchor204)*，分析日志文件*'
+- en: '[*Chapter 13*](B18571_13.xhtml#_idTextAnchor220)*, Writing the Incident Report*'
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[*第13章*](B18571_13.xhtml#_idTextAnchor220)*，撰写事件报告*'

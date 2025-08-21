@@ -1,0 +1,1719 @@
+- en: Identification and Extraction of Hidden Components
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 隐藏组件的识别与提取
+- en: Today, the most common use for reverse engineering is in targeting malware.
+    Like any other software, malware has its installation process. The difference
+    is that it does not ask for the user's permission to install. Malware does not
+    even install in the `Program files` folder where other legitimate applications
+    are installed. Rather, it tends to install its malware file in folders that are
+    not commonly entered by the user, making it hidden from being noticed. However,
+    some malware shows up noticed and generates copies of itself in almost all noticeable
+    folders such as the desktop. Its purpose is to get its copies executed by users,
+    be it by accidental double-click or by curiosity. This is what we usually call
+    malware persistence.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 目前，逆向工程最常见的应用是针对恶意软件。像其他任何软件一样，恶意软件也有其安装过程。不同之处在于它不会请求用户的安装许可。恶意软件甚至不会安装到`Program
+    files`文件夹中，那里是其他合法应用程序的安装位置。相反，它倾向于将恶意软件文件安装到用户不常访问的文件夹中，从而避免被注意到。然而，有些恶意软件会被注意到，并在几乎所有显眼的文件夹中生成其副本，比如桌面。它的目的是让用户通过意外的双击或好奇心来执行其副本。这就是我们通常所说的恶意软件持久性。
+- en: Persistence is when malware consistently runs in the background. In this chapter,
+    we will be pointing out general techniques used by malware to become persistent.
+    We will also explain common locations where malware files are stored. Major behaviors
+    of malware and some tools that are capable of identifying how the malware installs
+    itself in the system will also be shown.  Understanding how malware is delivered
+    will definitely help a reverse engineer explain how the attacker was able to compromise
+    the system.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 持久性是指恶意软件持续在后台运行。在本章中，我们将指出恶意软件通常用来实现持久性的技术方法。我们还将解释恶意软件文件存储的常见位置。还将展示恶意软件的主要行为及一些能够识别恶意软件如何在系统中安装的工具。理解恶意软件的传播方式将帮助逆向工程师解释攻击者是如何成功入侵系统的。
+- en: 'In this chapter we will learn about the following:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们将学习以下内容：
+- en: The basics of the operating system environment
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 操作系统环境基础
+- en: 'Typical malware behavior:'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 典型的恶意软件行为：
+- en: Malware delivery
+  id: totrans-6
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恶意软件传递
+- en: Malware persistence
+  id: totrans-7
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恶意软件持久性
+- en: Malware payload
+  id: totrans-8
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恶意软件有效载荷
+- en: Tools used to identify hidden components
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用于识别隐藏组件的工具
+- en: Technical requirements
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The discussions will use the Windows environment. We will be using the virtual
+    machine setup we created in the previous *chapter*. In addition, you''ll need
+    to download and install this software: the SysInternals suite ([https://docs.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite](https://docs.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite)).'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 讨论将使用 Windows 环境。我们将使用在前一*章节*中创建的虚拟机设置。此外，您还需要下载并安装以下软件：SysInternals 套件（[https://docs.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite](https://docs.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite)）。
+- en: The operating system environment
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 操作系统环境
+- en: Doing reverse engineering requires the analyst to understand where the software
+    being reversed is being run. The major parts that software requires in order to
+    work in an operating system are the memory and the filesystem. In Windows operating
+    systems, besides the memory and the filesystem, Microsoft introduced the registry
+    system, which is actually stored in protected files called registry hives.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进行逆向工程要求分析人员了解正在逆向的软件运行的环境。软件在操作系统中运行所需的主要部分是内存和文件系统。在 Windows 操作系统中，除了内存和文件系统，微软还引入了注册表系统，实际上这些数据存储在被保护的文件中，称为注册表蜂巢。
+- en: The filesystem
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 文件系统
+- en: The filesystem is where data is stored directly to the physical disk drive. These
+    filesystems manage how files and directories are stored in the disk. Various disk
+    filesystems have their own variation of efficiently reading and writing data.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件系统是直接将数据存储到物理硬盘驱动器的地方。这些文件系统管理文件和目录在磁盘上的存储方式。各种磁盘文件系统有自己高效读写数据的变体。
+- en: There are different disk filesystems such as `FAT`, `NTFS`, `ex2`, `ex3`, `XFS`,
+    and `APFS`. Common filesystems used by Windows are `FAT32` and `NTFS`. Stored
+    in the filesystem is information about the directory paths and files. It includes
+    the filename, size of the file, date stamps, and permissions.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有不同的磁盘文件系统，如`FAT`、`NTFS`、`ex2`、`ex3`、`XFS` 和 `APFS`。Windows 常用的文件系统是 `FAT32`
+    和 `NTFS`。文件系统中存储了关于目录路径和文件的信息，包括文件名、文件大小、日期戳和权限。
+- en: 'The following screenshot shows the information stored in the filesystem about
+    `bfsvc.exe`:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了存储在文件系统中的 `bfsvc.exe` 信息：
+- en: '![](img/3d3d23fa-993b-4722-9c78-5229f649f2c0.png)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3d3d23fa-993b-4722-9c78-5229f649f2c0.png)'
+- en: In previous MacOS X versions, file information and data are stored in resource
+    forks. Resource forks are actually deprecated but backward compatibility still
+    exists on recent versions of MacOS. A file has two forks stored in the filesystem,
+    the data fork and the resource fork. The data fork contains unstructured data,
+    while the resource fork contains structured data. The resource fork contains information
+    such as the executable machine code, icons, shape of an alert box, string used
+    in the file, and so forth. For instance, if you wanted to back up a Mac application
+    by simply moving it to a Windows hard drive then moving it back, the Mac application
+    will no longer open. While transferring, only the file gets transferred but the
+    resource fork gets stripped out in the process. Simple copy tools don't respect
+    the forks. Instead, Mac developers developed tools to synchronize files to and
+    from external disks.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以前的 MacOS X 版本中，文件信息和数据存储在资源分支中。资源分支实际上已被弃用，但在最近版本的 MacOS 中仍然存在向后兼容性。一个文件在文件系统中有两个分支，数据分支和资源分支。数据分支包含非结构化数据，而资源分支包含结构化数据。资源分支包含诸如可执行机器代码、图标、警告框的形状、文件中使用的字符串等信息。例如，如果你想通过简单地将一个
+    Mac 应用程序移动到 Windows 硬盘上再移动回来来备份它，那么该 Mac 应用程序将无法再打开。在转移过程中，只有文件被转移，而资源分支会被剥离。简单的复制工具不会尊重分支。相反，Mac
+    开发者开发了同步文件到外部磁盘的工具。
+- en: Memory
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内存
+- en: When a Windows executable file executes, the system allocates a memory space,
+    reads the executable file from the disk, writes it at predefined sections in the
+    allocated memory, then allows the code to execute from there. This block of memory
+    is called a process block and is linked to other process blocks. Basically, every
+    program that executes consumes a memory space as a process.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当 Windows 可执行文件执行时，系统会分配一个内存空间，将可执行文件从磁盘中读取，写入到分配的内存的预定位置，然后允许代码从该位置执行。这个内存块被称为进程块，并且与其他进程块相连。基本上，每个执行的程序都会消耗一个内存空间，作为一个进程。
+- en: 'The following screenshot shows a Windows Task Manager''s view of the list of
+    processes:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了 Windows 任务管理器中进程列表的视图：
+- en: '![](img/b604f103-6f56-472c-892b-76c701360402.png)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b604f103-6f56-472c-892b-76c701360402.png)'
+- en: The registry system
+  id: totrans-24
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 注册表系统
+- en: 'In Windows, the registry is a common database that contains system-wide configuration
+    and application settings.  Examples of stored information in the registry are
+    as follows:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Windows 中，注册表是一个包含系统范围配置和应用程序设置的公共数据库。以下是存储在注册表中的一些信息示例：
+- en: 'Associated programs that execute specific files:'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 执行特定文件的关联程序：
+- en: DOCX files are associated with Microsoft Word
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DOCX 文件与 Microsoft Word 关联
+- en: PDF files are associated with Adobe Reader
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PDF 文件与 Adobe Reader 关联
+- en: Associated icons to specific files and folders
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与特定文件和文件夹关联的图标
+- en: 'Software settings:'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 软件设置：
+- en: Uninstall configuration
+  id: totrans-31
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 卸载配置
+- en: Update sites
+  id: totrans-32
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 更新站点
+- en: Ports used
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用的端口
+- en: Product IDs
+  id: totrans-34
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 产品 ID
+- en: User and group profiles
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户和组配置文件
+- en: 'Printer setup:'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打印机设置：
+- en: Default printer
+  id: totrans-37
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 默认打印机
+- en: Driver names
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 驱动程序名称
+- en: Designated drivers for specific services
+  id: totrans-39
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 指定服务的驱动程序
+- en: 'The registry is stored in hive files. The list of hive files is also found
+    in the registry itself, as can be seen in the following screenshot:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表存储在蜂窝文件中。蜂窝文件的列表也可以在注册表中找到，如以下截图所示：
+- en: '![](img/a752ad00-daec-41d9-ae13-89640296cb69.png)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a752ad00-daec-41d9-ae13-89640296cb69.png)'
+- en: 'Writing and reading information from the registry requires using Windows registry
+    APIs. The registry can be viewed visually using the Registry Editor. Entries in
+    the right pane of the Registry Editor are the registry keys. On the left pane,
+    the registry values are found under the Name column, as can be seen in the following
+    screenshot:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从注册表写入和读取信息需要使用 Windows 注册表 API。可以使用注册表编辑器以可视化方式查看注册表。注册表编辑器右侧窗格中的条目是注册表键。在左侧窗格中，注册表值位于名称列下，如以下截图所示：
+- en: '![](img/fcefc1ec-f942-4c85-91ec-2a9f928c85ad.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/fcefc1ec-f942-4c85-91ec-2a9f928c85ad.png)'
+- en: Typical malware behavior
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 常见恶意软件行为
+- en: 'Malware is simply defined as malicious software. You''d expect bad things to
+    happen to your system environment once malware has entered. Once typical malware
+    enters the system, it does two basic things: installs itself and does its evil
+    work. With the intent of forcing itself to be installed in the system malware
+    does not need to notify the user at all. Instead, it directly makes changes to
+    the system.'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件简单定义为恶意软件。一旦恶意软件进入系统，你会预期系统环境会发生不好的事情。一旦典型的恶意软件进入系统，它会做两件基本的事情：安装自身并进行其恶行。为了强制自己安装在系统中，恶意软件不需要通知用户。相反，它直接对系统进行更改。
+- en: Persistence
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 持久化
+- en: One of the changes malware makes in the system is to make itself resident. 
+    Malware persistence means that the malware will still be running in background
+    and, as much as possible, all the time. For example, malware gets executed after
+    every boot-up of the system, or malware gets executed at a certain time of the
+    day. The most common way for malware to achieve persistence is to drop a copy
+    of itself in some folder in the system and make an entry in the registry.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件在系统中进行的一个变化是使其成为常驻程序。恶意软件的持久性意味着恶意软件将在后台持续运行，并尽可能长时间运行。例如，恶意软件会在每次系统启动后执行，或者恶意软件会在某个特定时间执行。恶意软件实现持久性最常见的方式是将其副本放入系统的某个文件夹中，并在注册表中创建一个条目。
+- en: 'The following view of the registry editor shows a registry entry by the `GlobeImposter`
+    ransomware:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下注册表编辑器视图显示了`GlobeImposter`勒索病毒的注册表条目：
+- en: '![](img/6f1764a9-ab35-4af3-af54-29c59201920c.png)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6f1764a9-ab35-4af3-af54-29c59201920c.png)'
+- en: Any entries made under the registry key `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\
+    Windows\CurrentVersion\Run` are expected to run every time Windows starts. In
+    this case, the `GlobeImposter` ransomware's executable file stored in `C:\Users\JuanIsip\AppData\Roaming\huVyja.exe` becomes
+    persistent.   `BrowserUpdateCheck` is the registry value, while the path is the
+    registry data. What matters under this registry key are the paths, regardless
+    of the registry value name.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在注册表项`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`下的任何条目都预计在每次
+    Windows 启动时运行。在这种情况下，存储在`C:\Users\JuanIsip\AppData\Roaming\huVyja.exe`中的`GlobeImposter`勒索病毒的可执行文件变得持久化。`BrowserUpdateCheck`是注册表值，而路径是注册表数据。在这个注册表项下，重要的是路径，不论注册表值名称是什么。
+- en: There are several areas in the registry that can trigger the execution of a
+    malware executable file.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在注册表中有几个区域可以触发恶意软件可执行文件的执行。
+- en: Run keys
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 启动项
+- en: Entering a file path in the registry data under these registry keys will trigger
+    execution when Windows starts, as can be seen in the following registry path for
+    the Windows 64-bit versions
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些注册表键下的注册表数据中输入文件路径将在 Windows 启动时触发执行，正如以下 Windows 64位版本的注册表路径所示。
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-54
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+  id: totrans-55
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunOnceEx`'
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunOnceEx`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices`'
+  id: totrans-57
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\N\RunServicesOnce`'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\N\RunServicesOnce`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run`'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run`'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Windows\CurrentVersion\Run`'
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Windows\CurrentVersion\Run`'
+- en: 'Programs that are listed under these registry keys will trigger execution when
+    the current user logs in, as can be seen in the following registry path:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些注册表键下列出的程序将在当前用户登录时触发执行，正如以下注册表路径所示：
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`'
+  id: totrans-62
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnceEx`'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnceEx`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices`'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServicesOnce`'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServicesOnce`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Windows\Run`'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Windows\Run`'
+- en: The keys names containing `Once` will have the listed programs that run only
+    once. The malware may still persist if it keeps on placing its own file path under
+    the `RunOnce`, `RunOnceEx` or `RunServicesOnce` keys.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 含有 `Once` 的键名将列出仅运行一次的程序。如果恶意软件继续将其文件路径放置在 `RunOnce`、`RunOnceEx` 或 `RunServicesOnce`
+    键下，它可能仍会持续存在。
+- en: Load and Run values
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加载和运行值
+- en: 'The following registry values, under their respective registry key, will trigger
+    execution when any user logs in:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下注册表值，在其相应的注册表项下，将在任何用户登录时触发执行：
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Windows`'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows NT\CurrentVersion\Windows`'
+- en: '`Load = <file path>`'
+  id: totrans-72
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Load = <文件路径>`'
+- en: '`Run = <file path>`'
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Run = <文件路径>`'
+- en: '**BootExecute value**'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**BootExecute 值**'
+- en: '`HKEY_LOCAL_MACHINE\SYSTEM\ControlSetXXX\Control\Session Manager`'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SYSTEM\ControlSetXXX\Control\Session Manager`'
+- en: '`XXX` in `ControlSetXXX` is a three digit number usually `ControlSet001`, `ControlSet002`,
+    or `ControlSet003`.'
+  id: totrans-76
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`XXX` 在 `ControlSetXXX` 中是一个三位数，通常是 `ControlSet001`、`ControlSet002` 或 `ControlSet003`。'
+- en: '`BootExecute = <file path>`'
+  id: totrans-77
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`BootExecute = <文件路径>`'
+- en: The default value of `BootExecute` is `autocheck autochk *`
+  id: totrans-78
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`BootExecute` 的默认值是 `autocheck autochk *`'
+- en: '**Winlogon key**'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Winlogon 键**'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+- en: Activities under this registry key are executed during Windows logon
+  id: totrans-81
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 该注册表项下的活动在 Windows 登录时执行
+- en: '`UserInit = <file path>`'
+  id: totrans-82
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`UserInit = <文件路径>`'
+- en: The default value of `Userinit` is `C:\Windows\system32\userinit.exe`
+  id: totrans-83
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Userinit` 的默认值是 `C:\Windows\system32\userinit.exe`'
+- en: '`Notify = <dll file path>`'
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Notify = <dll 文件路径>`'
+- en: '`Notify` is not set by default. It is expected to be a dynamic link library
+    file'
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 默认情况下未设置 `Notify`。它应该是一个动态链接库文件
+- en: '`Shell = <exe file path>`'
+  id: totrans-86
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Shell = <exe 文件路径>`'
+- en: The default value of `Shell` is `explorer.exe`
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Shell` 的默认值是 `explorer.exe`'
+- en: '`HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`'
+- en: '`Shell = <exe file path>`'
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Shell = <exe 文件路径>`'
+- en: The default value of `Shell` is `` `explorer.exe` ``
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Shell` 的默认值是 `` `explorer.exe` ``'
+- en: '**Policy scripts keys**'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**策略脚本键**'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Shutdown\0\N`'
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Shutdown\0\N`'
+- en: where `N` is a number starting from `0`. Multiple scripts or executables can
+    be run during the shutdown sequence
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 其中 `N` 是从 `0` 开始的数字。在关机过程中，可以运行多个脚本或可执行文件
+- en: '`Script = [file path of executable file or script]`'
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Script = [可执行文件或脚本的文件路径]`'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Startup\0\N`'
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Startup\0\N`'
+- en: This is where `N` is a number starting from `0`. Multiple scripts or executables
+    can be run during the startup sequence.
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这里的 `N` 是从 `0` 开始的数字。在启动过程中，可以运行多个脚本或可执行文件。
+- en: '`Script = [file path of executable file or script]`'
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Script = [可执行文件或脚本的文件路径]`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Logon\0\N`'
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Logon\0\N`'
+- en: This is where `N` is a number starting from `0`. Multiple scripts or executables
+    can be run when a user logs off.
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这里的 `N` 是从 `0` 开始的数字。在用户注销时，可以运行多个脚本或可执行文件。
+- en: '`Script = [file path of executable file or script]`'
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Script = [可执行文件或脚本的文件路径]`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Logoff\0\N`'
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Logoff\0\N`'
+- en: where N is a number starting from 0\. Multiple scripts or executables can be
+    run when a user logs off
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 其中 N 是从 0 开始的数字。在用户注销时，可以运行多个脚本或可执行文件
+- en: '`Script = [file path of executable file or script]`'
+  id: totrans-103
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Script = [可执行文件或脚本的文件路径]`'
+- en: '**AppInit_DLLs values**'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**AppInit_DLLs 值**'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows`'
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows`'
+- en: '`AppInit_DLLs = [a list of DLLs]`'
+  id: totrans-106
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`AppInit_DLLs = [DLL 列表]`'
+- en: The list of DLLs are delimited by a comma or space
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DLL 列表由逗号或空格分隔
+- en: '`LoadAppInit_DLLs = [1 or 0]`'
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`LoadAppInit_DLLs = [1 或 0]`'
+- en: Here, `1` means enabled, and `0` means disabled
+  id: totrans-109
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这里，`1` 表示启用，`0` 表示禁用
+- en: '**Services keys**'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**服务键**'
+- en: '`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\[Service Name]`'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\[服务名称]`'
+- en: This is where `ServiceName` is the name of the service
+  id: totrans-112
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这里的 `ServiceName` 是服务的名称
+- en: '`ImagePath = [sys/dll file path]`'
+  id: totrans-113
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ImagePath = [sys/dll 文件路径]`'
+- en: Loads a system file (`.sys`) or a library file (`.dll`), which is the driver
+    executable
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加载系统文件（`.sys`）或库文件（`.dll`），这是驱动程序可执行文件
+- en: 'The service triggers depending on the value of the start:'
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 服务触发取决于启动值：
+- en: '`0`  (`SERVICE_BOOT_START` triggers when OS is being loaded)'
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0` (`SERVICE_BOOT_START`在操作系统加载时触发)'
+- en: '`1`  (`SERVICE_SYSTEM_START` triggers when OS is being initialized)'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1` (`SERVICE_SYSTEM_START`在操作系统初始化时触发)'
+- en: '`2` (`SERVICE_AUTO_START` triggers when service manager starts.)'
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`2` (`SERVICE_AUTO_START`在服务管理器启动时触发)'
+- en: '`3`  (`SERVICE_DEMAND_START` triggers when it is manually started)'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`3` (`SERVICE_DEMAND_START`在手动启动时触发)'
+- en: '`4`  (`SERVICE_DISABLED`. The service is disabled from triggering)'
+  id: totrans-120
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`4` (`SERVICE_DISABLED`。服务被禁用，无法触发)'
+- en: '**File associations**'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**文件关联**'
+- en: '`HKEY_CLASSES_ROOT or in HKEY_LOCAL_MACHINE\SOFTWARE\Classes\[File type or
+    extension name]\shell\open\command`'
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CLASSES_ROOT`或在`HKEY_LOCAL_MACHINE\SOFTWARE\Classes\[文件类型或扩展名]\shell\open\command`中'
+- en: The entry in the (`Default`) registry value executes files that are described
+    by [File type or extension name].
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: (`Default`)注册表值中的条目执行由[文件类型或扩展名]描述的文件
+- en: 'The following code shows the associated entry for executable files or `.EXE`
+    files:'
+  id: totrans-124
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下代码显示了与可执行文件或`.EXE`文件相关的条目：
+- en: '`` `<show image of exefile entry in HKEY_LOCAL_MACHINE\SOFTWARE\Classes\exefile\shell\open\command>`
+    ``'
+  id: totrans-125
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`` `<显示HKEY_LOCAL_MACHINE\SOFTWARE\Classes\exefile\shell\open\command中的exefile条目的图像>`
+    ``'
+- en: The (`Default`) value contains `"%1" %*`.  `%1` pertains to the executable being
+    run as is, while `%*` pertains to the command-line arguments.  Persistence is
+    implemented by malware by appending its own executable. For example, the `(Default)`
+    value is set to `malware.exe "%1" %*`.  As a result, `malware.exe` runs and uses
+    `%1` (the executable being run) and `%*` as its arguments.  `malware.exe` is then
+    responsible for running `%1` with its `%*`.
+  id: totrans-126
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: （`Default`）值包含`"%1" %*`。`%1`指的是正在运行的可执行文件，而`%*`指的是命令行参数。恶意软件通过追加自身的可执行文件实现持久性。例如，`(Default)`值被设置为`malware.exe
+    "%1" %*`。因此，`malware.exe`会运行，并使用`%1`（正在运行的可执行文件）和`%*`作为其参数。接着，`malware.exe`负责使用其`%*`运行`%1`。
+- en: Startup values
+  id: totrans-127
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 启动值
+- en: The startup registry value contains the path to a folder which contains files
+    that are executed after the user has logged in. The default folder location is
+    at `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 启动注册表值包含一个文件夹路径，文件夹内的文件在用户登录后执行。默认文件夹位置是`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`。
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell
+    Folders`'
+  id: totrans-129
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell
+    Folders`'
+- en: '`Startup = [startup folder path]`'
+  id: totrans-130
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Startup = [启动文件夹路径]`'
+- en: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User
+    Shell Folders`'
+  id: totrans-131
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User
+    Shell Folders`'
+- en: '`Startup = [startup folder path]`'
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Startup = [启动文件夹路径]`'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User
+    Shell Folders`'
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User
+    Shell Folders`'
+- en: '`Common Startup = [startup folder path]`'
+  id: totrans-134
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Common Startup = [启动文件夹路径]`'
+- en: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell
+    Folders`'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell
+    Folders`'
+- en: '`` `Common Startup = [startup folder path]` ``'
+  id: totrans-136
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`` `Common Startup = [启动文件夹路径]` ``'
+- en: The Image File Execution Options key
+  id: totrans-137
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Image File Execution Options键
+- en: 'File paths set in the debugger of the `Image File Execution Options` key is
+    run when the process is to be debugged or is run with the `CreateProcess` API:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设置在`Image File Execution Options`键中的文件路径会在调试进程或通过`CreateProcess` API运行时执行：
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Image File
+    Execution Options\[Process Name]`'
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Image File
+    Execution Options\[进程名称]`'
+- en: '`Debugger = [executable file]`'
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Debugger = [可执行文件]`'
+- en: '`[Process Name]` pertains to the filename of the running executable'
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[进程名称]`指的是正在运行的可执行文件的文件名'
+- en: This persistence only triggers when there is a need for  `[Process Name]` to
+    invoke a debugger
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这个持久性仅在需要`[进程名称]`调用调试器时触发
+- en: '**Browser Helper Objects key**'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**浏览器助手对象键**'
+- en: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\Browser
+    Helper Objects\[CLSID]`'
+  id: totrans-144
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\Browser
+    Helper Objects\[CLSID]`'
+- en: Having the `CLSID` as a subkey simply means that it is installed and enabled
+    as an Internet Explorer BHO
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 拥有`CLSID`作为子键意味着它作为Internet Explorer BHO已安装并启用
+- en: The `CLSID` is registered under the `HKEY_CLASSES_ROOT\CLSID\[CLSID]\InprocServer32`
+    key
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CLSID`在`HKEY_CLASSES_ROOT\CLSID\[CLSID]\InprocServer32`键下注册'
+- en: The `(Default)` value points to the DLL file associated with the BHO
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`(Default)`值指向与BHO关联的DLL文件'
+- en: The DLL file is loaded every time Internet Explorer is opened
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 每次打开Internet Explorer时，都会加载DLL文件
+- en: 'Besides registry entries, an executable can also be triggered by schedule using
+    the task scheduler or `cron` jobs. An executable or a script can be triggered
+    even at certain conditions. Take, for example, the following screenshot of a Windows
+    Task scheduler:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了注册表条目，执行文件还可以通过任务调度程序或`cron`作业按计划触发。执行文件或脚本甚至可以在特定条件下被触发。例如，以下是一个Windows任务调度程序的截图：
+- en: '![](img/cc0452a4-685c-4ecf-9818-aa764c6c15a5.png)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cc0452a4-685c-4ecf-9818-aa764c6c15a5.png)'
+- en: There are many more ways in which malware gets persistence other than those
+    which have been listed previously. These are the challenges that a reverse engineer
+    learns as they encounter new techniques.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件持久化的方法有很多种，远不止之前列举的那些。这些是逆向工程师在遇到新技术时学习到的挑战。
+- en: Malware delivery
+  id: totrans-152
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恶意软件传播
+- en: In the software security industry, the activity of an attacker to spread and
+    compromise a system is called a malware campaign. There are various ways that
+    malware gets into a system. The most common way that these malware executable
+    files are delivered is through an email attachment sent to its target user(s).
+    As communication technology changes, the logistics that these campaigns implement
+    adapt to whatever technology there is. This includes looking for vulnerabilities
+    in the target system and penetrating it with exploits.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在软件安全行业中，攻击者传播并妥协系统的活动被称为恶意软件攻击活动。恶意软件进入系统的方式有很多种。这些恶意软件可执行文件最常见的传播方式是通过电子邮件附件发送给目标用户。随着通信技术的变化，这些攻击活动的物流也会随之调整，以适应现有技术。这包括寻找目标系统中的漏洞并利用漏洞渗透系统。
+- en: Email
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 电子邮件
+- en: 'Malware sent as an email delivery would require the recipient to open the attached
+    file. The email is crafted in such a way that the recipient becomes curious about
+    opening the attachment. These unsolicited emails that are spread to many addresses
+    are called email spam. They usually contain a subject and a message body that
+    uses social engineering to get the recipient''s attention and eventually have
+    them execute the malware. An example of this can be seen in the following screenshot:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为电子邮件传播的恶意软件要求收件人打开附件。邮件的构造方式使收件人对打开附件产生好奇心。这些未经请求的电子邮件被传播到多个地址，这些邮件被称为电子邮件垃圾邮件。它们通常包含一个主题和消息正文，通过社会工程学吸引收件人的注意，最终让收件人执行恶意软件。以下截图展示了一个例子：
+- en: '![](img/ce4c0c7f-e5fc-43d3-830c-001d0cb6e798.png)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ce4c0c7f-e5fc-43d3-830c-001d0cb6e798.png)'
+- en: Activities that deceive a person or a group of people to do an activity is called***social
+    engineering***. With poor security awareness, users may fall into this famous
+    proverbial trap: *curiosity killed the cat*.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欺骗个人或一群人进行某种活动的行为被称为***社会工程学***。由于安全意识差，用户可能会陷入这个著名的俗语陷阱：*好奇害死猫*。
+- en: Instant messenger
+  id: totrans-158
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 即时消息
+- en: 'Besides email, there is what we call SPIM or Instant Messaging Spam. This is
+    spam sent to instant messaging such as Facebook, Skype, and Yahoo Messenger applications.
+    This also includes public or private messages spimmed using Twitter, Facebook,
+    and other social networking services. The messages usually contain a link to a
+    compromised site containing malware or spyware. Some services that support file
+    transfers are abused by malware spim. Today, these social networking services
+    have implemented back-end security to mitigate SPIM.  However, at the time of
+    writing, there are still a few incidents of malware spreading through instant
+    messaging. An example of this can be seen in the following screenshot:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了电子邮件，还有我们所称的SPIM（即时消息垃圾邮件）。这是一种发送到即时消息应用程序的垃圾邮件，如Facebook、Skype和Yahoo Messenger。这还包括通过Twitter、Facebook和其他社交网络服务发送的公共或私人消息垃圾邮件。这些消息通常包含指向已被入侵并包含恶意软件或间谍软件的站点的链接。一些支持文件传输的服务被恶意软件垃圾邮件滥用。如今，这些社交网络服务已经实施了后端安全措施以减轻SPIM的影响。然而，在撰写本文时，仍然有少数恶意软件通过即时消息传播的事件。下面的截图可以看到一个例子：
+- en: '![](img/4afd4239-23ac-4750-bce5-72eb2f4ae67c.png)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4afd4239-23ac-4750-bce5-72eb2f4ae67c.png)'
+- en: Image from John Patrick Lita from `CSPCert.ph`
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图片来自`CSPCert.ph`的John Patrick Lita
+- en: The previous screenshot is a private message from Facebook's instant messenger
+    containing a ZIP file that actually contains a malware file.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的截图是来自Facebook即时消息的私人消息，包含一个ZIP文件，实际上其中包含了一个恶意软件文件。
+- en: The computer network
+  id: totrans-163
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 计算机网络
+- en: It is a necessity today that a computer has to be connected to a network so
+    users can access resources from each other. With each computer linked to another
+    whether it is LAN (Local Area Network) or WAN (Wide Area Network), file sharing
+    protocols are also open for attackers to abuse. Malware can attempt to drop copies
+    of itself to file shares. However, the malware depends on the user at the remote
+    end running the malware file from the file share. These kinds of malware are called
+    network worms.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如今，计算机必须连接到网络，以便用户能够互相访问资源。无论是局域网（LAN）还是广域网（WAN），每台计算机都与其他计算机相连，文件共享协议也为攻击者滥用提供了机会。恶意软件可以尝试将自己的副本拷贝到文件共享中。然而，恶意软件依赖于远程端的用户运行共享中的恶意软件文件。这类恶意软件被称为网络蠕虫。
+- en: 'To list down the shared folders in Windows, you can use the `net share` command,
+    as can be seen in the following screenshot:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要列出Windows中的共享文件夹，可以使用`net share`命令，如下图所示：
+- en: '![](img/b9883f2f-f1bf-4545-9ed9-3cda3b8c15e1.png)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b9883f2f-f1bf-4545-9ed9-3cda3b8c15e1.png)'
+- en: As an analyst, we can make recommendations on what to do with these shared folders.
+    We can say that these shares either be removed, if not used. We can also have
+    these folders reviewed for the permissions of who can access it and what type
+    of permissions (like read and write permissions) certain users can have. That
+    way, we are helping secure the network from getting infested by network worms.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为分析员，我们可以就如何处理这些共享文件夹提出建议。我们可以建议，如果这些共享文件夹未被使用，则将其删除。我们还可以对这些文件夹的权限进行审核，查看谁可以访问以及哪些用户可以拥有何种权限（如读写权限）。这样，我们可以帮助保护网络不受网络蠕虫的侵害。
+- en: Media storage
+  id: totrans-168
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 媒体存储
+- en: 'Network administrators are very restrictive when it comes to using thumb drives.
+    The primary reason is that external storage devices, such as USB thumb drives,
+    CDs, DVDs, external hard drives, and even smartphones are all media in which malware
+    can store itself. Once a storage device gets mounted to a computer, it serves
+    like a regular drive. Malware can simply drop copies of itself to these storage
+    drives. Similar to network worms, these are worms that depend on the user to run
+    the malware. But with the Windows Autorun feature turned on, malware may execute
+    once the drive is mounted, as can be seen in the following screenshot:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络管理员在使用闪存驱动器时非常严格。主要原因是外部存储设备，如USB闪存驱动器、光盘、DVD、外部硬盘，甚至智能手机，都是恶意软件可以存储自己的介质。一旦存储设备被挂载到计算机上，它就像一个普通的驱动器一样工作。恶意软件可以直接将自己的副本拷贝到这些存储驱动器中。与网络蠕虫类似，这些蠕虫依赖用户来运行恶意软件。但是，如果启用了Windows的自动运行功能，一旦驱动器被挂载，恶意软件可能会自动执行，如下图所示：
+- en: '![](img/2d80a5c6-bf0f-4133-aab9-1f2ec761dea0.png)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2d80a5c6-bf0f-4133-aab9-1f2ec761dea0.png)'
+- en: The previous image is the default dialog encountered when inserting a CD drive
+    containing setup software.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上一张图片是插入包含设置软件的光盘时遇到的默认对话框。
+- en: 'The `autorun.inf` file in the root of a drive contains information on which
+    file to automatically execute. This is used by software installers stored in CDs
+    so that, when the disk is inserted, it automatically runs the setup program. This
+    is abused by malware by doing these steps:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 驱动器根目录中的`autorun.inf`文件包含有关自动执行文件的信息。此文件由存储在光盘中的软件安装程序使用，这样当磁盘插入时，它会自动运行安装程序。这一功能被恶意软件滥用，步骤如下：
+- en: Dropping a copy of its malware file in removable drives
+  id: totrans-173
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将恶意软件文件的副本投放到可移动驱动器中
+- en: 'Along  with its dropped copy, it generates an `autorun.inf` file that points
+    to the dropped executable file, as can be seen in the following example:'
+  id: totrans-174
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 随着恶意软件副本的投放，它生成一个`autorun.inf`文件，指向投放的可执行文件，如下例所示：
+- en: '![](img/3caf8d06-f65d-4fc7-9dbf-2d1373d0c5a7.png)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3caf8d06-f65d-4fc7-9dbf-2d1373d0c5a7.png)'
+- en: The `autorun.inf` for the VirtualBox setup autoplay dialog shown previously
+    contains the text as shown in the previous screenshot. The `open` property contains
+    the executable to be run.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`autorun.inf`文件用于之前显示的VirtualBox设置自动播放对话框，其中包含之前截图中的文本。`open`属性包含需要执行的可执行文件。'
+- en: Exploits and compromised websites
+  id: totrans-177
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 漏洞利用和被攻陷的网站
+- en: Exploits are also categorized under malware. Exploits are crafted to compromise
+    specific vulnerabilities of software or network services. These are usually in
+    the form of binary data. Exploits take advantage of vulnerability, thereby causing
+    the target software or service to behave in such a manner that the attacker intends
+    it should behave. Usually, the attacker intends to gain control over the target
+    system or simply take it down.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 漏洞利用也属于恶意软件的一种。漏洞利用是为攻击特定软件或网络服务的漏洞而制作的。这些通常以二进制数据的形式存在。漏洞利用利用了漏洞，从而导致目标软件或服务的行为按照攻击者的意图进行。通常，攻击者的目的是获得对目标系统的控制，或者仅仅是让它瘫痪。
+- en: Once an attacker identifies vulnerabilities on its target, an exploit is crafted
+    containing code that would download malware that can give the attacker more access.
+    This concept was used to develop exploit kits. Exploit kits are a set of known
+    vulnerability scanners and known exploits packaged as a toolkit.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦攻击者识别出目标的漏洞，就会制作一个包含恶意代码的漏洞利用程序，该恶意代码可以下载恶意软件，进一步扩大攻击者的访问权限。这个概念被用来开发漏洞利用工具包。漏洞利用工具包是一组已知的漏洞扫描器和已知的漏洞，打包成一个工具包。
+- en: 'The following diagram gives an example:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图示给出了一个例子：
+- en: '![](img/dd9c8d78-682e-4cfc-ae8d-9e377a599f5a.jpg)'
+  id: totrans-181
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dd9c8d78-682e-4cfc-ae8d-9e377a599f5a.jpg)'
+- en: In a malware campaign, social engineering is used to lure users to visit links
+    that are actually compromised. Usually, the compromised sites were manually hacked
+    and have been injected with a hidden script that redirects to another website. The
+    malicious links are spammed to email messages, instant messaging, and social networking
+    sites. Visiting legitimate sites that are compromised with malicious advertisements
+    also counts as bait. These sites include software or media piracy sites, the dark
+    web, or even pornographic sites. Once the user clicks the link, typically, the
+    site redirects to another compromised site, and to another, until it reaches the
+    exploit kit landing gate page. From the user's internet browser, the exploit kit
+    gate gathers information on the machine, such as software versions, and then determines
+    whether or not the software is known to be vulnerable. It then delivers all exploits
+    applicable to the vulnerable software. The exploits typically contain code that
+    will download and execute malware. As a result, the unaware user gets a compromised
+    system.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在恶意软件攻击中，社会工程学被用来诱使用户访问实际已被攻陷的链接。通常，这些受害网站是手动黑客攻击的，并且已被注入隐藏的脚本，重定向到另一个网站。恶意链接通过电子邮件、即时消息和社交网络站点进行传播。访问被恶意广告感染的合法网站也可以作为诱饵。这些网站包括软件或媒体盗版站点、暗网，甚至是色情网站。一旦用户点击链接，通常情况下，网站会重定向到另一个被攻陷的网站，接着再重定向到另一个，直到到达漏洞利用工具包的登陆页面。从用户的互联网浏览器中，漏洞利用工具包页面会收集关于机器的信息，例如软件版本，然后确定该软件是否已知存在漏洞。然后，它会将所有适用于该漏洞软件的漏洞程序交付。漏洞程序通常包含下载并执行恶意软件的代码。结果，毫无察觉的用户会感染到受损的系统。
+- en: Software piracy
+  id: totrans-183
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 软件盗版
+- en: Hacking tools, pirated software, serial generating tools, and pirated media
+    files are just some of the distributed software where malware or adware may be
+    included. For example, the setup file of the installer of pirated software may
+    be downloading malware and installing it in the background without asking the
+    user for permission.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 黑客工具、盗版软件、序列号生成工具和盗版媒体文件只是一些可能包含恶意软件或广告软件的分发软件。例如，盗版软件的安装程序的安装文件可能会在后台下载恶意软件并在未征得用户同意的情况下进行安装。
+- en: Malware file properties
+  id: totrans-185
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恶意软件文件属性
+- en: 'The initial behavior of common malware is to drop a copy of itself, drop its
+    malware component embedded in it, or download its malware component. It creates
+    the dropped files which are usually found in these folders:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 常见恶意软件的初始行为是生成一个副本，嵌入恶意软件组件，或者下载其恶意软件组件。它会创建被投放的文件，通常这些文件可以在以下文件夹中找到：
+- en: The Windows System folder: `C:\Windows\System32`
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Windows 系统文件夹：`C:\Windows\System32`
+- en: The Windows folder:  `C:\Windows`
+  id: totrans-188
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Windows 文件夹：`C:\Windows`
+- en: The user profile folder:   `C:\Users\[username]`
+  id: totrans-189
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户配置文件文件夹：`C:\Users\[username]`
+- en: The Appdata folder:  `C:\Users\[username]\AppData\Roaming`
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Appdata 文件夹：`C:\Users\[username]\AppData\Roaming`
+- en: The recycle bin folder:  `C:\$Recycle.Bin`
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 回收站文件夹：`C:\$Recycle.Bin`
+- en: 'The desktop folder: `C:\Users\[username]\Desktop`'
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 桌面文件夹：`C:\Users\[username]\Desktop`
+- en: The temporary folder:  `C:\Users\[username]\AppData\Local\Temp`
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 临时文件夹：`C:\Users\[username]\AppData\Local\Temp`
+- en: 'As part of its social engineering, another cheap technique is to change the
+    icon of a malware file to something that would lure the user to open it, for example,
+    folder icons, Microsoft Office icons, or Adobe PDF icons. It also uses file names
+    that are deceiving, such as the words *INVOICE,* *New* *Folder*, *Scandal,* *Expose,*
+    *Pamela,* *Confidential,* and so on. The following screenshot gives examples of
+    actual malware that mimics known documents:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为社会工程学的一部分，另一个廉价的技术是将恶意软件文件的图标更改为吸引用户打开它的样式，例如，文件夹图标、Microsoft Office图标或Adobe
+    PDF图标。它还使用具有欺骗性的文件名，如*INVOICE*、*New* *Folder*、*Scandal*、*Expose*、*Pamela*、*Confidential*等。以下截图展示了实际恶意软件模仿已知文档的例子：
+- en: '![](img/4c96205c-9be2-4f40-84de-5455a0c46d75.png)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4c96205c-9be2-4f40-84de-5455a0c46d75.png)'
+- en: Notice that highlighting the fake PDF file shows that it is actually an application.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，突出显示的伪造PDF文件实际上是一个应用程序。
+- en: Payload – the evil within
+  id: totrans-197
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 有效载荷——其中的恶意内容
+- en: 'The attacker develops malware for a purpose. This is typically to cause harm
+    to the target, maybe because of hate, for fun, for monetary or, probably, political
+    reasons. Here are some typical malware payloads that were seen in the wild:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者开发恶意软件是有目的的，通常是为了对目标造成伤害，可能是出于仇恨、娱乐、金钱或，可能是政治原因。以下是一些在实际情况中见过的典型恶意软件有效载荷：
+- en: Encrypting files for ransom
+  id: totrans-199
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为赎金加密文件
+- en: Deleting all files
+  id: totrans-200
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 删除所有文件
+- en: Formatting drives
+  id: totrans-201
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 格式化驱动器
+- en: Gaining full access to the system and the network
+  id: totrans-202
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完全访问系统和网络
+- en: Stealing accounts and passwords
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 偷取账户和密码
+- en: Stealing documents, images, and videos
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 偷取文档、图片和视频
+- en: Changing specific configuration and settings
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 更改特定配置和设置
+- en: Turning the computer into a proxy server
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将计算机转变为代理服务器
+- en: Installing `cryptocoin` miners
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装`cryptocoin`矿工
+- en: Continuously opening websites - ad or porn sites
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 持续打开网站——广告或色情网站
+- en: Installing more malware
+  id: totrans-209
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装更多恶意软件
+- en: Installing adware
+  id: totrans-210
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装广告软件
+- en: One of the conclusions that a reverse engineer includes in the report is the
+    payload. This determines what malware actually does to the machine other than
+    getting installed.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 逆向工程师在报告中列出的一个结论是有效载荷。这决定了恶意软件在安装后对计算机的实际影响。
+- en: Tools
+  id: totrans-212
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工具
+- en: 'Identifying the registry entry, files dropped, and running processes that are
+    related to the malware requires tools. There are existing tools that we can use
+    to extract these objects. There are two analysis events we should consider: analysis
+    after the malware has been executed and analysis before the malware executes.
+    Since our aim for this chapter is to extract components, we will discuss the tools
+    that can help us find suspected files. Analysis tools that are used after we have
+    extracted our suspected malware will be discussed in further chapters.'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 识别与恶意软件相关的注册表项、已丢弃的文件和正在运行的进程需要工具。我们可以使用现有的工具来提取这些对象。我们应该考虑两种分析事件：恶意软件执行后的分析和恶意软件执行前的分析。由于本章的目标是提取组件，我们将讨论能够帮助我们找到可疑文件的工具。关于我们提取可疑恶意软件后的分析工具将在后续章节中讨论。
+- en: When a system has already been compromised, the analyst would need to use tools
+    that can identify suspected files. Each suspected file will be analysed further.
+    To start off, we can identify it based on persistence.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当系统已经被攻破时，分析员需要使用可以识别可疑文件的工具。每个可疑文件将进一步分析。首先，我们可以基于持久性来识别它。
+- en: List down all processes and their respective file information
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 列出所有进程及其相关的文件信息
+- en: From the list of known registry persistence paths, look for entries containing
+    the file paths
+  id: totrans-216
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从已知的注册表持久性路径列表中，查找包含文件路径的条目
+- en: Extract the suspected files
+  id: totrans-217
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 提取可疑文件
+- en: 'The above steps may require pre-existing tools from Microsoft Windows, such
+    as:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述步骤可能需要使用微软Windows的预安装工具，例如：
+- en: The Registry Editor (`regedit`/`regedt32)` to search the registry
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 注册表编辑器（`regedit`/`regedt32`）用于搜索注册表
+- en: You can also use the command line for accessing the registry `reg.exe`, as seen
+    in the following screenshot:   ![](img/34dfced5-4b4d-4808-9a34-3b1c81d62655.png)
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你还可以使用命令行访问注册表`reg.exe`，如下面的截图所示：![](img/34dfced5-4b4d-4808-9a34-3b1c81d62655.png)
+- en: Task manager (`taskmgr`) to list down the processes
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 任务管理器（`taskmgr`）列出进程
+- en: Windows Explorer (`explorer`) or Command prompt (`cmd`) to traverse directories
+    and retrieve the files.
+  id: totrans-222
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用Windows资源管理器（`explorer`）或命令提示符（`cmd`）遍历目录并获取文件。
+- en: 'However, there are also third-party  tools that we can use that can help us
+    list down suspected files. Here are a few we will briefly discuss:'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，我们也可以使用一些第三方工具来帮助列出可疑文件。以下是我们将简要讨论的几种工具：
+- en: Autoruns
+  id: totrans-224
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启动项
+- en: Process explorer
+  id: totrans-225
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 进程资源管理器
+- en: Autoruns
+  id: totrans-226
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Autoruns
+- en: 'The startup list we saw earlier in this chapter, covers registry entries, schedule
+    jobs, and file location. The bottom line is that this tool covers all of those,
+    including other areas we have not discussed, such as Microsoft Office add-ons,
+    codecs, and printer monitors, as can be seen in the following screenshot:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在本章前面看到的启动列表，涵盖了注册表条目、计划任务和文件位置。总体来说，该工具涵盖了所有这些内容，包括我们尚未讨论的其他领域，例如Microsoft
+    Office插件、编解码器和打印机监视器，如下屏幕截图所示：
+- en: '![](img/9aef4cb4-672a-4e3f-aa33-eaa1e50bf60d.png)'
+  id: totrans-228
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9aef4cb4-672a-4e3f-aa33-eaa1e50bf60d.png)'
+- en: There are 32- and 64-bit versions of the autoruns tool. The screenshot above
+    shows all possible triggers for an executable which was based on the research
+    of the SysInternals' authors Mark Russinovich and Bryce Cogswell. The screenshot
+    also categorizes each autorun entry, shows the description of each entry, and
+    indicates the file path related to the entry.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有32位和64位版本的autoruns工具。上述屏幕截图显示了基于SysInternals作者Mark Russinovich和Bryce Cogswell的研究的可执行文件的所有可能触发器。该屏幕截图还对每个autorun条目进行了分类，并显示了每个条目的描述，并指示了与条目相关的文件路径。
+- en: As for reverse engineers, the identification of suspected files can be determined
+    by having knowledge of what files are common to the startup prior to the system
+    getting compromised. Continuous practice and experience will make the reverse
+    engineer easily identify which are good or suspected executable files.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 至于逆向工程师，通过了解在系统受到威胁之前启动的文件，可以确定可疑文件的身份。持续的实践和经验将使逆向工程师能够轻松地识别哪些是好的或可疑的可执行文件。
+- en: The Process explorer
+  id: totrans-231
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进程资源管理器
+- en: 'In essence, the `Process` explorer tool is similar to the Task Manager, as
+    demonstrated in the following screenshot:'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本质上，`进程资源管理器`工具类似于任务管理器，如下屏幕截图所示：
+- en: '![](img/4ed1ab11-4f36-4fbe-ad59-bf27992bfb3a.png)'
+  id: totrans-233
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4ed1ab11-4f36-4fbe-ad59-bf27992bfb3a.png)'
+- en: 'The advantage of this tool is that it can show more information about the process
+    itself, such as how it was run, including the parameters used, and even its autostart
+    location, as can be seen in the following example:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该工具的优势在于它可以显示有关进程本身的更多信息，例如如何运行，包括使用的参数，甚至其自启动位置，如下面的示例所示：
+- en: '![](img/b8c9a968-e48b-406c-9e75-83a73bd95b62.png)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b8c9a968-e48b-406c-9e75-83a73bd95b62.png)'
+- en: 'In addition, the process explorer has tools to send it VirusTotal identification,
+    shows a list of strings identified from its image and the threads associated with
+    it. From a reverser''s point of view, the highly used information here is the
+    command-line usage, and autostart location. VirusTotal is an online service that
+    scans a submitted file or URL using multiple security software, as demonstrated
+    in the following screenshot:'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，进程资源管理器具有工具可以将其发送到VirusTotal进行识别，显示从其图像识别的字符串列表以及与其关联的线程。从逆向工程师的角度来看，此处高度使用的信息是命令行用法和自启动位置。VirusTotal是一个在线服务，可以使用多个安全软件扫描提交的文件或URL，如下屏幕截图所示：
+- en: '![](img/b355e1f2-34fb-41b9-bd08-3a65b11a2cc8.png)'
+  id: totrans-237
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b355e1f2-34fb-41b9-bd08-3a65b11a2cc8.png)'
+- en: The results are not conclusive, but it gives the submitter an idea about the
+    file's credibility of being legit software or malware.
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果并不是最终结论，但它给提交者一个关于文件是否为合法软件或恶意软件的想法。
+- en: Summary
+  id: totrans-239
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概要
+- en: 'In the first chapter, we learned about reverse engineering and its importance
+    when analyzing malware. To begin with our reverse engineering adventures, we have
+    to learn the system we are analyzing. We discussed the three main areas in the
+    Windows operating system environment: memory, disk, and the registry.  In this
+    chapter, we aimed to find malware from a compromised Windows system by extracting
+    suspected files. To do that, we listed common startup areas in the system that
+    we can search into. These areas include the registry, task schedules, and startup
+    folder.'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第一章中，我们学习了反向工程及其在分析恶意软件时的重要性。要开始我们的反向工程探险，我们必须了解我们正在分析的系统。我们讨论了Windows操作系统环境中的三个主要区域：内存、磁盘和注册表。在本章中，我们旨在通过提取可疑文件来从受Compromise的Windows系统中查找恶意软件。为此，我们列出了系统中可以搜索的常见启动区域。这些区域包括注册表、任务计划和启动文件夹。
+- en: We learned that typical malware behaves by installing itself and runnng code
+    that harms the system. Malware installs itself basically for persistence which
+    results in the malware file triggering most of the time the system is online.
+    We then listed a few behaviors as to why malware was called malicious. This malicious
+    code consisted of anything to do with crime entailing monetary or political gain,
+    such as ransom and backdoor access.
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们了解到，典型的恶意软件通过安装自身并运行危害系统的代码来表现。恶意软件基本上是为了持久性而安装自身，这导致恶意软件文件大多数时间触发系统在线状态。然后我们列出了一些行为，解释为何将恶意软件称为恶意。这些恶意代码包括任何涉及经济或政治利益犯罪的行为，例如勒索和后门访问。
+- en: 'We ended this chapter by listing tools we can use to easily identify the suspected
+    files. We first introduced pre-existing Windows tools such as the Registry editor,
+    Task Manager and the Task Scheduler. We followed these with two more tools from
+    SysInternals: autoruns and Process explorer.  With these tools at hand, we should
+    be able to list down our suspected files. However, as with any other tasks, we
+    will be able to master identification faster with practice and experience.'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们通过列出可以用来轻松识别可疑文件的工具来结束这一章节。我们首先介绍了预先存在的Windows工具，如注册表编辑器、任务管理器和任务计划程序。然后，我们介绍了来自SysInternals的另外两个工具：autoruns
+    和 Process explorer。有了这些工具在手，我们应该能够列出我们怀疑的文件。然而，就像其他任何任务一样，通过实践和经验，我们将能够更快地掌握识别技能。
+- en: Further reading
+  id: totrans-243
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: '[https://msdn.microsoft.com/en-us/library/windows/desktop/ms724871(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724871(v=vs.85).aspx)'
+  id: totrans-244
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://msdn.microsoft.com/en-us/library/windows/desktop/ms724871(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724871(v=vs.85).aspx)'
+- en: '[https://medium.com/@johnpaticklita/cryptomalware-spreads-on-facebook-79a299590116](https://medium.com/@johnpaticklita/cryptomalware-spreads-on-facebook-79a299590116)'
+  id: totrans-245
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://medium.com/@johnpaticklita/cryptomalware-spreads-on-facebook-79a299590116](https://medium.com/@johnpaticklita/cryptomalware-spreads-on-facebook-79a299590116)'

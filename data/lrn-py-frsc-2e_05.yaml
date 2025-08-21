@@ -1,0 +1,2323 @@
+- en: Databases in Python
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Python 中的数据库
+- en: In this chapter, we will leverage databases in our scripts so that we can accomplish
+    meaningful tasks when working with large quantities of data. Using a simple example,
+    we will demonstrate the capabilities and benefits of using a database backend
+    in our Python scripts. We will store file metadata that has been recursively indexed
+    from a given root directory into a database and then query it to generate reports.
+    Although this may seem like a simple feat, the purpose of this chapter is to showcase
+    the ways we can interact with a database in Python by creating an active file
+    listing.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将在脚本中利用数据库，以便在处理大量数据时能够完成有意义的任务。通过一个简单的例子，我们将展示在 Python 脚本中使用数据库后端的功能和优势。我们将把从给定根目录递归索引的文件元数据存储到数据库中，然后查询该数据以生成报告。虽然这看起来是一个简单的任务，但本章的目的是展示我们如何通过创建一个活跃的文件列表与数据库进行交互。
+- en: 'In this chapter, we will delve into the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将深入探讨以下主题：
+- en: The basic design and implementation of SQLite3 databases
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SQLite3 数据库的基本设计与实现
+- en: Working with these databases in Python using built-in and third-party modules
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Python 的内置模块和第三方模块处理这些数据库
+- en: Understanding how to recursively iterate through directories in Python
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解如何在 Python 中递归遍历目录
+- en: Understanding filesystem metadata and the methods for accessing it using Python
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解文件系统元数据以及使用 Python 访问它的方法
+- en: Crafting CSV and HTML reports for easy review by our end user
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为了方便最终用户的审阅，制作 CSV 和 HTML 格式的报告
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1. The `file_lister.py` script was developed to work with Python 3.7.1\. The
+    `file_lister_peewee.py` script was developed and tested using both Python 2.7.15
+    and Python 3.7.1.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码是在 Python 2.7.15 和 Python 3.7.1 环境下开发和测试的。`file_lister.py` 脚本是为了支持 Python
+    3.7.1 开发的。`file_lister_peewee.py` 脚本则在 Python 2.7.15 和 Python 3.7.1 中都进行了开发和测试。
+- en: An overview of databases
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据库概述
+- en: 'Databases provide an efficient means of storing large amounts of data in a
+    structured manner. There are many types of databases, commonly broken into two
+    categories: **SQL** or **NoSQL**. **SQL** (short for **Structured Query Language**)
+    is designed to be a simple language that allows users to manipulate large datasets
+    that are stored in a database. This includes common databases, such as MySQL,
+    SQLite, and PostgreSQL. NoSQL databases are also useful and generally use JSON
+    or XML to store data of varying structures, both of which were discussed as common
+    serialized data types in the previous chapter.'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据库提供了一种高效的方式，以结构化的方式存储大量数据。数据库有许多种类型，通常分为两大类：**SQL** 或 **NoSQL**。**SQL**（即
+    **结构化查询语言**）旨在作为一种简单的语言，使用户能够操作存储在数据库中的大型数据集。这包括常见的数据库，如 MySQL、SQLite 和 PostgreSQL。NoSQL
+    数据库也非常有用，通常使用 JSON 或 XML 来存储具有不同结构的数据，这两者在上一章中作为常见的序列化数据类型进行了讨论。
+- en: Using SQLite3
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 SQLite3
+- en: SQLite3 is the latest version of SQLite and is one of the most common databases
+    found in application development. This database, unlike others, is stored as a
+    single file and does not require a server instance to be running or installed.
+    For this reason, it is widely used due to its portability and is found in many
+    applications for mobile devices, desktop applications, and web services. SQLite3 uses
+    a slightly modified SQL syntax, though of the many SQL variations that exist,
+    it is one of its simpler implementations. Naturally, there are some limitations
+    to this lightweight database. These limitations include a restriction of one writer
+    being connected to the database at a time, 140 TB of storage, and that it is not
+    client-server based. Because our application will not execute multiple write statements
+    simultaneously, uses less than 140 TB of storage, and does not require a client-server
+    setup for distribution, we will be using SQLite for our example in this chapter.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SQLite3 是 SQLite 的最新版本，是应用开发中最常见的数据库之一。与其他数据库不同，它被存储为一个单一的文件，不需要运行或安装服务器实例。因此，它因其可移植性而广泛应用于移动设备、桌面应用程序和
+    Web 服务中。SQLite3 使用稍微修改过的 SQL 语法，虽然 SQL 有许多变种，它仍然是其中实现较为简单的一种。自然，这种轻量级数据库也有一些限制。包括一次只能有一个写操作连接到数据库、存储限制为
+    140 TB，并且它不是基于客户端-服务器模式的。由于我们的应用不会同时执行多个写操作、使用的存储小于 140 TB，且不需要客户端-服务器的分布式配置，因此我们将在本章中使用
+    SQLite 来进行示例。
+- en: Using SQL
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 SQL
+- en: Before developing our code, let's take a look at the basic SQL statements we
+    will be using. This will help us understand how we can interact with databases
+    even without Python. In SQL, commands are commonly written in uppercase, although
+    they are case-insensitive. For this exercise, we will use uppercase to improve
+    legibility. All SQL statements must end in a semicolon to execute, as it denotes
+    the end of a statement.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开发我们的代码之前，让我们先看看我们将使用的基本 SQL 语句。这将帮助我们了解如何即使不使用 Python 也能与数据库互动。在 SQL 中，命令通常使用大写字母书写，尽管它们对大小写不敏感。为了提高可读性，本练习中我们将使用大写字母。所有
+    SQL 语句必须以分号结尾才能执行，因为分号表示语句的结束。
+- en: If you would like to follow along, install a SQLite management tool, such as
+    the command-line tool sqlite3\. This tool can be downloaded from [https://www.sqlite.org/download.html](https://www.sqlite.org/download.html).
+    The output shown in this section has been generated with the sqlite3 command-line
+    tool, though the statements that have been given will generate the same database
+    in most other sqlite3 graphical applications. When in doubt, use the official
+    sqlite3 command-line tool.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想一起操作，可以安装一个 SQLite 管理工具，比如命令行工具 sqlite3。这个工具可以从 [https://www.sqlite.org/download.html](https://www.sqlite.org/download.html)
+    下载。本节展示的输出是通过 sqlite3 命令行工具生成的，尽管给出的语句在大多数其他 sqlite3 图形应用程序中也会生成相同的数据库。如果有疑问，使用官方的
+    sqlite3 命令行工具。
+- en: 'To begin, we will create a table, a fundamental component of any database.
+    If we compare a database to an Excel workbook, a table is tantamount to a worksheet.
+    Tables contain named columns, as well as rows of data that are mapped to these
+    columns. Just like how an Excel workbook may contain multiple worksheets, so too
+    can a database contain multiple tables. To create a table, we will use the `CREATE
+    TABLE` command, specifying the table name and then wrapping, in parentheses, the
+    column names and their data types as a comma-separated list. Finally, we end the
+    SQL statement with a semicolon:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将创建一个表，这是任何数据库的基本组成部分。如果我们将数据库比作 Excel 工作簿，那么表就相当于工作表。表包含命名的列，以及与这些列相对应的数据行。就像
+    Excel 工作簿可以包含多个工作表一样，数据库也可以包含多个表。要创建一个表，我们将使用 `CREATE TABLE` 命令，指定表名，然后在括号中列出列名及其数据类型，并以逗号分隔。最后，我们用分号结束
+    SQL 语句：
+- en: '[PRE0]'
+  id: totrans-17
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'As we can see in the `CREATE TABLE` statement, we specify the `id` and `name` columns
+    in the `custodians` table. The `id` field is an integer and primary key. This
+    designation of `INTEGER PRIMARY KEY` in SQLite3 will create an automatic index
+    that sequentially increments for each added row, therefore creating an index of
+    unique row identifiers. The `name` column has the data type of `TEXT`, which allows
+    any character to be stored as a text string. SQLite supports five data types,
+    two of which we''ve already introduced:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们在 `CREATE TABLE` 语句中所见，我们在 `custodians` 表中指定了 `id` 和 `name` 列。`id` 字段是整数且为主键。在
+    SQLite3 中使用 `INTEGER PRIMARY KEY` 的指定将自动创建一个索引，该索引会对每个添加的行按顺序递增，从而创建唯一的行标识符索引。`name`
+    列的数据类型为 `TEXT`，允许任何字符作为文本字符串存储。SQLite 支持五种数据类型，其中两种我们已经介绍过：
+- en: '`INTEGER`'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`INTEGER`'
+- en: '`TEXT`'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`TEXT`'
+- en: '`REAL`'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`REAL`'
+- en: '`BLOB`'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`BLOB`'
+- en: '`NULL`'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`NULL`'
+- en: The `REAL` data type allows floating point numbers (for example, decimals).
+    The **BLOB** (short for **Binary Large OBject**) data type preserves any input
+    data exactly as is, without casting it as a certain type. The `NULL` data type
+    simply stores an empty value.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`REAL` 数据类型允许浮动小数（例如小数）。**BLOB**（**二进制大对象**的缩写）数据类型保持任何输入数据的原样，不会将其转换为特定类型。`NULL`
+    数据类型只是存储一个空值。'
+- en: 'After creating the table, we can begin to add data to it. As we can see in
+    the following code block, we can use the `INSERT INTO` command to insert data
+    into the table. The syntax following this command specifies the table name, the
+    columns to insert the data into, followed by the `VALUES` command specifying the
+    values to be inserted. The columns and data must be wrapped in parentheses, as
+    shown in the following code. Using the `null` statement as a value, the auto-incrementing
+    feature of SQLite will step in and fill in this value with the next available
+    unique integer. Remember that this auto-incrementing is only true because we designated
+    it as `INTEGER PRIMARY KEY`. As a general rule, only one column in a table should
+    have this designation:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在创建表格后，我们可以开始向其中添加数据。如以下代码块所示，我们可以使用 `INSERT INTO` 命令将数据插入到表中。此命令后的语法指定了表名、要插入数据的列，然后是
+    `VALUES` 命令，指定要插入的值。列和数据必须用括号括起来，如下面的代码所示。使用 `null` 语句作为值时，SQLite 的自动增量功能会介入，并用下一个可用的唯一整数填充此值。记住，只有当我们指定该列为
+    `INTEGER PRIMARY KEY` 时，这种自动增量才会生效。作为一般规则，表格中只能有一个列被指定为此类型：
+- en: '[PRE1]'
+  id: totrans-26
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'We''ve inserted two custodians, `Chell` and `GLaDOS`, and we let SQLite assign
+    IDs to each of them. After the data has been inserted, we can select and view
+    this information using the `SELECT` command. The basic syntax involves invoking
+    the `SELECT` command, followed by the columns to select (or an asterisk `*` to
+    designate all columns) and the `FROM` statement, indicating the table name following
+    a trailing semicolon. As we can see in the following code, `SELECT` will print
+    out a pipe (`|`) separated list of the values stored:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经插入了两个监护人，`Chell` 和 `GLaDOS`，并让 SQLite 为它们分配了 ID。数据插入后，我们可以使用 `SELECT` 命令选择并查看这些信息。基本语法是调用
+    `SELECT` 命令，后面跟着要选择的列（或者用星号 `*` 来表示选择所有列）以及 `FROM` 语句，后面跟着表名，最后是一个分号。正如我们在下面的代码中看到的，`SELECT`
+    将打印出以管道符（`|`）分隔的存储值列表：
+- en: '[PRE2]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'In addition to showing only the desired columns from our table, we can also
+    filter data on one or more conditions. The `WHERE` statement allows us to filter
+    results and return only responsive items. For the purpose of the script in this
+    chapter, we will stick to a simple `where` statement and only use the equals operator
+    to return responsive values. When executed, the `SELECT-WHERE` statement returns
+    only the custodian information where the `id` value is `1`. In addition, note
+    that the order of the columns reflects the order in which they were specified:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了仅显示我们表格中所需的列外，我们还可以基于一个或多个条件来筛选数据。`WHERE` 语句允许我们筛选结果并仅返回符合条件的项。为了本章脚本的目的，我们将坚持使用简单的
+    `where` 语句，并仅使用等号运算符返回符合条件的值。执行时，`SELECT-WHERE` 语句仅返回 `id` 值为 `1` 的监护人信息。此外，注意列的顺序反映了它们被指定的顺序：
+- en: '[PRE3]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: There are more operations and statements available to interact with SQLite3
+    databases, although the preceding operations highlight all that we require for
+    our scripts. We invite you to explore additional operations in the SQLite3 documentation,
+    which can be found at [https://sqlite.org](https://sqlite.org).
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然还有更多操作和语句可以与 SQLite3 数据库进行交互，但前面的操作已经涵盖了我们脚本所需的所有内容。我们邀请你在 SQLite3 文档中探索更多操作，文档可以在
+    [https://sqlite.org](https://sqlite.org) 找到。
+- en: Designing our script
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设计我们的脚本
+- en: 'The first iteration of our script focuses on performing the task at hand with
+    a standard module, sqlite3, in a more manual fashion. This entails writing out
+    each SQL statement and executing them as if you were working with the database
+    itself. Although this is not a very Pythonic manner of handling a database, it
+    demonstrates the methods that are used to interact with a database with Python.
+    Our second iteration employs two third-party libraries: `peewee` and `jinja2`.'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们脚本的第一次迭代专注于以更手动的方式使用标准模块 sqlite3 执行当前任务。这意味着我们需要写出每个 SQL 语句并执行它们，就像你直接与数据库打交道一样。虽然这不是一种非常
+    Pythonic 的数据库处理方式，但它展示了与 Python 一起操作数据库时所使用的方法。我们的第二次迭代使用了两个第三方库：`peewee` 和 `jinja2`。
+- en: Peewee is an **object-relational mapper** (**ORM**), which is a term that's
+    used to describe a software suite that uses objects to handle database operations.
+    In short, this ORM allows the developer to call functions and define classes in
+    Python that are interpreted as database commands. This layer of abstraction helps
+    to standardize database calls and allows for multiple database backends to be
+    easily interchanged. Peewee is a light ORM, as it is a single Python file that
+    supports PostgreSQL, MySQL, and SQLite3 database connections. If we needed to
+    switch our second script from SQLite3 to PostgreSQL, it would only require that
+    we modify a few lines of code; our first script would require more attention to
+    handle this same conversion. This being said, our first version does not require
+    any dependencies beyond the standard Python installation for SQLite3 support, an
+    attractive feature for tools that are designed to be portable and flexible while
+    in the field.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Peewee 是一个**对象关系映射器**（**ORM**），这是一个用于描述使用对象处理数据库操作的软件套件的术语。简而言之，这个 ORM 允许开发者在
+    Python 中调用函数并定义类，这些函数和类会被解释为数据库命令。这个抽象层帮助标准化数据库调用，并且允许轻松地更换多个数据库后端。Peewee 是一个轻量级的
+    ORM，因为它只是一个支持 PostgreSQL、MySQL 和 SQLite3 数据库连接的 Python 文件。如果我们需要将第二个脚本从 SQLite3
+    切换到 PostgreSQL，只需要修改几行代码；而第一个脚本则需要更多的注意来处理这个转换。也就是说，我们的第一个版本除了标准的 Python 安装外，不需要任何额外的依赖项来支持
+    SQLite3，这对于设计为在现场使用的便携且灵活的工具来说是一个非常有吸引力的特点。
+- en: Our `file_lister.py` script is a per-custodian metadata collection and reporting
+    script. This is important in incident response or the discovery phase of an investigation,
+    as it stores information about active files on a system or in a specified directory
+    by custodian name. A custodian assignment system allows for multiple machines,
+    directory paths, or network shares to be indexed and categorized by a single custodian
+    name, regardless of whether the custodian is a user, machine, or device. To implement
+    this system, we need to prompt the user for the custodian name, the path of the
+    database to use, and the input or output information.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的 `file_lister.py` 脚本是一个按监护人收集元数据和生成报告的脚本。这在事件响应或调查的发现阶段非常重要，因为它存储有关系统或指定目录中由监护人名称标识的活动文件的信息。监护人分配系统允许通过单个监护人名称索引和分类多个机器、目录路径或网络共享，无论该监护人是用户、机器还是设备。为了实现这个系统，我们需要提示用户输入监护人名称、要使用的数据库路径以及输入或输出的信息。
+- en: By allowing the examiner to add multiple custodians or paths into the same database,
+    they can append to the files that have been found for a single custodian or add
+    in as many custodians as they please. This is helpful in collections as the investigator
+    can preserve as few or as many paths as they need, as we all know how unexpected
+    devices show up once we are in the field. In addition, we can use the same script
+    to create file listing reports, regardless of the number of collected files or
+    custodians, as long as the custodian has at least one collected file.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过允许检查员将多个监护人或路径添加到同一个数据库中，他们可以将找到的文件添加到单个监护人下，或者随意添加多个监护人。这对于收藏来说非常有用，因为调查人员可以根据需要保留任意数量的路径，我们都知道一旦进入现场，不可预见的设备就会出现。此外，我们可以使用相同的脚本来创建文件列表报告，无论收集的文件或监护人数量如何，只要监护人至少有一个收集的文件。
+- en: 'In our design state, we don''t only take into account our script but also the
+    database and the relational model we will use. In our case, we are handling two
+    separate items: custodians and files. These both make for good tables, as they
+    are separate entries that share a common relation. In our scenario, a file has
+    a custodian and a custodian may have one or more files; therefore, we will want
+    to create a foreign key, relating files to a specific custodian. A foreign key
+    is a reference to a primary key in another table. The primary key and the foreign
+    key references are usually a unique value or an index that links the data together.'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的设计阶段，我们不仅考虑脚本，还考虑将要使用的数据库和关系模型。在我们的案例中，我们处理两个独立的项目：监护人和文件。它们都是很好的表格，因为它们是独立的条目，并且共享一个共同的关系。在我们的场景中，文件有一个监护人，而监护人可能有一个或多个文件；因此，我们希望创建一个外键，将文件与特定的监护人关联。外键是指向另一个表中主键的引用。主键和外键引用通常是一个唯一值或索引，用于将数据连接在一起。
+- en: 'The following diagram represents the relational model for our database. We
+    have two tables, custodians and files, and a one-to-many relationship between
+    them. As defined earlier, this one-to-many relationship will allow us to assign
+    many files to a single custodian. Using this relationship, we can ensure that
+    our script will properly assign information in a structured and easy-to-manage
+    manner:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图表示了我们数据库的关系模型。我们有两个表：custodians（管理员）和files（文件），它们之间存在一对多关系。如前所述，这种一对多关系将允许我们将多个文件分配给单个管理员。通过这种关系，我们可以确保脚本以结构化且易于管理的方式正确地分配信息：
+- en: '![](img/e9dd4f71-f0f4-4dc7-b9f8-40931f44a576.png)'
+  id: totrans-39
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e9dd4f71-f0f4-4dc7-b9f8-40931f44a576.png)'
+- en: 'In this relational model, for example, we could have a custodian named JPriest
+    who owns files located in a folder named `APB/`. Under this root folder, there
+    are 40,000 files spread among 300 subdirectories, and we need to assign each of
+    those 40,000 files to JPriest. Because custodian names may be long or complex,
+    we want to assign JPriest an identifier, such as the integer 5, and write that
+    to each row of the data being stored in the `Files` table. By doing this, we accomplish
+    three things:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个关系模型中，例如，我们可能有一个名为JPriest的管理员，他拥有位于`APB/`文件夹中的文件。在这个根文件夹下，有40,000个文件分布在300个子目录中，我们需要将这40,000个文件都分配给JPriest。由于管理员的名字可能很长或很复杂，我们希望为JPriest分配一个标识符，如整数5，并将其写入存储在`Files`表中的每一行数据中。这样，我们实现了三件事：
+- en: We are saving space as we are storing only one character (`5`) instead of seven
+    (JPriest) in each of the 40,000 rows
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们节省了空间，因为我们在每一行的40,000个数据行中只存储了一个字符（`5`），而不是七个字符（JPriest）
+- en: We are maintaining a link between the JPriest user and their files
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们维护了JPriest用户与其文件之间的关联
+- en: If we ever needed to rename JPriest, we could change one row in our `Custodians`
+    table and therefore update the custodian's name for all associated rows
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果我们以后需要重命名JPriest，我们只需更改`Custodians`表中的一行，从而更新所有关联行中的管理员名称
+- en: Manually manipulating databases with Python – file_lister.py
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Python手动操作数据库 – file_lister.py
+- en: As a note, this script will be designed to work only in Python 3 and was tested
+    with Python 3.7.1\. If you'd like the Python 2 version of the code after working
+    through this section, please see [https://github.com/PacktPublishing/Learning-Python-for-Forensics](https://github.com/PacktPublishing/Learning-Python-for-Forensics) for
+    the prior iteration.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为说明，脚本将仅在Python 3中工作，并且已经在Python 3.7.1版本中进行了测试。如果您在完成本节后希望查看Python 2版本的代码，请访问[https://github.com/PacktPublishing/Learning-Python-for-Forensics](https://github.com/PacktPublishing/Learning-Python-for-Forensics)以查看之前的版本。
+- en: 'In the first iteration of the script, we use several standard libraries to
+    complete all of the functionality required for the full operation. Like we did
+    in prior scripts, we are implementing `argparse`, `csv`, and `logging` for their
+    usual purposes, which include argument handling, writing CSV reports, and logging
+    program execution. For logging, we define our log handler, `logger`, on line 43\.
+    We have imported the `sqlite3` module to handle all database operations. Unlike
+    our next iteration, we will only support SQLite databases through this script.
+    The `os` module allows us to recursively step through files in a directory and
+    any subdirectories. Finally, the `sys` module allows us to gather logging information
+    about the system, and the `datetime` module is used to format timestamps as we
+    encounter them on the system. This script does not require any third-party libraries.
+    We have the following code:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在脚本的第一次迭代中，我们使用了几个标准库来完成整个操作所需的所有功能。像之前的脚本一样，我们实现了`argparse`、`csv`和`logging`，用于各自的常规功能，包括参数处理、编写CSV报告和记录程序执行。对于日志记录，我们在第43行定义了我们的日志处理器`logger`。我们导入了`sqlite3`模块来处理所有数据库操作。与我们下一次迭代不同，这个脚本只支持SQLite数据库。`os`模块使我们能够递归地遍历目录及其子目录中的文件。最后，`sys`模块允许我们收集有关系统的日志信息，`datetime`模块用于格式化系统中遇到的时间戳。这个脚本不需要任何第三方库。我们有以下代码：
+- en: '[PRE4]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Following our import statements, we have our `main()` function, which takes
+    the following user inputs: custodian name, target input directory or output file,
+    and a path to the database to use. The `main()` function handles some high-level
+    operations, such as adding and managing custodians, error handling, and logging.
+    It first initializes the database and tables, and then checks whether the custodian
+    is in the database. If it is not, that custodian is added to the database. The
+    function allows us to handle the two possible run options: to recursively ingest
+    the base directory, capturing all subobjects and their metadata, and to read the
+    captured information from the database into a report using our writer functions.'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在导入语句之后，我们有 `main()` 函数，它接受以下用户输入：保管人名称、目标输入目录或输出文件，以及要使用的数据库路径。`main()` 函数处理一些高层操作，如添加和管理保管人、错误处理和日志记录。它首先初始化数据库和表格，然后检查保管人是否在数据库中。如果不在，系统会将该保管人添加到数据库中。该函数允许我们处理两种可能的运行选项：递归地导入基础目录，捕获所有子对象及其元数据，或从数据库中读取捕获的信息并使用我们的写入函数生成报告。
+- en: The `init_db()` function, which is called by `main()`, creates the database
+    and default tables if they do not exist. The `get_or_add_custodian()` function,
+    in a similar manner, checks to see whether a custodian exists. If it does, it
+    returns the ID of the custodian, otherwise it creates the custodian table. To
+    ensure that the custodian is in the database, the `get_or_add_custodian()` function
+    is run again after a new entry is added.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`init_db()` 函数由 `main()` 调用，若数据库及默认表格不存在，它将创建这些表格。`get_or_add_custodian()`
+    函数以类似的方式检查保管人是否存在。如果存在，它将返回保管人的 ID，否则它会创建保管人表格。为了确保保管人存在于数据库中，在添加新条目后，`get_or_add_custodian()`
+    函数会再次运行。'
+- en: After the database has been created and the custodian table exists, the code
+    checks whether the source is an input directory. If so, it calls `ingest_directory()`
+    to iterate through the specified directory and scan all subdirectories to collect
+    file-related metadata. Captured metadata is stored in the `Files` table of the
+    database with a foreign key to the `Custodians` table to tie each custodian to
+    their file(s). During the collection of metadata, we call the `format_timestamp()`
+    function to cast our collected timestamps into a standard string format.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数据库创建并且保管人表格存在之后，代码会检查源是否为输入目录。如果是，它会调用 `ingest_directory()` 函数，遍历指定的目录并扫描所有子目录，以收集与文件相关的元数据。捕获到的元数据将存储在数据库的
+    `Files` 表中，并通过外键与 `Custodians` 表关联，从而将每个保管人与其文件绑定。在收集元数据的过程中，我们会调用 `format_timestamp()`
+    函数，将收集到的时间戳转换为标准的字符串格式。
+- en: 'If the source is an output file, the `write_output()` function is called, passing
+    the open database cursor, output file path, and custodian name as arguments. The
+    script then determines whether the custodian has any responsive results in the
+    `Files` table and passes them to the `write_html()` or `write_csv()` function,
+    based on the output file path''s extension. If the extension is `.html`, then
+    the `write_html()` function is called to create an HTML table using Bootstrap
+    CSS, which displays all of the responsive results for the custodian. Otherwise,
+    if the extension is `.csv`, then the `write_csv()` function is called to write
+    the data to a comma-delimited file. If neither of the extensions is supplied in
+    the output file path, then a report is not generated and an error is raised that
+    the file type could not be interpreted:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果源是输出文件，则会调用 `write_output()` 函数，传入打开的数据库游标、输出文件路径和保管人名称作为参数。脚本接着会检查保管人是否在
+    `Files` 表中有任何相关结果，并根据输出文件路径的扩展名将其传递给 `write_html()` 或 `write_csv()` 函数。如果扩展名为
+    `.html`，则调用 `write_html()` 函数，使用 Bootstrap CSS 创建一个 HTML 表格，显示该保管人的所有响应结果。否则，如果扩展名为
+    `.csv`，则调用 `write_csv()` 函数，将数据写入以逗号分隔的文件。如果输出文件路径中没有提供这两种扩展名，则不会生成报告，并且会抛出错误，提示无法解析文件类型：
+- en: '[PRE5]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Now, let''s look at the required arguments and the setup for this script. On
+    lines 321 through 339, we build out the `argparse` command-line interface with
+    the required positional arguments `CUSTODIAN` and `DB_PATH`, and the optional
+    arguments `--input`, `--output`, and `-l`:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来看看这个脚本所需的参数和设置。在第 321 行到第 339 行之间，我们构建了 `argparse` 命令行接口，其中包括必需的位置参数
+    `CUSTODIAN` 和 `DB_PATH`，以及可选的参数 `--input`、`--output` 和 `-l`：
+- en: '[PRE6]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'On lines 341 through 347, we check that either the `--input` or `--output`
+    argument was supplied by the user. We create a variable, `arg_source`, which is
+    a tuple containing the mode of operation and the corresponding path specified
+    by the argument. If neither of the mode arguments were supplied, an `ArgumentError`
+    is raised and prompts the user for an input or output. This ensures that the user
+    provides the required arguments when there are one or more options:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第341到347行，我们检查用户是否提供了`--input`或`--output`参数。我们创建了一个变量`arg_source`，它是一个元组，包含操作模式和由参数指定的相应路径。如果两个模式参数都没有提供，则会引发`ArgumentError`并提示用户提供输入或输出。这确保了当存在一个或多个选项时，用户提供了所需的参数：
+- en: '[PRE7]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'On lines 349 through 368, we can see the log configuration that we used in
+    previous chapters and check for the `-l` argument, making a path to the log if
+    necessary. We also log the script version and the operating system information
+    on lines 366 through 368:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第349到368行，我们可以看到我们在前几章中使用的日志配置，并检查`-l`参数，根据需要创建日志路径。我们还在第366到368行记录了脚本版本和操作系统信息：
+- en: '[PRE8]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'With the logging squared away, we can create a dictionary, which defines the
+    arguments passed into the `main()` function using kwargs. Kwargs, or keyword arguments,
+    provide a means of passing arguments as dictionary key-value pairs, where the
+    keys match the parameter name and are assigned a corresponding value. To pass
+    a dictionary to a function or class as kwargs instead of a value, we must specify
+    two asterisks preceding the dictionary name, as seen on line 373\. If we did not
+    use kwargs, we would have needed to pass the `args.custodian`, `arg_source`, and
+    `args.db_path` arguments as individual positional arguments. There is more advanced
+    functionality with kwargs, and examples of this can be found at [https://docs.python.org/3.7/faq/programming.html](https://docs.python.org/3.7/faq/programming.html#how-can-i-pass-optional-or-keyword-parameters-from-one-function-to-another).
+    We have the following code:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成日志配置后，我们可以创建一个字典，定义通过kwargs传递给`main()`函数的参数。Kwargs（关键字参数）提供了一种以字典键值对的形式传递参数的方法，其中键与参数名称匹配，并赋予相应的值。为了将字典作为kwargs而不是单一值传递给函数或类，我们必须在字典名称前加上两个星号，如第373行所示。如果没有使用kwargs，我们就必须将`args.custodian`、`arg_source`和`args.db_path`参数作为单独的位置参数传递。kwargs具有更高级的功能，相关示例可以在[https://docs.python.org/3.7/faq/programming.html](https://docs.python.org/3.7/faq/programming.html#how-can-i-pass-optional-or-keyword-parameters-from-one-function-to-another)找到。我们有以下代码：
+- en: '[PRE9]'
+  id: totrans-60
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Refer to the following flowchart to understand how each function is linked
+    together:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考以下流程图，了解每个功能是如何相互连接的：
+- en: '![](img/07b28043-e7ad-4163-8fa5-5b1778dbea1b.png)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/07b28043-e7ad-4163-8fa5-5b1778dbea1b.png)'
+- en: Building the main() function
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 构建`main()`函数
+- en: 'The `main()` function is broken up into two phases: database initialization
+    and input/output (I/O) processing. Database initialization, inclusive of the docstring,
+    occurs on lines 46 through 57, where we define and document the inputs for the
+    function. Note that the input variables match the keys of the `args_dict` that
+    is passed as a keyword argument to the function. If `args_dict` did not have those
+    exact keys defined, we would receive a `TypeError` when calling the function.
+    See the following code:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main()`函数分为两个阶段：数据库初始化和输入/输出（I/O）处理。数据库初始化（包括文档字符串）发生在第46到57行，在这部分我们定义并记录了函数的输入。请注意，输入变量与作为关键字参数传递给函数的`args_dict`的键匹配。如果`args_dict`没有定义这些确切的键，我们在调用函数时会收到`TypeError`。参见以下代码：'
+- en: '[PRE10]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'On line 57, we call the `init_db()` function, passing the path to the database
+    and assigning the returned database connection to the `conn` variable. The database
+    connection object is handled by the `sqlite3` Python library. We use this object
+    to communicate with the database by translating all calls from Python into SQL.
+    With the connection object, we can call the cursor object. A cursor is an object
+    that is used to send and receive data through the connection; we will define it
+    in the functions where we want to interact with the database, since we want to
+    keep cursors limited in scope, whereas we can share the database connection between
+    functions:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第57行，我们调用`init_db()`函数，传递数据库的路径，并将返回的数据库连接赋值给`conn`变量。数据库连接对象由`sqlite3` Python库处理。我们使用这个对象与数据库进行通信，将所有的Python调用转化为SQL语句。通过连接对象，我们可以调用游标对象。游标是用于通过连接发送和接收数据的对象；我们将在需要与数据库交互的函数中定义它，因为我们希望将游标的作用范围限制，而可以在不同函数间共享数据库连接：
+- en: '[PRE11]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'After additional logging, we call `get_or_add_custodian()`, passing the connection
+    object and custodian name to the function. By passing the open connection, we
+    allow the function to interact with the database and define its own cursor. If
+    the `custodian_id` is found, we move forward and skip the `while` loop on line
+    61; otherwise, we rerun the `get_or_add_custodian()` function until we have added
+    the custodian and retrieved a custodian ID:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在额外的日志记录后，我们调用`get_or_add_custodian()`，将连接对象和托管人名称传递给该函数。通过传递打开的连接，我们允许该函数与数据库交互并定义自己的游标。如果找到`custodian_id`，我们继续执行并跳过第61行的`while`循环；否则，我们重新运行`get_or_add_custodian()`函数，直到我们添加托管人并获取托管人ID：
+- en: '[PRE12]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'Once we have a custodian ID to work with, we need to determine whether the
+    source is specified as input or output. If on line 64 the source is an `input`,
+    then we run the `ingest_directory()` function, which iterates through the provided
+    root directory and gathers associated metadata about any subfiles. Once complete,
+    we commit (save) our changes to the database and log its completion:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们有了一个托管人ID需要处理，我们需要确定源是指定为输入还是输出。如果在第64行源是`input`，则我们运行`ingest_directory()`函数，该函数遍历提供的根目录并收集有关任何子文件的相关元数据。完成后，我们将更改提交（保存）到数据库并记录完成情况：
+- en: '[PRE13]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'If the source is an `output`, the `write_output()` function is called to handle
+    writing the output in the specified format. If the source type cannot be determined,
+    we raise an `argparse.ArgumentError` error, stating that the arguments cannot
+    be interpreted. After running the desired mode, we end the function by closing
+    our database connections and log completion of the script, as follows:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果源是`output`，则调用`write_output()`函数来处理以指定格式写入输出。如果无法确定源类型，我们将引发`argparse.ArgumentError`错误，声明无法解释参数。运行所需模式后，我们通过关闭数据库连接并记录脚本完成情况来结束函数，如下所示：
+- en: '[PRE14]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: Initializing the database with the init_db() function
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用init_db()函数初始化数据库
+- en: 'The `init_db()` function is called on line 87 of the `main()` function to perform
+    the basic tasks of creating the database and the initial structure within it.
+    First, we need to check whether the database already exists, and if it does, connect
+    to it and return the connection object. Regardless of whether a file exists or
+    not, we can use the `sqlite3` library''s `connect()` method to open or create
+    a file as a database. This connection is used to allow communication between Python
+    objects and the database. We also specifically use a cursor object, assigned as
+    `cur` on line 94, to keep track of the position we are at among executed statements.
+    This cursor is required to interact with our database:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`init_db()`函数在`main()`函数的第87行被调用，用于执行创建数据库和初始化结构的基本任务。首先，我们需要检查数据库是否已经存在，如果存在，则连接到它并返回连接对象。无论文件是否存在，我们都可以使用`sqlite3`库的`connect()`方法打开或创建一个文件作为数据库。这个连接用于允许Python对象与数据库之间的通信。我们还专门使用一个游标对象，在第94行分配为`cur`，来跟踪我们在已执行语句中的位置。这个游标是与数据库交互所必需的：'
+- en: '[PRE15]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: If the database does not exist, then we must create a new database, connect
+    to it, and initialize the tables. As mentioned in the SQL section of this chapter,
+    we must create these tables by using the `CREATE TABLE` statement, followed by
+    the column names and their data types. In the `Custodians` table, we need to create
+    an auto-incrementing `id` column to provide an identifier for the `name` column,
+    which will hold the custodian's names.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果数据库不存在，那么我们必须创建一个新的数据库，连接到它，并初始化表格。如本章SQL部分所述，我们必须使用`CREATE TABLE`语句创建这些表格，并后跟列名及其数据类型。在`Custodians`表中，我们需要创建一个自动递增的`id`列，用于为`name`列提供标识符，该列将存储托管人的名称。
+- en: 'To do this, we must first build our query in the `sql` variable on line 96\.
+    After assignment, we pass this variable to the `cur.execute()` method, which executes
+    our SQL statement through the cursor object. At this point, the cursor talks to
+    the connection object from before, which then communicates with the database.
+    Take a look at the following code:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要做到这一点，我们必须首先在第96行的`sql`变量中构建查询。赋值后，我们将这个变量传递给`cur.execute()`方法，通过游标对象执行我们的SQL语句。此时，游标与之前的连接对象进行通信，后者再与数据库进行交流。请查看以下代码：
+- en: '[PRE16]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'On line 99, we create another SQL query using `PRAGMA`, which allows us to
+    modify the database''s configuration. By default, in SQLite3, foreign keys are
+    disabled, preventing us from referencing data from one table in another. Using
+    the `PRAGMA` statement, we can enable this feature for our database by setting
+    `foreign_keys` to `1`:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第99行，我们使用`PRAGMA`创建另一个SQL查询，它允许我们修改数据库的配置。默认情况下，在SQLite3中，外键是禁用的，这阻止了我们在一个表中引用另一个表中的数据。通过使用`PRAGMA`语句，我们可以通过将`foreign_keys`设置为`1`来启用此功能：
+- en: '[PRE17]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: We repeat the table creation process for the `Files` table, adding many more
+    fields to account for the file metadata. On lines 100 through 105, we write out
+    the list of field names and their associated data types. We are able to wrap this
+    string across multiple lines by using triple quotes and have Python interpret
+    it as a single string value. As we've already seen, we need columns to store an
+    ID (in a similar fashion to the `Custodians` table), the filename, file path,
+    extension, size, modified time, created time, accessed time, mode, and inode number.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们重复创建`Files`表的过程，添加更多字段以记录文件的元数据。在第100到105行，我们列出了字段名称及其关联的数据类型。我们可以通过使用三重引号将该字符串跨越多行，并让Python将其解释为一个单一的字符串值。正如我们已经看到的，我们需要列来存储ID（与`Custodians`表类似），文件名、文件路径、扩展名、大小、修改时间、创建时间、访问时间、模式和inode号。
+- en: 'The `mode` attribute specifies the permissions of the file and is based on
+    the UNIX permissions standard, whereas the `inode` attribute is the unique number
+    that identifies filesystem objects in UNIX-based systems. Both of these elements
+    are further described in the *Understanding the ingest_directory() function* section,
+    where they are extracted from the files. After creating the two tables and defining
+    their structures, we execute the final SQL statement on line 106 and return the
+    connection object:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`mode`属性指定文件的权限，基于UNIX权限标准，而`inode`属性是UNIX系统中唯一标识文件系统对象的编号。这两个元素将在*理解ingest_directory()函数*部分中进一步描述，在那里它们从文件中提取。在创建了两个表并定义了它们的结构后，我们在第106行执行最终的SQL语句并返回连接对象：'
+- en: '[PRE18]'
+  id: totrans-84
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Checking for custodians with the get_or_add_custodian() function
+  id: totrans-85
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用get_or_add_custodian()函数检查保管人
+- en: 'At this point, the database is initialized and ready for further interaction.
+    The `get_or_add_custodian()` function is called to check for the existence of
+    the custodian and to pass along the ID if it is found. If the custodian does not
+    exist, the function will add the custodian to the `Custodians` table. On line
+    120, we call the `get_custodian()` function to check and see whether the custodian
+    exists. On line 122, we use a conditional to check whether `id` is not empty,
+    and if so, assign the ID of the custodian to the `cust_id` variable. The SQLite
+    library returns tuples for backward compatibility, the first element of which
+    will be our ID of interest:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，数据库已初始化并准备好进行进一步的交互。调用`get_or_add_custodian()`函数来检查保管人是否存在，并在找到时传递其ID。如果保管人不存在，函数将把保管人添加到`Custodians`表中。在第120行，我们调用`get_custodian()`函数来检查保管人是否存在。在第122行，我们使用条件语句检查`id`是否为空，如果不是，则将保管人的ID赋值给`cust_id`变量。SQLite库返回的是元组，以确保向后兼容，第一个元素将是我们关心的ID：
+- en: '[PRE19]'
+  id: totrans-87
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: If the custodian is not found, we insert it into the table for future use. In
+    lines 125-126, we craft a SQL statement to insert the custodian into the `Custodians`
+    table. Note the `null` string in the `VALUES` section; this is interpreted by
+    SQLite as a `NoneType` object. SQLite converts `NoneType` objects in our primary
+    key field to an auto-incrementing integer. Following the `null` value is our custodian
+    string. SQLite requires that string values be wrapped in quotes, similar to Python.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有找到保管人，我们会将其插入表中以供将来使用。在第125-126行，我们编写一个SQL语句将保管人插入到`Custodians`表中。注意`VALUES`部分的`null`字符串；它被SQLite解释为`NoneType`对象。SQLite将主键字段中的`NoneType`对象转换为自增整数。紧随其后的`null`值是我们的保管人字符串。SQLite要求字符串值用引号括起来，类似于Python。
+- en: We must use double quotes to wrap our query that contains single quotes. This
+    prevents any issues with a string breaking due to an error with the quotes. If
+    you see a syntax error in this section of the code, be sure to check the quotes
+    used on lines 125-126.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们必须使用双引号将包含单引号的查询括起来。这可以防止由于引号错误导致字符串断裂的任何问题。如果在代码的这一部分看到语法错误，请务必检查第125-126行中使用的引号。
+- en: 'Finally, we execute this statement and return the empty `cust_id` variable
+    so that the `main()` function will have to check for the custodian in the database
+    again and rerun this function. The next pass should detect our inserted value
+    and allow the `main()` function to proceed. We have the following code:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们执行此语句并返回空的`cust_id`变量，这样`main()`函数就必须再次检查数据库中的保管员，并重新运行该函数。下一次执行应该能检测到我们插入的值，并允许`main()`函数继续执行。我们有以下代码：
+- en: '[PRE20]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Although we could call the `get_custodian()` function here (or grab the ID after
+    the insert) for validation purposes, we have the `main()` function check for the
+    custodian again. Feel free to implement one of these alternative solutions and
+    see in what ways it impacts the performance and stability of the code.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管我们可以在此处调用`get_custodian()`函数（或在插入后获取ID）进行验证，但我们让`main()`函数再次检查保管员。可以自由实现这些替代解决方案之一，看看它们如何影响代码的性能和稳定性。
+- en: Retrieving custodians with the get_custodian() function
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`get_custodian()`函数获取保管员
+- en: 'The `get_custodian()` function is called to retrieve the custodian ID from
+    the SQLite database. Using a simple `SELECT` statement, we select the `id` column
+    from the `Custodian` table, where we match the name provided by the user to the
+    `name` column. We use the string `format()` method to insert the custodian name
+    into the SQL statement. Note that we still have to wrap the inserted string in
+    single quotes, as follows:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`get_custodian()`函数被调用以从SQLite数据库中检索保管员ID。使用简单的`SELECT`语句，我们从`Custodian`表中选择`id`列，并根据用户提供的名称与`name`列进行匹配。我们使用字符串的`format()`方法将保管员名称插入到SQL语句中。请注意，我们仍然需要将插入的字符串用单引号包裹起来，如下所示：'
+- en: '[PRE21]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'After executing this statement, we use the `fetchone()` method on line 144
+    to return a single result from the statement. This is the first time our script
+    requests data out of the database. To acquire data, we use any of the `fetchone()`,
+    `fetchmany()`, or `fetchall()` functions to gather data from the executed statement.
+    These three methods are only available to the cursor object. The `fetchone()`
+    method is the better option here as we anticipate a single custodian to be returned
+    by this statement. This custodian ID is captured and returned in the `data` variable:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行此语句后，我们在第144行使用`fetchone()`方法从语句中返回一个结果。这是我们的脚本首次从数据库请求数据。为了获取数据，我们使用`fetchone()`、`fetchmany()`或`fetchall()`中的任何一个方法，从执行的语句中收集数据。这三个方法仅适用于游标对象。在这里，`fetchone()`方法是更好的选择，因为我们预期该语句返回一个单一的保管员。这个保管员ID被捕获并存储在`data`变量中：
+- en: '[PRE22]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: Understanding the ingest_directory() function
+  id: totrans-98
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解`ingest_directory()`函数
+- en: 'The `ingest_directory()` function handles the input mode for our script and
+    recursively captures the metadata of files from a user-supplied root directory.
+    On line 158, we set up our database cursor before a `count` variable, which will
+    keep count of the number of files stored in the `Files` table:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`ingest_directory()`函数处理我们脚本的输入模式，并递归捕获用户提供的根目录中文件的元数据。在第158行，我们在`count`变量之前设置了数据库游标，该变量将记录存储在`Files`表中的文件数量：'
+- en: '[PRE23]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'The most important part of this function is the `for` loop on line 160\. This
+    loop uses the `os.walk()` method to break apart a provided directory path into
+    an iterative array that we can step through. There are three components of the
+    `os.walk()` method. They are generally named `root`, `folders`, and `files`. The
+    `root` value is a string that represents the path of the base directory we are
+    currently walking during the specific loop iteration. As we traverse through subfolders,
+    they will be appended to the root value. The `folders` and `files` variables provide
+    lists of folder and filenames within the current root, respectively. Although
+    these variables may be renamed as you see fit, this is a good naming convention
+    to prevent overwriting Python statements, such as `file` or `dir`, which are already
+    used in Python. In this instance, though, we do not need the `folders` list from
+    `os.walk()`, so we will name it as a single underscore (`_`):'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数最重要的部分是第160行的`for`循环。此循环使用`os.walk()`方法将提供的目录路径拆分成一个可迭代数组，供我们逐步遍历。`os.walk()`方法有三个组成部分，它们通常命名为`root`、`folders`和`files`。`root`值是一个字符串，表示我们在特定循环迭代过程中当前遍历的基本目录路径。当我们遍历子文件夹时，它们会被附加到`root`值中。`folders`和`files`变量分别提供当前根目录内文件夹和文件名的列表。尽管可以根据需要重命名这些变量，但这是一个良好的命名约定，有助于避免覆盖Python语句，例如`file`或`dir`，这些在Python中已经被使用。不过，在此实例中，我们不需要`os.walk()`中的`folders`列表，因此我们将其命名为一个单下划线（`_`）：
+- en: '[PRE24]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: This is a common practice for assigning a value to a variable that is unused
+    in the code. For this reason, only use a single underscore to represent unused
+    data. Where possible, try to redesign your code to not return unwanted values.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是为未在代码中使用的变量赋值的常见做法。因此，仅使用单个下划线表示未使用的数据。尽可能地，尝试重新设计代码，避免返回不需要的值。
+- en: 'Within the loop, we begin iterating over the `files` list to access information
+    about each file. On line 162, we create a file-specific dictionary, `meta_data`,
+    to store the collected information, as follows:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在循环中，我们开始遍历`files`列表，以访问每个文件的信息。在第162行，我们创建了一个文件专属的字典`meta_data`，用来存储收集到的信息，具体如下：
+- en: '[PRE25]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: On line 163, we use a try-except clause to catch any exceptions. We know we
+    said not to do that, but hear us out first. This catch-all is in place so that
+    any error within a discovered file does not cause the script to crash and stop.
+    Instead, the filename and error will be written to the log before skipping that
+    file and continuing execution. This can help an examiner quickly locate and troubleshoot
+    specific files. This is important as some errors may occur on Windows systems
+    due to filesystem flags and naming conventions that cause errors in Python. Different
+    errors will then occur on macOS and Linux/UNIX systems, making it hard to predict
+    all of the instances where the script will crash. This is an excellent example
+    of why logging is important, as we can review errors that have been generated
+    by our script.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第163行，我们使用try-except语句块来捕捉任何异常。我们知道我们曾说过不要这么做，但请先听我们解释。这种通用的异常捕获机制是为了确保在发现的文件中出现的任何错误不会导致脚本崩溃和停止执行。相反，文件名和错误信息将被写入日志，然后跳过该文件并继续执行。这有助于检查人员快速定位和排除特定文件的故障。这一点非常重要，因为某些错误可能在Windows系统上由于文件系统标志和命名规则而导致Python出现错误。而在macOS和Linux/UNIX系统上则可能会出现不同的错误，这使得很难预测脚本会在哪些情况下崩溃。这正是日志记录重要性的一个极好例子，因为我们可以回顾脚本生成的错误。
+- en: Within the try-except clause, we store the different properties of the file's
+    metadata to keys. To begin, we record the filename and full path on lines 163
+    and 164\. Note how the dictionary keys share the name with the columns they belong
+    to in the `Files` table. This format will make our lives easier later in the script.
+    The file path is stored using the `os.path.join()` method, which combines separate
+    paths into a single one using the operating system's specific path separator.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在try-except语句块中，我们将文件元数据的不同属性存储到字典的键中。首先，我们在第163行和第164行记录文件名和完整路径。注意，字典的键与它们在`Files`表中所属列的名称相同。这个格式将使我们在脚本后续的操作中更加方便。文件路径使用`os.path.join()`方法进行存储，该方法将不同的路径合并为一个，使用操作系统特定的路径分隔符。
+- en: 'On line 167, we gather the file extension by using the `os.path.splitext()`
+    method to split the extension after the last `.` in the filename. Since this function
+    on line 167 creates a list, we select the last element to ensure that we store
+    the extension. In some situations, the file may not have an extension (for example,
+    a `.DS_Store` file), in which case the last value in the returned list is an empty
+    string. Be aware that this script does not check file signatures to confirm that
+    the file type matches the extension; the process of checking file signatures can
+    be automated:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第167行，我们通过使用`os.path.splitext()`方法来获取文件扩展名，该方法会根据文件名中最后一个`.`之后的部分进行分割。由于第167行的函数会创建一个列表，我们选择最后一个元素以确保我们保存扩展名。在某些情况下，文件可能没有扩展名（例如`.DS_Store`文件），在这种情况下，返回列表中的最后一个值是一个空字符串。请注意，这个脚本并没有检查文件签名来确认文件类型是否与扩展名匹配；检查文件签名的过程可以自动化：
+- en: '[PRE26]'
+  id: totrans-109
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Exploring the os.stat() method
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索`os.stat()`方法
+- en: On line 170, we use `os.stat()` to collect our metadata for the file. This method
+    reaches out to the system's `stat` library to gather information about the supplied
+    file. By default, this method returns an object with all of the available data
+    gathered about each file. Because this information varies between platforms, we
+    have selected only the most cross-platform properties for our script, as defined
+    in the `os` library documentation; more information can be found at [https://docs.python.org/3/library/os.html#os.stat_result](https://docs.python.org/3/library/os.html#os.stat_result).
+    This list includes creation time, modified time, accessed time, file mode, file
+    size, inode number, and mode. SQLite will accept the data types in string format,
+    though we will store them in the script with the correct data types in case we
+    need to modify them or use special characteristics of the specific types.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第170行，我们使用`os.stat()`来收集文件的元数据。此方法访问系统的`stat`库以收集提供的文件的信息。默认情况下，该方法返回一个对象，包含有关每个文件的所有可用数据。由于这些信息在平台之间有所不同，我们仅选择了脚本中最具跨平台特性的属性，如`os`库文档中所定义的；更多信息可以在[https://docs.python.org/3/library/os.html#os.stat_result](https://docs.python.org/3/library/os.html#os.stat_result)中找到。此列表包括创建时间、修改时间、访问时间、文件模式、文件大小、inode号和模式。SQLite将接受字符串格式的数据类型，尽管我们将以正确的数据类型将其存储在脚本中，以防我们需要修改它们或使用特定类型的特殊特性。
+- en: 'The file mode is best displayed as an octal integer, so we must use the Python
+    `oct()` function to convert it into a readable state, as shown on line 171:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件模式最好以八进制整数形式显示，因此我们必须使用Python的`oct()`函数将其转换为可读状态，如第171行所示：
+- en: '[PRE27]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'The file mode is a three-digit integer representing the read, write, and execute
+    permissions of a file object. The permissions are defined in the following table
+    and use the numbers 0-7 to determine the permissions that are assigned. Each digit
+    represents permissions for the file''s owner, the group the file is assigned to,
+    and all other users. The number 777, for example, allows full permissions to anyone,
+    and 600 means that only the owner can read and write to the file. Beyond each
+    individual digit, octal representation allows us to assign additional permissions
+    for a file by adding digits. For example, the value 763 grants the owner full
+    permissions (700), read and write permissions to the group (040 + 020), and write
+    and execute permissions to everyone else (002 + 001). You will probably never
+    see 763 as a permission set, though it makes for a fun example here:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件模式是一个三位数的整数，表示文件对象的读、写和执行权限。权限定义在下表中，使用数字0-7来确定分配的权限。每一位数字表示文件所有者、文件所属组以及所有其他用户的权限。例如，数字777表示任何人都具有完全权限，而600意味着只有所有者可以读取和写入文件。除了每个数字，八进制表示法允许我们通过添加数字来为文件分配额外的权限。例如，值763授予所有者完全权限（700），授予组读取和写入权限（040
+    + 020），并授予其他人写和执行权限（002 + 001）。你可能永远不会看到763作为权限设置，尽管它在这里是一个有趣的例子：
+- en: '| **Permission** | **Description** |'
+  id: totrans-115
+  prefs: []
+  type: TYPE_TB
+  zh: '| **权限** | **描述** |'
+- en: '| 700 | Full file owner permissions |'
+  id: totrans-116
+  prefs: []
+  type: TYPE_TB
+  zh: '| 700 | 文件所有者完全权限 |'
+- en: '| 400 | An owner has read permission |'
+  id: totrans-117
+  prefs: []
+  type: TYPE_TB
+  zh: '| 400 | 所有者具有读权限 |'
+- en: '| 200 | An owner has write permission |'
+  id: totrans-118
+  prefs: []
+  type: TYPE_TB
+  zh: '| 200 | 所有者具有写权限 |'
+- en: '| 100 | An owner has execute permission |'
+  id: totrans-119
+  prefs: []
+  type: TYPE_TB
+  zh: '| 100 | 所有者具有执行权限 |'
+- en: '| 070 | Full group permissions |'
+  id: totrans-120
+  prefs: []
+  type: TYPE_TB
+  zh: '| 070 | 完全组权限 |'
+- en: '| 040 | A group has read permission |'
+  id: totrans-121
+  prefs: []
+  type: TYPE_TB
+  zh: '| 040 | 组具有读权限 |'
+- en: '| 020 | A group has write permission |'
+  id: totrans-122
+  prefs: []
+  type: TYPE_TB
+  zh: '| 020 | 组具有写权限 |'
+- en: '| 010 | A group has execute permission |'
+  id: totrans-123
+  prefs: []
+  type: TYPE_TB
+  zh: '| 010 | 组具有执行权限 |'
+- en: '| 007 | Full permissions for others (not in the group or the owner) |'
+  id: totrans-124
+  prefs: []
+  type: TYPE_TB
+  zh: '| 007 | 其他人（不在该组或所有者之外）具有完全权限 |'
+- en: '| 004 | Others have read permission |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| 004 | 其他人具有读权限 |'
+- en: '| 002 | Others have write permission |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| 002 | 其他人具有写权限 |'
+- en: '| 001 | Others have execute permission |'
+  id: totrans-127
+  prefs: []
+  type: TYPE_TB
+  zh: '| 001 | 其他人具有执行权限 |'
+- en: 'The following table shows additional file type information, which is provided
+    by Python''s `os.stat()` method. The three-hashes in the table indicate where
+    the file permissions we just discussed are located within the number. The first
+    two rows of the following table are self-explanatory, and symbolic links represent
+    references to other locations in a filesystem. For example, in the following table,
+    the value 100777 represents a regular file, with full permissions for the owner,
+    groups, and anyone else. Although it may take time to get accustomed to this,
+    this system is very useful for identifying the permissions of files and who has
+    access to them:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下表显示了由Python的`os.stat()`方法提供的额外文件类型信息。表中的三个井号表示我们刚刚讨论的文件权限在数字中的位置。下表的前两行不言自明，符号链接表示指向文件系统中其他位置的引用。例如，在下表中，值100777表示一个常规文件，所有者、组和其他用户都具有完全权限。虽然可能需要一些时间来适应，但这个系统对于识别文件权限及其访问权限非常有用：
+- en: '| **File type** | **Description** |'
+  id: totrans-129
+  prefs: []
+  type: TYPE_TB
+  zh: '| **文件类型** | **描述** |'
+- en: '| 040### | Directory |'
+  id: totrans-130
+  prefs: []
+  type: TYPE_TB
+  zh: '| 040### | 目录 |'
+- en: '| 100### | Regular file |'
+  id: totrans-131
+  prefs: []
+  type: TYPE_TB
+  zh: '| 100### | 常规文件 |'
+- en: '| 120### | Symbolic link |'
+  id: totrans-132
+  prefs: []
+  type: TYPE_TB
+  zh: '| 120### | 符号链接 |'
+- en: 'The `inode` value, a unique identifier of filesystem objects, is the next value
+    we will capture on line 172\. Although this is a feature that''s only found in
+    Linux/UNIX/macOS-based systems, Python converts the record number for NTFS into
+    the same object for uniformity. On line 173, we assign the file size, which is
+    represented by the number of allocated bytes as an integer. On lines 174 through
+    179, we assign the accessed, modified, and created timestamps to the dictionary,
+    in that order. Each timestamp is converted from a float into a string using our
+    `format_timestamps()` function. We have now collected the necessary data to complete
+    a row in our `Files` table:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`inode`值是文件系统对象的唯一标识符，这是我们将在第172行捕获的下一个值。尽管这是仅在Linux/UNIX/macOS系统中找到的特性，但Python会将NTFS的记录号转换为相同的对象，以保持一致性。在第173行，我们为文件大小赋值，文件大小以分配的字节数作为整数表示。在第174行到第179行，我们按顺序将访问、修改和创建的时间戳赋值给字典。每个时间戳都使用我们的`format_timestamps()`函数将浮动值转换为字符串。我们现在已经收集了完成`Files`表中一行所需的数据：'
+- en: '[PRE28]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'The exception mentioned earlier in this section is defined on line 180 and
+    logs any errors that are encountered while collecting metadata:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节前面提到的异常在第180行定义，并记录在收集元数据过程中遇到的任何错误：
+- en: '[PRE29]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'Lastly, outside of our try-except clause, we add the `custodian_id` to our
+    `meta_data` dictionary so that we can store it alongside our record. We can now
+    construct our SQL statement for inserting the new file metadata record. As we
+    saw previously, we will construct an insert statement on line 186 and add placeholders
+    for the column and value names. Using the `.format()` method, we will insert our
+    `meta_data` key and value data. On line 187, we join the `meta_data` keys into
+    a string where each key is separated by double quotes and a comma. On line 188,
+    we join a comma-separated list of commas, inserting one question mark per value
+    as a placeholder for our `execute()` call. An example of the generated string
+    in the `sql` variable is shown here:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在我们的`try-except`语句块之外，我们将`custodian_id`添加到我们的`meta_data`字典中，这样我们就可以将其与记录一起存储。现在，我们可以构造用于插入新文件元数据记录的SQL语句。正如我们之前所看到的，我们将在第186行构造一个插入语句，并为列名和值名添加占位符。使用`.format()`方法，我们将插入我们的`meta_data`键和值数据。在第187行，我们将`meta_data`的键连接成一个字符串，每个键之间用双引号和逗号分隔。在第188行，我们将一个由逗号分隔的列表连接起来，为每个值插入一个问号作为`execute()`调用的占位符。以下是生成的`sql`变量中的字符串示例：
+- en: '[PRE30]'
+  id: totrans-138
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'This allows us to then provide a list of our values, as seen within the try
+    block on lines 189-190, to the SQLite3 Python library to craft the correct insert
+    statement for the database. We need to convert our dictionary values into a tuple
+    for support with SQLite3, as shown in the call on line 190:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样，我们就可以在第189-190行的`try`块中看到我们值的列表，并将其传递给SQLite3 Python库，以便为数据库生成正确的插入语句。我们需要将字典值转换为元组，以便SQLite3支持，如第190行的调用所示：
+- en: '[PRE31]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Now, we can close our except clause and provide error handling and logging
+    for SQLite3 library errors on lines 191 through 197\. After our error handling,
+    we increment our file processing count by 1 and move to the next file, which can
+    be found in either of our two for loops:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以关闭我们的`except`语句块，并为SQLite3库的错误提供错误处理和日志记录，错误发生在第191行到第197行。在错误处理之后，我们将文件处理计数增加1，并继续处理下一个文件，该文件可以在我们的两个`for`循环中的任意一个中找到：
+- en: '[PRE32]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: 'Once our innermost for loop completes, we use the `commit()` method to save
+    the new records in our database. We also run the `commit()` method again once
+    our outer for loop finishes, before logging that the directory ingestion is complete
+    and providing the user with a count of files handled:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们最内层的`for`循环完成，我们使用`commit()`方法将新记录保存到数据库中。在外层`for`循环完成后，我们再次运行`commit()`方法，然后记录目录处理完成，并向用户提供已处理文件的数量：
+- en: '[PRE33]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: Developing the format_timestamp() helper function
+  id: totrans-145
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发`format_timestamp()`辅助函数
+- en: 'This comparatively small function interprets integer timestamps as human-readable
+    strings. Because the Python `os.stat()` module returns the time as a count of
+    seconds since the epoch, 1/1/1970, we need to use the `datetime` library to perform
+    this transformation. Using the `datetime.datetime.fromtimestamp()` function, we
+    can parse the float to a `datetime` object, which we name `ts_datetime` on line
+    211\. With the date as a `datetime` object, we can now use the `strftime()` method
+    to format the date using our desired format, `YYYY-MM-DD HH:MM:SS`, on line 212\.
+    With the string ready to be inserted into the database, we return the value to
+    the calling function:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个相对较小的函数将整数时间戳转换为人类可读的字符串。由于Python的`os.stat()`模块返回的是自纪元（1970年1月1日）以来的秒数，我们需要使用`datetime`库来进行转换。通过使用`datetime.datetime.fromtimestamp()`函数，我们可以将浮动时间戳解析为`datetime`对象，本文中我们将其命名为`ts_datetime`，并在第211行进行赋值。将日期作为`datetime`对象后，我们可以在第212行使用`strftime()`方法按所需格式`YYYY-MM-DD
+    HH:MM:SS`格式化日期。字符串准备好后，我们将其返回给调用函数，以便插入到数据库中：
+- en: '[PRE34]'
+  id: totrans-147
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Short utility functions like this are useful to incorporate into larger scripts.
+    One advantage is that if we wanted to update our date format, we only have to
+    change it in one location, versus finding every use of `strftime()`. This smaller
+    function also increases the readability of our code. The `ingest_directory()`
+    function is already pretty sizable, and adding this logic three times over could
+    become confusing to the next person to review the code. These functions are useful
+    in string formatting or common conversions, though as you are designing your own
+    script, consider what utility functions you can create to make your life easier.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样的小型实用函数在较大的脚本中非常有用。一个优势是，如果我们想更新日期格式，只需在一个地方更改，而不必逐一查找所有`strftime()`的用法。这个小函数还提高了代码的可读性。`ingest_directory()`函数已经相当庞大，如果将这一逻辑重复三次，可能会使下一个审查代码的人感到困惑。这些函数在字符串格式化或常见转换中非常有用，但在设计自己的脚本时，可以考虑创建哪些实用函数来简化工作。
+- en: Configuring the write_output() function
+  id: totrans-149
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 配置`write_output()`函数
+- en: 'If the output destination is specified by the user, the `write_output()` function
+    is called. Once invoked, we select the custodian ID from the database using the
+    `get_custodian()` function, which is called on line 225\. If found, we need to
+    build a new query to determine the number of files associated with the custodian
+    using the `COUNT()` SQL function. If the custodian is not found, an error is logged
+    to alert the user that the custodian was unresponsive, as we can see on lines
+    234 through 237:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果用户指定了输出目标，则会调用`write_output()`函数。调用后，我们使用`get_custodian()`函数从数据库中选择看护人ID，该函数在第225行被调用。如果找到了看护人，我们需要构建一个新的查询来确定与看护人关联的文件数量，使用`COUNT()`
+    SQL函数。如果未找到看护人，会记录错误，提示用户看护人未响应，具体内容见第234到237行：
+- en: '[PRE35]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'If the custodian is found and the number of stored files is greater than zero,
+    we check what type of report to generate. The conditional statements starting
+    on line 239 check the size of `count` and the extension of the source. If `count`
+    is not greater than zero or does not contain a value, then an error is logged
+    on line 240\. Otherwise, we check for the CSV file extension on line 241 and the HTML
+    file extension on line 243, calling the respective function if we find a match.
+    If the source does not end in either of those file extensions, then an error is
+    logged, stating that the file type could not be determined. Finally, if the code
+    reaches the else statement on line 247, we log the fact that an unknown error
+    occurred. We can see all of this in the following code:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果找到了看护人并且存储的文件数量大于零，我们将检查要生成哪种类型的报告。从第239行开始的条件语句检查`count`的大小和源文件的扩展名。如果`count`不大于零或没有值，则会在第240行记录错误。否则，我们在第241行检查CSV文件扩展名，在第243行检查HTML文件扩展名，如果找到匹配项，则调用相应的函数。如果源文件扩展名既不是CSV也不是HTML，则会记录错误，表明无法确定文件类型。最后，如果代码执行到第247行的`else`语句，则会记录一个未知错误发生的事实。我们可以在以下代码中看到这一过程：
+- en: '[PRE36]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: Designing the write_csv() function
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设计 `write_csv()` 函数
+- en: 'If the file extension is CSV, we can start iterating through the entries stored
+    in the Files table. The SQL statement on line 261 uses the `WHERE` statement to
+    identify only files related to the specific custodian. The `cur.description` value
+    that''s returned is a tuple of tuples, with eight elements in each of the nested
+    tuples, representing our column names. The first value in each tuple is the column
+    name, whereas the remaining seven are empty strings that are left in place for
+    backward compatibility purposes. Using list comprehension on line 265, we iterate
+    through these tuples and build the list of column names by selecting only the
+    first element from each item in the returned tuples. This one-line statement allows
+    us to condense a simple for loop into a single statement that generates the desired
+    list:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果文件扩展名是 CSV，我们可以开始迭代存储在文件表中的条目。第 261 行的 SQL 语句使用 `WHERE` 语句仅识别与特定保管员相关的文件。返回的
+    `cur.description` 值是一个元组的元组，每个嵌套元组中有八个元素，表示我们的列名。每个元组中的第一个值是列名，其余七个是空字符串，作为向后兼容的目的保留。通过在第
+    265 行使用列表推导式，我们遍历这些元组，选择返回元组中每个项的第一个元素，构建列名列表。这条单行语句使我们能够将一个简单的 for 循环压缩成一条生成所需列表的语句：
+- en: '[PRE37]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: A list comprehension is a succinct method for generating a list with a single-line
+    for loop. These are generally used to filter the content of a list or provide
+    some form of transformation. On line 265, we are using it to perform a structural
+    transformation, extracting only the first item from each element of the `cur.description`
+    list and storing it as columns. This is because the Python SQLite bindings return
+    the column names as a nested tuple where the first element of each subtuple is
+    the column's name.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 列表推导式是一种简洁的通过单行 for 循环生成列表的方法。通常用于过滤列表内容或进行某种形式的转换。在第 265 行，我们使用它进行结构转换，从 `cur.description`
+    列表的每个元素中仅提取第一个项，并将其存储为列名。这是因为 Python 的 SQLite 绑定将列名作为嵌套元组返回，其中每个子元组的第一个元素是列名。
+- en: With the column names prepared, we log that the CSV report is being written
+    and open the output file in `wb` mode on line 267\. We then initialize a writer
+    by calling the `csv.writer()` method on line 268 and passing the file object.
+    After this file is opened, we write the column rows by calling on the `csv_writer`
+    object to `writerow()`, which writes a single row.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在准备好列名后，我们记录下正在写入 CSV 报告，并在第 267 行以 `wb` 模式打开输出文件。然后，我们通过在第 268 行调用 `csv.writer()`
+    方法并传递文件对象来初始化写入器。打开文件后，我们通过调用 `csv_writer` 对象的 `writerow()` 方法写入列行，每次写入一行。
+- en: 'At this point, we will loop through the results by iterating over the cursor,
+    where it will return a row for each iteration of the loop until exiting when no
+    more rows are responsive to the original query. For each row that''s returned,
+    we need to call the `writerow()` method again, as shown on line 272\. We then
+    flush the new data to the file on line 273 to ensure that the data is written
+    to disk. Finally, we log that the report is complete and stored at the user-specified
+    location. We have the following code:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，我们将通过迭代游标来循环结果，游标将在每次循环迭代时返回一行，直到没有更多的行响应原始查询为止。对于每一行返回的结果，我们需要再次调用 `writerow()`
+    方法，如第 272 行所示。然后，我们在第 273 行将新数据刷新到文件中，以确保数据写入磁盘。最后，我们记录报告已完成并存储在用户指定的位置。我们有以下代码：
+- en: '[PRE38]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: Composing the write_html() function
+  id: totrans-161
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 编写 `write_html()` 函数
+- en: If the user specifies an HTML report, the `write_html()` function is called
+    to read data from the database, generate the HTML tags for our data, and, using
+    Bootstrap styling, create a table with our file metadata. Because this is HTML,
+    we can customize it to create a professional-looking report that can be converted
+    into a PDF or viewed by anyone with a web browser. If additional HTML elements
+    prove to be useful in your version of the report, they can easily be added to
+    the following strings and customized with logos, highlighting by extension, responsive
+    tables, graphs, and much more, which is possible if you use various web styles
+    and scripts.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果用户指定了 HTML 报告，则会调用 `write_html()` 函数从数据库读取数据，生成数据的 HTML 标签，并使用 Bootstrap 样式创建包含文件元数据的表格。由于这是
+    HTML 格式，我们可以自定义它，创建一个专业外观的报告，该报告可以转换为 PDF 或通过任何具有网页浏览器的用户查看。如果在你的报告版本中额外的 HTML
+    元素证明是有用的，它们可以轻松地添加到以下字符串中，并通过添加徽标、扩展高亮、响应式表格、图表等进行自定义，只要你使用各种网页样式和脚本，这一切都是可能的。
+- en: Since this book is focused on the design of Python scripts, we won't be diving
+    into detail about HTML, CSS, or other web design languages. Where we use these
+    features, we will describe the basics of why they are used and how to implement
+    them, though we recommend using related resources (such as [http://www.w3schools.com](http://www.w3schools.com))
+    to learn more about those topics if they are of interest to you.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于本书专注于 Python 脚本的设计，我们不会详细讲解 HTML、CSS 或其他网页设计语言。在使用这些功能时，我们将描述它们的基本用途和如何实现它们，尽管如果你有兴趣，我们建议你使用相关资源（例如[http://www.w3schools.com](http://www.w3schools.com)）来深入了解这些话题。
+- en: 'This function begins similarly to `write_csv()`: we select the files that belong
+    to the custodian in a SQL statement on line 287\. Once executed, we again gather
+    our `cols` using list comprehension on line 291\. With our column names, we define
+    the `table_header` HTML string using the `join()` function on our list and separating
+    each value with `<th></th>` tags on line 292\. For all except the first and last
+    element, this will enclose each element in a `<th>{{ element }}</th>` tag. Now,
+    we need to close the first and last element tags to ensure that they form the
+    proper table header. For the beginning of the string, we append the `<tr><th>`
+    tags to define the table row `<tr>` for the entire row, and the table header `<th>`
+    for the first entry. Likewise, we close the table header and table row tags at
+    the end of the string on line 293, as follows:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数的开始与 `write_csv()` 类似：我们在 287 行的 SQL 语句中选择属于托管人的文件。执行后，我们再次在 291 行使用列表推导式收集
+    `cols`。通过列名，我们使用 `join()` 函数在 292 行定义 `table_header` HTML 字符串，并通过 `<th></th>`
+    标签将每个值分隔开。除了第一个和最后一个元素外，其他每个元素都会被 `<th>{{ element }}</th>` 标签包围。现在，我们需要关闭第一个和最后一个元素的标签，以确保它们形成正确的表头。对于字符串的开始部分，我们添加
+    `<tr><th>` 标签来定义整个行的表格行 `<tr>` 和第一个条目的表头 `<th>`。同样，我们在 293 行字符串的末尾关闭表头和表格行标签，内容如下：
+- en: '[PRE39]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: On line 297, we open our HTML file in `w` mode as the `html_file` variable.
+    With the file open, we begin to build our HTML code, starting with the `<html><body>`
+    tags that are used to initialize HTML documents on line 298\. Next, we connect
+    to the custom style sheet that's hosted online to provide the Bootstrap styles
+    for our table. We do this by using the `<link>` tag, with the type and the source
+    of the style sheet, which is located at [https://www.bootstrapcdn.com/](https://www.bootstrapcdn.com/).
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 297 行，我们以 `w` 模式打开 HTML 文件，将其赋值给 `html_file` 变量。文件打开后，我们开始构建 HTML 代码，从 298
+    行的 `<html><body>` 标签开始，这些标签用于初始化 HTML 文档。接着，我们连接到托管在线的自定义样式表，以为表格提供 Bootstrap
+    样式。我们通过使用 `<link>` 标签来实现这一点，指定样式表的类型和来源，样式表位于 [https://www.bootstrapcdn.com/](https://www.bootstrapcdn.com/)。
+- en: Now, let's define the header of our HTML report so that we can ensure it contains
+    the custodian ID and name. We will do this by using the `<h1></h1>` or heading
+    1 tags. For our table, we use the table tags on line 302 and the Bootstrap styles
+    (`table`, `table-hover`, and `table-striped`) we would like to implement.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们定义 HTML 报告的头部，以确保它包含托管人 ID 和姓名。我们将使用`<h1></h1>`或标题 1 标签来实现这一点。对于我们的表格，我们在
+    302 行使用表格标签，并使用我们想要实现的 Bootstrap 样式（`table`、`table-hover` 和 `table-striped`）。
+- en: For additional information on Bootstrap, visit [http://getbootstrap.com](http://getbootstrap.com).
+    While this script uses Bootstrap CSS version 3.3.5, explore the more recent updates
+    to Bootstrap and see if you can implement the newer features in your code.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取有关 Bootstrap 的更多信息，请访问[http://getbootstrap.com](http://getbootstrap.com)。虽然本脚本使用的是
+    Bootstrap CSS 版本 3.3.5，但你可以探索 Bootstrap 的最新更新，并查看是否能在你的代码中实现新的功能。
+- en: 'With this header information in the HTML string, we can write it to the file,
+    first writing the HTML header and style sheet information on line 304, followed
+    by the column names for our table on line 305, as follows:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 HTML 字符串中加入这些头部信息后，我们可以将其写入文件，首先在 304 行写入 HTML 头部和样式表信息，然后在 305 行写入表格的列名，内容如下：
+- en: '[PRE40]'
+  id: totrans-170
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'Now, let''s iterate over the records in the database and write them to the
+    table as individual rows. We begin by joining each element in the table data tags
+    (`<td></td>`) that specify the table cell content. We use list comprehension before
+    joining the data on line 308 and converting it to the string value that the `join()`
+    method requires:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们遍历数据库中的记录，将它们作为单独的行写入表格。我们首先通过连接表格数据标签（`<td></td>`）来指定表格单元格的内容，使用列表推导式在
+    308 行对数据进行连接，并将其转换为 `join()` 方法所需的字符串值：
+- en: '[PRE41]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'On line 310, we add a new line character (`\n`) followed by a `<tr>` table
+    row tag and the initial `<td>` tag to open the table data for the first element.
+    The newline character reduces the loading time in some HTML viewers, as it breaks
+    the data into multiple lines. We also have to close the last table data tag and
+    the entire table row, as seen at the end of line 310\. The row data is written
+    to the file on line 311\. Finally, within the loop for the table rows, we `.flush()`
+    the content to the file. With the table data built, we can close the table, body,
+    and the HTML tags on line 313\. Once outside of the `for` loop, we log the report''s
+    status and location on line 315:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第310行，我们添加了一个换行符（`\n`），然后是一个`<tr>`表格行标签和初始的`<td>`标签，用于打开第一个元素的表格数据。换行符减少了某些HTML查看器的加载时间，因为它将数据分割成多行。我们还需要在第310行的末尾关闭最后一个表格数据标签和整个表格行。行数据会在第311行写入文件。最后，在表格行的循环中，我们使用`.flush()`方法将内容刷新到文件。随着表格数据的构建，我们可以在第313行关闭表格、主体和HTML标签。跳出`for`循环后，我们在第315行记录报告的状态和位置：
+- en: '[PRE42]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: Running the script
+  id: totrans-175
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行脚本
+- en: In this iteration, we have highlighted the process that's required for reading
+    all of the file metadata of a directory recursively, storing it into a database,
+    extracting it out of the database, and generating reports from the data. This
+    iteration uses basic libraries to handle the necessary SQL and HTML operations
+    in a fairly manual fashion. The next iteration focuses on using Python objects
+    to perform this same functionality. Both iterations are final versions of the
+    scripts and are fully functional. The separate iterations demonstrate different
+    methods to accomplish the same task.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一版本中，我们突出展示了递归读取目录中所有文件元数据、将其存储到数据库、从数据库中提取并基于数据生成报告的过程。本版本使用了基本的库来手动处理必要的SQL和HTML操作。下一版本将专注于使用Python对象执行相同的功能。这两个版本都是脚本的最终版本，并且功能完全可用。不同的版本展示了实现相同任务的不同方法。
+- en: 'To run our script, we need to first supply it with the name of the custodian,
+    the location of the database to create or read from, and the desired mode. In
+    the first example, we specify the input mode and pass the root directory to index.
+    In the second example, we create a CSV report with the output mode and supply
+    an appropriate file path:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要运行我们的脚本，首先需要提供管理员的名称、要创建或读取的数据库位置以及所需的模式。在第一个示例中，我们指定了输入模式并传递了根目录以进行索引。在第二个示例中，我们以输出模式创建了一个CSV报告，并提供了适当的文件路径：
+- en: '![](img/140d7386-f8f6-47a6-bbc6-8a426c4b6f17.png)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/140d7386-f8f6-47a6-bbc6-8a426c4b6f17.png)'
+- en: 'The output of the preceding script can be viewed in the following screenshot.
+    Here, we have simply created a generic CSV report containing the captured metadata
+    of the indexed files for this chapter''s custodian:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面脚本的输出可以通过以下截图查看。在这里，我们仅仅创建了一个通用的CSV报告，包含了本章管理员的索引文件的捕获元数据：
+- en: '![](img/2065652c-8091-4818-aada-4df3ad1c2940.png)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2065652c-8091-4818-aada-4df3ad1c2940.png)'
+- en: Automating databases further – file_lister_peewee.py
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步自动化数据库 – file_lister_peewee.py
+- en: In this iteration, we will use third-party Python modules to automate our SQL
+    and HTML setup further. This will introduce extra overhead; however, our script
+    will be simpler to implement and more streamlined, which will allow us to easily
+    develop further functionality. Developing with an eye toward the future helps
+    prevent us from rewriting the entire script for every minor feature request.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一版本中，我们将使用第三方Python模块进一步自动化我们的SQL和HTML设置。这会引入额外的开销；然而，我们的脚本会更简洁，实施起来更加流畅，这使得我们能够轻松地开发更多功能。面向未来的开发可以帮助我们避免为了每个小的功能请求而重写整个脚本。
+- en: 'We have imported the majority of the standard libraries required in the prior
+    version and added the third-party `unicodecsv` module (version 0.14.1). This module
+    wraps around the built-in `csv` module and automatically provides Unicode support
+    for the CSV output. To keep things familiar, we can even name it `csv` by using
+    the `import...as...` statement on line 8. As mentioned previously in this chapter, `peewee` (version
+    2.8.0) and `jinja2` (version 2.8) are the two libraries that can handle our SQLite
+    and HTML operations. As these last three imports are third-party libraries, they
+    will need to be installed on the user''s machine for our code to run properly
+    and can be done so with `pip`:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经导入了前一版本所需的大部分标准库，并添加了第三方`unicodecsv`模块（版本0.14.1）。这个模块是对内置`csv`模块的封装，自动为CSV输出提供Unicode支持。为了保持熟悉的使用方式，我们甚至可以通过在第8行使用`import...as...`语句将其命名为`csv`。正如本章之前提到的，`peewee`（版本2.8.0）和`jinja2`（版本2.8）是处理SQLite和HTML操作的两个库。由于这最后三个导入是第三方库，它们需要在用户的机器上安装才能让我们的代码正常运行，安装方法可以使用`pip`：
+- en: '[PRE43]'
+  id: totrans-184
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: 'Following the import statements and license, we define our common script metadata
+    and logging handler. On line 46, we add the `database_proxy` object, which is
+    used to create the Peewee base model for the `Custodian` and `Files` class tables.
+    We also add the `get_template()` function, which builds a template HTML table
+    using `jinja2`. The other functions largely resemble their counterparts in the
+    previous iteration, with minor adjustments here and there. However, we have removed
+    the `get_custodian()` function as Peewee has that functionality builtin:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在导入语句和许可证之后，我们定义了我们的通用脚本元数据和日志处理器。在第46行，我们添加了`database_proxy`对象，用于为`Custodian`和`Files`类表创建Peewee基本模型。我们还添加了`get_template()`函数，该函数使用`jinja2`构建一个模板HTML表格。其他函数在很大程度上与之前版本的对应函数类似，只做了一些小调整。然而，我们已经删除了`get_custodian()`函数，因为Peewee已经内建了该功能：
+- en: '[PRE44]'
+  id: totrans-186
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'The code block under the `if __name__ == ''__main__''` conditional that defines
+    command-line arguments and sets up logging is identical to the prior iteration.
+    We will not repeat these implementation details here as we can simply copy and
+    paste the section from the previous iteration, saving a few trees. While that
+    section has remained unchanged, the overall flow of our script has seen minor
+    modifications, as shown in the following flow diagram:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 定义命令行参数并设置日志记录的`if __name__ == '__main__'`条件下的代码块与之前的版本相同。我们在此不再重复这些实现细节，因为我们可以直接从前一版本中复制粘贴该部分，节省了一些纸张。尽管该部分保持不变，但我们脚本的整体流程略有修改，具体变化如以下流程图所示：
+- en: '![](img/af060217-ae83-40fb-85b9-57a1bf674405.png)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/af060217-ae83-40fb-85b9-57a1bf674405.png)'
+- en: Peewee setup
+  id: totrans-189
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Peewee设置
+- en: Peewee, the object relational manager library that was described at the beginning
+    of this chapter, is excellent at database management in Python. It uses Python
+    classes to define settings for the database, including table configurations, the location
+    of the database, and how to handle different Python data types. On line 46, we
+    must first create an anonymous database connection using the Peewee `Proxy()`
+    class, which allows us to redirect the information into the previously specified
+    format. This variable must be declared before any Peewee operations, as per its
+    documentation ([http://docs.peewee-orm.com/en/3.6.0/](http://docs.peewee-orm.com/en/3.6.0/)).
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Peewee是本章开头提到的对象关系管理库，它在Python中的数据库管理非常出色。它使用Python类定义数据库的设置，包括表格配置、数据库位置以及如何处理不同的Python数据类型。在第46行，我们必须首先使用Peewee的`Proxy()`类创建一个匿名的数据库连接，这样我们就可以将信息重定向到之前指定的格式。根据Peewee的文档，该变量必须在进行任何Peewee操作之前声明（[http://docs.peewee-orm.com/en/3.6.0/](http://docs.peewee-orm.com/en/3.6.0/)）。
+- en: Following the initialization of the proxy, we define our first Python class
+    used in this book, thus creating a `BaseModel` class that defines the database
+    to use. As part of the Peewee specification, we must link the `database_proxy`
+    to the `database` variable within the `Meta` class of our `BaseModel` object.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在代理初始化之后，我们定义了本书中使用的第一个Python类，从而创建了一个`BaseModel`类，该类定义了要使用的数据库。作为Peewee规范的一部分，我们必须将`database_proxy`链接到`BaseModel`对象的`Meta`类中的`database`变量。
+- en: While this required configuration may not make the most sense at the moment,
+    continue through the rest of this chapter and revisit this section after completing
+    and running the script, as the purpose of these modules will become clearer. Additionally,
+    the aforementioned documentation does an excellent job at demonstrating the features
+    and the usage of Peewee.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然这一配置可能现在看起来不太明了，但请继续阅读本章其余内容，并在完成并运行脚本后回到这一部分，因为这些模块的目的会变得更加清晰。此外，上述文档在展示Peewee的功能和使用方面做得非常出色。
+- en: 'We must include the base model, as defined on lines 48 through 50, as the minimum
+    setup for Peewee to create the database:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们必须包括在第48行至第50行定义的基础模型，作为Peewee创建数据库的最小设置：
+- en: '[PRE45]'
+  id: totrans-194
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: Next, we create the `Custodians` table that's defined on line 60\. This table
+    inherits the `BaseModel` properties and therefore has the `BaseModel` class within
+    its parentheses. This is usually used to define arguments that are needed for
+    a function, but with classes, it can also allow us to assign a parent class to
+    inherit data from. In this script, the `BaseModel` class is the child of `peewee.Model`
+    and the parent to the `Custodians` and (soon to be discussed) `Files` tables.
+    Keep in mind that Peewee describes tables as class models and that the library
+    will be creating a table named `Custodians` for us; more on this in a bit.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们在第60行定义并创建了`Custodians`表。这个表继承了`BaseModel`的属性，因此在其括号内包含了`BaseModel`类。这通常用于定义函数所需的参数，但在类中，它也可以让我们分配一个父类，以便继承数据。在这个脚本中，`BaseModel`类是`peewee.Model`的子类，也是`Custodians`表和（稍后将讨论的）`Files`表的父类。请记住，Peewee将表描述为类模型，库会为我们创建一个名为`Custodians`的表；稍后会详细说明。
+- en: 'After initialization, we add a text field, `name`, to the `Custodians` table
+    on line 61\. The `unique=True` keyword creates an auto-incrementing index column
+    in addition to our `name` column. This table configuration will be used later
+    to create the table, and then insert data into it and retrieve information out
+    of it:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 初始化后，我们在第61行向`Custodians`表添加了一个文本字段`name`。`unique=True`关键字创建了一个自动递增的索引列，除了我们的`name`列之外。这个表配置将用于稍后创建表、插入数据并从中检索信息：
+- en: '[PRE46]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: The `Files` table has many more fields and several new data types. As we already
+    know, SQLite only manages the text, integers, none, and BLOB data types, and so
+    a few of these types may look out of place. Using the `DateTimeField` as an example,
+    Peewee can take any Python `date` or `datetime` object. Peewee will automatically
+    store it as a text value in the database and can even preserve its original time
+    zone. When the data is called out of the table, Peewee attempts to convert this
+    value back into a `datetime` object or into a formatted string. Although the date
+    is still stored as a text value in the database, Peewee transforms the data in
+    transit to provide better support and functionality in Python. Although we could
+    replicate this functionality manually, like we did in our prior script, this is
+    one of the many useful features that are bundled into Peewee.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Files`表有更多的字段和几种新的数据类型。正如我们已经知道的，SQLite只管理文本、整数、空值和BLOB数据类型，因此其中一些数据类型可能看起来不太对。以`DateTimeField`为例，Peewee可以处理任何Python
+    `date`或`datetime`对象。Peewee会自动将其存储为数据库中的文本值，甚至可以保留其原始时区。当数据从表中调用时，Peewee会尝试将这个值转换回`datetime`对象或格式化的字符串。尽管日期仍然以文本值的形式存储在数据库中，Peewee在数据传输过程中会进行转换，以提供更好的支持和功能。尽管我们可以像在之前的脚本中那样手动复制这一功能，但这是Peewee打包的一些有用功能之一。'
+- en: 'On lines 56 through 66, we create typed columns, which reflect primary and
+    foreign keys, text, timestamps, and integers. The `PrimaryKeyField` specifies
+    unique and primary key attributes and is assigned to the `id` column. The `ForeignKeyField`
+    has the `Custodians` class as the argument, as Peewee uses this to relate it back
+    to the index in the `Custodians` class we defined. Following the two special key
+    fields are a series of fields that we described earlier in this chapter:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第56行到第66行之间，我们创建了具有类型的列，这些列反映了主键、外键、文本、时间戳和整数。`PrimaryKeyField`指定唯一的主键属性，并分配给`id`列。`ForeignKeyField`以`Custodians`类作为参数，因为Peewee使用它将其与我们定义的`Custodians`类中的索引关联起来。紧接着这两个特殊键字段的是一系列我们在本章前面描述的字段：
+- en: '[PRE47]'
+  id: totrans-200
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: This completes the entire setup for the database we created previously using
+    a SQL query in the first script. Although it is lengthier in comparison, it does
+    prevent us from having to write our own SQL queries and, when working with larger
+    databases, it is even more essential. For example, a larger script with many modules
+    would greatly benefit from using Peewee to define and handle database connections.
+    Not only would it provide uniformity across the modules, it also allows cross-compatibility
+    with different database backends. Later in this chapter, we will showcase how
+    to change the database type between PostgreSQL, MySQL, and SQLite. Although the
+    Peewee setup is verbose, it adds many features and saves us from having to develop
+    our own functions to handle database transactions.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这完成了我们之前使用 SQL 查询在第一个脚本中创建的数据库的整个设置。虽然与之前相比它更为冗长，但它确实避免了我们必须编写自己的 SQL 查询，并且在处理更大的数据库时，它显得尤为重要。例如，一个包含多个模块的大型脚本，将通过使用
+    Peewee 来定义和处理数据库连接受益匪浅。它不仅能为模块提供统一性，还能实现与不同数据库后端的跨兼容性。本章稍后将展示如何在 PostgreSQL、MySQL
+    和 SQLite 之间更改数据库类型。虽然 Peewee 设置较为冗长，但它提供了许多功能，免去了我们自己编写处理数据库事务函数的麻烦。
+- en: Jinja2 setup
+  id: totrans-202
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Jinja2 设置
+- en: Now, let's discuss the configuration of the other new module. Jinja2 allows
+    us to create powerful text templates using a Pythonic syntax for text expansion
+    and logic evaluation. Templates also allow us to develop a reusable block of text
+    versus needing to build our table rows and columns line by line within our Python
+    script's `for` loops. Although the prior script takes a simplistic approach by
+    forming an HTML file from strings, this template is more robust, dynamic, and
+    most importantly, more sustainable.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们讨论一下其他新模块的配置。Jinja2 允许我们使用 Python 风格的语法来创建强大的文本模板，以实现文本扩展和逻辑评估。模板还使我们能够开发一个可重用的文本块，而不是在
+    Python 脚本的 `for` 循环中逐行构建表格的行和列。尽管前一个脚本通过从字符串形成 HTML 文件采取了简单的方式，但这个模板更为强大、动态，并且最重要的是，更具可持续性。
+- en: 'This function defines one variable, `html_string`, which holds our Jinja2 template.
+    This string captures all of the HTML tags and data to be processed by Jinja2\.
+    Although we place this information in a single variable, we could also place the
+    text in a file to avoid the extra line count in our code. On lines 76 and 77,
+    we can see identical information to the previous iteration''s `write_html()` function:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数定义了一个变量 `html_string`，它包含我们的 Jinja2 模板。这个字符串捕获了所有的 HTML 标签和数据，将由 Jinja2
+    处理。尽管我们将这些信息放在一个变量中，但我们也可以将文本放在文件中，以避免在代码中增加额外的行数。在第 76 和 77 行，我们可以看到与之前版本的 `write_html()`
+    函数相同的信息：
+- en: '[PRE48]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'On lines 78 through 80, we open the `<body>` and `<h1>` header tags, followed
+    by a string containing two instances of a Python object wrapped in spaced double
+    curly braces (`{{ ... }}`). Jinja2 looks for a provided dictionary key or object
+    name that matches the name of the string inside of the spaced braces. In the case
+    of lines 79 and 80, the `custodian` variable is an object with `id` and `name`
+    attributes. Using the same syntax as in Python, we can call the object''s attribute
+    and insert them into the HTML when the template is executed:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 78 至第 80 行，我们打开了`<body>`和`<h1>`标题标签，接着是一个包含两个 Python 对象的字符串，且这两个对象被空格包裹的双花括号（`{{
+    ... }}`）包含。Jinja2 会查找与花括号内字符串匹配的字典键或对象名称。在第 79 和 80 行的情况下，`custodian` 变量是一个具有
+    `id` 和 `name` 属性的对象。使用与 Python 中相同的语法，我们可以调用对象的属性，并在模板执行时将它们插入到 HTML 中：
+- en: '[PRE49]'
+  id: totrans-207
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: The `<table>` tag, on line 81, specifies the Bootstrap CSS classes we use to
+    style our table. On line 82, we open the table row `<tr>` tag, followed by a newline
+    `\n` character and a new template operator. The curly braces surrounding percentage
+    symbols (`{% ... %}`) indicate to Jinja2 that the template contains an operation,
+    such as a loop, that it needs to evaluate. In our case, on line 83 we start a
+    for loop, similar in syntax to Python's for loop, though missing the closing colon.
+    Skipping ahead to line 85, we use the same syntax to surround the `endfor` statement,
+    notifying Jinja2 that the loop is complete. We must do this because the HTML is
+    not tab or space sensitive and cannot automatically determine the boundary of
+    a loop like Python's indented code.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第 81 行的 `<table>` 标签指定了我们用来为表格添加样式的 Bootstrap CSS 类。在第 82 行，我们打开了表格行 `<tr>`
+    标签，后面跟着一个换行符 `\n` 和一个新的模板操作符。围绕百分号的花括号（`{% ... %}`）表示 Jinja2 模板包含一个操作，比如循环，需要进行求值。在我们的例子中，在第
+    83 行我们开始了一个 for 循环，语法类似于 Python 的 for 循环，只是缺少闭合的冒号。跳到第 85 行，我们使用相同的语法将 `endfor`
+    语句包围起来，通知 Jinja2 循环已结束。我们必须这样做，因为 HTML 不敏感于制表符或空格，不能像 Python 的缩进代码一样自动确定循环的边界。
+- en: It is a good practice to include spaces between the Jinja2 template syntax and
+    the value we would like Jinja2 to insert into the configured placeholders. For
+    example, `{{ Document_Title }}` reads a lot easier than `{{Document_Title}}`.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Jinja2 模板语法和我们希望 Jinja2 插入的值之间加入空格是一个好习惯。例如，`{{ Document_Title }}` 比 `{{Document_Title}}`
+    更易读。
+- en: 'On line 84, we then wrap the newly defined header variable in the table header
+    `<th>` tags. After the loop completes, we close the table row `<tr>` tag on line
+    86\. Through this loop, we have generated a table row, `<tr>`, containing a list
+    of the table headers, `<th>`, as follows:'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 84 行，我们将新定义的 header 变量包裹在表格头 `<th>` 标签中。循环完成后，在第 86 行关闭表格行 `<tr>` 标签。通过这个循环，我们生成了一个包含表头列表
+    `<th>` 的表格行 `<tr>`，如下所示：
+- en: '[PRE50]'
+  id: totrans-211
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'Next, we open a new loop to iterate over each reported column, creating a new
+    table row `<tr>` and wrapping each element in a table data `<td>` tag. Because
+    each column of the database is an attribute of the Peewee-returned row object,
+    we can specify the column name using the following format: `entry.column_name`.
+    Through this simple for loop, we build a table in an easy-to-read and extensible
+    format:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们打开一个新的循环，遍历每一列数据，为每列创建一个新的表格行 `<tr>`，并将每个元素包裹在表格数据 `<td>` 标签中。由于数据库的每一列都是
+    Peewee 返回的行对象的属性，我们可以使用以下格式来指定列名：`entry.column_name`。通过这个简单的 for 循环，我们构建了一个易于阅读和扩展的表格格式：
+- en: '[PRE51]'
+  id: totrans-213
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: 'After the `{% endfor %}` statement, we can complete this HTML template by closing
+    the open HTML tags and closing the multiline string with three double quotes. With
+    the `html_string` built, we call the Jinja2 templating engine to interpret the
+    built string. To do so, we call and return the output of the `jinja2.Template()` function
+    on line 103\. This allows us to use this template whenever we need to generate
+    an HTML report. We could have also supplied Jinja2 with an HTML file using the
+    same markup as the template to load. This is especially helpful when building
+    more complex or multi-page HTML content:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `{% endfor %}` 语句之后，我们可以通过关闭打开的 HTML 标签并使用三个双引号关闭多行字符串来完成此 HTML 模板。构建好 `html_string`
+    后，我们调用 Jinja2 模板引擎来解释构建的字符串。为此，我们在第 103 行调用并返回 `jinja2.Template()` 函数的输出。这使我们能够在需要生成
+    HTML 报告时使用该模板。我们也可以使用相同标记语言的 HTML 文件来加载 Jinja2 模板，这在构建更复杂或多页面的 HTML 内容时特别有用：
+- en: '[PRE52]'
+  id: totrans-215
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: Updating the main() function
+  id: totrans-216
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 更新 main() 函数
+- en: This function is almost identical to the `main()` function we saw in the previous
+    iteration, albeit with a few exceptions. To begin, on line 117 we do not need
+    to catch a returned value from `init_db()` as `peewee` handles that for us after
+    initialization. We have also removed the `while` loop when calling `get_or_add_custodian`,
+    as the logic of the function has been supplemented by Peewee, rendering the sanity
+    check unnecessary. We assign the returned custodian table to a variable named
+    `custodian_model` since Peewee refers to each table as a model.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数与我们在上一轮迭代中看到的 `main()` 函数几乎相同，尽管有一些例外。首先，在第 117 行，我们不需要捕获 `init_db()` 的返回值，因为
+    `peewee` 在初始化后会为我们处理这一点。当调用 `get_or_add_custodian` 时，我们也去除了 `while` 循环，因为该函数的逻辑已经由
+    Peewee 补充，使得合理性检查变得不再必要。我们将返回的 custodian 表格赋值给一个名为 `custodian_model` 的变量，因为 Peewee
+    将每个表格称为模型。
+- en: In our case, the `Custodians` and `Files` classes are models in Peewee that
+    represent the `Custodians` and `Files` tables in SQLite. In Peewee terms, a set
+    of data returned from one model is referred to as a model instance.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的例子中，`Custodians` 和 `Files` 类是 Peewee 中的模型，分别代表 SQLite 中的 `Custodians` 和
+    `Files` 表。在 Peewee 中，模型返回的数据集被称为模型实例。
+- en: 'The data returned on line 120 is identical in nature to what was returned by
+    the `SELECT` statements in the previous instance of the script, though it is a
+    model instance that''s handled by Peewee:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第 120 行返回的数据本质上与脚本先前实例中通过 `SELECT` 语句返回的数据相同，尽管它是由 Peewee 处理的模型实例。
+- en: '[PRE53]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'The third modification involves modifying how we handle the different modes
+    for our script. Now, we only need to provide the `target` and the `custodian_model` variables
+    since we can access the database via the `peewee` model classes that we have already
+    built. This behavior will be illustrated within each function to demonstrate how
+    to insert and access data in the tables. The remainder of the function remains
+    the same from our prior iteration:'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第三项修改涉及如何处理脚本的不同模式。现在，我们只需要提供 `target` 和 `custodian_model` 变量，因为我们可以通过已经构建的
+    `peewee` 模型类访问数据库。此行为将在每个函数中展示，以演示如何在表中插入和访问数据。其余函数与之前的版本保持不变：
+- en: '[PRE54]'
+  id: totrans-222
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: Adjusting the init_db() function
+  id: totrans-223
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调整 `init_db()` 函数
+- en: 'The `init_db()` function is where we define the database type (for example,
+    PostgreSQL, MySQL, or SQLite). Although we are using SQLite in this example, we
+    could use another database type to call a separate `peewee` function on line 144,
+    such as `PostgresqlDatabase()` or `MySQLDatabase()`. On line 144, we must pass
+    the path to the file we want Peewee to write the database to. If we prefer to
+    only have the database temporarily, we could pass the special string `:memory:` to
+    have Peewee host the SQLite database in memory. There are two downsides to the
+    memory option: one is that the database is not persistent after the script exits,
+    and the second is the database''s contents must fit in memory, which may not be
+    possible on older machines or with large databases. With our use case, we must
+    write the database to disk as we may wish to rerun the script against the same
+    database to create additional preservations or reports:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`init_db()` 函数是我们定义数据库类型的地方（例如 PostgreSQL、MySQL 或 SQLite）。虽然我们在这个例子中使用 SQLite，但我们可以使用其他数据库类型，在第
+    144 行调用单独的 `peewee` 函数，如 `PostgresqlDatabase()` 或 `MySQLDatabase()`。在第 144 行，我们必须传递要写入数据库的文件路径。如果我们只希望数据库是临时的，可以传递特殊字符串
+    `:memory:`，让 Peewee 在内存中托管 SQLite 数据库。内存选项有两个缺点：一是脚本退出后数据库不会持久化，二是数据库的内容必须能适应内存，这在旧机器或大型数据库中可能不可行。在我们的用例中，我们必须将数据库写入磁盘，因为我们可能希望再次运行脚本以便对同一数据库进行其他保存或报告：'
+- en: '[PRE55]'
+  id: totrans-225
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: After creating our database object, we have to initialize the `database_proxy`
+    we created on line 46 and update it to reference the newly created SQLite database.
+    This proxy connection tells Peewee how to route the data from the models into
+    our SQLite instance.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在创建数据库对象后，我们必须初始化第 46 行创建的 `database_proxy`，并更新它以引用新创建的 SQLite 数据库。这个代理连接告诉
+    Peewee 如何将数据从模型路由到我们的 SQLite 实例。
+- en: We had to create this proxy earlier to allow us to specify the model data before
+    we initiate the database connection. The use of this proxy also allowed us to
+    ask the user where they'd like to store the database, and through a proxy, we
+    can create a placeholder that we can later assign to the SQLite (or other) database
+    handler.
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们之前必须创建这个代理，以便在启动数据库连接之前指定模型数据。使用这个代理还允许我们询问用户希望将数据库存储在哪里，通过代理，我们可以创建一个占位符，稍后将其分配给
+    SQLite（或其他）数据库处理器。
+- en: More information about proxy usage is available in the Peewee documentation
+    at [http://docs.peewee-orm.com/en/3.6.0/peewee/database.html?highlight=proxy#dynamically-defining-a-database](http://docs.peewee-orm.com/en/3.6.0/peewee/database.html?highlight=proxy#dynamically-defining-a-database).
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关代理使用的更多信息，请参考 Peewee 文档中的 [http://docs.peewee-orm.com/en/3.6.0/peewee/database.html?highlight=proxy#dynamically-defining-a-database](http://docs.peewee-orm.com/en/3.6.0/peewee/database.html?highlight=proxy#dynamically-defining-a-database)。
+- en: Once connected to the proxy, we can create the necessary tables, thus calling
+    the `create_tables()` method on our Peewee database object. As you can see, we
+    had to create a list of the models first so that when we called `create_tables()`,
+    we could reference the tables (and their schemas) to create.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦连接到代理，我们可以创建所需的表，因此需要调用我们 Peewee 数据库对象上的 `create_tables()` 方法。正如你所看到的，我们必须先创建模型的列表，以便在调用
+    `create_tables()` 时可以引用这些表（及其模式）进行创建。
+- en: 'The `safe=True` argument is required here as we want to ignore the table if
+    it exists in the database so that we do not overwrite or lose data. If we were
+    to expand the functionality of the tool or needed another table, we would need
+    to remember to add it to the list on line 146 so that the table would be created.
+    As mentioned in the `main()` function, we do not need to return any connection
+    or cursor object here, as the data flows through the `peewee` model classes we
+    defined earlier:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`safe=True` 参数在此处是必需的，因为我们希望在数据库中如果已存在该表时忽略它，以免覆盖或丢失数据。如果我们要扩展工具的功能或需要另一个表，我们需要记住在第146行将其添加到列表中，以便该表会被创建。如`main()`函数中所提到的，我们不需要在此处返回任何连接或游标对象，因为数据通过我们之前定义的`peewee`模型类流动：'
+- en: '[PRE56]'
+  id: totrans-231
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: Modifying the get_or_add_custodian() function
+  id: totrans-232
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 修改 `get_or_add_custodian()` 函数
+- en: 'This function is much simpler than the prior iteration. All we must do is call
+    the `get_or_create()` method on our `Custodians` model and pass the field identifier,
+    `name`, and the value it should respond to, `custodian`. With this call, we will
+    have an instance from the model and a Boolean value of whether the row was created
+    or not. Using this `created` Boolean value, we can add a logging statement to
+    alert the user that a custodian was either added to the database or that an existing
+    custodian was retrieved. On line 164, we return the model instance to the calling
+    function, as follows:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数比之前的版本简单得多。我们只需调用 `Custodians` 模型上的 `get_or_create()` 方法，并传入字段标识符 `name`
+    及其对应的值 `custodian`。通过此调用，我们将获得该模型的实例以及一个布尔值，表示该行是新创建的还是已存在。利用这个 `created` 布尔值，我们可以添加日志语句，提醒用户某个托管人是已添加到数据库中，还是已检索到现有的托管人。在第164行，我们将模型实例返回给调用函数，如下所示：
+- en: '[PRE57]'
+  id: totrans-234
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: Improving the ingest_directory() function
+  id: totrans-235
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 改进 `ingest_directory()` 函数
+- en: While one of the more complex functions in this script, it is almost identical
+    to the prior iteration, as the method to gather this information has not varied.
+    The new additions here include the initialization on line 177 of a list we will
+    use to collect the dictionaries of file metadata and the assignment of the passed
+    `custodian_model` instance instead of an integer value for the custodian. We also
+    generate the `ddate` value, set to a default timestamp, to insert into `peewee`
+    in the case that the script is unable to retrieve a date value and needs to store
+    a partial record. The default timestamp values will be set to the minimum value
+    for Python's `datetime` library to ensure that date encoding and decoding are
+    still functional.
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管这是脚本中较为复杂的函数之一，但它与之前的版本几乎完全相同，因为收集这些信息的方法没有变化。此处的新内容包括在第177行初始化一个我们将用于收集文件元数据字典的列表，以及将传递的
+    `custodian_model` 实例赋值给托管人，而不是使用整数值。我们还生成了 `ddate` 值，默认设置为时间戳，用于插入到 `peewee` 中，以防脚本无法获取日期值并需要存储部分记录。默认时间戳值将设置为
+    Python `datetime` 库的最小值，以确保日期编码和解码仍然正常工作。
+- en: 'On line 207, we append the `meta_data` dictionary to the `file_data` list.
+    What''s missing, however, is the code to build a complex SQL insert statement
+    and a list of column names and their values. Instead, we iterate over the `file_data`
+    list and write the data in a more efficient manner, as described in a moment;
+    for now, we have the following code:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第207行，我们将 `meta_data` 字典添加到 `file_data` 列表中。然而，缺少的部分是构建复杂 SQL 插入语句和列名及其值的列表的代码。相反，我们遍历
+    `file_data` 列表，并以更高效的方式写入数据，正如稍后所描述的；现在，我们有如下代码：
+- en: '[PRE58]'
+  id: totrans-238
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: On line 209, we start to insert file metadata into the database. Because we
+    may have several thousands of lines of data in our list, we need to batch the
+    inserts to the database to prevent any resource exhaustion issues. The loop on
+    209 uses the `range` function, starting at `0` and continuing through the length
+    of the `file_data` list in increments of `50`. This means that `x` will be an
+    increment of `50` until we reach the last element, where it will catch all remaining
+    items.
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第209行，我们开始将文件元数据插入数据库。由于我们的列表中可能有几千行数据，因此我们需要将插入操作批量处理，以防止资源耗尽的问题。第209行的循环使用了`range`函数，从`0`开始，按`50`的增量遍历`file_data`列表的长度。这意味着`x`会以`50`为增量，直到达到最后一个元素时，它会包含所有剩余项。
+- en: 'By doing this, on line 210, we can insert data into `Files` using the `.insert_many()`
+    method. Within the insert, we access entries from `x` through `x+50` to insert
+    `50` elements of the list at a time. This method is a change of philosophy from
+    the previous iteration where we inserted each line as it was gathered. Here, we
+    are inserting, batches of rows at the same time using a simplified statement to
+    perform the `INSERT` actions. Finally, on line 211, we need to execute each task
+    that we have performed to commit the entries to the database. At the end of the
+    function, we log the count of the files that have been inserted, as follows:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这样做，在第210行，我们可以使用`.insert_many()`方法将数据插入`Files`。在插入过程中，我们通过`x`到`x+50`来访问条目，每次插入`50`个元素。这种方法与之前逐行插入的做法有很大不同，在这里，我们是通过简化的语句批量插入数据，执行`INSERT`操作。最后，在第211行，我们需要执行每个已执行的任务，将条目提交到数据库。函数结束时，我们记录已插入文件的数量，如下所示：
+- en: '[PRE59]'
+  id: totrans-241
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: Feel free to adjust the unit of 50 rows to execute as an insert. Tweaking this
+    number on your system may produce improved performance, although this sweet spot
+    tends to vary depending on the available resources.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随意调整每次插入时执行的50行的单位。根据你的系统调整这个数字可能会提升性能，尽管这个最佳值通常会根据可用资源的不同而有所变化。
+- en: You may also want to look into inserting records once our `file_data` list gets
+    to a certain length to help with memory management. For example, if the `file_data`
+    list exceeds 500 records, pause the collection, insert the whole list (that is,
+    50 records at a time), clear the list, and then resume the metadata collection.
+    On larger collections, you should notice a significant reduction in memory usage.
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能还想考虑在`file_data`列表达到一定长度时插入记录，以帮助内存管理。例如，如果`file_data`列表超过500条记录，可以暂停数据收集，插入整个列表（即每次插入50条记录），清空列表，然后继续收集元数据。对于较大的数据集合，你应该会注意到内存使用显著减少。
+- en: A closer look at the format_timestamp() function
+  id: totrans-244
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 更详细地查看`format_timestamp()`函数
+- en: 'This function serves the same purpose as the prior iteration, but returns a
+    `datetime` object instead, since Peewee uses this object to write the data to
+    the cell for `datetime` values. As we saw in the previous iteration, by using
+    the `fromtimestamp()` method, we can convert the integer date value into a `datetime`
+    object with ease. We can return the `datetime` object as is because Peewee handles
+    the rest of the string formatting and conversion for us. This is shown in the
+    following code:'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数与之前的版本作用相同，但它返回一个`datetime`对象，因为Peewee使用这个对象来写入`datetime`值。正如我们在之前的迭代中看到的那样，通过使用`fromtimestamp()`方法，我们可以轻松地将整数日期值转换为`datetime`对象。我们可以直接返回`datetime`对象，因为Peewee会处理剩余的字符串格式化和转换工作。以下是代码示例：
+- en: '[PRE60]'
+  id: totrans-246
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: Converting the write_output() function
+  id: totrans-247
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 转换`write_output()`函数
+- en: 'In this function, we can see how to query a `peewee` model instance. On line
+    235, we need to select a count of files where the custodian is equal to the custodian''s
+    `id`. We first call `select()` on the model to signify we wish to select data,
+    followed by the `where()` method to specify the column name, `Files.custodian`,
+    and the value, `custodian_model.id`, to evaluate. This is followed by the `count()`
+    method to provide an integer of the number of responsive results. Note that the
+    `count` variable is an integer, not a tuple, like it was in the previous iteration:'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个函数中，我们可以看到如何查询`peewee`模型实例。在第235行，我们需要选择文件计数，其中监护人等于监护人的`id`。我们首先在模型上调用`select()`来表示我们希望选择数据，接着使用`where()`方法指定列名`Files.custodian`和评估值`custodian_model.id`。接下来是`count()`方法，它返回符合条件的结果的数量（一个整数）。注意，`count`变量是一个整数，而不是像前一次迭代那样的元组：
+- en: '[PRE61]'
+  id: totrans-249
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: 'On line 240, we follow the same logic from the prior iteration to check and
+    see whether some lines were responsive, followed by statements to validate the
+    output extension to engage the correct writer or provide the user''s accurate
+    error information. Note that, this time, we pass along the custodian model instance
+    versus an `id` or name on lines 243 and 247, as Peewee performs operations best
+    on existing model instances:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第240行，我们沿用之前迭代的相同逻辑，检查哪些行是响应的，然后通过语句验证输出扩展，确保调用正确的写入者或提供用户准确的错误信息。注意，这次我们传递的是监护人模型实例，而不是`id`或名称，在第243行和247行使用了此方法，因为Peewee在现有模型实例上执行操作效果最佳：
+- en: '[PRE62]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: Simplifying the write_csv() function
+  id: totrans-252
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简化 `write_csv()` 函数
+- en: 'The `write_csv()` function uses a new method from the `peewee` library, allowing
+    us to retrieve data from the database as dictionaries. Using the familiar `Files.select().where()`
+    statement, we append the `dicts()` method to convert the result into Python dictionaries.
+    This dictionary format is an excellent input for our reports, as the built-in
+    CSV module has a class named `DictWriter`. As its name suggests, this class allows
+    us to pass a dictionary of information to be written as a row of data in a CSV
+    file. Now that we have our query staged, we can log to the user that we are starting
+    to write the CSV report:'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`write_csv()` 函数使用了`peewee`库中的新方法，允许我们以字典形式从数据库中检索数据。通过使用熟悉的`Files.select().where()`语句，我们附加了`dicts()`方法，将结果转换为Python字典格式。这个字典格式非常适合作为我们的报告输入，因为内置的CSV模块有一个名为`DictWriter`的类。顾名思义，该类允许我们将字典信息作为一行数据写入CSV文件。现在，查询已经准备好，我们可以向用户日志输出，告知我们开始编写CSV报告：'
+- en: '[PRE63]'
+  id: totrans-254
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: 'Next, we define our column names for our CSV writer and open the user-specified
+    output file using the `with...as...` statement. To initialize the `csv.DictWriter`
+    class, we pass the open file object and column headers that correspond to the
+    table''s column names (and therefore the dictionary key names). After initialization,
+    we call the `writeheader()` method and write the table''s header at the top of
+    the spreadsheet. Finally, to write the row content, we open a `for` loop on our
+    query object to iterate over the rows and write them to the file with the `.writerow()`
+    method. Using the `enumerate` method, we can provide the user with a status update
+    every 10,000 rows to let them know that our code is hard at work for larger file
+    reports. After writing those status updates (and rows, of course), we add some
+    additional log messages for the user and exit the function. Although we are calling
+    the `csv` library, remember that it is actually our `unicodecsv` import. This
+    means that we will encounter less encoding errors while generating our output
+    versus using the standard `csv` library:'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们定义CSV写入器的列名，并使用`with...as...`语句打开用户指定的输出文件。为了初始化`csv.DictWriter`类，我们传递打开的文件对象和与表格列名相对应的列头（因此也是字典键名）。初始化后，我们调用`writeheader()`方法，并在电子表格的顶部写入表头。最后，为了写入行内容，我们在查询对象上打开一个`for`循环，遍历各行并使用`.writerow()`方法将其写入文件。通过使用`enumerate`方法，我们可以每10,000行向用户提供一次状态更新，让他们知道在处理较大文件报告时，我们的代码正在努力工作。在写入这些状态更新（当然，还有行内容）之后，我们会添加一些额外的日志消息给用户，并退出该函数。虽然我们调用了`csv`库，但请记住，实际上是我们导入了`unicodecsv`。这意味着在生成输出时，我们会遇到比使用标准`csv`库更少的编码错误：
+- en: '[PRE64]'
+  id: totrans-256
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: Condensing the write_html() function
+  id: totrans-257
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简化 `write_html()` 函数
+- en: 'We will need the `get_template()` function we designed earlier to generate
+    our HTML report. On line 291, we call this pre-built Jinja2 template object and
+    store it in the `template` variable. When referencing the template, we need to
+    provide a dictionary with three keys: `table_headers`, `file_listing`, and `custodian`.
+    These three keys are required as they are what we chose as placeholders in our
+    template. On line 292, we build out the table headers as a list of strings, formatted
+    in the order we wish to display them:'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将需要之前设计的`get_template()`函数来生成HTML报告。在第291行，我们调用了这个预构建的Jinja2模板对象，并将其存储在`template`变量中。在引用模板时，我们需要提供一个包含三个键的字典：`table_headers`、`file_listing`和`custodian`。这三个键是必需的，因为它们是我们在模板中选择的占位符。在第292行，我们将表头构建为一个字符串列表，按照希望显示的顺序格式化：
+- en: '[PRE65]'
+  id: totrans-259
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: 'Afterwards, we create our `file_data` list for the `file_listing` key on line
+    296 by using a similar `select` statement that''s found in the CSV function. This
+    list allows us to access the attributes individually within the template, as specified
+    earlier. We could have placed this logic within the template file as well, but
+    we thought it best to place malleable logic in a function versus a template. Take
+    a look at lines 296 and 297:'
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随后，我们通过使用与 CSV 函数中类似的 `select` 语句，创建了第 296 行的 `file_data` 列表，该列表为 `file_listing`
+    键提供数据。这个列表使我们能够在模板中单独访问各个属性，正如之前所指定的那样。我们本可以将这一逻辑也放入模板文件中，但我们认为最好将可变逻辑放在函数中，而不是模板中。看看第
+    296 和 297 行：
+- en: '[PRE66]'
+  id: totrans-261
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: 'With all three of these elements gathered, we create a dictionary with the
+    keys to match the data in our template on line 299\. After a log statement, we
+    open the source using a `with...as...` statement. To write the template data,
+    we call the `render()` method on our `template` object, passing our already built
+    dictionary as a `kwarg` on line 307\. The `render()` method evaluates the statements
+    and logic found in the template and places the provided data in the correct location
+    to form an HTML report. This method also returns the raw HTML as a string, so
+    we have encapsulated it in a `write()` call to immediately write the data to the
+    file. Once written, we log the path to the source, as well as its successful completion:'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 收集了这三项元素后，我们创建了一个字典，其键与第 299 行模板中的数据匹配。在日志语句之后，我们使用 `with...as...` 语句打开源文件。为了写入模板数据，我们在
+    `template` 对象上调用 `render()` 方法，将我们已构建的字典作为 `kwarg` 传递到第 307 行。`render()` 方法会评估模板中的语句和逻辑，并将提供的数据放置在正确的位置，以生成
+    HTML 报告。此方法还会将原始 HTML 作为字符串返回，因此我们将其封装在 `write()` 调用中，立即将数据写入文件。写入完成后，我们记录源文件的路径以及其成功完成的信息：
+- en: '[PRE67]'
+  id: totrans-263
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: Running our new and improved script
+  id: totrans-264
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行我们新的改进版脚本
+- en: This iteration highlights the use of additional Python third-party libraries
+    to handle many of the operations we previously performed in a more manual manner.
+    In this instance, we used Peewee and Jinja2 to further automate database management
+    and HTML reporting. These two libraries are popular methods for handling this
+    type of data and are either bundled into or have ports for other Python suites,
+    such as Flask and Django.
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一迭代突出了使用额外的 Python 第三方库来处理我们之前以更手动方式执行的许多操作。在这个实例中，我们使用了 Peewee 和 Jinja2 来进一步自动化数据库管理和
+    HTML 报告生成。这两个库是处理此类数据的流行方法，并且已打包到其他 Python 套件中，或者有移植版本，例如 Flask 和 Django。
+- en: In addition, this iteration closely resembles the first to demonstrate the differences
+    in the two methods in a clearer manner. One of the goals of this book is to introduce
+    as many methods for performing a task in Python as possible. The purpose of this
+    chapter is not to create a better iteration, but to showcase different methods
+    to accomplish the same tasks and add new skills to our toolbox. This is the last
+    chapter where we will be creating multiple iterations of a script; the chapters
+    going forward are focused on more expansive singular scripts as we begin to expand
+    on our forensic coding capabilities.
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，这一迭代与第一次迭代非常相似，旨在更清楚地展示两种方法之间的差异。本书的目标之一是尽可能多地介绍 Python 中执行任务的方法。本章的目的不是创建一个更好的迭代版本，而是展示不同的方法来完成相同的任务，并为我们的工具箱添加新技能。这是我们将创建多个脚本迭代的最后一章；接下来的章节将专注于更具扩展性的单一脚本，随着我们开始扩展法医编码能力。
+- en: Note that the way in which we execute our script has not changed. We still need
+    to specify a custodian, a path to a database, and the type of mode. You may notice
+    that this script is considerably slower than our previous script. Sometimes, when
+    using automated solutions, our code can suffer due to additional overhead or the
+    inefficient implementation of the module. Here, we've lost some efficiency by
+    moving away from a more bare-bones and manual process. However, this script is
+    more maintainable and does not require the developer to have in-depth knowledge
+    of SQL.
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，我们执行脚本的方式没有改变。我们仍然需要指定一个管理员、数据库路径和模式类型。你可能会注意到，这个脚本比我们之前的脚本要慢得多。有时，使用自动化解决方案时，我们的代码可能会受到额外开销或模块实现效率低下的影响。在这里，通过放弃更简洁的手动处理过程，我们失去了一些效率。然而，这个脚本更易于维护，并且不需要开发人员深入了解
+    SQL。
+- en: 'For this iteration, we opted to generate our Bootstrap-based HTML report. What
+    this report lacks in analytical capacity, it gains in portability and simplicity.
+    This is a professional looking page, thanks to Bootstrap, and can be searched
+    for specific files of interest or printed out for those that prefer the paper-and-pen
+    approach:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一轮中，我们选择生成基于Bootstrap的HTML报告。尽管该报告在分析能力方面有所欠缺，但它在可移植性和简洁性上有了提升。得益于Bootstrap，这是一个专业的页面，可以搜索特定的感兴趣文件，或打印出来供喜欢纸笔方法的人使用：
+- en: '![](img/704f62c0-0c15-4525-84bf-fa7f0564587b.png)'
+  id: totrans-269
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/704f62c0-0c15-4525-84bf-fa7f0564587b.png)'
+- en: Challenge
+  id: totrans-270
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 挑战
+- en: As always, we challenge you to add new features to this script and extend it
+    using the knowledge and available resources that you have. For this chapter, we
+    first challenge you to hash the indexed files using MD5 or SHA1 and store that
+    information in the database. You can use the built-in `hashlib` library to handle
+    hashing operations; more on this and other hashing techniques in [Chapter 7](91206072-f125-4a9e-83fe-8de632624d0e.xhtml),
+    *Fuzzy Hashing*.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一如既往，我们鼓励你为这个脚本添加新功能，并利用你掌握的知识和可用资源来扩展它。在本章中，我们首先挑战你使用MD5或SHA1对索引文件进行哈希处理，并将该信息存储在数据库中。你可以使用内置的`hashlib`库来处理哈希操作；更多关于哈希处理和其他技术的内容，请参考[第7章](91206072-f125-4a9e-83fe-8de632624d0e.xhtml)，*模糊哈希*。
+- en: In addition, consider adding user-specified filters for particular file extensions
+    for the collection. These features can be implemented without major renovation
+    to the code, though you may find it easiest and more beneficial to your understanding
+    to start from scratch and build the script with one or more of these new features
+    in mind.
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，考虑为集合添加用户指定的过滤器，针对特定文件扩展名进行筛选。这些功能可以在不对代码进行重大修改的情况下实现，尽管你可能会发现从头开始并结合这些新功能来构建脚本对你理解更为容易且更有益。
+- en: One more extension that we can add to our code is parsing the file's modes into
+    separate columns for ease of querying in our database and reports. While the number
+    we store is compact and the format is generally understood, splitting out the
+    value into separate columns can help non-technical reviewers understand these
+    file's properties and allow easier queries against the database in case we want
+    to identify all files with a specified permission set. We could either perform
+    this operation in our collection module or keep our current database schema and
+    interpret the modes while generating our reports.
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以向代码中添加的一个扩展是将文件的模式解析为单独的列，以便于在数据库和报告中查询。尽管我们存储的数字是紧凑的，且格式通常是可以理解的，但将值拆分为单独的列可以帮助非技术人员审查这些文件的属性，并在我们想要识别具有特定权限集的所有文件时，方便地对数据库进行查询。我们可以在集合模块中执行此操作，或保持当前的数据库架构，在生成报告时解释这些模式。
+- en: Summary
+  id: totrans-274
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: This chapter focused on the use of databases in script development. We explored
+    how to use and manipulate a SQLite database in Python to store and retrieve information
+    about file listings. We discussed when and how a database is a correct solution
+    to store this information, as it has a fixed data structure and could be a large
+    dataset.
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章重点讨论了在脚本开发中使用数据库。我们探索了如何在Python中使用和操作SQLite数据库，以存储和检索文件列表信息。我们讨论了何时以及如何使用数据库作为存储这些信息的正确解决方案，因为它具有固定的数据结构，并且可能是一个大型数据集。
+- en: In addition, we discussed multiple methods of interacting with databases, a
+    manual process to show how databases work at a lower level, and a more Pythonic
+    example where a third-party module handles these low-level interactions for us.
+    We also explored a new type of report, using HTML to create a different output
+    that can be viewed without additional software, and manipulating it to add new
+    styles and functionality as we see fit. Overall, this section builds on the underlying
+    goal of demonstrating different ways we can use Python and supporting libraries
+    to solve forensic challenges. The code for this project can be downloaded from
+    GitHub or Packt, as described in the *Preface*.
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们讨论了与数据库交互的多种方法，包括手动过程，展示数据库如何在较低层次上工作，以及一个更加Pythonic的示例，其中第三方模块为我们处理这些低级别的交互。我们还探索了一种新的报告类型，使用HTML创建一种可以在没有额外软件的情况下查看的不同输出，并根据需要操作它，以添加新的样式和功能。总体而言，本节的内容建立在展示我们如何使用Python及其支持库来解决取证挑战的基础目标之上。本项目的代码可以从GitHub或Packt下载，具体说明请见*前言*。
+- en: In the next chapter, we will learn how to parse binary data and registry hives
+    using third-party libraries. Learning how to parse binary data will become a fundamental
+    skill for the forensic developer and will be performed by many of the libraries
+    that are featured throughout the remainder of this book.
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将学习如何使用第三方库解析二进制数据和注册表蜂窝。学习如何解析二进制数据将成为数字取证开发者的一项基础技能，并且将在本书剩余章节中介绍的许多库中得到应用。

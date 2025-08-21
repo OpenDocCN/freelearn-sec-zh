@@ -1,0 +1,1034 @@
+- en: Binary Obfuscation Techniques
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 二进制混淆技术
+- en: Binary obfuscation is a way for developers to make the code of a program difficult
+    to understand or reverse. It is also used to hide data from being seen easily.
+    It can be categorized as an anti-reversing technique that increases the processing
+    time for reversing. Obfuscation can also use encryption and decryption algorithms,
+    along with its hardcoded or code-generated cipher key.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 二进制混淆是一种使程序代码难以理解或逆向的技术。它也用于隐藏数据，以防止数据轻易被查看。它可以被归类为一种逆向防护技术，通过增加逆向处理时间来提高难度。混淆还可以使用加密和解密算法，以及其硬编码或代码生成的密码密钥。
+- en: In this chapter, we will discuss ways how data and code are obfuscated. We are
+    going to show how obfuscation is applied in examples including simple XORs, simple
+    arithmetic, building data in the stack, and discussions about polymorphic and
+    metamorphic code.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将讨论数据和代码如何被混淆。我们将展示如何在示例中应用混淆，包括简单的XOR、简单的算术运算、在堆栈中构建数据，以及关于多态性和变形代码的讨论。
+- en: In the malware world, binary obfuscation is a common technique used by viruses
+    aiming to defeat signature-based anti-virus software. As a virus infects files,
+    it obfuscates its code using polymorphism or metamorphism.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在恶意软件的世界里，二进制混淆是病毒常用的一种技术，旨在击败基于签名的防病毒软件。当病毒感染文件时，它会通过多态性或变形来混淆其代码。
+- en: 'In this chapter, we will achieve the following learning outcomes:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将实现以下学习目标：
+- en: Identifying data being assembled on the stack
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定正在堆栈上组装的数据
+- en: Identifying data being XORed or deobfuscated prior to use
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确定数据在使用前是否经过XOR或解混淆
+- en: Modifying data in text or other segments, and assembling on the heap
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 修改文本或其他段中的数据，并在堆上组装
+- en: Data assembly on the stack
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 堆栈上的数据组装
+- en: 'The stack is a memory space in which any data can be stored. The stack can
+    be accessed using the stack pointer register (for 32-bit address space, the ESP
+    register is used). Let''s consider the example of the following code snippet:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 堆栈是一个内存空间，可以在其中存储任何数据。可以使用堆栈指针寄存器来访问堆栈（对于32位地址空间，使用ESP寄存器）。让我们考虑以下代码片段的示例：
+- en: '[PRE0]'
+  id: totrans-10
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'This will eventually display the following message box:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这最终会显示以下消息框：
+- en: '![](img/8e571e5c-7963-49f9-80a2-2b1a6139689b.png)'
+  id: totrans-12
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8e571e5c-7963-49f9-80a2-2b1a6139689b.png)'
+- en: 'How did that happen when no visible text strings were referenced? Before calling
+    for the `MessageBoxA` function, the stack would look like this:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在没有引用可见文本字符串的情况下，为什么会发生这种情况？在调用`MessageBoxA`函数之前，堆栈看起来是这样的：
+- en: '![](img/9799eb1b-2a54-472f-bc9b-e5960182cc73.png)'
+  id: totrans-14
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9799eb1b-2a54-472f-bc9b-e5960182cc73.png)'
+- en: These push instructions assembled the null terminated message text at the stack.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些push指令将以null终止的消息文本组装到堆栈中。
+- en: '[PRE1]'
+  id: totrans-16
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'While the other string was assembled with these push instructions:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一字符串是通过这些push指令组装的：
+- en: '[PRE2]'
+  id: totrans-18
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: In effect, the stack dump would look like this.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，堆栈转储将如下所示。
+- en: '![](img/335bce83-2f72-4952-967f-e52b9c3f7f32.png)'
+  id: totrans-20
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/335bce83-2f72-4952-967f-e52b9c3f7f32.png)'
+- en: Every after string assembly, the value of register ESP is stored in EAX and
+    then EDX.  That is, EAX points to the address of the first string.  EDX points
+    to the address of the second assembled string.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每次字符串组装后，寄存器ESP的值会存储到EAX中，然后是EDX。也就是说，EAX指向第一个字符串的地址，EDX指向第二个组装字符串的地址。
+- en: '`MessageBoxA` accepts four parameters.  The second parameter is the message
+    text and the third is the caption text.  From the stack dump shown above, the
+    strings are located at  addresses `0x22FE50` and `0x22FE54`.'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`MessageBoxA`接受四个参数。第二个参数是消息文本，第三个参数是标题文本。从上面的堆栈转储中，字符串位于地址`0x22FE50`和`0x22FE54`。'
+- en: '[PRE3]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '`MessageBoxA` has all the parameters it requires. Even though the strings were
+    assembled at the stack, as long as data is accessible, it can be used.'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`MessageBoxA`已经具备了所需的所有参数。尽管字符串是在堆栈上组装的，但只要数据可以访问，就可以使用它。'
+- en: Code assembly
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 代码组装
+- en: 'The same concept is possible in terms of code. Here''s another code snippet:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码方面也可以使用相同的概念。这是另一个代码片段：
+- en: '[PRE4]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'This yields the same message box as before. The difference is that this code
+    pushes `opcode` bytes into the stack, and passes code execution to it. After entering
+    the first `call eax` instruction, the stack would look like this:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这会产生与之前相同的消息框。不同之处在于，这段代码将`opcode`字节推送到堆栈中，并将代码执行传递给它。在进入第一个`call eax`指令之后，堆栈将如下所示：
+- en: '![](img/e04dc42e-32b2-4cbe-a65a-81dacf01396a.png)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e04dc42e-32b2-4cbe-a65a-81dacf01396a.png)'
+- en: 'Remember that the value at the top of the stack should contain the return address
+    set by the `call` instruction. And here''s where our instruction pointer will
+    be by now:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记住，栈顶的值应包含`call`指令设置的返回地址。到目前为止，我们的指令指针应该在这里：
+- en: '![](img/ec290abd-d803-4ce3-ba75-6bae6880749b.png)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ec290abd-d803-4ce3-ba75-6bae6880749b.png)'
+- en: The `pop edi` instruction stores the return address to the `EDI` register. The
+    same set of instructions that assemble the message text setup are used here. Finally,
+    a `push edi`, followed by a `ret` instruction, should make it back to the return
+    address.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pop edi`指令将返回地址存储到`EDI`寄存器中。组装消息文本的同一指令集在这里也被使用。最后，执行`push edi`，然后是`ret`指令，应该会返回到返回地址。'
+- en: 'The resulting stack should look like this:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果栈应该是这样的：
+- en: '![](img/48d6e667-6fa8-4127-ab1a-793cbaac9e9c.png)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/48d6e667-6fa8-4127-ab1a-793cbaac9e9c.png)'
+- en: This is then followed by a couple of instructions that invoke `MessageBoxA`.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是一些调用`MessageBoxA`的指令。
+- en: This technique of running code in the stack is employed by numerous malware,
+    including software vulnerability exploits. As a course of action to prevent malware
+    code execution, some operating systems have made security updates to bar the stack
+    from code execution.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在栈中运行代码的这种技术被许多恶意软件采用，包括软件漏洞利用。作为防止恶意软件代码执行的措施，一些操作系统已经发布了安全更新，以禁止栈中代码的执行。
+- en: Encrypted data identification
+  id: totrans-37
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密数据识别
+- en: One of the main features of antivirus software is to detect malware using signatures.
+    Signatures are sets of byte sequences unique to a given piece of malware. Although
+    this detection technique is not thought of as effective for anti-virus nowadays,
+    it may still play a vital role in detecting files, especially when an operating
+    system is taken offline.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 杀毒软件的主要功能之一是通过签名检测恶意软件。签名是恶意软件特有的一组字节序列。虽然现在这种检测技术被认为对杀毒软件不再有效，但它仍然在文件检测中扮演着重要角色，尤其是在操作系统断网时。
+- en: Simple signature detection can easily be defeated by encrypting the data and/or
+    code of a malware. The effect would be that a new signature gets developed from
+    a unique portion of the encrypted data. An attacker can simply re-encrypt the
+    same malware using a different key, which would result in another signature. But
+    still, the malware runs with the same behavior.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简单的签名检测可以通过加密恶意软件的数据和/或代码轻松破解。这样，新的签名将从加密数据的独特部分生成。攻击者可以简单地使用不同的密钥重新加密相同的恶意软件，从而生成另一个签名。但恶意软件的行为依然保持不变。
+- en: Of course, anti-virus software has made great improvements to defeat this technique,
+    thereby making signature detection a technology of the past.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，杀毒软件已经做出了很大改进来应对这种技术，使得签名检测成为过去的技术。
+- en: On the other hand, this is an obfuscation technique that eats up additional
+    time for reversing software. Under static analysis, identifying encrypted data
+    and decryption routines informs us what to expect in the course of our analysis,
+    especially when debugging. To start off, we'll look into a few code snippets.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，这是一种混淆技术，增加了逆向软件的额外时间消耗。在静态分析下，识别加密数据和解密例程能让我们了解在分析过程中应该预期什么，尤其是在调试时。首先，我们将查看几个代码片段。
+- en: Loop codes
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 循环代码
+- en: 'Decryption can easily be identified by inspecting code that runs in a loop:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过检查在循环中运行的代码，可以轻松识别解密过程：
+- en: '[PRE5]'
+  id: totrans-44
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: This loop code is controlled by a conditional jump. To identify a decryption
+    or an encryption code, it should have a source and a destination. In this code,
+    the source starts at address `0x00402000`, with the destination also at the same
+    address. Each byte in the data is modified by an algorithm. In this case, the
+    algorithm is a simple subtraction of `0x20` from the byte being changed. The loop
+    ends only when `0x10` bytes of data have been modified. `0x20` is identified as
+    the encryption/decryption key.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个循环代码由条件跳转控制。要识别解密或加密代码，它应该有一个源地址和一个目的地址。在这段代码中，源地址从`0x00402000`开始，目的地址也位于相同的地址。数据中的每个字节都会被算法修改。在这个例子中，算法是从字节中减去`0x20`。只有在`0x10`字节数据被修改时，循环才会结束。`0x20`被确定为加密/解密密钥。
+- en: The algorithm can vary, using standard and binary or just standard arithmetic.
+    As long as a source data is modified and written to a destination within a loop,
+    we can say that we have identified a cryptographic routine.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 算法可以有所不同，可以使用标准算术和二进制运算，或仅使用标准算术。只要源数据在循环中被修改并写入目的地，我们就可以说已识别出加密例程。
+- en: Simple arithmetic
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简单算术
+- en: 'Besides using bitwise operations, basic mathematical operations can also be
+    used. If addition has a subtraction counterpart, we can encrypt a file using addition
+    and decrypt it with subtraction, and vice-versa. The following code shows decryption
+    using addition:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了使用按位操作外，基本的数学运算也可以使用。如果加法有一个对应的减法运算，我们可以使用加法对文件进行加密，并使用减法解密，反之亦然。以下代码演示了使用加法进行解密：
+- en: '[PRE6]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The beauty of byte values is that they can be processed as signed numbers,
+    if, for example, given this set of encryption information:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 字节值的美妙之处在于它们可以作为有符号数字处理，例如，给定这组加密信息：
+- en: '[PRE7]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'After each byte gets subtracted with `0x11`, the encrypted data would be the
+    following:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个字节都减去`0x11`后，加密数据将如下所示：
+- en: '[PRE8]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'To restore it, we''ll have to add the same value, `0x11`, that was subtracted
+    before:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了恢复它，我们需要加回之前减去的相同值`0x11`：
+- en: '[PRE9]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'If we look at the equivalent decimal values of the preceding bytes in unsigned
+    and signed form, the data would look like the following:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们查看前面字节在无符号和有符号形式下的等效十进制值，数据将如下所示：
+- en: '[PRE10]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Here''s the encrypted data shown in decimal values:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是以十进制值显示的加密数据：
+- en: '[PRE11]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: To sum it up, if we were to use basic arithmetical operations, we should look
+    at it in the value's signed form.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结一下，如果我们使用基本的算术运算，我们应该以值的有符号形式来看待它。
+- en: Simple XOR decryption
+  id: totrans-61
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简单的XOR解密
+- en: 'XOR is the most popularly used operator when it comes to software cryptography.
+    If we were to change the code algorithm in the previous code snippet, it would
+    look like this:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XOR是软件加密中最常用的操作符。如果我们要修改前面代码片段中的代码算法，它会变成这样：
+- en: '[PRE12]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: What makes it popular is that the same algorithm can be used to encrypt and
+    decrypt data. Using the same key, `XOR` can restore the original data back. Unlike
+    when using `SUB`, the data-restoring counterpart requires an algorithm that uses
+    `ADD`.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它之所以受欢迎，是因为相同的算法可以用来加密和解密数据。使用相同的密钥，`XOR`可以恢复原始数据。与使用`SUB`时不同，数据恢复的对应操作需要使用`ADD`算法。
+- en: 'Here''s a quick demonstration:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里有一个快速演示：
+- en: '[PRE13]'
+  id: totrans-66
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Assembly of data in other memory regions
+  id: totrans-67
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在其他内存区域装配数据
+- en: It is possible to execute data in a different memory region out of the process'
+    image space. Similar to how code was executed at the stack space, memory spaces,
+    such as the heap and newly allocated space, can be used to manipulate data and
+    run the code. This is a common technique used not only by malware, but also by
+    legitimate applications.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以在进程的图像空间之外的其他内存区域执行数据。类似于如何在堆栈空间执行代码，堆和新分配的内存空间等内存区域，可以用来操控数据并执行代码。这是一种不仅恶意软件，甚至合法应用程序也常用的技术。
+- en: Accessing the heap requires calling APIs, such as `HeapAlloc` (Windows) or generally
+    `malloc` (Windows and Linux). A default heap space is given for every process
+    created. `Heap` is generally used when asking for a small chunk of memory space.
+    The maximum size of a heap varies between operating systems. If the requested
+    size of the memory space being requested for allocation doesn't fit the current
+    heap space, `HeapAlloc` or `malloc` internally calls for `VirtualAlloc` (Windows)
+    or `sbrk` (Linux) functions. These functions directly requests memory space from
+    the operating system's memory manager.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问堆需要调用API，如`HeapAlloc`（Windows）或通常的`malloc`（Windows和Linux）。每个创建的进程都会分配一个默认的堆空间。`Heap`通常用于请求一小块内存空间。堆的最大大小在操作系统之间有所不同。如果请求的内存空间大小无法适配当前堆空间，`HeapAlloc`或`malloc`会内部调用`VirtualAlloc`（Windows）或`sbrk`（Linux）函数。这些函数会直接向操作系统的内存管理器请求内存空间。
+- en: Allocated memory space have defined access permissions. Just like how the segments
+    of a program are used, these can generally have read, write, and execute permissions.
+    If the region requires code execution, the read and execute permission should
+    be set.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分配的内存空间有明确的访问权限。就像程序的各个段一样，它们通常有读取、写入和执行权限。如果该区域需要执行代码，则应设置读取和执行权限。
+- en: 'Check out the following code snippet with an implementation of decrypting data
+    to the heap:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看以下代码片段，它实现了将数据解密到堆空间：
+- en: '[PRE14]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: The code allocates `1000h` bytes of heap space, then copies `1BEh` bytes of
+    data from the address at `0x00403018` to the allocated heap. The decryption loop
+    can easily be identified in this code.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该代码分配了`1000h`字节的堆空间，然后将`1BEh`字节的数据从地址`0x00403018`复制到分配的堆空间中。解密循环可以在这段代码中轻松识别出来。
+- en: The algorithm uses `XOR` with a key value of `58h`. The data size is `1BEh`
+    and the data is directly updated at the same allocated heap space. The iteration
+    is controlled using the `ECX` register, while the location of the encrypted data,
+    which is at the heap address, is stored in the `ESI` register.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 算法使用`XOR`，密钥值为`58h`。数据大小为`1BEh`，数据直接更新到相同的已分配堆空间中。迭代由`ECX`寄存器控制，而加密数据的位置（在堆地址处）存储在`ESI`寄存器中。
+- en: Let's see what gets decrypted using debugging tools.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看在调试工具的帮助下，哪些内容被解密。
+- en: Decrypting with x86dbg
+  id: totrans-76
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用x86dbg解密
+- en: 'The preceding code snippet came from the `HeapDemo.exe` file. You can download
+    this file from [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch9](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch9).
+    Go ahead and start debugging the file using `x86dbg`. This screenshot shows the
+    disassembly code at the `WinMain` function right after loading the file in `x86dbg`:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码片段来自`HeapDemo.exe`文件。你可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch9](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch9)下载该文件。开始使用`x86dbg`调试该文件吧。该截图展示了在`x86dbg`中加载文件后的`WinMain`函数反汇编代码：
+- en: '![](img/763f9026-3249-4526-85bd-a5197151b51f.png)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/763f9026-3249-4526-85bd-a5197151b51f.png)'
+- en: 'From the executable''s code entry point, we encounter heap allocation with
+    the `GetProcessHeap` and `RtlAllocateHeap` APIs. This is followed by using a `_memcpy`
+    function, which copies `0x1BE` bytes of data from the address denoted by `heapdemo.enc`.
+    Let''s take a look at the memory dump from `heapdemo.enc`. To do that, right-click
+    on `push <heapdemo.enc>`, then select Follow in Dump. Click on the given address,
+    not the Selected Address. This should change the contents in the currently focused
+    `Dump` window:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从可执行文件的代码入口点开始，我们遇到了通过`GetProcessHeap`和`RtlAllocateHeap` API进行的堆分配。接着使用了`_memcpy`函数，它将`0x1BE`字节的数据从`heapdemo.enc`指定的地址复制过来。让我们来看看`heapdemo.enc`的内存转储。为此，右键点击`push
+    <heapdemo.enc>`，然后选择“Follow in Dump”。点击给定地址，而不是选中的地址。这应该会改变当前聚焦的`Dump`窗口中的内容：
+- en: '![](img/004d99c5-8563-4e1f-aa64-3b63bbb06045.png)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/004d99c5-8563-4e1f-aa64-3b63bbb06045.png)'
+- en: 'This should be the data that will be decrypted by the next lines of code that
+    run in a loop. We should also see the same encrypted data at the allocated heap
+    space right after executing `_memcpy`. The allocated heap space''s address should
+    still be stored in the register `ESI`. Right-click on the value of register `ESI`
+    in the window containing a list of registers and flags, then select Follow in
+    Dump. This should show the same contents of data, but at the heap address space.
+    The dump shown in the following screenshot is the encrypted data:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这应该是下一行代码将在循环中解密的数据。我们还应该能在执行`_memcpy`后，在已分配的堆空间中看到相同的加密数据。已分配堆空间的地址应仍然存储在寄存器`ESI`中。在显示寄存器和标志列表的窗口中右键点击`ESI`寄存器的值，然后选择“Follow
+    in Dump”。这将显示堆地址空间中相同的数据内容。下图显示的转储是加密数据：
+- en: '![](img/d407fd77-d4b3-43cc-9748-d6939d5804db.png)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d407fd77-d4b3-43cc-9748-d6939d5804db.png)'
+- en: 'Now for the interesting part—decrypting. While looking at the dump of the heap,
+    continue doing debug steps. You should notice the values changing as the `xor
+    byte ptr ds:[ecx+esi], 58` instruction executes:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是有趣的部分——解密。在查看堆的转储时，继续执行调试步骤。你应该注意到随着`xor byte ptr ds:[ecx+esi], 58`指令的执行，值会发生变化：
+- en: '![](img/e4148734-f0aa-4ca0-8822-dc39ea9c733d.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e4148734-f0aa-4ca0-8822-dc39ea9c733d.png)'
+- en: 'As it would be tedious to step through all these bytes for 0x1BE times, we
+    can simply place a break point at the line after the `jl` instruction and press
+    *`F9`* to continue running the instructions. This should result in this decrypted
+    dump:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于逐步调试这些字节0x1BE次会非常繁琐，我们可以简单地在`jl`指令后的行设置断点，然后按*`F9`*继续运行指令。这应该会生成这个解密后的转储：
+- en: '![](img/1983a2a2-3307-44ff-a575-e7f6e1414f0b.png)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1983a2a2-3307-44ff-a575-e7f6e1414f0b.png)'
+- en: Continue debugging the code; it concludes by cleaning up the allocated heap
+    and exiting the process. The allocated heap is freed up using the `HeapFree` API.
+    Usually, an `ExitProcess` API is used to exit the program. This time, it uses
+    `GetCurrentProcess` and `TerminateProcess` to do that.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续调试代码；它的结束通过清理分配的堆并退出进程来完成。使用`HeapFree` API来释放已分配的堆。通常，使用`ExitProcess` API来退出程序。这次，它使用`GetCurrentProcess`和`TerminateProcess`来执行这一操作。
+- en: Other obfuscation techniques
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 其他混淆技术
+- en: The obfuscation techniques we discussed are based on hiding actual strings and
+    code using simple cryptography. Still, there are other ways to obfuscate code.
+    As long as the concept of impeding data and code from easy extraction and analysis
+    is present, then obfuscation still occurs. Let's discuss some more obfuscation
+    techniques.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们讨论的混淆技术是基于使用简单的加密方法来隐藏实际的字符串和代码。然而，还有其他方法可以混淆代码。只要有阻止数据和代码轻易提取与分析的概念，混淆就会发生。让我们再讨论一些混淆技术。
+- en: Control flow flattening obfuscation
+  id: totrans-90
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 控制流平坦化混淆
+- en: 'The aim of control flow flattening is to make a simple code look like a complicated
+    set of conditional jumps. Let''s consider this simple code:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 控制流平坦化的目的是让简单的代码看起来像一组复杂的条件跳转。我们来考虑这段简单的代码：
+- en: '[PRE15]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'When obfuscated using the control flow flattening method, it would look something
+    like this:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当使用控制流平坦化方法进行混淆时，代码将像这样：
+- en: '[PRE16]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'The obfuscated code would ultimately have the same result as the original code.
+    In a control flow flattening obfuscation, the flow of code is guided by a control
+    variable. In the preceding code, the control variable is the `EBX` register. To
+    graphically view the difference, here''s how the original code looks:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 混淆后的代码最终将与原始代码产生相同的结果。在控制流平坦化混淆中，代码的流动是由一个控制变量引导的。在前面的代码中，控制变量是`EBX`寄存器。为了直观地查看差异，下面是原始代码的样子：
+- en: '![](img/9bcdc348-3fef-44fc-a572-3adc139e659d.png)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9bcdc348-3fef-44fc-a572-3adc139e659d.png)'
+- en: 'And here is how the code looks when obfuscation is applied:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是应用混淆后的代码样子：
+- en: '![](img/b34baec3-bb40-42c2-b5ee-7ba7d4b08444.png)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b34baec3-bb40-42c2-b5ee-7ba7d4b08444.png)'
+- en: The code is placed in a loop while being controlled with the value set in the
+    control variable, the `EBX` register. Every block of code has an ID. Before leaving
+    the first block of code, the control variable is set with the ID of the second
+    block of code. The flow loops around again, goes into the second block of code,
+    and before leaving, it is set with the ID of the third block of code. The sequence
+    goes on until the final block of code executes. Conditions in the block of code
+    can set the control variable with the block ID it chooses to go to next. In our
+    previous code the loop only iterates twice before it ends.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码被放置在一个循环中，并通过控制变量`EBX`寄存器中的值来控制。每个代码块都有一个ID。在离开第一个代码块之前，控制变量会设置为第二个代码块的ID。流再一次循环，进入第二个代码块，离开之前会设置为第三个代码块的ID。这个过程会持续下去，直到执行到最后一个代码块。代码块中的条件可以设置控制变量，以选择下一个要跳转的代码块。在我们之前的代码中，循环只会执行两次就结束。
+- en: Looking at the two preceding diagrams, we can see how a simple code can look
+    complicated when obfuscated. As a reverse engineer, the challenge is how to spot
+    a complicated code being reduced to a more understandable code. The trick here
+    is to identify if a control variable exists.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看看前面的两个图表，我们可以看到一个简单的代码在混淆后如何变得复杂。作为一个逆向工程师，挑战在于如何将复杂的代码还原为更易理解的代码。这里的技巧是识别是否存在一个控制变量。
+- en: Garbage code insertion
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 垃圾代码插入
+- en: 'Garbage code insertion is a cheap way of making code look complicated. A code
+    is simply injected with a code or a sequence of code that actually does nothing.
+    In the following code snippet, try to identify all of the garbage codes:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 垃圾代码插入是一种廉价的让代码看起来复杂的方法。代码中简单地插入一些实际上没有任何作用的代码或代码序列。在下面的代码片段中，尝试识别所有的垃圾代码：
+- en: '[PRE17]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Removing the garbage codes should reduce it down to this code:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 去除垃圾代码后，代码应该简化成这样：
+- en: '[PRE18]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: A lot of malware employs this technique to quickly generate variants of its
+    own code. It may increase the size of code, but as a result, it makes it undetectable
+    by signature-based anti-malware software.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很多恶意软件使用这种技术快速生成其自身代码的变种。它可能增加代码的大小，但结果是使其无法被基于签名的反恶意软件检测到。
+- en: Code obfuscation with a metamorphic engine
+  id: totrans-107
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用形态变换引擎的代码混淆
+- en: A program can be coded in different ways. To "increment the value of a variable"
+    means adding one to it. In assembly language, `INC EAX` would also be equivalent
+    to `ADD EAX`, `1`. The concept of replacing the same instruction or set of instructions
+    with an equivalent instruction relates to metamorphism.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个程序可以用不同的方式编码。要“增加一个变量的值”意味着给它加一。在汇编语言中，`INC EAX`也等同于`ADD EAX, 1`。用等效指令替换相同指令或指令集的概念与形态变换相关。
+- en: 'Here are a few examples of code that can be interchanged with each other:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里有几个可以互换的代码示例：
+- en: '|'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE19]'
+  id: totrans-111
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '|'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE20]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: '|'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '|'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE21]'
+  id: totrans-116
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '|'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE22]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '|'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '|'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE23]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '|'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE24]'
+  id: totrans-123
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: '|'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '|'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE25]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '|'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE26]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '|'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '|'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE27]'
+  id: totrans-131
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '|'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE28]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '|'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '|'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE29]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: '|'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: '[PRE30]'
+  id: totrans-138
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '|'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '|'
+- en: This concept was introduced in computer viruses that are able to infect files
+    with a different generation of itself. The computer viruses in which this concept
+    was introduced were Zmist, Ghost, Zperm, and Regswap. The challenge that the metamorphic
+    engines in these viruses face is to make the infected files still work like the
+    original and prevent them from being corrupted.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个概念最初出现在计算机病毒中，这些病毒能够感染具有不同代际的文件。引入这一概念的计算机病毒包括Zmist、Ghost、Zperm和Regswap。这些病毒中的变形引擎面临的挑战是使感染的文件依然像原始文件一样正常工作，并防止它们被破坏。
+- en: 'So, how does metamorphic code differ from a polymorphic code? First off, both
+    techniques were brought up to thwart anti-virus software from detecting several
+    generations of malware. Anti-virus software usually detects malware using signatures.
+    These signatures are unique sequences of bytes found in the malware file. To prevent
+    the anti-virus from further detection, encryption is used to hide the whole virus
+    code, or portions of it. A stub code responsible for decrypting the self-encrypted
+    code of the virus. The following diagram shows a representation of the file generations
+    of a polymorphic virus:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，变形代码和多态代码有何不同呢？首先，这两种技术都是为了阻止反病毒软件检测多个代际的恶意软件。反病毒软件通常通过签名来检测恶意软件。这些签名是恶意文件中的独特字节序列。为了防止反病毒软件进一步检测，使用加密来隐藏整个病毒代码或其中的部分代码。桩代码负责解密病毒的自加密代码。以下图示展示了多态病毒的文件代际表示：
+- en: '![](img/77a15534-d976-46f5-abb8-13c184497a61.png)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/77a15534-d976-46f5-abb8-13c184497a61.png)'
+- en: As we can see, the stub usually comes with the same code, but the key changes.
+    This leaves the encrypted code different from the previous generation. In the
+    preceding diagram, we depicted the difference by changing the encrypted code's
+    color. If a code involves decryption and encryption, it can be called a polymorphic
+    code. Some anti-virus software employs the use of code emulation or adds specific
+    decryption algorithms to decrypt the virus code, enabling the signatures to be
+    matched for detection.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，桩代码通常带有相同的代码，但密钥发生变化。这使得加密后的代码与前一代有所不同。在前面的图示中，我们通过改变加密代码的颜色来表示这种差异。如果代码涉及解密和加密，它可以被称为多态代码。一些反病毒软件使用代码仿真或添加特定的解密算法来解密病毒代码，从而使签名得以匹配并进行检测。
+- en: 'For metamorphic code, no encryption is involved.  The concept is about substituting
+    a code with a different code that results with the same behavior. For each generation
+    of the virus code, the code changes. A polymorphic code can easily be identified
+    because of the stub code. But easy identification of metamorphic code is impossible,
+    since it would just look like a regular set of code. Here''s a representation
+    of, file generations of a metamorphic code:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于变形代码，不涉及加密。这个概念是用不同的代码替换原有代码，且实现相同的行为。每一代病毒代码都会发生变化。多态代码很容易被识别，因为它有固定的桩代码。但是，变形代码的识别几乎是不可能的，因为它看起来就像一段普通的代码。以下是变形代码的文件代际表示：
+- en: '![](img/8e178633-5236-4589-a2e6-ce7b8c24f47f.png)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8e178633-5236-4589-a2e6-ce7b8c24f47f.png)'
+- en: All these metamorphic generation will yield the same result retaining its code
+    sequence. It is hard for anti-virus signatures to detect metamorphic viruses,
+    since the code itself changes. Metamorphic code can only be identified by comparing
+    two variations. In metamorphic viruses, the generation of new code involves a
+    metamorphic engine, which comes along with the code itself. Even the engine's
+    lines of code themselves can be modified.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有这些变形代际都会产生相同的结果，保持其代码序列不变。反病毒软件的签名很难检测到变形病毒，因为代码本身会发生变化。变形代码只能通过比较两个变体来识别。在变形病毒中，生成新代码的过程涉及变形引擎，该引擎与代码本身一起存在。即使是引擎的代码行本身也可以被修改。
+- en: Dynamic library loading
+  id: totrans-147
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 动态库加载
+- en: During static analysis, we can immediately see imported functions that are available
+    for the program's use. It is possible to only see two API functions in the import
+    table, but have the program use dozens of APIs. In Windows, these two API functions
+    are `LoadLibrary` and `GetProcAddress`, while in Linux, these are `dlopen` and
+    `dlsym`.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在静态分析过程中，我们可以立即看到可供程序使用的导入函数。可能在导入表中只看到两个API函数，但程序却使用了几十个API。在Windows系统中，这两个API函数是`LoadLibrary`和`GetProcAddress`，而在Linux系统中，则是`dlopen`和`dlsym`。
+- en: '`LoadLibrary` only requires the name of the library where the desired API function
+    name is located. `GetProcAddress` is then responsible for retrieving the address
+    of the API function from the library with that API name. With the library loaded,
+    a program can call the API function using the API''s address.'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`LoadLibrary` 只需要目标API函数所在库的名称。`GetProcAddress` 负责从库中检索该API名称对应的API函数的地址。库加载完成后，程序就可以通过API的地址来调用API函数。'
+- en: 'The following code snippet demonstrates how dynamic library loading is done.
+    The code eventually displays a "`hello world` message box:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码片段演示了如何进行动态库加载。最终代码会显示一个 "`hello world` 消息框：
+- en: '[PRE31]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: Some programs have the text strings encrypted, including the name of the API
+    functions, and get decrypted at runtime before doing dynamic import. This prevents
+    tools such as `Strings` or `BinText` from listing down the APIs that the program
+    might use. An analyst would be able to see these loaded functions while doing
+    debug sessions.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些程序会加密文本字符串，包括API函数的名称，并在运行时解密，之后才进行动态导入。这可以防止像 `Strings` 或 `BinText` 这样的工具列出程序可能使用的API。分析人员在进行调试时，可以看到这些加载的函数。
+- en: Use of PEB information
+  id: totrans-153
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用PEB信息
+- en: The **Process Environment Block** (**PEB**) contains useful information about
+    the running process. This includes the list of modules loaded for the process,
+    the chain of **Structured Error Handlers** (**SEH**), and even the program's command
+    line parameters. Instead of using API functions, such as  `GetCommandLine` and
+    `IsDebuggerPresent`, here, the obfuscation technique directly reads this information
+    from PEB.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**进程环境块**（**PEB**）包含关于正在运行的进程的有用信息。这包括为进程加载的模块列表、**结构化错误处理程序**（**SEH**）链，甚至程序的命令行参数。在这里，混淆技术直接从PEB读取这些信息，而不是使用如
+    `GetCommandLine` 和 `IsDebuggerPresent` 等API函数。'
+- en: 'For instance, the `IsDebuggerPresent` API contains the following code:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，`IsDebuggerPresent` API 包含以下代码：
+- en: '![](img/32dda516-68e4-4e8c-847e-e3a2474b0b0b.png)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/32dda516-68e4-4e8c-847e-e3a2474b0b0b.png)'
+- en: Using the following code alone will return a value of `1` or `0` in the `EAX` register.
+    It is in the FS segment where the `PEB` and **Thread Information Block** (**TIB**)
+    are found. This code shows that the debug flag can be found at offset `2` of the
+    `PEB`.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 单独使用以下代码将返回`1`或`0`的值，保存在`EAX`寄存器中。它位于FS段中，其中包含`PEB`和**线程信息块**（**TIB**）。这段代码显示调试标志可以在`PEB`的偏移量`2`处找到。
+- en: '[PRE32]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: There are different ways for an obfuscation to be implemented. It can be implemented
+    based on the creativity of the developer. As long as the goal of concealing the
+    obvious is present, it will make it hard for reverse engineers to analyze the
+    binary. A better understanding of various obfuscation techniques will definitely
+    helps us overcome the analysis of complicated code during reversing.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 混淆的实现方式有很多种。它可以根据开发者的创造力来实现。只要隐蔽显而易见的目标存在，它就能让逆向工程师难以分析二进制文件。对各种混淆技术的更好理解，肯定能帮助我们克服在逆向过程中分析复杂代码的难题。
+- en: Summary
+  id: totrans-160
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we have understood what obfuscation is all about. As a means
+    of hiding data, simple cryptography is one of the most commonly used techniques.
+    Identifying simple decryption algorithms requires looking for the cipher key,
+    the data to decrypt, and the size of the data. After identifying these decryption
+    parameters, all we need to do is place a breakpoint at the exit point of the decryption
+    code. We can also monitor the decrypted code using the memory dump of the debugging
+    tool.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们了解了混淆的含义。作为一种隐藏数据的手段，简单的加密学是最常用的技术之一。识别简单的解密算法需要寻找密码密钥、待解密数据和数据的大小。在识别这些解密参数后，我们只需要在解密代码的退出点设置断点。我们还可以通过调试工具的内存转储来监控解密后的代码。
+- en: We cited a few methods used in obfuscation, such as control flow flattening,
+    garbage code insertion, metamorphic code, dynamically importing API functions,
+    and directly accessing the process information block. Identifying obfuscated codes
+    and data helps us overcome the analysis of complicated code. Obfuscation was introduced
+    as a way to conceal information.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们列举了一些混淆中使用的方法，比如控制流扁平化、垃圾代码插入、形态变换代码、动态导入API函数以及直接访问进程信息块。识别混淆代码和数据有助于我们克服分析复杂代码的难题。混淆技术的引入是为了隐藏信息。
+- en: In the next chapter, we'll continue introducing the same concept, but in particular,
+    we'll look how they are implemented in an executable file using Packer tools and
+    encryption.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章，我们将继续介绍相同的概念，特别是我们将探讨它们是如何通过使用 Packer 工具和加密技术在可执行文件中实现的。

@@ -1,0 +1,3621 @@
+- en: '4'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '4'
+- en: Unpacking, Decryption, and Deobfuscation
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解包、解密与去混淆
+- en: In this chapter, we are going to explore different techniques that have been
+    introduced by malware authors to bypass antivirus software static signatures and
+    trick inexperienced reverse engineers. These are mainly, packing, encryption,
+    and obfuscation. We will learn how to identify packed samples, how to unpack them,
+    how to deal with different encryption algorithms – from simple ones, such as sliding
+    key encryption, to more complex algorithms, such as 3DES, AES, and RSA – and how
+    to deal with API encryption, string encryption, and network traffic encryption.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将探讨恶意软件作者为绕过杀毒软件静态签名并欺骗经验不足的逆向工程师而引入的不同技术。主要内容包括打包、加密和混淆。我们将学习如何识别打包样本，如何解包它们，如何处理不同的加密算法——从简单的滑动密钥加密到更复杂的算法，如3DES、AES和RSA——以及如何处理API加密、字符串加密和网络流量加密。
+- en: This chapter will help you deal with malware that uses packing and encryption
+    to evade detection and hinder reverse engineering. With the information in this
+    chapter, you will be able to manually unpack malware samples with custom types
+    of packers, understand the malware encryption algorithms that are needed to decrypt
+    its code, strings, APIs, or network traffic, and extract its infiltrated data.
+    You will also understand how to automate the decryption process using IDA Python
+    scripting.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将帮助你应对使用打包和加密技术来规避检测并阻碍逆向工程的恶意软件。通过本章的信息，你将能够手动解包带有自定义打包工具的恶意软件样本，理解需要解密其代码、字符串、API或网络流量的恶意软件加密算法，并提取其渗透数据。你还将了解如何使用IDA
+    Python脚本自动化解密过程。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Exploring packers
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 探索打包工具
+- en: Identifying a packed sample
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别打包样本
+- en: Automatically unpacking packed samples
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自动解包打包样本
+- en: Manual unpacking techniques
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 手动解包技术
+- en: Dumping the unpacked sample and fixing the import table
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 转储解包后的样本并修复导入表
+- en: Identifying simple encryption algorithms and functions
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 识别简单的加密算法和函数
+- en: Advanced symmetric and asymmetric encryption algorithms
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 高级对称和非对称加密算法
+- en: Applications of encryption in modern malware – Vawtrak banking Trojan
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 现代恶意软件中的加密应用——Vawtrak银行木马
+- en: Using IDA for decryption and unpacking
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用IDA进行解密和解包
+- en: Exploring packers
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 探索打包工具
+- en: 'A packer is a tool that packs together the executable file’s code, data, and
+    sometimes resources, and contains code for unpacking the program on the fly and
+    executing it. Here are some processes we are going to tackle:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包工具是一种将可执行文件的代码、数据，有时还包括资源打包在一起的工具，它包含了在运行时解包并执行程序的代码。我们将解决以下几个过程：
+- en: Advanced symmetric and asymmetric encryption algorithms
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 高级对称和非对称加密算法
+- en: Applications of encryption in modern malware – Vawtrak banking Trojan
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 现代恶意软件中的加密应用——Vawtrak银行木马
+- en: Using IDA for decryption and unpacking
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用IDA进行解密和解包
+- en: 'Here is a high-level diagram of this process:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是此过程的高级流程图：
+- en: '![Figure 4.1 – The process of unpacking a sample'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.1 – 解包样本的过程'
+- en: '](img/Figure_4.1_B18500.jpg)'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.1_B18500.jpg)'
+- en: Figure 4.1 – The process of unpacking a sample
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.1 – 解包样本的过程
+- en: Packers help malware authors hide their malicious code behind these compression
+    and/or encryption layers. This code only gets unpacked and executed once the malware
+    is executed (in runtime mode), which helps malware authors bypass static signature-based
+    detections when they are applied against packed samples.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包工具帮助恶意软件作者通过这些压缩和/或加密层隐藏其恶意代码。只有在恶意软件执行时（在运行时模式下），这些代码才会被解包并执行，从而帮助恶意软件作者绕过基于静态签名的检测，这些检测通常会针对打包样本进行应用。
+- en: Exploring packing and encrypting tools
+  id: totrans-24
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 探索打包和加密工具
+- en: 'Multiple tools can pack/encrypt executable files, but each has a different
+    purpose. It’s important to understand the difference between them as their encryption
+    techniques are customized for the purpose they serve. Let’s go over them:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 多种工具可以对可执行文件进行打包/加密，但每种工具的用途不同。理解它们之间的区别非常重要，因为它们的加密技术是根据其用途量身定制的。我们来逐一了解它们：
+- en: '**Packers**: These programs mainly compress executable files, thereby reducing
+    their total size. Since their purpose is compression, they were not created for
+    hiding malicious traits and are not malicious on their own. Therefore, they can’t
+    be indicators that the packed file is likely malicious. There are many well-known
+    packers around, and they are used by both benign software and malware families,
+    such as the following:'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**打包工具**：这些程序主要是压缩可执行文件，从而减小它们的总体大小。由于它们的目的是压缩，因此并不是为了隐藏恶意特征，也本身不具有恶意。因此，它们不能作为已打包文件可能是恶意的指标。市面上有很多著名的打包工具，它们被良性软件和恶意软件家族同时使用，以下是几个例子：'
+- en: '**UPX**: This is an open source packer, and its command-line tool can unpack
+    the packed file.'
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**UPX**：这是一款开源打包工具，其命令行工具可以解压已打包的文件。'
+- en: '**ASPack**: This is a commonly used packer that has a free and a premium version.
+    The same company that provides ASPack also provides protectors such as ASProtect.'
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**ASPack**：这是一款常用的打包工具，提供免费版和高级版。提供 ASPack 的同一公司还提供如 ASProtect 这样的保护工具。'
+- en: '**Legal protectors**: The main purpose of these tools is to protect programs
+    against reverse engineering attempts – for example, to protect the licensing system
+    of shareware products or to hide implementation details from competitors. They
+    often incorporate encryption and various anti-reverse engineering tricks. Some
+    of them might be misused to protect malware, but this is not their purpose.'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**合法保护工具**：这些工具的主要目的是保护程序免受逆向工程的尝试——例如，保护共享软件产品的许可系统，或隐藏实现细节以防竞争对手窃取。它们通常集成了加密和各种反逆向工程技巧。虽然其中一些可能被滥用来保护恶意软件，但这并非它们的初衷。'
+- en: '**Malicious encryptors**: Similar to legal protectors, their purpose is also
+    to make the analysis process harder; however, the focus here is different: to
+    avoid antivirus detection, you need to bypass sandboxes and hide the malicious
+    traits of a file. Their presence indicates that the encrypted file is more than
+    likely to be malicious as they are not available on the legal market.'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**恶意加密工具**：与合法保护工具类似，它们的目的也是使分析过程更为困难；不过这里的重点有所不同：为了避开病毒扫描，需要绕过沙箱并隐藏文件的恶意特征。它们的存在表明加密文件很可能是恶意的，因为它们不在合法市场上出售。'
+- en: In reality, all of these tools are commonly called packers and may include both
+    protection and compression capabilities.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，所有这些工具通常被称为打包工具，它们可能包括保护和压缩功能。
+- en: Now that we know more about packers, let’s talk about how to identify them.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们对打包工具有了更多了解，让我们来讨论如何识别它们。
+- en: Identifying a packed sample
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别已打包样本
+- en: There are multiple tools and multiple ways to identify whether the sample is
+    packed. In this section, we will take a look at different techniques and signs
+    that you can use, from the most straightforward to more intermediate ones.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有多种工具和方法可以识别样本是否被打包。在这一节中，我们将介绍不同的技术和标志，从最简单的方法到更复杂的技术。
+- en: Technique 1 – using static signatures
+  id: totrans-35
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 1 – 使用静态签名
+- en: 'The first way to identify whether the malware is packed is by using static
+    signatures. Every packer has unique characteristics that can help you identify
+    it. Some PE tools, such as **PEiD** and **CFF Explorer**, can scan the PE file
+    using these signatures or traits and identify the packer that was used to compress
+    the file (if it’s packed); otherwise, they will identify the compiler that was
+    used to compile this executable file (if it’s not packed). The following is an
+    example:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 识别恶意软件是否被打包的第一种方法是使用静态签名。每种打包工具都有独特的特征，能够帮助你识别它。某些 PE 工具，如 **PEiD** 和 **CFF
+    Explorer**，可以使用这些签名或特征扫描 PE 文件，识别用于压缩文件的打包工具（如果文件被打包）；否则，它们将识别用于编译此可执行文件的编译器（如果文件未被打包）。以下是一个示例：
+- en: '![Figure 4.2 – The PEiD tool detecting UPX'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.2 – PEiD 工具检测 UPX'
+- en: '](img/Figure_4.2_B18500.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.2_B18500.jpg)'
+- en: Figure 4.2 – The PEiD tool detecting UPX
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.2 – PEiD 工具检测 UPX
+- en: All you need to do is open this file in PEiD – you will see the signature that
+    was triggered on this PE file (in the preceding screenshot, it was identified
+    as UPX). However, since they can’t always identify the packer/compiler that was
+    used, you need other ways to identify whether it’s packed and what packer was
+    used, if any.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你需要做的就是在 PEiD 中打开这个文件，你会看到触发的签名（在前面的截图中，它被识别为 UPX）。然而，由于它们并不能总是识别使用的打包工具或编译器，你需要其他方法来识别文件是否被打包，以及如果被打包，使用了什么打包工具。
+- en: Technique 2 – evaluating PE section names
+  id: totrans-41
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 2 – 评估 PE 区段名称
+- en: 'Section names can reveal a lot about the compiler or the packer if the file
+    is packed. An unpacked PE file contains sections such as `.text`, `.data`, `.idata`,
+    `.rsrc`, and `.reloc`, while packed files contain specific section names, such
+    as `UPX0`, `.aspack`, `.stub`, and so on. Here is an example:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 段名如果文件被打包，可以透露很多关于编译器或打包工具的信息。解压后的PE文件包含如`.text`、`.data`、`.idata`、`.rsrc`、`.reloc`等段，而打包文件包含特定的段名，如`UPX0`、`.aspack`、`.stub`等。以下是一个例子：
+- en: '![Figure 4.3 – The PEiD tool’s section viewer'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.3 – PEiD 工具的段查看器'
+- en: '](img/Figure_4.3_B18500.jpg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.3_B18500.jpg)'
+- en: Figure 4.3 – The PEiD tool’s section viewer
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.3 – PEiD 工具的段查看器
+- en: These section names can help you identify whether this file is packed. Searching
+    for these section names on the internet could help you identify the packer that
+    uses these names for its packed data or its stub (unpacking code). You can easily
+    find the section names by opening the file in PEiD and clicking on the **>** button
+    beside **EP Section**. By doing this, you will see the list of sections in this
+    PE file, as well as their names.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些段的名称可以帮助你识别该文件是否被打包。通过在互联网上搜索这些段名，你可以帮助识别使用这些段名的打包工具，或者它们用于打包数据或stub（解压代码）。你可以通过在PEiD中打开文件并点击**EP
+    Section**旁边的**>**按钮，轻松找到段名。这样，你将看到该PE文件中所有段的列表以及它们的名称。
+- en: Technique 3 – using stub execution signs
+  id: totrans-47
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术3 – 使用stub执行标志
+- en: 'Most packers compress PE file sections, including the code section, data section,
+    import table, and so on, and then add a new section at the end that contains the
+    unpacking code (stub). Since most of the unpacked PE files start the execution
+    from the first section (in most cases, `.text`), the packed PE files start the
+    execution from one of the last sections, which is a clear indication that a decryption
+    process will be running. The following signs are an indication that this is happening:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数打包工具会压缩PE文件的各个部分，包括代码段、数据段、导入表等，然后在文件末尾添加一个包含解压代码（stub）的新段。由于大多数解压后的PE文件是从第一个段开始执行的（通常是`.text`段），而打包后的PE文件会从最后一个段中的某个位置开始执行，这清晰地表明将会进行解密过程。以下是这一过程的迹象：
+- en: The entry point is not pointing to the first section (it would mostly be pointing
+    to one of the last two sections) and this section’s memory permission is `EXECUTE`
+    (in the section’s characteristics).
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 入口点不指向第一个段（它通常指向倒数第二个段之一），并且该段的内存权限是`EXECUTE`（在段的特性中）。
+- en: The first section’s memory permission will be mostly `READ | WRITE`.
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个段的内存权限通常是`READ | WRITE`。
+- en: It is worth mentioning that many virus families that infect executable files
+    have similar attributes.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得一提的是，许多感染可执行文件的病毒家族具有类似的特征。
+- en: Technique 4 – detecting a small import table
+  id: totrans-52
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术4 – 检测小的导入表
+- en: 'For most applications, the import table is full of APIs from system libraries,
+    as well as third-party libraries; however, in most of the packed PE files, the
+    import table will be quite small and will include a few APIs from known libraries.
+    This is enough to unpack the file. Only one API from each library of the PE file
+    will be used after being unpacked. The reason for this is that most of the packers
+    load the import table manually after unpacking the PE file, as shown in the following
+    screenshot:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于大多数应用程序，导入表中充满了来自系统库和第三方库的API；然而，在大多数打包的PE文件中，导入表会非常小，并且只包含来自已知库的少数API。这足以解压文件。每个库中的一个API将在解压后被使用。原因是大多数打包工具在解压PE文件后会手动加载导入表，如下图所示：
+- en: '![Figure 4.4 – The import table of an unpacked sample versus a packed sample
+    with UPX'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.4 – 解压样本与使用UPX打包样本的导入表'
+- en: '](img/Figure_4.4_B18500.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.4_B18500.jpg)'
+- en: Figure 4.4 – The import table of an unpacked sample versus a packed sample with
+    UPX
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.4 – 解压样本与使用UPX打包样本的导入表
+- en: The packed sample removed all the APIs from `ADVAPI32.dll` and left only one,
+    so the library will be automatically loaded by Windows Loader. After unpacking,
+    the unpacker stub code will load all of these APIs again using the `GetProcAddress`
+    API.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打包样本删除了`ADVAPI32.dll`中的所有API，只留下一个，因此该库将由Windows加载器自动加载。解压后，解压器stub代码将再次使用`GetProcAddress`
+    API加载所有这些API。
+- en: Now that we have a fair idea of how to identify a packed sample, let’s venture
+    forward and explore how to automatically unpack packed samples.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们大致了解了如何识别一个打包的样本，接下来让我们深入探讨如何自动解压打包样本。
+- en: Automatically unpacking packed samples
+  id: totrans-59
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 自动解压打包样本
+- en: Before you dive into the manual, time-consuming unpacking process, you need
+    to try some fast automatic techniques first to get a clean unpacked sample in
+    no time at all. In this section, we will explain the most well-known techniques
+    for quickly unpacking samples that have been packed with common packers.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在深入手动、耗时的解包过程之前，您需要首先尝试一些快速的自动化技术，以便快速获得干净的解包样本。在本节中，我们将解释最常见的几种快速解包技术，针对那些使用常见打包器打包的样本。
+- en: Technique 1 – the official unpacking process
+  id: totrans-61
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 1 – 官方解包过程
+- en: Some packers, such as **UPX** or **WinRAR**, are self-extracting packages that
+    include an unpacking technology that’s shipped with the tool. As you may know,
+    these tools are not created to hide any malicious traits, so some of them provide
+    these unpacking features for both developers and end users.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些打包器，如**UPX**或**WinRAR**，是自解压包，它们包含了与工具一起提供的解包技术。如你所知，这些工具并非旨在隐藏任何恶意特征，因此其中一些工具提供了解包功能，既面向开发人员，也面向最终用户。
+- en: In some cases, malware illegally uses a commercial protector to protect itself
+    from reverse engineering and detection. In this case, you can even directly contact
+    the protection provider to unprotect this piece of malware for your analysis.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，恶意软件非法使用商业保护程序来保护自己，防止被逆向工程和检测。在这种情况下，您甚至可以直接联系保护提供商，以便为您的分析解保护该恶意软件。
+- en: 'In the case of UPX, it is common for attackers to patch the packed sample so
+    that it remains executable, but the standard tool can no longer unpack it. For
+    example, in many cases, it involves replacing the *UPX* magic value at the beginning
+    of its first section with something else:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 UPX 的情况下，攻击者通常会修补打包样本，使其仍然可以执行，但标准工具无法再解包它。例如，在许多情况下，它涉及将其第一个节的*UPX*魔术值替换为其他内容：
+- en: '![Figure 4.5 – The UPX magic value and section names have changed but the sample
+    remains fully functional'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.5 – UPX 魔术值和节名称已更改，但样本仍然完全可用'
+- en: '](img/Figure_4.5_B18500.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.5_B18500.jpg)'
+- en: Figure 4.5 – The UPX magic value and section names have changed but the sample
+    remains fully functional
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.5 – UPX 魔术值和节名称已更改，但样本仍然完全可用
+- en: Restoring the original values can make the sample unpackable by a standard tool.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恢复原始值可以使样本通过标准工具无法解包。
+- en: Technique 2 – using OllyScript with OllyDbg
+  id: totrans-69
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 2 – 使用 OllyDbg 配合 OllyScript
+- en: There is an OllyDbg plugin called **OllyScript** that can help automate the
+    unpacking process. It does this by scripting OllyDbg actions, such as setting
+    a breakpoint, continuing execution, pointing the EIP register to a different place,
+    or modifying some bytes.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一个名为**OllyScript**的OllyDbg插件可以帮助自动化解包过程。它通过脚本化 OllyDbg 的操作来实现这一点，比如设置断点、继续执行、将
+    EIP 寄存器指向不同位置，或者修改一些字节。
+- en: Nowadays, OllyScript is not that widely used, but it inspired the next technique.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如今，OllyScript 的使用已经不那么广泛，但它启发了下一个技巧。
+- en: Technique 3 – using generic unpackers
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 3 – 使用通用解包工具
+- en: 'Generic unpackers are debuggers that have been pre-scripted to unpack specific
+    packers or to automate the manual unpacking process, which we will describe in
+    the next section. Here is an example of one of them:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通用解包器是已经预先编写脚本的调试器，用于解包特定的打包器或自动化手动解包过程，我们将在下一节中详细描述其中的内容。以下是其中一个例子：
+- en: '![Figure 4.6 – The QuickUnpack tool in detail'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.6 – QuickUnpack 工具详细介绍'
+- en: '](img/Figure_4.6_B18500.jpg)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.6_B18500.jpg)'
+- en: Figure 4.6 – The QuickUnpack tool in detail
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.6 – QuickUnpack 工具详细介绍
+- en: They are more generic and can work with multiple packers. However, malware may
+    escape from these tools, which may lead to the malware being executed on the user’s
+    machine. Because of this, you should always use these tools on an isolated virtual
+    machine or in a safe environment.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它们更加通用，能够与多个打包器兼容。然而，恶意软件可能会从这些工具中逃逸，从而导致恶意软件在用户的机器上执行。因此，您应该始终在隔离的虚拟机或安全环境中使用这些工具。
+- en: Technique 4 – emulation
+  id: totrans-78
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 4 – 模拟
+- en: Another group of tools worth mentioning is emulators. Emulators are programs
+    that simulate the execution environment, including the processor (for executing
+    instructions, dealing with registers, and so on), memory, the operating system,
+    and so on.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个值得提到的工具组是模拟器。模拟器是能够模拟执行环境的程序，包括处理器（用于执行指令、处理寄存器等）、内存、操作系统等。
+- en: 'These tools have more capabilities for running malware safely (as it’s all
+    simulated) and have more control over the execution process. Therefore, they can
+    help set up more sophisticated breakpoints and can also be easily scripted (such
+    as **libemu** and the **Pokas x86 Emulator**), as shown in the following code:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些工具具有更强大的能力来安全地运行恶意软件（因为所有操作都在模拟环境中），并且对执行过程有更多的控制。因此，它们能够设置更复杂的断点，并且可以轻松编写脚本（如**libemu**和**Pokas
+    x86 模拟器**），如下面的代码所示：
+- en: '[PRE0]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: In this example, we used the Pokas x86 Emulator. It was much easier to set more
+    complicated breakpoints, such as *Execute on modified data*, which gets triggered
+    when the instruction pointer (EIP) is pointing to a decrypted/unpacked place in
+    memory.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们使用了 Pokas x86 模拟器。通过它，设置更复杂的断点变得更加容易，例如*修改数据时执行*，当指令指针（EIP）指向解密/解包后的内存位置时，该断点会触发。
+- en: Another great example of such a tool based on emulation is **unipacker**. It
+    is based on the **Unicorn** engine and supports a decent amount of popular legitimate
+    packers, including ASPack, FSG, MEW, MPRESS, and others.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个基于仿真技术的出色工具是**unipacker**。它基于**Unicorn**引擎，并支持多种流行的合法打包工具，包括 ASPack、FSG、MEW、MPRESS
+    等。
+- en: Technique 5 – memory dumps
+  id: totrans-84
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 5 – 内存转储
+- en: The last fast technique we will mention is incorporating memory dumps. This
+    technique is widely used as it’s one of the easiest for most packers and protectors
+    to apply (especially if they have anti-debugging techniques). The idea behind
+    it is to just execute the malware and take a memory snapshot of its process. Some
+    common sandboxing tools provide a process’s memory dump as a core feature or as
+    one of their plugins’ features, such as **Cuckoo** sandbox.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将提到的最后一种快速技术是结合内存转储。由于其对大多数打包工具和保护器而言是最容易应用的技术之一（特别是当它们具有反调试技术时），因此这一技术被广泛使用。其背后的思路是执行恶意软件并获取其进程的内存快照。一些常见的沙箱工具提供进程的内存转储作为核心功能，或者作为其插件功能之一，例如**Cuckoo**沙箱。
+- en: This technique is very beneficial for static analysis, as well as for static
+    signature scanning; however, the memory dump that is produced is different from
+    the original sample and can’t be executed. Apart from mismatching locations of
+    code and data compared to the offsets specified in the section table, the import
+    table will also need to be fixed before any further dynamic analysis is possible.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术对静态分析和静态签名扫描非常有益；然而，生成的内存转储与原始样本不同，无法直接执行。除了代码和数据的偏移位置与节表中指定的偏移位置不匹配外，导入表也需要修复，才能进行后续的动态分析。
+- en: Since this technique doesn’t provide a clean sample, and because of the limitations
+    of the previous automated techniques we described, understanding how to unpack
+    malware manually can help you with these special cases that you will encounter
+    from time to time. With manual unpacking, and by understanding anti-reverse engineering
+    techniques (these will be covered in [*Chapter 6*](B18500_06.xhtml#_idTextAnchor554),
+    *Bypassing Anti-Reverse Engineering Techniques*), you will be able to deal with
+    the most advanced packers.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这种技术无法提供干净的样本，并且因为我们之前描述的自动化技术存在局限性，了解如何手动解包恶意软件将帮助你应对那些你偶尔会遇到的特殊情况。通过手动解包，并理解反逆向工程技术（这些将在[*第六章*](B18500_06.xhtml#_idTextAnchor554)中详细讲解，*绕过反逆向工程技术*），你将能够应对最先进的打包工具。
+- en: In the next section, we will explore manual unpacking using OllyDbg.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将探讨如何使用 OllyDbg 进行手动解包。
+- en: Manual unpacking techniques
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 手动解包技术
+- en: Even though automated unpacking is faster and easier to use than manual unpacking,
+    it doesn’t work with all packers, encryptors, or protectors. This is because some
+    of them require a specific, custom way to unpack. Some of them have anti-VM techniques
+    or anti-reverse engineering techniques, while others use unusual APIs or assembly
+    instructions that emulators can’t detect. In this section, we will look at different
+    techniques for unpacking malware manually.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管自动解包比手动解包更快、更易使用，但它并不适用于所有的打包工具、加密器或保护器。这是因为其中一些需要特定的定制解包方式。有些工具采用了反虚拟机技术或反逆向工程技术，而其他工具则使用了模拟器无法检测到的非常规
+    API 或汇编指令。在本节中，我们将探讨不同的手动解包恶意软件的技术。
+- en: 'The main difference between the previous technique and manual unpacking is
+    when we take the memory dump and what we do with it afterward. If we just execute
+    the original sample, dump the whole process memory, and hope that the unpacked
+    module will be available there, we will face multiple problems:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之前的技术与手动解压的主要区别在于我们何时获取内存转储以及之后怎么处理它。如果我们仅执行原始样本，转储整个进程内存，并希望解压的模块在那里可用，我们将面临多个问题：
+- en: It is possible that the unpacked sample will already be mapped by sections and
+    that the import table will already have been populated, so the engineer will have
+    to change the physical addresses of each section so that it’s equal to the virtual
+    ones, restore imports, and maybe even handle relocations to make them executable
+    again.
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 可能解压后的样本已经按节区映射，且导入表已经填充，因此工程师需要更改每个节区的物理地址，使其与虚拟地址相等，恢复导入，甚至可能需要处理重定位，以使它们重新变得可执行。
+- en: The hash of this sample will be different from the original one.
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 该样本的哈希值将与原始样本不同。
+- en: The original loader may unpack the sample to allocated memory, inject it somewhere
+    else, and free the memory so that it won’t be a part of the full dump.
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 原始加载器可能会将样本解压到分配的内存中，注入到其他地方，并释放内存，这样它就不会成为完整转储的一部分。
+- en: It is very easy to miss some modules; for example, the original loader may unpack
+    only a sample for either a 32- or 64-bit platform.
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 很容易错过一些模块；例如，原始加载器可能只会为32位或64位平台解压一个样本。
+- en: The much cleaner way is to stop unpacking when the sample has just been unpacked
+    but hasn’t been used yet. This way, it will just be an original file. In some
+    cases, even its hash will match the original not-yet-packed sample and therefore
+    can be used for threat hunting purposes.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更为简洁的方法是在样本刚被解压但尚未使用时停止解压。这样，它将只是一个原始文件。在某些情况下，甚至它的哈希值也会与尚未打包的原始样本匹配，因此可以用于威胁狩猎。
+- en: In this section, we will cover several common universal methods of unpacking
+    samples.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将介绍几种常见的通用解压方法。
+- en: Technique 1 – memory breakpoint on execution
+  id: totrans-98
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 1 – 执行时的内存断点
+- en: This technique works for packers that place an unpacked sample in the same place
+    in memory where the packed file was loaded. As we know, the packed sample will
+    contain sections of the original file (including the code section), and the unpacker
+    stub just unpacks each of them and then transfers control to the **original entry
+    point** (**OEP**) for the application to run it normally. This way, we can assume
+    that OEP will be in the first section so that we can set a breakpoint to catch
+    any instructions being executed there. Let’s cover this process step by step.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该技术适用于将解压样本放置在与已加载打包文件相同位置的内存中的打包器。正如我们所知，打包样本将包含原始文件的各个节区（包括代码节区），解压程序只会解压每个节区，然后将控制权转移到**原始入口点**（**OEP**），以便应用程序正常运行。这样，我们可以假设OEP会在第一个节区中，这样我们就可以设置一个断点来捕获那里执行的任何指令。我们一步步地介绍这个过程。
+- en: Step 1 – setting the breakpoints
+  id: totrans-100
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 1 – 设置断点
+- en: To intercept the moment when the code in the first section receives control,
+    we can’t use hardware breakpoints on execution as they can be only set to a maximum
+    of four bytes. This way, we would need to know where exactly the execution will
+    start. The more effective solution is to set a memory breakpoint on execution.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了拦截第一个节区中的代码接管控制的时刻，我们不能使用执行时的硬件断点，因为它们最多只能设置为四个字节。这样，我们需要确切知道执行将从哪里开始。更有效的解决方案是设置执行时的内存断点。
+- en: 'The ability to use memory breakpoints on execution is available in OllyDbg
+    implicitly. It can be accessed by going to **View** | **Memory**, where we can
+    change the first section’s memory permissions to **Read/write** if it was **Full
+    access**. Here is an example:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在OllyDbg中隐式提供了在执行时使用内存断点的功能。可以通过进入**视图** | **内存**来访问，在这里我们可以将第一个节区的内存权限更改为**读/写**，如果它原本是**完全访问**的话。以下是一个示例：
+- en: '![Figure 4.7 – Changing memory permissions in OllyDbg'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.7 – 在OllyDbg中更改内存权限'
+- en: '](img/Figure_4.7_B18500.jpg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.7_B18500.jpg)'
+- en: Figure 4.7 – Changing memory permissions in OllyDbg
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.7 – 在OllyDbg中更改内存权限
+- en: In this case, we can’t execute code in this section until it gets execute permission.
+    By default, in multiple Windows versions, it will still be executable for noncritical
+    processes, even if the memory permissions don’t include the `EXECUTE` permission.
+    Therefore, you need to enforce what is called `EXECUTE` permission and does not
+    allow any non-executable data to be executed.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，直到该段获得执行权限之前，我们无法在此段中执行代码。默认情况下，在多个 Windows 版本中，即使内存权限不包含 `EXECUTE` 权限，它仍然会对非关键进程保持可执行状态。因此，你需要强制执行所谓的
+    `EXECUTE` 权限，并且不允许任何不可执行的数据被执行。
+- en: This technology is used to prevent exploitation attempts, which we will cover
+    in more detail in [*Chapter 8*](B18500_08.xhtml#_idTextAnchor811), *Handling Exploits
+    and Shellcode*; however, it comes in handy when we want to unpack malware samples
+    easily.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该技术用于防止利用攻击，我们将在 [*第 8 章*](B18500_08.xhtml#_idTextAnchor811) 中更详细地讨论 *处理利用和
+    shellcode*；不过，在我们想要轻松解包恶意软件样本时，它非常有用。
+- en: Step 2 – turning on Data Execution Prevention
+  id: totrans-108
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 2 – 启用数据执行保护
+- en: 'To turn on DEP, you can go to **Advanced system settings** and then **Data
+    Execution Prevention**. You will need to turn it on for all programs and services,
+    as shown in the following screenshot:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要启用 DEP，你可以进入 **高级系统设置**，然后选择 **数据执行保护**。你需要为所有程序和服务启用它，如下图所示：
+- en: '![Figure 4.8 – Changing the DEP settings on Windows'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.8 – 更改 Windows 上的 DEP 设置'
+- en: '](img/Figure_4.8_B18500.jpg)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.8_B18500.jpg)'
+- en: Figure 4.8 – Changing the DEP settings on Windows
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.8 – 更改 Windows 上的 DEP 设置
+- en: Now, these types of breakpoints should be enforced and the malware should be
+    prevented from executing in this section, particularly at the beginning of the
+    decrypted code (OEP).
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，应该强制这些类型的断点，并防止恶意软件在该段中执行，特别是在解密代码的开头（OEP）。
+- en: Step 3 – preventing any further attempts to change memory permissions
+  id: totrans-114
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 3 – 防止任何进一步尝试更改内存权限
+- en: Unfortunately, just enforcing DEP is not enough. The unpacking stub can easily
+    bypass this breakpoint by changing the permission of this section to full access
+    again by using the `VirtualProtect` API.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不幸的是，仅仅强制执行 DEP 是不够的。解包存根可以通过使用 `VirtualProtect` API，再次将该段权限更改为完全访问，从而轻松绕过此断点。
+- en: This API gives the program the ability to change the memory permissions of any
+    memory chunk to any other permissions. You need to set a breakpoint on this API
+    by going to `VirtualProtect`), and set a breakpoint on the address it takes you
+    to.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该 API 使程序能够将任何内存块的内存权限更改为任何其他权限。你需要通过转到 `VirtualProtect` 设置一个断点，并在它指向的地址上设置另一个断点。
+- en: 'If the stub tries to call `VirtualProtect` to change the memory permissions,
+    the debugged process will stop, and you can change the permission it tries to
+    set in the first section. You can change the `NewProtect` argument value to `READONLY`
+    or `READ|WRITE` and remove the `EXECUTE` bit from it. Here is how it will look
+    in the debugger:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果存根尝试调用 `VirtualProtect` 来更改内存权限，调试中的进程将会停止，你可以更改它尝试设置的第一个部分的权限。你可以将 `NewProtect`
+    参数的值更改为 `READONLY` 或 `READ|WRITE`，并从中移除 `EXECUTE` 位。调试器中显示的情况如下：
+- en: '![Figure 4.9 – Finding an address that the VirtualProtect API changes permissions
+    for'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.9 – 查找 `VirtualProtect` API 更改权限的地址'
+- en: '](img/Figure_4.9_B18500.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.9_B18500.jpg)'
+- en: Figure 4.9 – Finding an address that the VirtualProtect API changes permissions
+    for
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.9 – 查找 `VirtualProtect` API 更改权限的地址
+- en: Once we have handled this part, it is time to let the breakpoint trigger.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理完这一部分后，是时候让断点触发了。
+- en: Step 4 – executing and getting the OEP
+  id: totrans-122
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 4 – 执行并获取 OEP
+- en: 'Once you click **Run**, the debugged process will eventually transfer control
+    to the OEP, which will cause an access violation error to appear, as shown in
+    the following screenshot:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦点击 **运行**，调试中的进程最终会将控制权转交给 OEP，这将导致出现访问冲突错误，下面是截图所示：
+- en: '![Figure 4.10 – Staying at the OEP of the sample in OllyDbg'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.10 – 在 OllyDbg 中停留在样本的 OEP'
+- en: '](img/Figure_4.10_B18500.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.10_B18500.jpg)'
+- en: Figure 4.10 – Staying at the OEP of the sample in OllyDbg
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.10 – 在 OllyDbg 中停留在样本的 OEP
+- en: This may not happen immediately as some packers modify the first few bytes of
+    the first section with instructions such as `ret`, `jmp`, or `call`, just to make
+    the debugged process break on this breakpoint; however, after a few iterations,
+    the program will break. This occurs after full decryption/decompression of the
+    first section, which it does to execute the original code of the program.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可能不会立即发生，因为一些加壳器会修改第一节的前几个字节，使用 `ret`、`jmp` 或 `call` 等指令，仅仅是为了使调试过程在此断点处中断；然而，经过几次迭代后，程序会中断。这发生在第一次加密/解压的过程完成后，它会执行程序的原始代码。
+- en: Technique 2 – call stack backtracing
+  id: totrans-128
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 2 – 调用堆栈回溯
+- en: Understanding the concept of the **call stack** is very useful for speeding
+    up your malware analysis process. First up is the unpacking process.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理解 **调用堆栈** 的概念对加速你的恶意软件分析过程非常有用。首先是解包过程。
+- en: 'Take a look at the following code and imagine what the stack will look like:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看一下以下代码，并想象堆栈会是什么样子：
+- en: '[PRE1]'
+  id: totrans-131
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'When we look at the stack just after the return address saved by `call func03`,
+    the value of the previous `esp` is saved using `push ebp` (it was copied to `ebp`
+    at line `5`). On top of the stack from this previous `esp` value, the first `esp`
+    value is stored (this is because instruction `4` of `ebp` is equal to the first
+    `esp` value), followed by the return address from `call func02`, and so on. Here,
+    the stored `esp` value is followed by a return address. This `esp` value points
+    to the previously stored `esp` value, followed by the previous return address,
+    and so on. This is known as a call stack. The following screenshot shows what
+    this looks like in OllyDbg:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们查看在 `call func03` 保存返回地址之后的堆栈时，前一个 `esp` 的值通过 `push ebp` 被保存（它在第 `5` 行被复制到
+    `ebp`）。在这个之前的 `esp` 值上，存储了第一个 `esp` 值（这是因为 `ebp` 的指令 `4` 等于第一个 `esp` 值），接着是来自
+    `call func02` 的返回地址，以此类推。这里，存储的 `esp` 值后面跟着一个返回地址。这个 `esp` 值指向先前存储的 `esp` 值，后面跟着先前的返回地址，以此类推。这就是所谓的调用堆栈。下图展示了在
+    OllyDbg 中的实际情况：
+- en: '![Figure 4.11 – Stored values followed by a return address in OllyDbg'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.11 – 在 OllyDbg 中存储的值后跟返回地址'
+- en: '](img/Figure_4.11_B18500.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.11_B18500.jpg)'
+- en: Figure 4.11 – Stored values followed by a return address in OllyDbg
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.11 – 在 OllyDbg 中存储的值后跟返回地址
+- en: As you can see, the stored `esp` value points to the next stack frame (another
+    stored `esp` value and the return address of the previous call), and so on.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，存储的 `esp` 值指向下一个堆栈帧（另一个存储的 `esp` 值和先前调用的返回地址），以此类推。
+- en: 'OllyDbg includes a view window for the call stack that can be accessed through
+    **View** | **Call Stack**. It looks as follows:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OllyDbg 包括一个可通过 **视图** | **调用堆栈** 访问的调用堆栈视图窗口。它看起来如下：
+- en: '![Figure 4.12 – Call stack in OllyDbg'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.12 – OllyDbg 中的调用堆栈'
+- en: '](img/Figure_4.12_B18500.jpg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.12_B18500.jpg)'
+- en: Figure 4.12 – Call stack in OllyDbg
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.12 – OllyDbg 中的调用堆栈
+- en: 'Now, you may be wondering: how can the call stack help us unpack our malware
+    in a fast and efficient way?'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，你可能会问：调用堆栈如何帮助我们以快速高效的方式卸载恶意软件？
+- en: Here, we can set a breakpoint that we are sure will make the debugged process
+    break in the middle of the execution of the decrypted code (the actual program
+    code after the unpacking phase). Once the execution stops, we can backtrace the
+    call stack and get to the first call in the decrypted code. Once we are there,
+    we can just slide up until we reach the start of the first function that was executed
+    in the decrypted code, and we can declare this address as the OEP. Let’s describe
+    this process in greater detail.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以设置一个断点，确保它会使调试过程在解密代码执行的中途中断（解包阶段后的实际程序代码）。一旦执行停止，我们可以回溯调用堆栈，找到解密代码中的第一个调用。到达那里后，我们可以向上滑动，直到找到在解密代码中执行的第一个函数的起始位置，并将该地址声明为
+    OEP。我们将更详细地描述这个过程。
+- en: Step 1 – setting the breakpoints
+  id: totrans-143
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 1 – 设置断点
+- en: To apply this approach, you need to set the breakpoints on the APIs that the
+    program will execute at some point. You can rely on the common APIs that are used
+    (examples include `GetModuleFileNameA`, `GetCommandLineA`, `CreateFileA`, `VirtualAlloc`,
+    `HeapAlloc`, and `memset`), your behavioral analysis, or a sandbox report that
+    will give you the APIs that were used during the execution of the sample.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了应用这种方法，你需要在程序某个时刻会执行的 API 上设置断点。你可以依赖常见的 API（例如 `GetModuleFileNameA`、`GetCommandLineA`、`CreateFileA`、`VirtualAlloc`、`HeapAlloc`
+    和 `memset`）、你的行为分析，或者沙盒报告，它会告诉你样本执行过程中使用了哪些 API。
+- en: 'First, you must set a breakpoint on these APIs (use all of your known ones,
+    except the ones that could be used by the unpacking stub) and execute the program
+    until the execution breaks, as shown in the following screenshot:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，您必须在这些 API 上设置断点（使用您知道的所有 API，除了那些可能被解压缩存根使用的 API），然后执行程序直到执行被中断，如下图所示：
+- en: '![Figure 4.13 – The return address in the stack window in OllyDbg'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.13 – 在 OllyDbg 的堆栈窗口中的返回地址'
+- en: '](img/Figure_4.13_B18500.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.13_B18500.jpg)'
+- en: Figure 4.13 – The return address in the stack window in OllyDbg
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.13 – 在 OllyDbg 的堆栈窗口中的返回地址
+- en: Now, you need to check the stack, since most of your next steps will be on the
+    stack side. By doing this, you can start following the call stack.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，您需要检查堆栈，因为接下来的大多数步骤都将在堆栈方面进行。通过这样做，您可以开始跟踪调用堆栈。
+- en: Step 2 – following the call stack
+  id: totrans-150
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 2 – 跟踪调用堆栈
+- en: 'Follow the stored `esp` value in the stack and then the next stored `esp` value
+    until you land on the first return address, as shown in the following screenshot:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 跟踪堆栈中存储的 `esp` 值，然后跟踪下一个存储的 `esp` 值，直到您找到第一个返回地址，如下图所示：
+- en: '![Figure 4.14 – The last return address in the stack window in OllyDbg'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.14 – 在 OllyDbg 的堆栈窗口中的最后返回地址'
+- en: '](img/Figure_4.14_B18500.jpg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.14_B18500.jpg)'
+- en: Figure 4.14 – The last return address in the stack window in OllyDbg
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.14 – 在 OllyDbg 的堆栈窗口中的最后返回地址
+- en: 'Now, follow the return address on the disassembled section in the CPU window,
+    as follows:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，跟踪 CPU 窗口中反汇编部分的返回地址，如下所示：
+- en: '![Figure 4.15 – Following the last return address in OllyDbg'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.15 – 在 OllyDbg 中跟踪最后一个返回地址'
+- en: '](img/Figure_4.15_B18500.jpg)'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.15_B18500.jpg)'
+- en: Figure 4.15 – Following the last return address in OllyDbg
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.15 – 在 OllyDbg 中跟踪最后一个返回地址
+- en: Once you have reached the first call in the unpacked section, the only step
+    left is reaching the OEP.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦您到达解压缩区域中的第一个调用，剩下的唯一步骤就是到达 OEP。
+- en: Step 3 – reaching the OEP
+  id: totrans-160
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤 3 – 到达 OEP
+- en: 'Now, you only need to slide up until you reach the OEP. It can be recognized
+    by a standard function prologue, as follows:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，您只需要向上滑动，直到找到 OEP。它可以通过标准的函数前言来识别，如下所示：
+- en: '![Figure 4.16 – Finding the OEP in OllyDbg'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.16 – 在 OllyDbg 中找到 OEP'
+- en: '](img/Figure_4.16_B18500.jpg)'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.16_B18500.jpg)'
+- en: Figure 4.16 – Finding the OEP in OllyDbg
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.16 – 在 OllyDbg 中找到 OEP
+- en: This is the same entry point that we were able to reach using the previous technique.
+    It’s a simple technique to use and it works with many complex packers and encryptors.
+    However, this technique could easily lead to the actual execution of the malware
+    or at least some pieces of its code, so it should be used with care.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们通过之前的方法能够到达的相同入口点。这是一个简单的技术，适用于许多复杂的打包程序和加密器。然而，这种技术很容易导致恶意软件的实际执行，或者至少是其部分代码的执行，因此需要小心使用。
+- en: Technique 3 – monitoring memory allocated spaces for unpacked code
+  id: totrans-166
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 3 – 监视解压缩代码的内存分配空间
+- en: This method is extremely useful if the time to analyze a sample is limited,
+    or if there are many of them, as here, we are not going into the details of how
+    the original sample is stored.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果分析样本的时间有限，或者样本数量很多，这种方法非常有用，因为在这里我们不会深入讨论原始样本是如何存储的。
+- en: The idea here is that the original malware usually allocates a big block of
+    memory to store the unpacked/decrypted embedded sample. We will cover what happens
+    when this is not the case later.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的想法是，原始恶意软件通常会分配一个大的内存块来存储解压缩/解密后的嵌入样本。稍后我们将讨论在这种情况不成立时会发生什么。
+- en: 'There are multiple Windows APIs that can be used for allocating memory in user
+    mode. Attackers generally tend to use the following ones:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有多个 Windows API 可以用于在用户模式下分配内存。攻击者通常倾向于使用以下这些：
+- en: '`VirtualAlloc/VirtualAllocEx/VirtualAllocExNuma`'
+  id: totrans-170
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualAlloc/VirtualAllocEx/VirtualAllocExNuma`'
+- en: '`LocalAlloc/GlobalAlloc/HeapAlloc`'
+  id: totrans-171
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`LocalAlloc/GlobalAlloc/HeapAlloc`'
+- en: '`RtlAllocateHeap`'
+  id: totrans-172
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`RtlAllocateHeap`'
+- en: In kernel mode, there are other functions such as `ZwAllocateVirtualMemory`;
+    `ExAllocatePoolWithTag` can be used in pretty much the same way.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在内核模式下，还有其他函数，例如 `ZwAllocateVirtualMemory`；`ExAllocatePoolWithTag` 也可以以类似的方式使用。
+- en: If the sample is written in C, it makes sense to monitor `malloc/calloc` functions
+    straight away. For C++ malware, we can also monitor the `new` operator.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果样本是用 C 编写的，直接监视 `malloc/calloc` 函数是有意义的。对于 C++ 恶意软件，我们还可以监视 `new` 操作符。
+- en: Once we have stopped at the entry point of the sample (or at the beginning of
+    the TLS routine, if it is available), we can set a breakpoint on execution at
+    these functions. Generally, it is OK to put a breakpoint on the first instruction
+    of the function, but if there is a concern that malware can hook it (that is,
+    replace the first several bytes with some custom code), the breakpoint at the
+    last instruction will work better.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们在样本的入口点（或 TLS 例程的开头，如果它存在的话）停下，就可以在这些函数的执行过程中设置断点。通常，可以在函数的第一条指令上设置断点，但如果担心恶意软件可能会挂钩它（即，用自定义代码替换前几条字节），在最后一条指令上设置断点效果会更好。
+- en: 'Another advantage of this is that this way, it only needs one breakpoint for
+    both `VirtualAllocEx` and `VirtualAlloc` (which is a wrapper around the former
+    API). In the IDA debugger, it is possible to go to the API by pressing the *G*
+    hotkey and prefixing the API name with the corresponding DLL without the file
+    extension and separating it with an underscore, for example, `kernel32_VirtualAlloc`,
+    as shown in the following screenshot:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样做的另一个好处是，只需要一个断点来同时监控 `VirtualAllocEx` 和 `VirtualAlloc`（后者是前者 API 的包装器）。在
+    IDA 调试器中，按 *G* 热键并在 API 名称前加上相应的 DLL 名称（不带文件扩展名，并用下划线分隔）可以直接跳转到该 API，例如，`kernel32_VirtualAlloc`，如下面的截图所示：
+- en: '![Figure 4.17 – Setting a breakpoint at memory allocation in WinAPI'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.17 – 在 WinAPI 中设置内存分配断点'
+- en: '](img/Figure_4.17_B18500.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.17_B18500.jpg)'
+- en: Figure 4.17 – Setting a breakpoint at memory allocation in WinAPI
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.17 – 在 WinAPI 中设置内存分配断点
+- en: After this, we continue execution and keep monitoring the sizes of the allocated
+    blocks. So long as it is big enough, we can put a breakpoint on the write operation
+    to intercept the moment when the encrypted (or already decrypted on the fly) payload
+    is being written there. If the malware calls one of these functions too many times,
+    it makes sense to set a conditional breakpoint and monitor only allocations of
+    blocks bigger than a particular size. After this, if the block is still encrypted,
+    we can keep a breakpoint on write and wait until the decryption routine starts
+    processing it. Finally, we can dump the memory block to disk when the last byte
+    is decrypted.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此之后，我们继续执行并监控已分配内存块的大小。只要内存块足够大，我们可以在写入操作时设置断点，拦截加密的（或已即时解密的）有效载荷被写入的时刻。如果恶意软件调用这些函数的次数过多，可以考虑设置一个条件断点，仅监控分配大于特定大小的内存块。之后，如果内存块仍然是加密的，我们可以继续在写入时设置断点，直到解密例程开始处理它。最后，当最后一个字节解密时，我们可以将内存块转储到磁盘。
+- en: 'Other API functions that can be used in the same approach include the following:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其他可以采用相同方法的 API 函数包括以下几个：
+- en: '`VirtualProtect`: Malware authors can use this to make the memory block store
+    the unpacked sample executable or make the header or the code section non-writeable.'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualProtect`：恶意软件作者可以利用这个函数将内存块存储解压后的样本可执行文件，或将头部或代码节区设置为不可写。'
+- en: '`WriteProcessMemory`: This is often used to inject the unpacked payload, either
+    into some other process or into itself.'
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`WriteProcessMemory`：这通常用于将解压后的有效载荷注入到另一个进程或其自身。'
+- en: Some packers, such as UPX, follow a slightly different approach by having an
+    entry in their section table with a section that takes a lot of space in RAM but
+    is not present on a disk (having a physical size equal to 0). This way, the Windows
+    Loader will prepare this space for the unpacker for free without any need for
+    it to allocate memory dynamically. In this case, placing a breakpoint on write
+    at the beginning of this section will work the same way as described previously.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些打包工具，如 UPX，采用稍微不同的方法，在其节区表中添加一个节区，这个节区在 RAM 中占用大量空间，但在磁盘上不存在（物理大小为 0）。这样，Windows
+    加载程序会为解压程序准备这个空间，而无需动态分配内存。在这种情况下，在该节区开头设置写入断点的效果与之前描述的相同。
+- en: 'In most cases, malware unpacks the whole sample at once so that after dumping
+    it, we get the correct MZ-PE file, which can be analyzed independently. However,
+    other options exist, such as the following:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大多数情况下，恶意软件会一次性解压整个样本，这样在转储后，我们可以获得正确的 MZ-PE 文件，可以独立分析。然而，也有其他选项，如以下所示：
+- en: A decrypted block is a corrupted executable and depends on the original packer
+    to perform correctly.
+  id: totrans-186
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解密后的块是一个损坏的可执行文件，依赖于原始的打包工具来正确执行。
+- en: 'The packer decrypts the sample section by section and loads each of them one
+    by one. There are many ways this can be handled, as follows:'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打包工具按节区逐个解密样本并逐一加载它们。处理这种情况的方式有很多种，如下所示：
+- en: Dump sections, so long as they become available, and concatenate them later.
+  id: totrans-188
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 转储各个部分，只要它们可用，并稍后将它们合并。
+- en: Modify the decryption routine to process the whole sample at once.
+  id: totrans-189
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 修改解密例程，以一次处理整个样本。
+- en: Write a script that decrypts the whole encrypted block.
+  id: totrans-190
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 编写一个脚本来解密整个加密块。
+- en: If the malicious program terminates at any stage, it might be a sign that it
+    either needs something extra (such as command-line arguments or an external file,
+    or perhaps it needs to be loaded in a specific way) or that an anti-reverse engineering
+    trick needs to be bypassed. You can confirm this in many ways – for example, by
+    intercepting the moment when the program is going to terminate (for example, by
+    placing a breakpoint on `ExitProcess`, `TerminateProcess`, or the more fancy `PostQuitMessage`
+    API call) and tracing which part of the code is responsible for it. Some engineers
+    prefer to go through the main function manually, step by step – without going
+    into subroutines until one of them causes a termination – and then restart the
+    process and trace the code of this routine. Then, we can trace the code of the
+    routine inside it, if necessary, right up until the moment the terminating logic
+    is confirmed.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果恶意程序在任何阶段终止，这可能是一个迹象，表明它可能需要一些额外的东西（如命令行参数、外部文件，或者可能需要以特定方式加载），或者它可能需要绕过反逆向工程的技巧。你可以通过多种方式确认这一点——例如，拦截程序即将终止的时刻（例如，通过在`ExitProcess`、`TerminateProcess`或更复杂的`PostQuitMessage`
+    API调用上放置断点），并追踪哪个部分的代码导致了终止。一些工程师更倾向于手动逐步调试主函数——直到某个子程序导致终止——然后重新启动过程并追踪该子程序的代码。接下来，如果需要，可以继续追踪该子程序内部的代码，直到确认终止逻辑。
+- en: Technique 4 – in-place unpacking
+  id: totrans-192
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 4 – 原地解包
+- en: While not common, it is possible to either decrypt the sample in the same section
+    where it was originally located (this section should have `WRITE|EXECUTE` permissions)
+    or in another section of an original file.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然不常见，但有可能在样本原始位置所在的同一个节中解密它（该节应该具有`WRITE|EXECUTE`权限），或者在原始文件的另一个节中解密。
+- en: 'In this case, it makes sense to perform the following steps:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，执行以下步骤是有意义的：
+- en: Search for a big encrypted block (usually, it has high entropy and is visible
+    to the naked eye in a hex editor).
+  id: totrans-195
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 搜索一个大的加密块（通常，它具有高熵，并且在十六进制编辑器中肉眼可见）。
+- en: Find the exact place where it will be read (the first bytes of the block may
+    serve other purposes – for example, they may store various types of metadata,
+    such as sizes or checksums/hashes, to verify the decryption).
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 找到它将被读取的确切位置（块的前几个字节可能有其他用途——例如，它们可能存储各种类型的元数据，如大小或校验和/哈希值，用于验证解密）。
+- en: Put a breakpoint on read and/or write there.
+  id: totrans-197
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在那里放置一个读/写断点。
+- en: Run the program and wait for the breakpoint to be triggered.
+  id: totrans-198
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行程序并等待断点被触发。
+- en: So long as this block is accessed by the decryption routine, it is pretty straightforward
+    to get the decrypted version of it – either by placing a breakpoint on execution
+    at the end of the decryption function or a breakpoint on write to the last bytes
+    of the encrypted block to intercept the moment when they are processed.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只要解密例程访问了这个块，就非常容易获得它的解密版本——无论是通过在解密函数的末尾放置断点，还是在写入加密块最后几个字节时放置断点，拦截它们被处理的时刻。
+- en: It is worth mentioning that this approach can be used together with the one
+    that relies on malware allocating memory. This will be discussed in the *Manual
+    unpacking techniques* section.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 值得一提的是，这种方法可以与依赖恶意软件分配内存的方法一起使用。这个内容将在*手动解包技巧*一节中讨论。
+- en: Technique 5 – searching for and transferring control to OEP
+  id: totrans-201
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技巧 5 – 搜索并将控制权转移到 OEP
+- en: 'In theory, any control flow instruction can be used to transfer control to
+    the OEP once the unpacking is done. However, in reality, many unpackers just use
+    the `jmp` instruction as they don’t need any conditions and they don’t need to
+    get the control back (another less common option is using a combination of `push
+    <OEP_addr>` and `ret`). As the address of the OEP is often not known at compilation
+    time, it is generally passed to `jmp` in the form of a register or a value stored
+    at a particular offset rather than an actual virtual address and therefore easy
+    to spot. Another option might be that the OEP address is known at compilation
+    time, but there is no code there yet as the unpacking hasn’t finished yet. In
+    both cases, searching for anomalous control transfer instructions may be a quick
+    way to spot the OEP. In the case of `jmp`, it can be done by running a full-text
+    search for all `jmp` instructions (In IDA, you can use the *Alt* + *T* hotkey
+    combination) and sorting them to spot anomalous entries. Here is an example of
+    such a control transfer:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理论上，任何控制流指令都可以在解包完成后将控制转移到 OEP。然而，实际上，许多解包器仅使用`jmp`指令，因为它们不需要任何条件，也不需要将控制返回（另一个不太常见的选项是使用`push
+    <OEP_addr>`和`ret`的组合）。由于 OEP 的地址通常在编译时未知，通常是通过寄存器或存储在特定偏移量的值传递给`jmp`，而不是实际的虚拟地址，因此很容易被发现。另一种可能是，OEP
+    地址在编译时已知，但由于解包尚未完成，因此那里还没有代码。在这两种情况下，搜索异常的控制转移指令可能是快速定位 OEP 的方法。对于`jmp`，可以通过运行全文搜索所有`jmp`指令（在
+    IDA 中，您可以使用 *Alt* + *T* 热键组合）并对其进行排序，以便发现异常条目。以下是这种控制转移的示例：
+- en: '![Figure 4.18 – Uncommon control transfer involving a register'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.18 – 涉及寄存器的不常见控制转移'
+- en: '](img/Figure_4.18_B18500.jpg)'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.18_B18500.jpg)'
+- en: Figure 4.18 – Uncommon control transfer involving a register
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.18 – 涉及寄存器的不常见控制转移
+- en: Now let’s move on to technique 6.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们进入技术 6。
+- en: Technique 6 – stack restoration-based
+  id: totrans-207
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 技术 6 – 基于堆栈恢复
+- en: This technique is usually quicker to do than the previous two, but it is less
+    reliable. The idea here is that some packers will transfer control to the unpacked
+    code at the end of the main function when the unpacking is done. We already know
+    that, at the end of the function, the stack pointer is returned to the same address
+    that it had at the beginning of this function. In this case, it is possible to
+    set a breakpoint on access to the `[esp-4]`/`[rsp-8]` value while staying at the
+    entry point of the sample and then execute it so that the breakpoint will hopefully
+    trigger just before it transfers control to the unpacked code.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种技术通常比前两种方法更快，但可靠性较差。这里的思路是，一些加壳工具会在解包完成后将控制转移到主函数结束时的解包代码。我们已经知道，在函数结束时，堆栈指针会恢复到函数开始时的相同地址。在这种情况下，可以在访问`[esp-4]`/`[rsp-8]`值时设置断点，并保持在样本的入口点，然后执行它，这样断点就有可能在转移控制到解包代码之前触发。
+- en: This may never happen, depending on the implementation of the unpacking code,
+    and there may be other situations where this does happen (for example, when there
+    are multiple garbage calls before starting the actual unpacking process). Therefore,
+    this method can only be used as a first quick check before more time is spent
+    on the other methods.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可能永远不会发生，这取决于解包代码的实现，也可能会有其他情况会发生这种情况（例如，在开始实际解包过程之前，有多个垃圾调用）。因此，这种方法只能作为花费更多时间在其他方法之前的第一次快速检查。
+- en: After we reach the point where we have the unpacked sample in memory, we need
+    to save it to disk. In the next section, we will describe how to dump the unpacked
+    malware from memory to disk and fix the import table.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们到达解包样本已加载到内存的阶段时，需要将其保存到磁盘。在下一节中，我们将描述如何将解包后的恶意软件从内存转储到磁盘并修复导入表。
+- en: Dumping the unpacked sample and fixing the import table
+  id: totrans-211
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 转储解包后的样本并修复导入表
+- en: In this section, we will learn how to dump the unpacked malware in memory to
+    disk and fix its import table. In addition to this, if the import table has already
+    been populated with API addresses by the loader, we will need to restore the original
+    values. In this case, other tools will be able to read it, and we will be able
+    to execute it for dynamic analysis.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一节中，我们将学习如何将解包后的恶意软件从内存转储到磁盘并修复其导入表。除此之外，如果导入表已经由加载程序填充了 API 地址，我们还需要恢复原始值。在这种情况下，其他工具将能够读取它，我们也可以执行它进行动态分析。
+- en: Dumping the process
+  id: totrans-213
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 转储进程
+- en: 'To dump the process, you can use **OllyDump**. OllyDump is an OllyDbg plugin
+    that can dump the process back to an executable file. It unloads the PE file back
+    from memory into the necessary file format:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要转储进程，可以使用**OllyDump**。 OllyDump 是一个 OllyDbg 插件，可以将进程转储回可执行文件。它将 PE 文件从内存中卸载到必要的文件格式：
+- en: '![Figure 4.19 – The OllyDump UI'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.19 – OllyDump UI'
+- en: '](img/Figure_4.19_B18500.jpg)'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.19_B18500.jpg)'
+- en: Figure 4.19 – The OllyDump UI
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.19 – OllyDump UI
+- en: 'Once you reach the OEP from the previous manual unpacking process, you can
+    set the OEP as the new entry point. OllyDump can fix the import table (as we will
+    soon describe). You can either use it or uncheck the **Rebuild Import** checkbox
+    if you are willing to use other tools.Another option is to use tools such as **PETools**
+    or **Lord PE** for 32-bit and **VSD** for both 32- and 64-bit Windows. The main
+    advantage of these solutions is that apart from the so-called **Dump Full** option,
+    which mainly dumps original sections associated with the sample, it is also possible
+    to dump a particular memory region – for example, allocated memory with the decrypted/unpacked
+    sample(s), as shown in the following screenshot:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦从先前的手动解包过程中到达 OEP，您可以将 OEP 设置为新的入口点。 OllyDump 可以修复导入表（正如我们即将描述的那样）。 如果愿意使用其他工具，可以使用它或取消**重建导入**复选框。另一个选择是使用诸如**PETools**或**Lord
+    PE**（用于 32 位）以及**VSD**（用于 32 和 64 位 Windows）之类的工具。除了所谓的**Dump Full**选项，主要是转储与样本相关的原始部分外，这些解决方案还可以转储特定的内存区域
+    – 例如，用于解密/解包样本的已分配内存，如下面的截图所示：
+- en: '![Figure 4.20 – The Region Dump window of PETools'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.20 – PETools 的区域转储窗口'
+- en: '](img/Figure_4.20_B18500.jpg)'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.20_B18500.jpg)'
+- en: Figure 4.20 – The Region Dump window of PETools
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.20 – PETools 的区域转储窗口
+- en: Next, we are going to look at fixing the import table of a piece of malware.
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将看看如何修复恶意软件的导入表。
+- en: Fixing the import table
+  id: totrans-223
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 修复导入表
+- en: 'Now, you may be wondering: what happens to the import table that needs to be
+    fixed? The answer is: when the PE file gets loaded in the process memory or the
+    unpacker stub loads the import table, the loader goes through the import table
+    (you can find more information in [*Chapter 3*](B18500_03.xhtml#_idTextAnchor084),
+    *Basic Static and Dynamic Analysis for x86/x64*) and populates it with the actual
+    addresses of API functions from DLLs that are available on the machine. Here is
+    an example:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，你可能会问：需要修复的导入表会发生什么？答案是：当 PE 文件在进程内存中加载或者解包器存根加载导入表时，加载器会遍历导入表（你可以在[*第 3
+    章*](B18500_03.xhtml#_idTextAnchor084)，*x86/x64 的基本静态和动态分析*中找到更多信息），并使用可用于计算机上的
+    DLL 实际地址填充它们。这里是一个例子：
+- en: '![Figure 4.21 – The import table before and after PE loading'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.21 – PE 加载前后的导入表'
+- en: '](img/Figure_4.21_B18500.jpg)'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.21_B18500.jpg)'
+- en: Figure 4.21 – The import table before and after PE loading
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.21 – PE 加载前后的导入表
+- en: 'After this, these API addresses are used to access these APIs throughout the
+    application code, usually by using the `call` and `jmp` instructions:'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此之后，这些 API 地址将用于在应用程序代码中访问这些 API，通常通过使用`call`和`jmp`指令：
+- en: '![Figure 4.22 – Examples of diﬀerent API calls'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.22 – 不同 API 调用的示例'
+- en: '](img/Figure_4.22_B18500.jpg)'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.22_B18500.jpg)'
+- en: Figure 4.22 – Examples of diﬀerent API calls
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.22 – 不同 API 调用的示例
+- en: To restore the import table, we need to find this list of API addresses, find
+    which API each address represents (we need to go through each library list of
+    addresses and their corresponding API names for this), and then replace each of
+    these addresses with either an offset pointing to the API name string or an ordinal
+    value. If we don’t find the API names in the file, we may need to create a new
+    section that we can add these API names to and use them to restore the import
+    table.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要恢复导入表，我们需要找到这些 API 地址列表，找到每个地址代表的 API（我们需要逐个库列表地址和相应的 API 名称进行查找），然后用指向 API
+    名称字符串的偏移量或序数值替换每个地址。如果在文件中找不到 API 名称，可能需要创建一个新的部分，将这些 API 名称添加到其中，并用它们来恢复导入表。
+- en: 'Fortunately, some tools do this automatically. In this section, we will talk
+    about **Import REConstructor** (**ImpREC**). Here is what it looks like:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，有些工具可以自动完成这些操作。 在本节中，我们将讨论**Import REConstructor**（**ImpREC**）。 这是它的外观：
+- en: '![Figure 4.23 – The ImpREC interface'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.23 – ImpREC 接口'
+- en: '](img/Figure_4.23_B18500.jpg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.23_B18500.jpg)'
+- en: Figure 4.23 – The ImpREC interface
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.23 – ImpREC 接口
+- en: 'To fix the import table, you need to follow these steps:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要修复导入表，您需要按照以下步骤操作：
+- en: Dump the process or any library you want to dump using, for example, **OllyDump**
+    (and uncheck the **Rebuild Import** checkbox) or any other tool of preference.
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用例如**OllyDump**（并取消选中**Rebuild Import**复选框）或其他首选工具，转储进程或任何库。
+- en: Open **ImpREC** and choose the process you are currently debugging.
+  id: totrans-239
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开**ImpREC**并选择当前正在调试的进程。
+- en: Now, set the OEP value to the correct value and click on **IAT AutoSearch**.
+  id: totrans-240
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，将OEP值设置为正确的值，然后点击**IAT AutoSearch**。
+- en: 'After that, click on **Get Imports** and delete any rows with **valid: NO**
+    from the **Imported Functions Found** section.'
+  id: totrans-241
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '之后，点击**Get Imports**，并删除**Imported Functions Found**部分中任何**valid: NO**的行。'
+- en: Click on the **Fix Dump** button and then select the previously dumped file.
+    Now, you will have a working, unpacked PE file. You can load it into PEiD or any
+    other PE explorer application to check whether it is working.
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**Fix Dump**按钮，然后选择之前转储的文件。现在，你将得到一个工作正常、未打包的PE文件。你可以将它加载到PEiD或任何其他PE浏览器应用程序中，检查它是否正常工作。
+- en: Important Note
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: For a 64-bit Windows system, the Scylla or CHimpREC tools can be used instead.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于64位Windows系统，可以使用Scylla或CHimpREC工具来代替。
+- en: In the next section, we will discuss basic encryption algorithms and functions
+    to strengthen our knowledge base and thus enrich our malware analysis capabilities.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将讨论基本的加密算法和功能，以增强我们的知识基础，从而丰富我们的恶意软件分析能力。
+- en: Identifying simple encryption algorithms and functions
+  id: totrans-246
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别简单的加密算法和功能
+- en: In this section, we will take a look at the simple encryption algorithms that
+    are widely used in the wild. We will learn about the difference between symmetric
+    and asymmetric encryption, and we will learn how to identify these encryption
+    algorithms in the malware’s disassembled code.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将了解广泛使用的简单加密算法。我们将学习对称加密和非对称加密之间的区别，并将学习如何在恶意软件的反汇编代码中识别这些加密算法。
+- en: Types of encryption algorithms
+  id: totrans-248
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 加密算法的类型
+- en: Encryption is the process of modifying data or information to make it unreadable
+    or unusable without a secret key, which is only given to people who are expected
+    to read the message. The difference between encoding or compression and encryption
+    is that they do not use any key, and their main goal is not related to protecting
+    the information or limiting access to it compared to encryption.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密是修改数据或信息的过程，目的是使其在没有密钥的情况下不可读或无法使用，而该密钥仅提供给那些预期会读取消息的人。编码或压缩与加密的区别在于，编码和压缩不使用任何密钥，它们的主要目标与保护信息或限制访问信息无关，而加密则有此目的。
+- en: 'There are two basic types of encryption algorithms: symmetric and asymmetric
+    (also called public-key algorithms). Let’s explore the differences between them:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密算法有两种基本类型：对称算法和非对称算法（也称为公钥算法）。让我们来探讨它们之间的区别：
+- en: '**Symmetric algorithms**: These types of algorithms use the same key for encryption
+    and decryption. They use a single secret key that’s shared by both sides:'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**对称算法**：这些算法使用相同的密钥进行加密和解密。它们使用一个由双方共享的单一密钥：'
+- en: '![Figure 4.24 – Symmetric algorithm explained'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.24 – 对称算法解释'
+- en: '](img/Figure_4.24_B18500.jpg)'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.24_B18500.jpg)'
+- en: Figure 4.24 – Symmetric algorithm explained
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.24 – 对称算法解释
+- en: '**Asymmetric algorithms**: In this case, two keys are used. One is used for
+    encryption and the other is used for decryption. These two keys are called the
+    **public key** and the **private key**. One key is shared publicly (the public
+    key), while the other one is kept secret (the private key). Here is a high-level
+    diagram describing this process:'
+  id: totrans-255
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**非对称算法**：在这种情况下，使用了两个密钥，一个用于加密，另一个用于解密。这两个密钥分别称为**公钥**和**私钥**。一个密钥是公开的（公钥），而另一个密钥是保密的（私钥）。以下是一个高层次的示意图，描述了这一过程：'
+- en: '![Figure 4.25 – Asymmetric algorithm explained'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.25 – 非对称算法解释'
+- en: '](img/Figure_4.25_B18500.jpg)'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.25_B18500.jpg)'
+- en: Figure 4.25 – Asymmetric algorithm explained
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.25 – 非对称算法解释
+- en: Now, let’s talk about simple custom-made encryption algorithms commonly used
+    in malware.
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们谈谈恶意软件中常用的简单自定义加密算法。
+- en: Basic encryption algorithms
+  id: totrans-260
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基本加密算法
+- en: Most encryption algorithms that are used by malware consist of basic mathematical
+    and logical instructions – that is, `xor`, `add`, `sub`, `rol`, and `ror`. These
+    instructions are reversible, and you don’t lose data while encrypting with them
+    compared to instructions such as `shl` or `shr`, where it is possible to lose
+    some bits from the left and right. This also happens with the `and` and `or` instructions,
+    which can lead to data loss when using `or` with 1 or `and` with 0.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数恶意软件使用的加密算法由基本的数学和逻辑指令组成——即`xor`、`add`、`sub`、`rol`和`ror`。这些指令是可逆的，在加密时使用它们不会丢失数据，而与`shl`或`shr`等指令相比，后者可能会丢失左侧或右侧的一些位。这种情况也会发生在`and`和`or`指令中，当使用`or`与1或`and`与0时，可能会导致数据丢失。
+- en: 'These operations can be used in multiple ways, as follows:'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些操作可以以多种方式使用，具体如下：
+- en: '`rol` instruction:'
+  id: totrans-263
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rol`指令：'
+- en: '![Figure 4.26 – Example of the rol instruction'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.26 – `rol`指令示例'
+- en: '](img/Figure_4.26_B18500.jpg)'
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.26_B18500.jpg)'
+- en: Figure 4.26 – Example of the rol instruction
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.26 – `rol`指令示例
+- en: '**Running key encryption**: Here, the malware changes the key during the encryption.
+    Here is an example:'
+  id: totrans-267
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**运行密钥加密**：在这里，恶意软件在加密过程中更改密钥。以下是一个示例：'
+- en: '[PRE2]'
+  id: totrans-268
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '`0x23`).'
+  id: totrans-269
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x23`）。'
+- en: '**Other encryption algorithms**: Malware authors never run out of ideas when
+    it comes to creating new algorithms that represent a combination of these arithmetic
+    and logical instructions. This leads us to the next question: how can we identify
+    encryption functions?'
+  id: totrans-270
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**其他加密算法**：恶意软件作者在创造新的算法时总是有源源不断的创意，这些算法代表了这些算术和逻辑指令的组合。这就引出了下一个问题：我们如何识别加密函数？'
+- en: Identifying encryption functions in disassembly
+  id: totrans-271
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 在反汇编中识别加密函数
+- en: 'The following screenshot demonstrates sections that have been numbered from
+    **1** to **4**. These sections are key to understanding and identifying the encryption
+    algorithms that are used in malware:'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了从**1**到**4**编号的区域。这些区域对于理解和识别恶意软件中使用的加密算法至关重要：
+- en: '![Figure 4.27 – Things to pay attention to when identifying the encryption
+    algorithm'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.27 – 识别加密算法时需要注意的事项'
+- en: '](img/Figure_4.27_B18500.jpg)'
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.27_B18500.jpg)'
+- en: Figure 4.27 – Things to pay attention to when identifying the encryption algorithm
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.27 – 识别加密算法时需要注意的事项
+- en: 'To identify an encryption function, there are four things you should be searching
+    for, as shown in the following table:'
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要识别加密函数，您需要搜索四个要素，如下表所示：
+- en: '![](img/Table__4.01_B18500.jpg)'
+  id: totrans-277
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Table__4.01_B18500.jpg)'
+- en: These four points are the core parts of any encryption loop. They can easily
+    be spotted in a small encryption loop but may be harder to spot in a more complicated
+    encryption loop such as RC4 encryption, which we will discuss later.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这四个要素是任何加密循环的核心部分。在一个小的加密循环中它们很容易被发现，但在更复杂的加密循环（如RC4加密）中，可能更难发现，我们稍后会讨论RC4加密。
+- en: String search detection techniques for simple algorithms
+  id: totrans-279
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 简单算法的字符串搜索检测技术
+- en: In this section, we will be looking into a technique called **X-RAYING** (first
+    introduced by Peter Ferrie in the *PRINCIPLES AND PRACTISE OF X-RAYING* article
+    in VB2004). This technique is used by antivirus products and other static signature
+    tools to detect samples with signatures, even if they are encrypted. This technique
+    can dig under the encryption layers to reveal the sample code and detect it without
+    knowing the encryption key in the first place and without incorporating time-consuming
+    techniques such as brute-forcing. Here, we will describe the theory and the applications
+    of this technique, as well as some of the tools we can use to help us use it.
+    We may use this technique to detect embedded PE files or decrypt malicious samples.
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将探讨一种名为**X-RAYING**的技术（由Peter Ferrie在VB2004的*PRINCIPLES AND PRACTICE
+    OF X-RAYING*文章中首次提出）。这种技术被杀毒软件和其他静态签名工具用于检测具有签名的样本，即使它们是加密的。该技术可以深入加密层，揭示样本代码并检测它，而无需知道加密密钥，且无需使用像暴力破解等费时的技术。在这里，我们将描述该技术的理论和应用，以及一些可以帮助我们使用该技术的工具。我们可以使用此技术来检测嵌入的PE文件或解密恶意样本。
+- en: The basics of X-RAYING
+  id: totrans-281
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: X-RAYING的基础知识
+- en: For the types of algorithms that we described earlier, if you have the encrypted
+    data, the encryption algorithm, and the secret key, you can easily decrypt the
+    data (which is the purpose of all encryption algorithms); however, if you have
+    the encrypted data (ciphertext) and a piece of the decrypted data, can you still
+    decrypt the remaining parts of the encrypted data?
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们之前描述的那些算法类型，如果你有加密数据、加密算法和秘密密钥，你可以轻松地解密数据（这也是所有加密算法的目的）；然而，如果你只有加密数据（密文）和一部分已解密的数据，你仍然能够解密剩余的加密数据吗？
+- en: In X-RAYING, you can brute-force the algorithm and its secret key(s) if you
+    have a piece of decrypted data (plaintext), even if you don’t know the offset
+    of this plain text data in the whole encrypted blob. It works on almost all the
+    simple algorithms that we described earlier, even with multiple layers of encryption.
+    For most of the encrypted PE files, the plain text includes strings such as `This
+    program cannot run in DOS mode` or `kernel32.dll`, as well as arrays of null bytes.
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在X射线技术中，如果你拥有一部分已解密的数据（明文），即使你不知道该明文数据在整个加密数据块中的偏移位置，你也可以暴力破解算法及其秘密密钥。它适用于我们之前描述的几乎所有简单算法，即便是多层加密。对于大多数加密的PE文件，明文通常包含诸如`This
+    program cannot run in DOS mode`或`kernel32.dll`的字符串，以及一系列的空字节。
+- en: First of all, we will choose the first candidate to be an encryption algorithm,
+    for example, XOR. Then, we will search for a part of the plain text inside ciphertext.
+    To do that, we will use a part of the expected plain text to XOR it against the
+    ciphertext, for example, a 4-byte string. The result of XORing will give us a
+    candidate decryption key (a property of the XOR algorithm). Then, we will test
+    this key with the remaining plain text. If this key works, it will reveal the
+    remaining plain text of the ciphertext, which means that we will have found the
+    secret key and can decrypt the remaining data.
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将选择第一个候选加密算法，例如，XOR。然后，我们将在密文中搜索一部分明文。为此，我们将使用一部分预期的明文与密文进行XOR运算，例如，一个4字节的字符串。XOR运算的结果将为我们提供一个候选解密密钥（这是XOR算法的一个特性）。然后，我们将使用这个密钥来测试剩余的明文。如果这个密钥有效，它将揭示密文的剩余部分明文，这意味着我们已经找到了秘密密钥，并且可以解密剩余的数据。
+- en: Now, let’s talk about various tools that may help us speed up this process.
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来讨论一些可能帮助我们加速这个过程的工具。
+- en: X-RAYING tools for malware analysis and detection
+  id: totrans-286
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: X射线工具用于恶意软件分析和检测
+- en: 'Some tools have been written to help malware researchers use the X-RAYING technique
+    for scanning. The following are some of these tools that you can use, either from
+    the command line or by using a script:'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些工具已经被编写出来，帮助恶意软件研究人员使用X射线技术进行扫描。以下是您可以使用的这些工具，可以通过命令行或脚本来使用：
+- en: '`rol` and `ror` instructions):'
+  id: totrans-288
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rol`和`ror`指令）：'
+- en: '![Figure 4.28 – The XORSearch UI'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.28 – XORSearch用户界面'
+- en: '](img/Figure_4.28_B18500.jpg)'
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.28_B18500.jpg)'
+- en: Figure 4.28 – The XORSearch UI
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.28 – XORSearch用户界面
+- en: '`xor` signatures:'
+  id: totrans-292
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`xor`签名：'
+- en: '![Figure 4.29 – Example of using a YARA signature'
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.29 – 使用YARA签名的示例'
+- en: '](img/Figure_4.29_B18500.jpg)'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.29_B18500.jpg)'
+- en: Figure 4.29 – Example of using a YARA signature
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.29 – 使用YARA签名的示例
+- en: For more advanced X-RAYING techniques, you may need to write a small script
+    to scan with manually.
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于更高级的X射线技术，您可能需要编写一个小脚本手动扫描。
+- en: Identifying the RC4 encryption algorithm
+  id: totrans-297
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 识别RC4加密算法
+- en: The RC4 algorithm is one of the most common encryption algorithms that is used
+    by malware authors, mainly because it is simple and, at the same time, strong
+    enough to not be broken like other simple encryption algorithms. Malware authors
+    generally implement it manually instead of relying on WinAPIs, which makes it
+    harder for novice reverse engineers to identify. In this section, we will see
+    what this algorithm looks like and how you can spot it.
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RC4算法是恶意软件作者最常用的加密算法之一，主要因为它简单，同时又足够强大，不像其他简单的加密算法那样容易被破解。恶意软件作者通常手动实现它，而不是依赖于WinAPI，这使得新手逆向工程师更难识别。在本节中，我们将看到该算法的具体样子以及如何识别它。
+- en: The RC4 encryption algorithm
+  id: totrans-299
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: RC4加密算法
+- en: 'The RC4 algorithm is a symmetric stream algorithm that consists of two parts:
+    a **key-scheduling algorithm** (**KSA**) and a **pseudo-random generation algorithm**
+    (**PRGA**). Let’s have a look at each of them in greater detail.'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RC4算法是一个对称流加密算法，由两部分组成：**密钥调度算法**（**KSA**）和**伪随机生成算法**（**PRGA**）。让我们更详细地了解一下它们。
+- en: The key-scheduling algorithm
+  id: totrans-301
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 密钥调度算法
+- en: 'The key-scheduling part of the algorithm creates an array of 256 bytes called
+    an `S` array from the secret key. This array will be used to initialize the stream
+    key generator. This consists of two parts:'
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 算法的秘钥调度部分从秘钥创建一个称为 `S` 数组的 256 字节数组。这个数组将用于初始化流密钥生成器。它由两部分组成：
+- en: 'It creates an `S` array with values from `0` to `256` sequentially:'
+  id: totrans-303
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它按顺序创建一个从 `0` 到 `256` 的 `S` 数组：
+- en: '[PRE3]'
+  id: totrans-304
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'It permutates the `S` array using key material:'
+  id: totrans-305
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它使用密钥材料排列 `S` 数组：
+- en: '[PRE4]'
+  id: totrans-306
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Once this initiation part for the key is done, the decryption algorithm starts.
+    In most cases, the KSA part is written in a separate function that takes only
+    the secret key as an argument, without the data that needs to be encrypted or
+    decrypted.
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦密钥的初始化部分完成，解密算法就开始了。在大多数情况下，KSA 部分是写在一个单独的函数中的，这个函数只接受密钥作为参数，而不需要加密或解密的数据。
+- en: Pseudo-random generation algorithm (PRNG)
+  id: totrans-308
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 伪随机生成算法（PRNG）
+- en: 'The pseudo-random generation part of the algorithm just generates pseudo-random
+    values (again, based on swapping bytes, as we did for the `S` array), but also
+    performs an XOR operation with the generated value and a byte from the data:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 算法的伪随机生成部分只是生成伪随机值（再次基于字节交换，就像我们为 `S` 数组所做的那样），但也执行与生成的值和数据中的一个字节的 XOR 操作：
+- en: '[PRE5]'
+  id: totrans-310
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: As you can see, the actual encryption algorithm that was used was `xor`. However,
+    all this swapping aims to generate a different key value every single time (similar
+    to sliding key algorithms).
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，实际的加密算法是 `xor`。然而，所有这些交换旨在每次生成一个不同的密钥值（类似于滑动秘钥算法）。
+- en: Identifying RC4 algorithms in a malware sample
+  id: totrans-312
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在恶意软件样本中识别 RC4 算法
+- en: 'To identify an RC4 algorithm, some key characteristics can help you detect
+    it:'
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要识别 RC4 算法，一些关键特征可以帮助你检测它：
+- en: '`RC4` algorithm like this:'
+  id: totrans-314
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`RC4` 算法如下：'
+- en: '![Figure 4.30 – Array generation in the RC4 algorithm'
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.30 – RC4 算法中的数组生成'
+- en: '](img/Figure_4.30_B18500.jpg)'
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.30_B18500.jpg)'
+- en: Figure 4.30 – Array generation in the RC4 algorithm
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.30 – RC4 算法中的数组生成
+- en: '**There’s lots of swapping**: If you can recognize the swapping function or
+    code, you will find it everywhere in the RC4 algorithm. The KSA and PRGA parts
+    of the algorithm are a good sign that it is an RC4 algorithm:'
+  id: totrans-318
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**存在大量的交换**：如果你能识别出交换函数或代码，你会发现它无处不在于 RC4 算法中。算法的 KSA 和 PRGA 部分是它是 RC4 算法的一个很好的标志：'
+- en: '![Figure 4.31 – Swapping in the RC4 algorithm'
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.31 – RC4 算法中的交换'
+- en: '](img/Figure_4.31_B18500.jpg)'
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.31_B18500.jpg)'
+- en: Figure 4.31 – Swapping in the RC4 algorithm
+  id: totrans-321
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.31 – RC4 算法中的交换
+- en: '**The actual algorithm is XOR**: At the end of a loop, you will notice that
+    this algorithm is an XOR algorithm. All the swapping is done on the key. The only
+    changes that affect the data are done through XOR:'
+  id: totrans-322
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**实际算法是 XOR**：在循环结束时，你会注意到这个算法是一个 XOR 算法。所有的交换都是在密钥上进行的。唯一影响数据的变化是通过 XOR 进行的：'
+- en: '![Figure 4.32 – The XOR operation in the RC4 algorithm'
+  id: totrans-323
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.32 – RC4 算法中的异或操作'
+- en: '](img/Figure_4.32_B18500.jpg)'
+  id: totrans-324
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.32_B18500.jpg)'
+- en: Figure 4.32 – The XOR operation in the RC4 algorithm
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.32 – RC4 算法中的异或操作
+- en: '**Encryption and decryption similarity**: You will also notice that the encryption
+    and the decryption functions are the same functions. The XOR logical gate is reversible.
+    You can encrypt the data with XOR and the secret key and decrypt this encrypted
+    data with XOR and the same key (which is different from the add/sub algorithms,
+    for example).'
+  id: totrans-326
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**加密和解密的相似性**：你还会注意到加密和解密函数是相同的函数。XOR 逻辑门是可逆的。你可以用 XOR 和秘钥加密数据，然后用相同的秘钥和 XOR
+    解密这个加密数据（这与加/减算法等不同）。'
+- en: Now, it is time to talk about more complex algorithms.
+  id: totrans-327
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在是时候讨论更复杂的算法了。
+- en: Advanced symmetric and asymmetric encryption algorithms
+  id: totrans-328
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 高级对称和非对称加密算法
+- en: Standard encryption algorithms such as symmetric DES and AES or asymmetric RSA
+    are widely used by malware authors. However, the vast majority of samples that
+    include these algorithms never implement these algorithms themselves or copy their
+    code into their malware. They are generally implemented using Windows APIs.
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像对称 DES 和 AES 或非对称 RSA 这样的标准加密算法被恶意软件作者广泛使用。然而，包含这些算法的大多数样本从不实现这些算法自身或将它们的代码复制到它们的恶意软件中。它们通常使用
+    Windows API 来实现。
+- en: These algorithms are mathematically more complicated than simple encryption
+    algorithms or RC4\. While you don’t necessarily need to understand their mathematical
+    background to understand how they are implemented, it is important to know how
+    to identify the way they can be used and how to figure out the exact algorithm
+    involved, the encryption/decryption key(s), and the data.
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些算法在数学上比简单的加密算法或RC4更加复杂。虽然你不一定需要理解它们的数学背景就能理解它们是如何实现的，但了解如何识别它们的使用方式、如何确定涉及的具体算法、加密/解密密钥以及数据是很重要的。
+- en: Extracting information from Windows cryptography APIs
+  id: totrans-331
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从Windows加密API中提取信息
+- en: Some common APIs are used to provide access to cryptographic algorithms, including
+    DES, AES, RSA, and even RC4 encryption. Some of these APIs are `CryptAcquireContext`,
+    `CryptCreateHash`, `CryptHashData`, `CryptEncrypt`, `CryptDecrypt`, `CryptImportKey`,
+    `CryptGenKey`, `CryptDestroyKey`, `CryptDestroyHash`, and `CryptReleaseContext`
+    (from `Advapi32.dll`).
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些常见的API用于提供对加密算法的访问，包括DES、AES、RSA，甚至RC4加密。这些API包括`CryptAcquireContext`、`CryptCreateHash`、`CryptHashData`、`CryptEncrypt`、`CryptDecrypt`、`CryptImportKey`、`CryptGenKey`、`CryptDestroyKey`、`CryptDestroyHash`和`CryptReleaseContext`（来自`Advapi32.dll`）。
+- en: Here, we will take a look at the steps malware has to go through to encrypt
+    or decrypt its data using any of these algorithms and how to identify the exact
+    algorithm that’s used, as well as the secret key.
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们将看看恶意软件如何通过这些算法加密或解密数据，并且如何识别所使用的具体算法以及密钥。
+- en: Step 1 – initializing and connecting to the cryptographic service provider (CSP)
+  id: totrans-334
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤1 – 初始化并连接到加密服务提供者（CSP）
+- en: 'The cryptographic service provider is a library that implements cryptography-related
+    APIs in Microsoft Windows. For the malware sample to initialize and use one of
+    these providers, it executes the `CryptAcquireContext` API, as follows:'
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密服务提供者是一个在Microsoft Windows中实现与加密相关的API的库。为了初始化并使用这些提供者，恶意软件样本执行`CryptAcquireContext`
+    API，如下所示：
+- en: '[PRE6]'
+  id: totrans-336
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'You can find all the supported providers in your system in the registry in
+    the following key:'
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以在系统的注册表中的以下密钥找到所有支持的提供者：
+- en: '[PRE7]'
+  id: totrans-338
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Step 2 – preparing the key
+  id: totrans-339
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 步骤2 – 准备密钥
+- en: 'There are two ways to prepare the encryption key. As you may know, the encryption
+    keys for these algorithms are usually of a fixed size. Here are the steps that
+    malware authors commonly take to prepare the key:'
+  id: totrans-340
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 准备加密密钥有两种方式。如你所知，这些算法的加密密钥通常是固定大小的。以下是恶意软件作者常用来准备密钥的步骤：
+- en: 'First, the author uses their plain text key and hashes it using any of the
+    known hashing algorithms, such as `MD5`, `SHA128`, `SHA256`, or others:'
+  id: totrans-341
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，作者使用他们的明文密钥并通过任何已知的哈希算法（如`MD5`、`SHA128`、`SHA256`等）对其进行哈希：
+- en: '[PRE8]'
+  id: totrans-342
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Then, they create a session key from this hash using `CryptDeriveKey`, like
+    so:'
+  id: totrans-343
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，它们使用`CryptDeriveKey`从这个哈希值创建会话密钥，如下所示：
+- en: '[PRE9]'
+  id: totrans-344
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'From here, they can easily identify the algorithm from the second argument
+    value that’s provided to this API. The most common algorithms/values are as follows:'
+  id: totrans-345
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这里，他们可以轻松识别从API传递的第二个参数值中的算法。最常见的算法/值如下：
+- en: '[PRE10]'
+  id: totrans-346
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Some malware authors use a `KEYBLOB`, which includes their key, along with
+    `CryptImportKey`. A `KEYBLOB` is a simple structure that contains the key type,
+    the algorithm that was used, and the secret key for encryption. The structure
+    of a `KEYBLOB` is as follows:'
+  id: totrans-347
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一些恶意软件作者使用`KEYBLOB`，其中包含他们的密钥，并与`CryptImportKey`一起使用。`KEYBLOB`是一个简单的结构，包含密钥类型、使用的算法以及加密的秘密密钥。`KEYBLOB`的结构如下：
+- en: '[PRE11]'
+  id: totrans-348
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'The `bType` phrase represents the type of this key. The most common types are
+    as follows:'
+  id: totrans-349
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`bType`短语表示此密钥的类型。最常见的类型如下：'
+- en: '`PLAINTEXTKEYBLOB (0x8)`: States a plain text key for a symmetric algorithm,
+    such as `DES`, `3DES`, or `AES`'
+  id: totrans-350
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PLAINTEXTKEYBLOB (0x8)`：表示一个对称算法的明文密钥，如`DES`、`3DES`或`AES`'
+- en: '`PRIVATEKEYBLOB (0x7)`: States that this key is the private key of an asymmetric
+    algorithm'
+  id: totrans-351
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PRIVATEKEYBLOB (0x7)`：表示这是一个非对称算法的私钥'
+- en: '`PUBLICKEYBLOB (0x6)`: States that this key is the public key of an asymmetric
+    algorithm'
+  id: totrans-352
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PUBLICKEYBLOB (0x6)`：表示这是一个非对称算法的公钥'
+- en: 'The `aiKeyAlg` phrase includes the type of the algorithm as the second argument
+    of `CryptDeriveKey`. Some examples of this `KEYBLOB` are as follows:'
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`aiKeyAlg`短语包含`CryptDeriveKey`的第二个参数，即算法类型。以下是一些`KEYBLOB`的示例：'
+- en: '[PRE12]'
+  id: totrans-354
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: As you can see, the first byte (`bType`) shows us that it’s a `PLAINTEXTKEYBLOB`,
+    while the algorithm (0x01,0x66) represents `CALG_DES (0x6601)`.
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，第一个字节（`bType`）显示我们这是一个`PLAINTEXTKEYBLOB`，而算法（0x01,0x66）表示`CALG_DES (0x6601)`。
+- en: 'Another example of this is as follows:'
+  id: totrans-356
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个示例如下：
+- en: '[PRE13]'
+  id: totrans-357
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'This represents a `PUBLICKEYBLOB (0x6)`, while the algorithm represents `CALG_RSA_KEYX
+    (0xa400)`. After that, they are loaded via `CryptImportKey`:'
+  id: totrans-358
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这表示一个 `PUBLICKEYBLOB (0x6)`，而算法表示 `CALG_RSA_KEYX (0xa400)`。之后，它们通过 `CryptImportKey`
+    被加载：
+- en: '[PRE14]'
+  id: totrans-359
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Here is an example of how this looks in assembly:'
+  id: totrans-360
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是它在汇编语言中的示例：
+- en: '![Figure 4.33 – The CryptImportKey API is being used to import an RSA key'
+  id: totrans-361
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.33 – 使用 CryptImportKey API 导入 RSA 密钥](img/Figure_4.33_B18500.jpg)'
+- en: '](img/Figure_4.33_B18500.jpg)'
+  id: totrans-362
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.33_B18500.jpg)'
+- en: Figure 4.33 – The CryptImportKey API is being used to import an RSA key
+  id: totrans-363
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.33 – 使用 CryptImportKey API 导入 RSA 密钥
+- en: Once the key is ready, it can be used for encryption and decryption purposes.
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦密钥准备就绪，就可以用于加密和解密操作。
+- en: Step 3 – encrypting or decrypting the data
+  id: totrans-365
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 第 3 步 – 加密或解密数据
+- en: 'Now that the key is ready, the malware uses `CryptEncrypt` or `CryptDecrypt`
+    to encrypt or decrypt the data, respectively. With these APIs, you can identify
+    the start of the encrypted blob (or the blob to be encrypted). These APIs are
+    used like this:'
+  id: totrans-366
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在密钥已经准备好，恶意软件使用 `CryptEncrypt` 或 `CryptDecrypt` 来加密或解密数据。使用这些 API，你可以识别加密数据块（或待加密数据块）的起始位置。这些
+    API 的使用方式如下：
+- en: '[PRE15]'
+  id: totrans-367
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Step 4 – freeing the memory
+  id: totrans-368
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 第 4 步 – 释放内存
+- en: This is the last step, where we free the memory and all the handles that have
+    been used by using the `CryptDestroyKey` APIs.
+  id: totrans-369
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是最后一步，我们通过使用 `CryptDestroyKey` API 来释放内存和所有已使用的句柄。
+- en: 'Cryptography API: Next Generation (CNG)'
+  id: totrans-370
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 下一代密码学 API（CNG）
+- en: 'There are other ways to implement these encryption algorithms. One of them
+    is by using **Cryptography API: Next Generation** (**CNG**), which is a new set
+    of APIs that has been implemented by Microsoft. Still not widely used in malware,
+    they are much easier to understand and extract information from. The steps for
+    using them are as follows:'
+  id: totrans-371
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '还有其他方式可以实现这些加密算法。其中一种是使用 **密码学 API: 下一代**（**CNG**），它是微软实现的一组新 API。尽管目前在恶意软件中尚未广泛使用，但它们更容易理解并从中提取信息。使用这些
+    API 的步骤如下：'
+- en: '`MSDN` for the list of supported algorithms):'
+  id: totrans-372
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`MSDN` 列出了支持的算法：'
+- en: '[PRE16]'
+  id: totrans-373
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '**Prepare the key**: This is different from preparing a key in symmetric and
+    asymmetric algorithms. This API may use an imported key or generate a key. This
+    can help you extract the secret key that’s used for encryption, like so:'
+  id: totrans-374
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**准备密钥**：这与对称和非对称算法中密钥的准备方式不同。此 API 可能使用导入的密钥或生成一个密钥。这可以帮助你提取用于加密的秘密密钥，方法如下：'
+- en: '[PRE17]'
+  id: totrans-375
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '**Encrypt or decrypt data**: In this step, you can easily identify the start
+    of the data blob to be encrypted (or decrypted):'
+  id: totrans-376
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**加密或解密数据**：在此步骤中，你可以轻松识别出要加密（或解密）数据块的起始位置：'
+- en: '[PRE18]'
+  id: totrans-377
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '`BCryptCloseAlgorithmProvider`, `BCryptDestroyKey`, and `HeapFree` to clean
+    up the data.'
+  id: totrans-378
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 `BCryptCloseAlgorithmProvider`、`BCryptDestroyKey` 和 `HeapFree` 清理数据。
+- en: Now, let’s see how all this knowledge will help us understand malware’s functionality.
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们看看这些知识如何帮助我们理解恶意软件的功能。
+- en: Applications of encryption in modern malware – Vawtrak banking Trojan
+  id: totrans-380
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 现代恶意软件中加密的应用 —— Vawtrak 银行木马
+- en: In this chapter, we have seen how encryption or packing is used to protect the
+    whole malware. Here, we will look at other implementations of these encryption
+    algorithms inside the malware code for obfuscation and for hiding malicious key
+    characteristics. These key characteristics can be used to identify the malware
+    family using static signatures or even network signatures.
+  id: totrans-381
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们已经看到加密或打包如何用于保护整个恶意软件。这里，我们将查看这些加密算法在恶意软件代码中的其他实现，用于混淆和隐藏恶意密钥特征。这些密钥特征可以通过静态签名或甚至网络签名来识别恶意软件家族。
+- en: In this section, we will take a look at a known banking trojan called Vawtrak.
+    We will see how this malware family encrypts its strings and API names and obfuscates
+    its network communication.
+  id: totrans-382
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一部分中，我们将查看一个已知的银行木马——Vawtrak。我们将看到这个恶意软件家族如何加密它的字符串和 API 名称，并混淆其网络通信。
+- en: String and API name encryption
+  id: totrans-383
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 字符串和 API 名称加密
+- en: 'Vawtrak implements a quite simple encryption algorithm. It’s based on sliding
+    key algorithm principles and uses subtraction as its main encryption technique.
+    Its encryption looks like this:'
+  id: totrans-384
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Vawtrak 实现了一个相当简单的加密算法。它基于滑动密钥算法的原理，并使用减法作为主要的加密技术。它的加密过程如下：
+- en: '![Figure 4.34 – Encryption loop in the Vawtrak malware'
+  id: totrans-385
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.34 – Vawtrak 恶意软件中的加密循环](img/Figure_4.34_B18500.jpg)'
+- en: '](img/Figure_4.34_B18500.jpg)'
+  id: totrans-386
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.34_B18500.jpg)'
+- en: Figure 4.34 – Encryption loop in the Vawtrak malware
+  id: totrans-387
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.34 – Vawtrak 恶意软件中的加密循环
+- en: 'The encryption algorithm consists of two parts:'
+  id: totrans-388
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密算法由两个部分组成：
+- en: '**Generating the next key**: This generates a 4-byte number (called a seed)
+    and uses only 1 byte of it as a key:'
+  id: totrans-389
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**生成下一个密钥**：此操作生成一个4字节的数字（称为种子），并仅使用其中的1个字节作为密钥：'
+- en: '[PRE19]'
+  id: totrans-390
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '**Encrypting the data**: This part is very simple as it encrypts the data using
+    the following logic:'
+  id: totrans-391
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**加密数据**：这部分非常简单，它使用以下逻辑加密数据：'
+- en: '[PRE20]'
+  id: totrans-392
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: This encryption algorithm is used to encrypt API names and DLL names so that
+    after decryption, the malware can load the DLL dynamically using an API called
+    `LoadLibrary`, which loads a library if it wasn’t loaded or just gets its handle
+    if it’s already loaded.
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该加密算法用于加密API名称和DLL名称，以便解密后，恶意软件可以使用名为`LoadLibrary`的API动态加载DLL，如果DLL尚未加载，则加载该库，或者如果已经加载，则仅获取其句柄。
+- en: 'After getting the DLL address, the malware gets the API address to execute
+    using an API called `GetProcAddress`, which gets this function address by the
+    handle for the library and the API name. The malware implements it as follows:'
+  id: totrans-394
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在获取DLL地址后，恶意软件通过名为`GetProcAddress`的API获取要执行的API地址，该API通过库的句柄和API名称获取该函数地址。恶意软件实现如下：
+- en: '![Figure 4.35 – Resolving API names in the Vawtrak malware'
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.35 – 在Vawtrak恶意软件中解析API名称'
+- en: '](img/Figure_4.35_B18500.jpg)'
+  id: totrans-396
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.35_B18500.jpg)'
+- en: Figure 4.35 – Resolving API names in the Vawtrak malware
+  id: totrans-397
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.35 – 在Vawtrak恶意软件中解析API名称
+- en: 'The same function (`DecryptString`) is used a lot inside the malware to decrypt
+    each string on demand (only when it’s being used), as follows:'
+  id: totrans-398
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 相同的函数（`DecryptString`）在恶意软件内部被频繁使用，用于根据需要解密每个字符串（仅在使用时），如下所示：
+- en: '![Figure 4.36 – The xrefs to decryption routine in Vawtrak malware'
+  id: totrans-399
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.36 – Vawtrak恶意软件中的解密例程交叉引用'
+- en: '](img/Figure_4.36_B18500.jpg)'
+  id: totrans-400
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.36_B18500.jpg)'
+- en: Figure 4.36 – The xrefs to decryption routine in Vawtrak malware
+  id: totrans-401
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.36 – Vawtrak恶意软件中的解密例程交叉引用
+- en: To decrypt this, you need to go through each call to the decrypt function being
+    called and pass the address of the encrypted string to decrypt it. This may be
+    exhausting or time-consuming, so automation (for example, using IDA Python or
+    a scriptable debugger/emulator) could help, as we will see in the next section.
+  id: totrans-402
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要解密此内容，您需要遍历每个调用解密函数的调用，并传递被加密字符串的地址来解密它。这可能是费力的或耗时的，因此自动化（例如，使用IDA Python或可脚本化的调试器/模拟器）可能会有所帮助，正如我们将在下一节中看到的那样。
+- en: Network communication encryption
+  id: totrans-403
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 网络通信加密
+- en: Vawtrak can use different encryption algorithms to encrypt its network communications.
+    It implements multiple algorithms, including `RC4`, `LZMA` compression, the `LCG`
+    encryption algorithm (this is used with strings, as we mentioned in the previous
+    section), and others. In this section, we will take a look at the different parts
+    of its encryption.
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Vawtrak可以使用不同的加密算法对其网络通信进行加密。它实现了多种算法，包括`RC4`、`LZMA`压缩、`LCG`加密算法（这是用于字符串的，如我们在前一节中提到的）等。在本节中，我们将查看其加密的不同部分。
+- en: 'Inside the requests, it has implemented some encryption to hide basic information,
+    including `CAMPAIGN_ID` and `BOT_ID`, as shown in the following screenshot:'
+  id: totrans-405
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在请求中，它实现了一些加密，以隐藏基本信息，包括`CAMPAIGN_ID`和`BOT_ID`，如以下截图所示：
+- en: '![Figure 4.37 – The network traﬃc of the Vawtrak malware'
+  id: totrans-406
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.37 – Vawtrak恶意软件的网络流量'
+- en: '](img/Figure_4.37_B18500.jpg)'
+  id: totrans-407
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.37_B18500.jpg)'
+- en: Figure 4.37 – The network traﬃc of the Vawtrak malware
+  id: totrans-408
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.37 – Vawtrak恶意软件的网络流量
+- en: 'The cookie, or `PHPSESSID`, included an encryption key. The encryption algorithm
+    that was used was RC4 encryption. Here is the message after decryption:'
+  id: totrans-409
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Cookie，即`PHPSESSID`，包含了一个加密密钥。使用的加密算法是RC4加密。解密后的消息如下：
+- en: '![Figure 4.38 – Extracted information from the network traﬃc of the Vawtrak
+    malware'
+  id: totrans-410
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.38 – 从Vawtrak恶意软件的网络流量中提取的信息'
+- en: '](img/Figure_4.38_B18500.jpg)'
+  id: totrans-411
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.38_B18500.jpg)'
+- en: Figure 4.38 – Extracted information from the network traﬃc of the Vawtrak malware
+  id: totrans-412
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.38 – 从Vawtrak恶意软件的网络流量中提取的信息
+- en: The decrypted `PHPSESSID` includes the RC4 key in the first 4 bytes. `BOT_ID`
+    and the next byte represent `Campaign_Id` (0x03), while the remaining ones represent
+    some other important information.
+  id: totrans-413
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密后的`PHPSESSID`在前4个字节中包含RC4密钥。`BOT_ID`和下一个字节表示`Campaign_Id`（0x03），其余的字节表示其他重要信息。
+- en: 'The data that’s received is in the following structure and includes the first
+    seed that will be used in decryption, the total size, and multiple algorithms
+    that are used to decrypt them:'
+  id: totrans-414
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接收到的数据具有以下结构，包括用于解密的第一个种子、总大小以及用于解密的多种算法：
+- en: '![Figure 4.39 – The structure that’s used for decryption in the Vawtrak malware'
+  id: totrans-415
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.39 – Vawtrak恶意软件中用于解密的结构'
+- en: '](img/Figure_4.39_B18500.jpg)'
+  id: totrans-416
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.39_B18500.jpg)'
+- en: Figure 4.39 – The structure that’s used for decryption in the Vawtrak malware
+  id: totrans-417
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.39 – Vawtrak 恶意软件中用于解密的结构
+- en: Unfortunately, with network communication, there’s no simple way to grab the
+    algorithms that were used or the protocol’s structure. You have to search for
+    network communication functions such as `HttpAddRequestHeadersA` (the one we saw
+    in the decryption process earlier) and other network APIs and trace the data that
+    was received, as well as trace the data that’s going to be sent, until you find
+    the algorithms and the structure behind the command-and-control communication.
+  id: totrans-418
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不幸的是，网络通信没有简单的方法可以抓取所使用的算法或协议结构。你必须搜索网络通信函数，如 `HttpAddRequestHeadersA`（我们在解密过程中看到的那个）和其他网络
+    API，跟踪接收到的数据，以及跟踪将要发送的数据，直到你找到命令与控制通信背后的算法和结构。
+- en: Now, let’s explore various capabilities of IDA that may help us understand and
+    circumvent the encryption and packing techniques involved.
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们探索 IDA 的各种功能，这些功能可能有助于我们理解并绕过涉及的加密和打包技术。
+- en: Using IDA for decryption and unpacking
+  id: totrans-420
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 IDA 进行解密和解包
+- en: IDA is a very convenient tool for storing the markup of analyzed samples. Its
+    embedded debuggers and several remote debugger server applications allow you to
+    perform both static and dynamic analysis in one place for multiple platforms –
+    even the ones where IDA can’t be executed on its own. It also has multiple plugins
+    that can extend its functionality even further, as well as embedded script languages
+    that can automate various tedious tasks.
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA 是一个非常方便的工具，用于存储分析样本的标记。它的嵌入式调试器和多个远程调试器服务器应用程序允许你在一个地方进行静态和动态分析，支持多个平台——即使是那些
+    IDA 无法独立执行的平台。它还具有多个插件，可以进一步扩展其功能，并且内嵌的脚本语言可以自动化各种繁琐的任务。
+- en: IDA tips and tricks
+  id: totrans-422
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: IDA 小贴士和技巧
+- en: While OllyDbg provides pretty decent functionality in terms of debugging, generally,
+    IDA has more options for maintaining the markup. This is why many reverse engineers
+    tend to do both static and dynamic analysis there, which is particularly useful
+    in terms of unpacking. Here are some tips and tricks that will make this process
+    more enjoyable.
+  id: totrans-423
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 OllyDbg 在调试方面提供了相当不错的功能，但总体而言，IDA 在维护标记方面有更多选择。这就是为什么许多逆向工程师倾向于在 IDA 中同时进行静态和动态分析，特别是在解包方面非常有用。以下是一些小贴士和技巧，能够让这个过程更加愉快。
+- en: Static analysis
+  id: totrans-424
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 静态分析
+- en: 'First, let’s look at some recommendations that are mainly applicable to static
+    analysis:'
+  id: totrans-425
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，让我们看一下主要适用于静态分析的一些建议：
+- en: When working with the memory dump rather than the original sample, it may happen
+    that the import table has already been populated with APIs’ addresses.
+  id: totrans-426
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当使用内存转储而不是原始样本时，可能会出现导入表已经填充了 API 地址的情况。
+- en: 'The easy way to get the actual API names is to use the `pe_dlls.idc` script,
+    which is distributed in the `pe_scripts.zip` package. This is available for free
+    on the official IDA website. From there, you need to load the required DLLs from
+    the machine where the dump was made. When specifying the DLL name, don’t forget
+    to remove the filename extension as a dot symbol can’t be used in names in IDA.
+    In addition, the script won’t allow you to select the base address for the DLL.
+    To fix that, add the following code at line 692 of the `pe_sections.idc` script:'
+  id: totrans-427
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取实际 API 名称的简单方法是使用 `pe_dlls.idc` 脚本，该脚本分发在 `pe_scripts.zip` 包中。该包可以在官方 IDA
+    网站上免费下载。从那里，你需要加载从生成转储的机器上获取的 DLL。指定 DLL 名称时，别忘了去掉文件名扩展名，因为在 IDA 中，文件名中不能使用点号符号。此外，该脚本不允许你选择
+    DLL 的基址。为了解决这个问题，在 `pe_sections.idc` 脚本的第 692 行添加以下代码：
+- en: '[PRE21]'
+  id: totrans-428
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: It generally makes sense to recreate structures that are used by malware in
+    IDA’s **Structures** tab rather than adding comments throughout the disassembly,
+    next to the instructions that are accessing their fields by offsets. Keeping track
+    of structures is a much less error-prone approach and means that we can reuse
+    them for similar samples, as well as for comparing different versions of malware.
+  id: totrans-429
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通常来说，在 IDA 的 **Structures** 标签中重建恶意软件使用的结构比在反汇编代码中添加注释要更有意义，后者通常位于访问其字段的指令旁边。跟踪结构是一种错误更少的方式，并且意味着我们可以将其重复使用在类似的样本中，以及比较恶意软件的不同版本。
+- en: After this, you can simply right-click on the value and select the **Structure
+    offset** option (the *T* hotkey). A structure can be quickly added by pressing
+    the *Ins* hotkey in the **Structures** sub-view and specifying its name. Then,
+    a single field can be added by putting your cursor at the end of the structure
+    and pressing the *D* hotkey one, two, or three times, depending on the size that’s
+    required. Finally, to add the rest of the fields that have the same size, select
+    the required field, right-click and choose the **Array...** option, specify the
+    required number of elements that have the same size, and remove the ticks in the
+    checkboxes for the **Use “dup” construct** and **Create as array** options.
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，你可以简单地右键点击该值并选择**结构体偏移量**选项（*T*热键）。可以通过在**结构体**子视图中按*Ins*热键快速添加结构体并指定其名称。然后，通过将光标放置在结构体末尾并按*D*热键一次、两次或三次，具体取决于所需的大小，添加单个字段。最后，要添加其余大小相同的字段，选择所需的字段，右键点击并选择**数组...**选项，指定具有相同大小的元素数量，并取消选中**使用“dup”构造**和**创建为数组**选项的复选框。
+- en: 'For cases where the malware accesses fields of a structure stored in the stack,
+    it is possible to get the actual offsets by right-clicking and selecting the **Manual...**
+    option (the *Alt* + *F1* hotkeys) on the variable, replacing the variable name
+    with the name of the pointer at the beginning of the structure and remaining offset,
+    and then replacing the offset with the required structure field, as shown in the
+    following screenshot:'
+  id: totrans-431
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对于恶意软件访问存储在堆栈中的结构体字段的情况，可以通过右键点击并选择**手动...**选项（*Alt* + *F1* 热键）来获取实际偏移量，替换变量名为结构体开头的指针名称和剩余的偏移量，然后将偏移量替换为所需的结构体字段，如下图所示：
+- en: '![Figure 4.40 – Mapping a local variable to the corresponding structure ﬁeld'
+  id: totrans-432
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.40 – 将本地变量映射到相应的结构体字段'
+- en: '](img/Figure_4.40_B18500.jpg)'
+  id: totrans-433
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.40_B18500.jpg)'
+- en: Figure 4.40 – Mapping a local variable to the corresponding structure ﬁeld
+  id: totrans-434
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.40 – 将本地变量映射到相应的结构体字段
+- en: Make sure that the **Check operand** option is enabled when renaming the operand
+    to verify that the total sum of values remains accurate.
+  id: totrans-435
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保在重命名操作数时启用**检查操作数**选项，以验证值的总和是否保持准确。
+- en: Another option is to select the text of the variable (not just left-click on
+    it), right-click the **Structure offset** option (again, the *T* hotkey), specify
+    the offset delta value, which should be equal to the offset of the pointer at
+    the beginning of the structure, and finally select the structure field that’s
+    suggested.
+  id: totrans-436
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种选择是选择变量的文本（而不仅仅是左键点击它），右键点击**结构体偏移量**选项（同样是*T*热键），指定偏移量差值，该值应等于结构体开头的指针偏移量，最后选择建议的结构体字段。
+- en: 'This method is quicker but doesn’t preserve the name of the pointer, as shown
+    in the following screenshot:'
+  id: totrans-437
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该方法更快捷，但不会保留指针的名称，如下图所示：
+- en: '![Figure 4.41 – Another way to map a local variable to the structure ﬁeld'
+  id: totrans-438
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.41 – 将本地变量映射到结构体字段的另一种方法'
+- en: '](img/Figure_4.41_B18500.jpg)'
+  id: totrans-439
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.41_B18500.jpg)'
+- en: Figure 4.41 – Another way to map a local variable to the structure ﬁeld
+  id: totrans-440
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.41 – 将本地变量映射到结构体字段的另一种方法
+- en: 'Many custom encryption algorithms incorporate the `xor` operation, so the easy
+    way to find them is by following these steps:'
+  id: totrans-441
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 许多自定义加密算法使用了`xor`操作，因此找到它们的简单方法是按照以下步骤操作：
+- en: Open the `xor` in the `xor` instructions that incorporate two different registers
+    or a value in memory that is not accessed using the frame pointer register (`ebp`).
+  id: totrans-442
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开包含两个不同寄存器或一个未通过帧指针寄存器（`ebp`）访问的内存值的`xor`指令。
+- en: Don’t hesitate to use free plugins such as `–v` command-line argument to get
+    the virtual addresses of identified functions.
+  id: totrans-443
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不要犹豫使用免费插件，如`–v`命令行参数来获取已识别函数的虚拟地址。
+- en: If you need to import a C file with a list of definitions as enums, it is recommended
+    that you use the `h2enum.idc` script (don’t forget to provide a correct mask in
+    the second dialog window). When importing C files with structures, it generally
+    makes sense to prepend them with a `#pragma pack(1)` statement to keep offsets
+    correct. Both the **File** | **Load file** | **Parse C header file...** option
+    and the **Tilib** tool can be used pretty much interchangeably.
+  id: totrans-444
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果需要导入包含枚举定义列表的C文件，建议使用`h2enum.idc`脚本（不要忘记在第二个对话框中提供正确的掩码）。导入包含结构体的C文件时，通常应该在其前面加上`#pragma
+    pack(1)`语句，以保持偏移量正确。**文件** | **加载文件** | **解析C头文件...**选项和**Tilib**工具在大多数情况下可以互换使用。
+- en: If you need to rename multiple consequent values that are pointing to the actual
+    APIs in the populated import table, select all of them and execute the `renimp.idc`
+    script, which can be found in IDA’s `idc` directory.
+  id: totrans-445
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果需要重命名多个指向实际API的连续值，选择所有这些值并执行`renimp.idc`脚本，该脚本可以在IDA的`idc`目录中找到。
+- en: 'If you need to have both `IDA <= 6.95` and `IDA 7.0+` together on one Windows
+    machine, do the following:'
+  id: totrans-446
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果你需要在一台Windows机器上同时使用`IDA <= 6.95`和`IDA 7.0+`，请按照以下步骤操作：
+- en: Install both x86 and x64 Python to different locations – for example, `C:\Python27`
+    and `C:\Python27x64`.
+  id: totrans-447
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 安装x86和x64的Python到不同的位置——例如，`C:\Python27`和`C:\Python27x64`。
+- en: 'Make sure that the following environment variables point to the setup for `IDA
+    <= 6.95`:'
+  id: totrans-448
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保以下环境变量指向`IDA <= 6.95`的设置：
+- en: '[PRE22]'
+  id: totrans-449
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'By doing this, `IDA <= 6.95` can be used as usual by clicking on its icon.
+    To execute IDA 7.0+, create a special `LNK` file that will redefine these environment
+    variables before executing IDA:'
+  id: totrans-450
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过这种方式，`IDA <= 6.95`可以像平常一样通过点击其图标使用。要执行IDA 7.0+，请创建一个特殊的`LNK`文件，该文件将在执行IDA之前重新定义这些环境变量：
+- en: '[PRE23]'
+  id: totrans-451
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: If your IDA version is shipped without FLIRT signatures for the Delphi programming
+    language, it is still possible to mark them using an IDC script generated by the
+    **IDR** tool. It is recommended to apply only names from the scripts that it produces.
+  id: totrans-452
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果你的IDA版本未包含Delphi编程语言的FLIRT签名，仍然可以使用**IDR**工具生成的IDC脚本进行标记。建议仅应用它生成的脚本中的名称。
+- en: Recent versions of IDA provide decent support for the programs written in the
+    Go language. For older versions of IDA, you should use plugins such as **golang_loader_assist**
+    and **IDAGolangHelper**.
+  id: totrans-453
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: IDA的最新版本提供了对Go语言编写的程序的良好支持。对于旧版本的IDA，应该使用像**golang_loader_assist**和**IDAGolangHelper**这样的插件。
+- en: 'To handle variable extension obfuscation, if the IDA Hex-Rays decompiler is
+    available, use the **D-810** plugin based on the **Z3** project. Here is what
+    its interface looks like:'
+  id: totrans-454
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为了处理变量扩展混淆，如果可以使用IDA Hex-Rays反编译器，请使用基于**Z3**项目的**D-810**插件。其界面如下所示：
+- en: '![Figure 4.42 – Deobfuscation rules supported by the D-810 plugin'
+  id: totrans-455
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图4.42 – D-810插件支持的去混淆规则'
+- en: '](img/Figure_4.42_B18500.jpg)'
+  id: totrans-456
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.42_B18500.jpg)'
+- en: Figure 4.42 – Deobfuscation rules supported by the D-810 plugin
+  id: totrans-457
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.42 – D-810插件支持的去混淆规则
+- en: Often, malware samples come with open source libraries such as OpenSSL that
+    are statically linked to take advantage of the properly implemented encryption
+    algorithms. Analyzing such code can be quite tricky, as it may not be immediately
+    obvious which part of the code belongs to malware and which part belongs to the
+    legitimate library. In addition, it may take a reasonable amount of time to figure
+    out the purpose of each function within the library itself. Open source projects
+    such as `.lib`/`.a` file for OpenSSL for the required platform (in our case, this
+    is Windows). The compiler should be as close to the one that was used by the malware
+    as possible.
+  id: totrans-458
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通常，恶意软件样本会附带像OpenSSL这样的开源库，这些库被静态链接以利用正确实现的加密算法。分析这样的代码可能相当棘手，因为可能不容易看出代码的哪一部分属于恶意软件，哪一部分属于合法的库。此外，弄清楚库中每个函数的目的可能需要相当长的时间。像`.lib`/`.a`文件这样的开源项目用于所需平台的OpenSSL（在我们的例子中是Windows）。编译器应该尽量接近恶意软件所使用的编译器。
+- en: Get **Flair** utilities for your IDA from the official website. This package
+    contains a set of tools for generating unified PAT files from various object and
+    library formats (OMF, COFF, and so on), as well as the **sigmake** tool.
+  id: totrans-459
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从官方网站获取适用于你的IDA的**Flair**工具包。该包包含一套用于从各种对象和库格式（OMF、COFF等）生成统一PAT文件的工具，以及**sigmake**工具。
+- en: 'Generate PAT files, for example, by using the **pcf** tool:'
+  id: totrans-460
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 生成PAT文件，例如，可以使用**pcf**工具：
+- en: '[PRE24]'
+  id: totrans-461
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'Use `.sig` files:'
+  id: totrans-462
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用`.sig`文件：
+- en: '[PRE25]'
+  id: totrans-463
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: If necessary, resolve collisions by editing the `.exc` file that was created
+    and rerun `sigmake`.
+  id: totrans-464
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如有必要，通过编辑创建的`.exc`文件并重新运行`sigmake`来解决冲突。
+- en: Place the resulting `.sig` file in the `sig` folder of the IDA root directory.
+  id: totrans-465
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将生成的`.sig`文件放入IDA根目录下的`sig`文件夹中。
+- en: 'Follow these steps to learn how to use it:'
+  id: totrans-466
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按照以下步骤学习如何使用它：
+- en: Go to **View** | **Open** **subviews** | **Signatures** (the *Shift* + *F5*
+    hotkey).
+  id: totrans-467
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到**视图** | **打开** **子视图** | **签名**（*Shift* + *F5*快捷键）。
+- en: Right-click **Apply new signature** (the *Ins* hotkey).
+  id: totrans-468
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击**应用新签名**（*Ins*快捷键）。
+- en: Find the signature with the name you specified and confirm it by pressing **OK**
+    or double-clicking on it.
+  id: totrans-469
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 找到你指定名称的签名，并通过按**确定**或双击它来确认。
+- en: Another way to do this is by using the **File** | **Load file** | **FLIRT signature
+    file...** option.
+  id: totrans-470
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 另一种方法是使用**文件** | **加载文件** | **FLIRT 签名文件...**选项。
+- en: Another popular option for creating custom FLIRT signatures is the **idb2pat**
+    tool.
+  id: totrans-471
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个创建自定义 FLIRT 签名的流行选项是**idb2pat**工具。
+- en: Now, let’s talk about IDA capabilities in terms of dynamic analysis.
+  id: totrans-472
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们讨论 IDA 在动态分析方面的功能。
+- en: Dynamic analysis
+  id: totrans-473
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 动态分析
+- en: 'These days, apart from its classic disassembler capabilities, IDA features
+    multiple debugging options. Here are some tips and tricks that aim to facilitate
+    dynamic analysis in IDA:'
+  id: totrans-474
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，除了经典的反汇编功能外，IDA 还具备多种调试选项。以下是一些旨在简化 IDA 动态分析的技巧：
+- en: To debug samples in IDA, make sure that the sample has an executable file extension
+    (for example, `.exe`); otherwise, older versions of IDA may refuse to execute
+    it, saying that the file does not exist.
+  id: totrans-475
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 要在 IDA 中调试样本，请确保样本具有可执行文件扩展名（例如 `.exe`）；否则，旧版本的 IDA 可能会拒绝执行它，提示文件不存在。
+- en: Older versions of IDA don’t have the `win64_remotex64.exe` server application
+    located in the IDA’s `dbgsrv` folder. It is possible to run it on the same machine
+    if necessary and make them interact with each other via localhost using the **Debugger**
+    | **Process options...** option.
+  id: totrans-476
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 旧版本的 IDA 没有位于 IDA `dbgsrv` 文件夹中的`win64_remotex64.exe`服务器应用程序。如果需要，可以在同一台机器上运行它，并通过**调试器**
+    | **进程选项...**选项使它们通过本地主机进行交互。
+- en: The graph view only shows graphs for recognized or created functions. It is
+    possible to quickly switch between text and graph views using the spacebar hotkey.
+    When debugging starts, the **Graph overview** window in the graph view may disappear,
+    but it can be restored by selecting the **View** | **Graph Overview** option.
+  id: totrans-477
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图形视图仅显示已识别或创建的函数的图形。可以使用空格键快速切换文本视图和图形视图。调试开始时，图形视图中的**图形概览**窗口可能会消失，但可以通过选择**视图**
+    | **图形概览**选项来恢复。
+- en: 'By default, IDA runs an automatic analysis when it opens the file, which means
+    that any code that’s unpacked later won’t be analyzed. To fix this dynamically,
+    follow these steps:'
+  id: totrans-478
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 默认情况下，IDA 在打开文件时会自动执行分析，这意味着后续解压的代码将不会被分析。要动态修复此问题，请按照以下步骤操作：
+- en: If necessary, make the IDA recognize the entry point of the unpacked block as
+    code by pressing the *C* hotkey. Usually, it also makes sense to make a function
+    from it using the *P* hotkey.
+  id: totrans-479
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如有必要，通过按下*C*热键使 IDA 识别解压块的入口点为代码。通常，将其作为函数处理也是有意义的，可以使用*P*热键来实现。
+- en: 'Mark the memory segment that stores the unpacked code as a **loader segment**.
+    Follow these steps to do this:'
+  id: totrans-480
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将存储解压代码的内存段标记为**加载器段**。按照以下步骤进行操作：
+- en: Go to **View** | **Open subviews** | **Segments** (the *Shift* + *F7* hotkey
+    combination).
+  id: totrans-481
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入**视图** | **打开子视图** | **段**（*Shift* + *F7* 快捷键组合）。
+- en: Find the segment storing the code of interest.
+  id: totrans-482
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 找到存储感兴趣代码的段。
+- en: Either right-click on it and select the **Edit segment...** option or use the
+    *Ctrl* + *E* hotkey combination.
+  id: totrans-483
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可以右键点击它并选择**编辑段...**选项，或者使用*Ctrl* + *E* 快捷键组合。
+- en: Put a tick in the **Loader segment** checkbox.
+  id: totrans-484
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**加载器段**复选框中打勾。
+- en: Rerun the analysis by either going to **Options** | **General...** | **Analysis**
+    and pressing the **Reanalyze program** button or right-clicking in the bottom-left
+    corner of the main IDA window and selecting the **Reanalyze program** option there.
+  id: totrans-485
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 重新运行分析，方法是进入**选项** | **常规...** | **分析**，然后按下**重新分析程序**按钮，或者右键点击主 IDA 窗口的左下角，在那里选择**重新分析程序**选项。
+- en: 'If you need to unpack a DLL, follow these steps:'
+  id: totrans-486
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果需要解压 DLL，请按照以下步骤进行操作：
+- en: Load it into IDA just like any other executable.
+  id: totrans-487
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 像加载任何其他可执行文件一样将其加载到 IDA 中。
+- en: 'Choose your debugger of preference:'
+  id: totrans-488
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择你偏好的调试器：
+- en: Local Win32 debugger for 32-bit Windows
+  id: totrans-489
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本地 Win32 调试器，适用于 32 位 Windows
+- en: Remote Windows debugger with the `win64_remote64.exe` application for 64-bit
+    Windows
+  id: totrans-490
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`win64_remote64.exe`应用程序进行远程 Windows 调试，适用于 64 位 Windows。
+- en: Go to `rundll32.exe` (or `regsvr32.exe` for COM DLL, which can be recognized
+    by `DllRegisterServer/DllUnregisterServer`or the `DllInstall` exports that are
+    present) to the **Application** field.
+  id: totrans-491
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入`rundll32.exe`（或`regsvr32.exe`，用于 COM DLL，可通过`DllRegisterServer/DllUnregisterServer`或存在的`DllInstall`导出进行识别）到**应用程序**字段。
+- en: 'Set the full path to the DLL in the **Parameters** field. Additional parameters
+    will vary, depending on the type of DLL:'
+  id: totrans-492
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**参数**字段中设置 DLL 的完整路径。附加参数会根据 DLL 的类型有所不同：
+- en: a. For a typical DLL that’s loaded using `rundll32.exe`, append either a name
+    or a hash followed by the ordinal (for example, `#1`) of the export function you
+    want to debug and separate it from the path by a comma. You have to provide an
+    argument, even if you want to execute only the main entry point logic.
+  id: totrans-493
+  prefs: []
+  type: TYPE_NORMAL
+  zh: a. 对于使用`rundll32.exe`加载的典型DLL，追加要调试的导出函数的名称或序数（例如，`#1`），并用逗号与路径分开。即使只想执行主入口点逻辑，也必须提供参数。
+- en: b. For `CPlApplet` export, the `shell32.dll,Control_RunDLL` argument can be
+    specified before the path to the analyzed DLL instead.
+  id: totrans-494
+  prefs: []
+  type: TYPE_NORMAL
+  zh: b. 对于`CPlApplet`导出，可以在分析的DLL路径之前指定`shell32.dll,Control_RunDLL`参数。
+- en: c. For the COM DLLs that are generally loaded with the help of `regsvr32.exe`,
+    the full path should be prepended with the `/u` argument in case the `DllUnregisterServer`
+    export needs to be debugged. For a `DllInstall` export, a combination of `/n/i[:cmdline]`
+    arguments should be used instead.
+  id: totrans-495
+  prefs: []
+  type: TYPE_NORMAL
+  zh: c. 对于通常使用`regsvr32.exe`加载的COM DLL，如果需要调试`DllUnregisterServer`导出，则应在完整路径前添加`/u`参数。对于`DllInstall`导出，应改为使用`/n/i[:cmdline]`参数的组合。
+- en: d. If the DLL is a service DLL (generally, it can be recognized by the `ServiceMain`
+    export function and services-related imports) and you need to properly debug `ServiceMain`,
+    see [*Chapter 3*](B18500_03.xhtml#_idTextAnchor084), *Basic Static and Dynamic
+    Analysis for x86/x64*, for more details on how to debug services.
+  id: totrans-496
+  prefs: []
+  type: TYPE_NORMAL
+  zh: d. 如果DLL是一个服务DLL（通常可以通过`ServiceMain`导出函数和与服务相关的导入来识别），并且您需要正确调试`ServiceMain`，请参阅[*第3章*](B18500_03.xhtml#_idTextAnchor084)，*x86/x64的基本静态和动态分析*，获取有关如何调试服务的详细信息。
+- en: Among other scripts that are useful for dynamic analysis, the **funcap** tool
+    appears to be extremely handy as it allows you to record arguments that have been
+    passed to functions during the execution process and keep them in comments once
+    it’s done.
+  id: totrans-497
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在用于动态分析的其他脚本中，**funcap**工具似乎非常方便，因为它允许您记录在执行过程中传递给函数的参数，并在完成后将它们保留在注释中。
+- en: If, after decryption, the malware constantly uses code and data from another
+    memory segment (Trickbot is a good example), it is possible to dump these segments
+    and then add them separately to the IDB using the `0` and specify the actual virtual
+    address in the `0` instead, it is possible to fix it by going to **View** | **Open
+    subviews** | **Selectors** and changing the value of the associated selector to
+    zero.
+  id: totrans-498
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果在解密后，恶意软件不断使用另一个内存段的代码和数据（Trickbot是一个很好的例子），可以将这些段转储到IDB中，然后使用`0`分别添加它们，并在`0`中指定实际虚拟地址，可以通过转到**View**
+    | **Open subviews** | **Selectors**并将相关选择器的值更改为零来修复它。
+- en: Classic and new syntax of IDA scripts
+  id: totrans-499
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: IDA脚本的经典和新语法
+- en: Talking about scripting, the original way to write IDA scripts was to use a
+    proprietary IDC language. It provides multiple high-level APIs that can be used
+    in both static and dynamic analysis. Later, IDA started supporting Python and
+    providing access to IDC functions with the same names under the `idc` module.
+    Another functionality (generally, this is more low level) is available in the
+    `idaapi` and `idautils` modules, but for automating most generic things, the `idc`
+    module is good enough.
+  id: totrans-500
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 谈到脚本编写，最初编写IDA脚本的方式是使用专有的IDC语言。它提供了多个高级API，可以在静态和动态分析中使用。后来，IDA开始支持Python，并通过`idc`模块提供与同名IDC函数的访问。另一个功能（通常更低级）可以在`idaapi`和`idautils`模块中找到，但对于自动化大多数通用操作而言，`idc`模块已经足够好用。
+- en: Since the list of APIs has extended over time, more and more naming inconsistencies
+    have been accumulated. Eventually, at some stage, it started requiring a revision,
+    which would be impossible to implement while keeping it backward-compatible. As
+    a result, starting from IDA version 7.0 (the next version after 6.95), a new list
+    of APIs was introduced that affected plugins that relied on the SDK and IDC functions.
+    Some of them were just renamed from `CamelCase` to `underscore_case`, while others
+    were replaced with new ones.
+  id: totrans-501
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着API列表随着时间的推移不断扩展，累积了越来越多的命名不一致性。最终，在某个阶段，开始需要进行修订，这是不可能同时保持向后兼容性的。因此，从IDA版本7.0开始（在6.95之后的下一个版本），引入了一个新的API列表，影响了依赖SDK和IDC函数的插件。其中一些仅仅从`CamelCase`改为`underscore_case`，而其他一些则被替换为新的函数。
+- en: 'Here are some examples of them, showing both the original and new syntax:'
+  id: totrans-502
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里有一些示例，展示了它们的原始和新语法：
+- en: '`Functions/NextFunction`: `get_next_func` allows you to iterate through functions.'
+  id: totrans-503
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Functions/NextFunction`：`get_next_func`允许您迭代函数。'
+- en: '`Heads/NextHead`: `next_head` allows you to iterate through instructions.'
+  id: totrans-504
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Heads/NextHead`：`next_head` 允许你遍历指令。'
+- en: '`ScreenEA`: `get_screen_ea` gets a sample’s virtual address where the cursor
+    is currently located.'
+  id: totrans-505
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ScreenEA`：`get_screen_ea` 获取当前光标所在位置的样本虚拟地址。'
+- en: '`Byte/Word/Dword`: `byte/word/dword` reads a value of a particular size.*   `PatchByte/PatchWord/PatchDword`:
+    `patch_byte/patch_word/patch_dword` writes a block of a particular size.*   `OpEnumEx`:
+    `op_enum` converts an operand into an `enum` value.'
+  id: totrans-506
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Byte/Word/Dword`：`byte/word/dword` 读取特定大小的值。*   `PatchByte/PatchWord/PatchDword`：`patch_byte/patch_word/patch_dword`
+    写入特定大小的块。*   `OpEnumEx`：`op_enum` 将操作数转换为 `enum` 值。'
+- en: '**Auxiliary data storage**:'
+  id: totrans-507
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**辅助数据存储**：'
+- en: '`AddEnum`: `add_enum` adds a new `enum.`'
+  id: totrans-508
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`AddEnum`：`add_enum` 添加一个新的 `enum`。'
+- en: '`AddStrucEx`: `add_struc` adds a new structure.'
+  id: totrans-509
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`AddStrucEx`：`add_struc` 添加一个新的结构。'
+- en: 'Here is an example of an IDA Python script implementing a custom XOR decryption
+    algorithm for short blocks:'
+  id: totrans-510
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个实现自定义 XOR 解密算法的 IDA Python 脚本示例，适用于短块：
+- en: '![Figure 4.43 – Original IDA Python API syntax for 32-bit Windows'
+  id: totrans-511
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.43 – 32 位 Windows 的原始 IDA Python API 语法'
+- en: '](img/Figure_4.43_B18500.jpg)'
+  id: totrans-512
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.43_B18500.jpg)'
+- en: Figure 4.43 – Original IDA Python API syntax for 32-bit Windows
+  id: totrans-513
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.43 – 32 位 Windows 的原始 IDA Python API 语法
+- en: 'Here is a script implementing the same custom XOR decryption algorithm for
+    a 64-bit architecture using the new syntax:'
+  id: totrans-514
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里有一个实现相同自定义 XOR 解密算法的脚本，适用于使用新语法的 64 位架构：
+- en: '![Figure 4.44 – New IDA Python API syntax for 64-bit Windows'
+  id: totrans-515
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.44 – 64 位 Windows 的新 IDA Python API 语法'
+- en: '](img/Figure_4.44_B18500.jpg)'
+  id: totrans-516
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_4.44_B18500.jpg)'
+- en: Figure 4.44 – New IDA Python API syntax for 64-bit Windows
+  id: totrans-517
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.44 – 64 位 Windows 的新 IDA Python API 语法
+- en: Some situations may require an enormous amount of time to analyze a relatively
+    big sample (or several of them) if the engineer doesn’t use IDA scripting and
+    malware is using dynamic string decryption and dynamic WinAPIs resolution.
+  id: totrans-518
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些情况可能需要大量时间来分析一个相对较大的样本（或多个样本），如果工程师没有使用 IDA 脚本，并且恶意软件使用动态字符串解密和动态 WinAPI 解析。
+- en: Dynamic string decryption
+  id: totrans-519
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态字符串解密
+- en: 'In this case, the block of encrypted strings is not decrypted at once. Instead,
+    each string is decrypted immediately before being used, so they are never decrypted
+    all at the same time. To solve this problem, follow these steps:'
+  id: totrans-520
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，块状的加密字符串不会一次性解密。相反，每个字符串在使用前会立即被解密，因此它们从未被一次性解密。为了解决这个问题，请按以下步骤操作：
+- en: Find a function that’s responsible for decrypting all strings.
+  id: totrans-521
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 查找负责解密所有字符串的函数。
+- en: Replicate the decryptor’s behavior in a script.
+  id: totrans-522
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在脚本中复制解密器的行为。
+- en: Let the script find all the places in the code where this function is being
+    called by following cross-references and read an encrypted string that will be
+    passed as its argument.
+  id: totrans-523
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让脚本通过跟踪交叉引用查找代码中所有调用此函数的地方，并读取将作为其参数传递的加密字符串。
+- en: Decrypt it and write it back on top of the encrypted one so that all the references
+    will remain valid.
+  id: totrans-524
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 解密它并将其写回加密内容上方，以确保所有引用保持有效。
+- en: Dynamic WinAPIs resolution
+  id: totrans-525
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态 WinAPI 解析
+- en: 'With the dynamic WinAPIs resolution, only one function with different arguments
+    is used to get access to all the WinAPIs. It dynamically searches for the requested
+    API (and often the corresponding DLL), usually using some sort of checksum of
+    the name that’s provided as an argument. There are two common approaches to making
+    this readable:'
+  id: totrans-526
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用动态 WinAPI 解析时，只有一个具有不同参数的函数用于访问所有 WinAPI。它动态地搜索请求的 API（通常是相应的 DLL），通常使用提供的名称的某种校验和作为参数。使其可读的两种常见方法是：
+- en: '`enum` values.'
+  id: totrans-527
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`enum` 值。'
+- en: Find all the places where the resolving function is being used, take its checksum
+    argument, and convert it into the corresponding `enum` name.
+  id: totrans-528
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找所有使用解析函数的地方，获取其校验和参数，并将其转换为相应的 `enum` 名称。
+- en: '**Using comments**:'
+  id: totrans-529
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使用注释**：'
+- en: Find the matches between all checksums, APIs, and DLLs used.
+  id: totrans-530
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 查找所有校验和、API 和 DLL 的匹配项。
+- en: Store the associations in memory.
+  id: totrans-531
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将关联存储在内存中。
+- en: Find all the places where the resolving function is being used, take its checksum
+    argument, and place a comment with the corresponding API name next to it.
+  id: totrans-532
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 查找所有使用解析函数的地方，获取其校验和参数，并在旁边添加带有相应 API 名称的注释。
+- en: IDA scripting is really what makes a difference and turns novice analysts into
+    professionals who can efficiently solve any reverse engineering problem promptly.
+    After you have written a few scripts using this approach, it becomes pretty straightforward
+    to update or extend them with extra functionality for new tasks.
+  id: totrans-533
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA 脚本实际上是区别初学者与专业分析师之间的关键，它能够帮助分析师高效地解决任何逆向工程问题。一旦你写了几个脚本并采用了这种方法，你就会发现更新或扩展这些脚本，增加新任务的额外功能变得相当简单。
+- en: Summary
+  id: totrans-534
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we covered various types of packers and explained the differences
+    between them. We also gave recommendations on how we can identify the packer that’s
+    being used. Then, we went through several techniques of how to unpack samples
+    both automatically and manually and provided real-world examples of how to do
+    so in the most efficient way, depending on the context. After this, we covered
+    advanced manual unpacking methods that generally take more time to execute but
+    give you the ability to unpack virtually any sample in a meaningful time frame.
+  id: totrans-535
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们介绍了各种类型的加壳工具并解释了它们之间的差异。我们还给出了如何识别所使用的加壳工具的建议。接着，我们介绍了几种如何自动和手动解包样本的技术，并提供了实际的例子，展示在不同情况下如何以最有效的方式进行解包。之后，我们介绍了更高级的手动解包方法，这些方法通常需要更多的时间来执行，但能让你在合理的时间内解包几乎任何样本。
+- en: Furthermore, we covered different encryption algorithms and provided guidelines
+    on how to identify and handle them. Then, we went through a modern malware example
+    that incorporated these guidelines so that you could get an idea of how all this
+    theory can be applied in practice. Finally, we covered IDA script languages –
+    a powerful way to drastically speed up the analysis process.
+  id: totrans-536
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还介绍了不同的加密算法，并提供了如何识别和处理它们的指南。接着，我们通过一个现代恶意软件的例子，结合这些指南，帮助你了解如何将所有这些理论应用到实践中。最后，我们讲解了
+    IDA 脚本语言——这是一种大大加速分析过程的强大工具。
+- en: In [*Chapter 5*](B18500_05.xhtml#_idTextAnchor446), *Inspecting Process Injection
+    and API Hooking*, we are going to expand our knowledge about various techniques
+    that are used by malware authors to achieve their goals and provide a handful
+    of tips on how to deal with them.
+  id: totrans-537
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 [*第 5 章*](B18500_05.xhtml#_idTextAnchor446)，*检查进程注入与 API 钩子* 中，我们将扩展对恶意软件作者用于实现其目标的各种技术的理解，并提供一些应对这些技术的小贴士。

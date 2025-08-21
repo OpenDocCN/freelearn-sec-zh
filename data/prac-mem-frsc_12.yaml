@@ -1,0 +1,1441 @@
+- en: 'Chapter 9: Malicious Activity Detection'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第9章：恶意活动检测
+- en: Under most circumstances, the main goal of a memory forensic investigation is
+    to look for malicious activity. According to recent **TrendMicro** ([https://www.trendmicro.com/vinfo/us/security/news/cybercrime-and-digital-threats/a-look-at-linux-threats-risks-and-recommendations](https://www.trendmicro.com/vinfo/us/security/news/cybercrime-and-digital-threats/a-look-at-linux-threats-risks-and-recommendations))
+    and **Group-IB** ([https://www.group-ib.com/media/ransomware-empire-2021/](https://www.group-ib.com/media/ransomware-empire-2021/),
+    [https://blog.group-ib.com/blackmatter](https://blog.group-ib.com/blackmatter))
+    research, attacks on Linux-based systems are on the rise, and many threat actors
+    have added specialized software targeting Linux-based systems to their arsenal.
+    For example, ransomware operators such as **BlackMatter**, **RansomExx**, and
+    **Hive** have added corresponding versions to their arsenal. Furthermore, post-exploitation
+    frameworks and individual scripts are also used to attack Linux-based systems.
+    At the same time, exploitation of vulnerabilities and the use of security misconfigurations
+    remain the most widespread initial access techniques, especially when we are talking
+    about web applications.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大多数情况下，内存取证调查的主要目标是寻找恶意活动。根据最近 **TrendMicro** ([https://www.trendmicro.com/vinfo/us/security/news/cybercrime-and-digital-threats/a-look-at-linux-threats-risks-and-recommendations](https://www.trendmicro.com/vinfo/us/security/news/cybercrime-and-digital-threats/a-look-at-linux-threats-risks-and-recommendations))
+    和 **Group-IB** ([https://www.group-ib.com/media/ransomware-empire-2021/](https://www.group-ib.com/media/ransomware-empire-2021/),
+    [https://blog.group-ib.com/blackmatter](https://blog.group-ib.com/blackmatter))
+    的研究，针对基于 Linux 的系统的攻击正在上升，许多威胁行为者已将专门针对 Linux 系统的软件加入到他们的武器库中。例如，勒索软件操作员如 **BlackMatter**、**RansomExx**
+    和 **Hive** 都已将相应版本加入到他们的武器库中。此外，后期利用框架和个别脚本也被用来攻击基于 Linux 的系统。同时，漏洞利用和安全配置错误的使用仍然是最广泛的初步访问技术，尤其是当我们谈论到
+    web 应用程序时。
+- en: The main activity we are going to look at is almost the same – network connections,
+    injections into processes, and access to atypical resources. This is what we will
+    try to focus on, but this time we will try to break down different analysis techniques
+    with concrete examples.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将要讨论的主要活动几乎是相同的——网络连接、注入到进程中以及访问非典型资源。这是我们将重点关注的内容，但这次我们会尝试通过具体示例来细分不同的分析技术。
+- en: 'In this chapter, we will discuss the following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将讨论以下主题：
+- en: Investigating network activity
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调查网络活动
+- en: Analyzing malicious activity
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析恶意活动
+- en: Examining kernel objects
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 检查内核对象
+- en: Investigating network activity
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查网络活动
+- en: 'Since most malware needs to communicate with a command-and-control server,
+    download additional modules, or send some data, the appearance of network connections
+    is unavoidable. However, before going on to investigate network connections, it
+    would be a good idea to find out which network interfaces were used on our host
+    and how they were configured. To do this, we can use the Volatility `linux_ifconfig`
+    plugin, which provides all the necessary information in the following way:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于大多数恶意软件需要与命令和控制服务器通信、下载附加模块或发送一些数据，因此网络连接的出现是不可避免的。然而，在调查网络连接之前，了解我们的主机上使用了哪些网络接口及其配置方式是个好主意。为此，我们可以使用
+    Volatility 的 `linux_ifconfig` 插件，该插件以如下方式提供所有必要的信息：
+- en: '![Figure 9.1 – Information about network interfaces'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.1 – 网络接口信息'
+- en: '](img/Figure_9.1_B17056.jpg)'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.1_B17056.jpg)'
+- en: Figure 9.1 – Information about network interfaces
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.1 – 网络接口信息
+- en: 'In the output, we can see that there are three interfaces used on the investigated
+    host:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在输出中，我们可以看到调查的主机上使用了三个接口：
+- en: '`lo` – A loopback interface with the standard `127.0.0.1` IP address'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`lo` – 一个回环接口，标准 IP 地址为 `127.0.0.1`'
+- en: '`ens33` – A network interface with the `192.168.168.144` IP address'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ens33` – 一个网络接口，IP 地址为 `192.168.168.144`'
+- en: '`ens38` – A network interface with the `192.168.3.133` IP address'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ens38` – 一个网络接口，IP 地址为 `192.168.3.133`'
+- en: 'We can now start investigating active network connections. For this purpose,
+    Volatility has the `linux_netstat` plugin, which can be run as follows:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以开始调查活跃的网络连接。为此，Volatility 提供了 `linux_netstat` 插件，可以按以下方式运行：
+- en: '![Figure 9.2 – Volatility linux_netstat plugin'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.2 – Volatility linux_netstat 插件'
+- en: '](img/Figure_9.2_B17056.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.2_B17056.jpg)'
+- en: Figure 9.2 – Volatility linux_netstat plugin
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.2 – Volatility linux_netstat 插件
+- en: 'As you can see, in this case, we will also have quite an extensive output,
+    and it won''t only be associated with the network connections we are directly
+    interested in, so it is better to redirect the output to a text file:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所见，在这种情况下，我们也将获得相当大量的输出，并且它不仅仅与我们直接感兴趣的网络连接相关，因此最好将输出重定向到文本文件中：
+- en: '![Figure 9.3 – Active network connections'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.3 – 活跃的网络连接'
+- en: '](img/Figure_9.3_B17056.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.3_B17056.jpg)'
+- en: Figure 9.3 – Active network connections
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.3 – 活跃的网络连接
+- en: In this case, we see a connection established by the Firefox browser, as well
+    as multiple connections established by `192.168.3.132` IP address, which was set
+    up using port `22`, which is typical for `SSH`. It is likely that this was the
+    victim's host, which was connected through `SSH`.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们看到由 Firefox 浏览器建立的连接，以及由`192.168.3.132` IP 地址建立的多个连接，这些连接通过端口`22`建立，这通常用于`SSH`。很可能这就是受害者的主机，它通过`SSH`连接。
+- en: 'Another way to check the network activity is to use Bulk Extractor, as it allows
+    us to extract leftover network traffic from memory dumps. In this case, we use
+    the net scanner, as shown here:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种检查网络活动的方法是使用 Bulk Extractor，因为它允许我们从内存转储中提取剩余的网络流量。在这种情况下，我们使用网络扫描器，如图所示：
+- en: '![Figure 9.4 – Bulk Extractor net scanner'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.4 – Bulk Extractor 网络扫描器'
+- en: '](img/Figure_9.4_B17056.jpg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.4_B17056.jpg)'
+- en: Figure 9.4 – Bulk Extractor net scanner
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.4 – Bulk Extractor 网络扫描器
+- en: The output will contain the `packets.pcap` file, which is a dump of network
+    traffic. This file can be opened with **Wireshark**, one of the most widely used
+    network protocol analyzers. To get this tool, simply go to the official website
+    ([https://www.wireshark.org/](https://www.wireshark.org/)), click on the **Download**
+    icon, and choose the installer version suitable for your system.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出将包含`packets.pcap`文件，这是网络流量的转储文件。这个文件可以通过**Wireshark**打开，Wireshark 是最广泛使用的网络协议分析工具之一。要获取此工具，只需访问官方网站（[https://www.wireshark.org/](https://www.wireshark.org/)），点击**下载**图标，并选择适合您系统的安装版本。
+- en: 'After installation, you can run Wireshark and simply drag and drop the `packets.pcap`
+    file inside:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装后，您可以运行 Wireshark 并简单地将`packets.pcap`文件拖放到其中：
+- en: '![Figure 9.5 – Dump of the network traffic opened with Wireshark'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.5 – 使用 Wireshark 打开的网络流量转储'
+- en: '](img/Figure_9.5_B17056.jpg)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.5_B17056.jpg)'
+- en: Figure 9.5 – Dump of the network traffic opened with Wireshark
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.5 – 使用 Wireshark 打开的网络流量转储
+- en: 'Here, you can see the endpoints statistics and find out what IP addresses were
+    connected to. To do this, open the **Statistics** tab and search for **Endpoints**:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，您可以查看端点统计信息并找出连接到哪些 IP 地址。为此，请打开**统计**标签并搜索**端点**：
+- en: '![Figure 9.6 – Endpoints'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.6 – 端点'
+- en: '](img/Figure_9.6_B17056.jpg)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.6_B17056.jpg)'
+- en: Figure 9.6 – Endpoints
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.6 – 端点
+- en: 'Similarly, you can see statistics on the protocols used:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，您可以查看所使用协议的统计信息：
+- en: '![Figure 9.7 – Protocol hierarchy'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.7 – 协议层次结构'
+- en: '](img/Figure_9.7_B17056.jpg)'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.7_B17056.jpg)'
+- en: Figure 9.7 – Protocol hierarchy
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.7 – 协议层次结构
+- en: 'We can examine individual packets or try to extract transmitted objects, and
+    it is also possible to configure filters and check communication with individual
+    IP addresses. In our case, for example, you can check whether an `SSH` connection
+    was actually established with a specific IP address by using the simple `ip.addr==192.168.3.133
+    && ssh` filter:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以检查单独的数据包或尝试提取传输的对象，也可以配置过滤器并检查与单个 IP 地址的通信。例如，在我们的案例中，您可以通过使用简单的`ip.addr==192.168.3.133
+    && ssh`过滤器来检查是否与特定的 IP 地址建立了`SSH`连接：
+- en: '![Figure 9.8 – Wireshark filter for SSH'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.8 – Wireshark 过滤器用于 SSH'
+- en: '](img/Figure_9.8_B17056.jpg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.8_B17056.jpg)'
+- en: Figure 9.8 – Wireshark filter for SSH
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.8 – Wireshark 过滤器用于 SSH
+- en: In the figure, we see a large number of packets passing between our IP and the
+    `192.168.3.132` IP. Such communication will naturally attract our attention.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在图中，我们看到大量数据包在我们的 IP 和`192.168.3.132` IP 之间传输。这种通信自然会引起我们的注意。
+- en: 'Here is another example of how analysis of network connections or network traffic
+    from the memory dump can be useful:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里是另一个例子，说明如何通过分析内存转储中的网络连接或网络流量来获得有用信息：
+- en: '![Figure 9.9 – Meterpreter activity'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.9 – Meterpreter 活动'
+- en: '](img/Figure_9.9_B17056.jpg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.9_B17056.jpg)'
+- en: Figure 9.9 – Meterpreter activity
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.9 – Meterpreter 活动
+- en: Here, we can see active use of port `4444`. Remember in [*Chapter 5*](B17056_05_Final_JM_ePub.xhtml#_idTextAnchor078),
+    *Malware Detection and Analysis with Windows Memory Forensics*, when we talked
+    about how some ports are used by default by different software? This is exactly
+    the case, and port `4444` is used by default by the Meterpreter reverse shell.
+    So, we can already tell from one traffic analysis that there are processes on
+    the examined host that are related to Meterpreter.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到端口`4444`的活跃使用。记得在[*第 5 章*](B17056_05_Final_JM_ePub.xhtml#_idTextAnchor078)，*使用
+    Windows 内存取证进行恶意软件检测与分析*中，我们提到过一些端口是不同软件默认使用的吗？这正是这种情况，端口`4444`是 Meterpreter 反向
+    shell 默认使用的端口。所以，我们从一次流量分析中就可以判断，被检查的主机上有与 Meterpreter 相关的进程。
+- en: 'Let''s look at one more example:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们再看一个例子：
+- en: '![Figure 9.10 – Nginx activity'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.10 – Nginx 活动'
+- en: '](img/Figure_9.10_B17056.jpg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.10_B17056.jpg)'
+- en: Figure 9.10 – Nginx activity
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.10 – Nginx 活动
+- en: 'In the output of `linux_netstat`, we can see that the investigated host is
+    used as a web server because on port `80`, the `nginx` process is listening:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `linux_netstat` 的输出中，我们可以看到被调查的主机作为 Web 服务器使用，因为在端口 `80` 上，`nginx` 进程正在监听：
+- en: '![Figure 9.11 – SSH connections'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.11 – SSH 连接'
+- en: '](img/Figure_9.11_B17056.jpg)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.11_B17056.jpg)'
+- en: Figure 9.11 – SSH connections
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.11 – SSH 连接
+- en: In addition, we can see several `SSH` connections with different IP addresses.
+    In this case, we can conclude that one of those IP addresses could potentially
+    be used by an attacker.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还看到几个不同 IP 地址的 `SSH` 连接。在这种情况下，我们可以推断其中一个 IP 地址可能是攻击者使用的。
+- en: Since the output of the plugin contains information on the processes that initiated
+    the connections, naturally, sooner or later, we will get to investigating those
+    processes.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于插件的输出包含了发起连接的进程信息，自然，迟早我们会开始调查这些进程。
+- en: In all these examples, we see traces of potentially malicious activity. Let's
+    talk about how to analyze this kind of activity.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在所有这些例子中，我们看到了潜在恶意活动的痕迹。现在，让我们来讨论如何分析这种活动。
+- en: Analyzing malicious activity
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析恶意活动
+- en: 'Let''s take a closer look at the last example. We saw that we had several `SSH`
+    connections. We can analyze the processes that might be related to that. To do
+    that, let''s use the `linux_pstree` plugin and add `sshd` process identifiers
+    – `29897` and `23251`:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们仔细看看最后一个例子。我们看到有几个 `SSH` 连接。我们可以分析可能与之相关的进程。为此，我们将使用 `linux_pstree` 插件并添加
+    `sshd` 进程标识符 – `29897` 和 `23251`：
+- en: '![Figure 9.12 – Volatility linux_pstree'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.12 – Volatility linux_pstree'
+- en: '](img/Figure_9.12_B17056.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.12_B17056.jpg)'
+- en: Figure 9.12 – Volatility linux_pstree
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.12 – Volatility linux_pstree
+- en: In *Figure 9.12*, we can see that the child processes of `sshd` are bash as
+    well as `sudo`, which means that elevated privileges were used. In this case,
+    we can search the bash history as well as dump and analyze the memory of these
+    processes.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 9.12*中，我们看到 `sshd` 的子进程是 bash 和 `sudo`，这意味着使用了提升的权限。在这种情况下，我们可以搜索 bash 历史记录，也可以转储并分析这些进程的内存。
+- en: 'We start with the bash history. For this, we will use the `linux_bash` plugin:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们从 bash 历史记录开始。为此，我们将使用`linux_bash`插件：
+- en: '![Figure 9.13 – Bash history'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.13 – Bash 历史记录'
+- en: '](img/Figure_9.13_B17056.jpg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.13_B17056.jpg)'
+- en: Figure 9.13 – Bash history
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.13 – Bash 历史记录
+- en: Here, we can see that someone was working with MySQL and WordPress, and we can
+    see the interaction with the `site-info.php` file, as well as the `nyan-cat.gif`
+    download associated with the bash process with the `30112` PID.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到有人在使用 MySQL 和 WordPress，并且看到与 `site-info.php` 文件的交互，以及与 bash 进程（PID
+    为 `30112`）关联的 `nyan-cat.gif` 下载。
+- en: 'We can check which user ran bash in this case. To do this, we will use the
+    already known `linux_psenv` Volatility plugin:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以检查在这种情况下哪个用户运行了 bash。为此，我们将使用已知的 `linux_psenv` Volatility 插件：
+- en: '![Figure 9.14 – Bash process''s environment'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.14 – Bash 进程的环境'
+- en: '](img/Figure_9.14_B17056.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.14_B17056.jpg)'
+- en: Figure 9.14 – Bash process's environment
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.14 – Bash 进程的环境
+- en: 'The output of this plugin allows us to determine that this activity was performed
+    within the `SSH` connection from the `192.168.110.40` IP address by the user admin.
+    We can search for information about this user. In the previous chapter, we already
+    mentioned that this information can be found in the `/etc/passwd` file, so let''s
+    use the `linux_recover_filesystem` plugin and try to recover the filesystem from
+    memory. To do that, we will use the following command:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该插件的输出使我们能够确定此活动是通过来自 `192.168.110.40` IP 地址的 `SSH` 连接由用户 admin 执行的。我们可以搜索有关此用户的信息。在前一章中，我们已经提到过这些信息可以在
+    `/etc/passwd` 文件中找到，因此让我们使用 `linux_recover_filesystem` 插件并尝试从内存中恢复文件系统。为此，我们将使用以下命令：
+- en: '[PRE0]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'In our case, the restored filesystem will be placed in the recovered folder:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，恢复的文件系统将被放置在恢复文件夹中：
+- en: '![Figure 9.15 – Recovered folder content'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.15 – 恢复的文件夹内容'
+- en: '](img/Figure_9.15_B17056.jpg)'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.15_B17056.jpg)'
+- en: Figure 9.15 – Recovered folder content
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.15 – 恢复的文件夹内容
+- en: 'As you can see in the figure, the `/etc` directory failed to recover; nevertheless,
+    we have `/var/log` where we can find the `auth.log` file:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如图所示，`/etc` 目录未能恢复；不过，我们有 `/var/log` 目录，在那里可以找到 `auth.log` 文件：
+- en: '![Figure 9.16 – Recovered auth.log file'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.16 – 恢复的 auth.log 文件'
+- en: '](img/Figure_9.16_B17056.jpg)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.16_B17056.jpg)'
+- en: Figure 9.16 – Recovered auth.log file
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.16 – 恢复的 auth.log 文件
+- en: 'This file logs all authentication attempts, and we can find the following:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件记录了所有认证尝试，我们可以找到以下内容：
+- en: '![Figure 9.17 – The content of auth.log file'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.17 – auth.log 文件内容'
+- en: '](img/Figure_9.17_B17056.jpg)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.17_B17056.jpg)'
+- en: Figure 9.17 – The content of auth.log file
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.17 – auth.log 文件内容
+- en: 'Note that from here we get the information that the admin user was created
+    at the time of the attack, and we also have a specific timestamp for its creation.
+    After that, we can also see several logins from this user and its use of root,
+    on behalf of which our picture was downloaded. We also see that the picture was
+    uploaded to `/var/www/wordpress`. Fortunately, the `linux_recover_filesystem`
+    plugin was able to partially recover this folder:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，从这里我们得知 admin 用户是在攻击时创建的，我们还获得了创建的具体时间戳。之后，我们还可以看到此用户的多次登录以及其使用 root 权限，正是通过该权限下载了我们的图片。我们还看到该图片被上传到
+    `/var/www/wordpress`。幸运的是，`linux_recover_filesystem` 插件能够部分恢复此文件夹：
+- en: '![Figure 9.18 – Recovered WordPress folder'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.18 – 恢复的 WordPress 文件夹'
+- en: '](img/Figure_9.18_B17056.jpg)'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.18_B17056.jpg)'
+- en: Figure 9.18 – Recovered WordPress folder
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.18 – 恢复的 WordPress 文件夹
+- en: Here, we can see our picture. So, we need to find out what role it plays here
+    and how exactly the attacker gained access to the system.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到我们的图片。因此，我们需要找出它在这里扮演的角色，以及攻击者是如何访问系统的。
+- en: 'Let''s add the network traffic dump extracted from the memory dump to our investigation.
+    To extract the traffic, we run Bulk Extractor:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们将从内存转储中提取的网络流量转储添加到我们的调查中。为了提取流量，我们运行 Bulk Extractor：
+- en: '![Figure 9.19 – Network traffic extraction'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.19 – 网络流量提取'
+- en: '](img/Figure_9.19_B17056.jpg)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.19_B17056.jpg)'
+- en: Figure 9.19 – Network traffic extraction
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.19 – 网络流量提取
+- en: 'Now, we open the `packets.pcap` file in Wireshark. Examining the packets, you
+    may come across the following:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们在 Wireshark 中打开 `packets.pcap` 文件。检查数据包时，您可能会遇到以下内容：
+- en: '![Figure 9.20 – Wireshark packet analysis'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.20 – Wireshark 数据包分析'
+- en: '](img/Figure_9.20_B17056.jpg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.20_B17056.jpg)'
+- en: Figure 9.20 – Wireshark packet analysis
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.20 – Wireshark 数据包分析
+- en: 'We see a `GET` request with interesting parameters. As you can see, the user
+    agent listed here is `WPScan v.3.8.7`. This means that this request was made using
+    the WPScan tool, used to search for vulnerabilities in the content management
+    system WordPress. Similar information should be logged in the `nginx` access log.
+    This log was also recovered using `linux_recover_filesystem` and can be found
+    in `/var/log/nginx`:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们看到一个带有有趣参数的 `GET` 请求。正如你所看到的，这里列出的用户代理是 `WPScan v.3.8.7`。这意味着此请求是使用 WPScan
+    工具发出的，WPScan 用于搜索 WordPress 内容管理系统中的漏洞。类似的信息应该记录在 `nginx` 访问日志中。这个日志也通过 `linux_recover_filesystem`
+    恢复，并可以在 `/var/log/nginx` 中找到：
+- en: '![Figure 9.21 – Recovered access log'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.21 – 恢复的访问日志'
+- en: '](img/Figure_9.21_B17056.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.21_B17056.jpg)'
+- en: Figure 9.21 – Recovered access log
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.21 – 恢复的访问日志
+- en: 'In `access.log`, we can see a huge number of requests sent by WPScan from an
+    IP address we already know. If we go further, we can also see the following:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `access.log` 中，我们可以看到来自一个我们已经知道的 IP 地址，由 WPScan 发出的大量请求。如果我们进一步查看，还能看到以下内容：
+- en: '![Figure 9.22 – Comment post'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.22 – 评论帖子'
+- en: '](img/Figure_9.22_B17056.jpg)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.22_B17056.jpg)'
+- en: Figure 9.22 – Comment post
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.22 – 评论帖子
+- en: After the scan was completed, a `POST` request was sent with a comment; possibly,
+    a vulnerability related to comment sending was used for the initial access.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 扫描完成后，发送了一个`POST`请求，并带有评论；可能是利用了与评论发送相关的漏洞来实现初始访问。
+- en: 'Continuing the analysis, we can try to extract objects transmitted during the
+    network session using Wireshark''s Export Objects feature:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在继续分析时，我们可以尝试使用 Wireshark 的导出对象功能提取在网络会话期间传输的对象：
+- en: '![ Figure 9.23 – Objects export in Wireshark'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.23 – Wireshark 中的对象导出'
+- en: '](img/Figure_9.23_B17056.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.23_B17056.jpg)'
+- en: Figure 9.23 – Objects export in Wireshark
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.23 – Wireshark 中的对象导出
+- en: 'As you can see in the preceding figure, in our case several objects have been
+    found that we can try to extract. This includes some comments. Let''s check them
+    out:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你在前面的图中看到的，在我们的例子中，发现了几个我们可以尝试提取的对象。包括一些评论。让我们检查一下：
+- en: '![Figure 9.24 – Exported comments'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.24 – 导出的评论'
+- en: '](img/Figure_9.24_B17056.jpg)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.24_B17056.jpg)'
+- en: Figure 9.24 – Exported comments
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.24 – 导出的评论
+- en: As we can see, one of the users left a comment on the blog with a link accessing
+    the same `192.168.110.40` IP address. You can also see in the traffic dump that
+    the same `SSH` connections started to appear sometime after the attempt to open
+    the link.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们所看到的，一位用户在博客上留言，并附上了访问相同`192.168.110.40` IP 地址的链接。你还可以在流量转储中看到，尝试打开该链接后不久，开始出现相同的`SSH`连接。
+- en: 'If we consider the situation from the point of view of WordPress, the comments
+    sent by users must be saved in the database. Accordingly, you can look for information
+    about them in the MySQL logs or in the memory of this process. From the list of
+    processes, we can say that our mysqld process related to mysql deamon has the
+    identifier `29602`:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果从 WordPress 的角度考虑，用户发送的评论必须保存在数据库中。因此，你可以在 MySQL 日志中或该进程的内存中查找相关信息。从进程列表中，我们可以看到与
+    mysql 守护进程相关的 mysqld 进程的标识符是`29602`：
+- en: '![Figure 9.25 – Process ID of mysqld'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.25 – mysqld 的进程 ID'
+- en: '](img/Figure_9.25_B17056.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.25_B17056.jpg)'
+- en: Figure 9.25 – Process ID of mysqld
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.25 – mysqld 的进程 ID
+- en: 'Now, we can dump the mapping of this process with the `linux_dump_map` plugin:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以使用`linux_dump_map`插件转储此进程的映射：
+- en: '![Figure 9.26 – Volatility linux_dump_map'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.26 – Volatility linux_dump_map'
+- en: '](img/Figure_9.26_B17056.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.26_B17056.jpg)'
+- en: Figure 9.26 – Volatility linux_dump_map
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.26 – Volatility linux_dump_map
+- en: 'Now, it is the turn of the `strings` utility:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，轮到`strings`工具了：
+- en: '[PRE1]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'We can now explore the `strings` output and look for information about our
+    comments:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们可以探索`strings`输出，并寻找关于我们评论的信息：
+- en: '![Figure 9.27 – Comments in the mysqld process memory'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.27 – mysqld 进程内存中的评论'
+- en: '](img/Figure_9.27_B17056.jpg)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.27_B17056.jpg)'
+- en: Figure 9.27 – Comments in the mysqld process memory
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.27 – mysqld 进程内存中的评论
+- en: Bingo! Here, we can see not only the comment that was sent but also the actual
+    payload that was used. Now, we know for sure that the attackers used exploitation
+    of vulnerabilities for the initial access. That's one mystery solved.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 万事俱备！在这里，我们不仅看到了发送的评论，还看到了实际使用的有效载荷。现在，我们可以确定攻击者是利用漏洞进行初始访问的。这解决了一个谜团。
+- en: 'In *Figure 9.27*, we can also note the interaction with the `site-info.php`
+    file in the footer. Since we managed to extract the WordPress folder along with
+    the filesystem, let''s find this file:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*图 9.27*中，我们还可以注意到与页脚中的`site-info.php`文件的交互。由于我们已经成功提取了 WordPress 文件夹及其文件系统，让我们找到这个文件：
+- en: '![Figure 9.28 – WordPress-related files'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.28 – 与 WordPress 相关的文件'
+- en: '](img/Figure_9.28_B17056.jpg)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.28_B17056.jpg)'
+- en: Figure 9.28 – WordPress-related files
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.28 – 与 WordPress 相关的文件
+- en: 'The content of this file looks as follows:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件的内容如下：
+- en: '![Figure 9.29 – The content of the site-info.php file'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.29 – site-info.php 文件的内容'
+- en: '](img/Figure_9.29_B17056.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.29_B17056.jpg)'
+- en: Figure 9.29 – The content of the site-info.php file
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.29 – site-info.php 文件的内容
+- en: Based on all the information obtained, we can conclude that after accessing
+    the host, the attacker changed the source code of the site so that now when users
+    visit the compromised resource, they will see a picture instead of a blog.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据获得的所有信息，我们可以得出结论，在攻击者访问主机后，他们修改了站点的源代码，使得现在当用户访问被破坏的资源时，他们会看到一张图片，而不是博客。
+- en: 'Let''s consider in a similar way the Meterpreter example we mentioned earlier.
+    This is an example worthy of special attention because this type of payload is
+    most often found on Linux-based systems involved in incidents. So, we have information
+    that some connections were made using port `4444`. Let''s try to find out which
+    process the Meterpreter is associated with. The most logical thing to do here
+    would be to check the network connections and look for connections to ports and
+    addresses we know, and then look for the process that established the connection.
+    However, you may come across a situation where there is no information about network
+    connections or no information about the exact connections you are looking for.
+    In this case, you can use YARA rules with the `linux_yarascan` plugin to try to
+    find a process with our IP address in its memory. Also, injections into processes
+    are often related to Meterpreter, as attackers need to somehow put the payload
+    into memory. In this case, Volatility has the `linux_malfind` plugin, which is
+    an analog of the Windows plugin with the same name. Let''s run it:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们以类似的方式考虑我们之前提到的 Meterpreter 示例。这是一个值得特别关注的例子，因为这种类型的有效载荷最常出现在参与事件的基于 Linux
+    的系统上。所以，我们有信息表明某些连接是通过端口`4444`建立的。让我们尝试找出与 Meterpreter 相关的进程。这里最合乎逻辑的做法是检查网络连接，寻找我们知道的端口和地址的连接，然后寻找建立连接的进程。然而，你可能会遇到没有网络连接信息或者没有你寻找的具体连接信息的情况。在这种情况下，你可以使用
+    YARA 规则与 `linux_yarascan` 插件，尝试在进程的内存中找到包含我们的 IP 地址的进程。此外，进程注入通常与 Meterpreter
+    有关，因为攻击者需要以某种方式将有效载荷加载到内存中。在这种情况下，Volatility 提供了 `linux_malfind` 插件，这是 Windows
+    插件的类似物。让我们运行它：
+- en: '![Figure 9.30 – Volatility linux_malfind'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.30 – Volatility linux_malfind](img/Figure_9.30_B17056.jpg)'
+- en: '](img/Figure_9.30_B17056.jpg)'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.30_B17056.jpg)'
+- en: Figure 9.30 – Volatility linux_malfind
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.30 – Volatility linux_malfind
+- en: In the output of the plugin, we can find something similar. We have a rules_for_emplo
+    process, associated with the `rules_for_employees` file, which is located in the
+    `it-sec` user downloads. The inject found there starts with `ELF`, so we are dealing
+    with something executable.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在插件的输出中，我们可以找到类似的内容。我们有一个 `rules_for_emplo` 进程，关联着位于 `it-sec` 用户下载目录中的 `rules_for_employees`
+    文件。那里的注入文件以 `ELF` 开头，因此我们正在处理一个可执行的文件。
+- en: Important Note
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: '**Executable and Linkable Format** (**ELF**) is a binary file format used in
+    many modern UNIX-like operating systems, such as Ubuntu, FreeBSD, Linux, and Solaris.'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**可执行和可链接格式**（**ELF**）是一种二进制文件格式，广泛应用于许多现代类 UNIX 操作系统，如 Ubuntu、FreeBSD、Linux
+    和 Solaris。'
+- en: 'First of all, we can try to analyze the rules_for_emplo process. For this purpose,
+    we can extract the executable itself using the `linux_procdump` plugin:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们可以尝试分析 `rules_for_emplo` 进程。为此，我们可以使用 `linux_procdump` 插件提取可执行文件本身：
+- en: '![Figure 9.31 – Executable extraction'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.31 – 可执行文件提取](img/Figure_9.31_B17056.jpg)'
+- en: '](img/Figure_9.31_B17056.jpg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.31_B17056.jpg)'
+- en: Figure 9.31 – Executable extraction
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.31 – 可执行文件提取
+- en: 'After extraction, we can either calculate the hash of the executable and check
+    it in cyber threat intelligence platforms or try to run the file in a controlled
+    environment and find out what it does. Of course, if you have reverse engineering
+    skills or have a dedicated malware analysis team, they are good options as well.
+    Another way is to extract the memory of this process with the `linux_dump_map`
+    plugin:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提取后，我们可以计算可执行文件的哈希值，并在网络威胁情报平台中检查，或者尝试在受控环境中运行文件，了解它的功能。当然，如果你具备逆向工程技能或有专门的恶意软件分析团队，他们也是不错的选择。另一种方法是使用
+    `linux_dump_map` 插件提取该进程的内存：
+- en: '![Figure 9.32 – Process memory extraction'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.32 – 进程内存提取](img/Figure_9.32_B17056.jpg)'
+- en: '](img/Figure_9.32_B17056.jpg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.32_B17056.jpg)'
+- en: Figure 9.32 – Process memory extraction
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.32 – 进程内存提取
+- en: 'Then, we can use our script again to get readable strings:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们可以再次使用我们的脚本获取可读的字符串：
+- en: '[PRE2]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The result will be the following:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果将是如下所示：
+- en: '![Figure 9.33 – IP addresses in the rules_for_emplo process memory'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.33 – 规则_for_emplo 进程内的 IP 地址](img/Figure_9.33_B17056.jpg)'
+- en: '](img/Figure_9.33_B17056.jpg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.33_B17056.jpg)'
+- en: Figure 9.33 – IP addresses in the rules_for_emplo process memory
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.33 – 规则_for_emplo 进程内的 IP 地址
+- en: In the strings extracted from the memory of our process, we can find the `192.168.168.144`
+    IP address with which we saw many connections and the `tcp://192.168.168.153:4444`
+    string. From that, we can conclude that `reverse_tcp` was used.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从我们进程提取的内存字符串中，我们可以找到 `192.168.168.144` IP 地址，这个地址与我们看到的多个连接有关，还有 `tcp://192.168.168.153:4444`
+    字符串。由此，我们可以推测使用了 `reverse_tcp`。
+- en: 'Let''s look a little bit more into what happened after the rules_for_emplo
+    process started. We will use the `linux_pstree` plugin to get a list of active
+    processes and display their parent and child relationships:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们深入看看 `rules_for_emplo` 进程启动后发生了什么。我们将使用 `linux_pstree` 插件获取活动进程列表，并显示它们的父子关系：
+- en: '![Figure 9.34 – Child processes of rules_for_emplo'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.34 – rules_for_emplo 的子进程'
+- en: '](img/Figure_9.34_B17056.jpg)'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.34_B17056.jpg)'
+- en: Figure 9.34 – Child processes of rules_for_emplo
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.34 – `rules_for_emplo` 的子进程
+- en: 'Here, we see the rules_for_emplo process, which spawns shells, including ones
+    with elevated privileges, Python and systemctl. Let''s see how these processes
+    were started. To do this, we will use the `linux_psaux` plugin:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们看到了 `rules_for_emplo` 进程，它启动了多个 shell，包括具有提升权限的 shell、Python 和 systemctl。让我们看看这些进程是如何启动的。为此，我们将使用
+    `linux_psaux` 插件：
+- en: '![Figure 9.35 – Starting arguments of child processes'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.35 – 子进程的启动参数'
+- en: '](img/Figure_9.35_B17056.jpg)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.35_B17056.jpg)'
+- en: Figure 9.35 – Starting arguments of child processes
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.35 – 子进程的启动参数
+- en: 'Here, we see that Python was used to spawn a `tty` shell and get `sudo`. To
+    understand what was going on here, we can use the `linux_bash` plugin to see what
+    commands were executed:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们看到 Python 被用来启动一个 `tty` shell，并获得 `sudo` 权限。要理解这里发生了什么，我们可以使用 `linux_bash`
+    插件查看执行了哪些命令：
+- en: '![Figure 9.36 – Bash history'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.36 – Bash 历史'
+- en: '](img/Figure_9.36_B17056.jpg)'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.36_B17056.jpg)'
+- en: Figure 9.36 – Bash history
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.36 – Bash 历史
+- en: From the output of this plugin, we can see that the attacker was trying to install
+    a cron job to get persistence, while systemctl was used to reload the cron service
+    and check its status. We can also notice that the `/tmp` directory was used as
+    a working directory for creating and storing temporary files. It would be nice
+    to know what cron job was created in the end. On Linux-based systems, such activity
+    should be logged to `/var/log/cron.log`, from which you can get information about
+    the job that was created.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这个插件的输出中，我们可以看到攻击者试图安装一个 cron 作业以实现持久性，而 systemctl 被用来重新加载 cron 服务并检查其状态。我们还注意到
+    `/tmp` 目录被用作创建和存储临时文件的工作目录。我们希望知道最终创建了什么 cron 作业。在基于 Linux 的系统中，这种活动应该记录在 `/var/log/cron.log`
+    文件中，从中可以获取关于创建的作业的信息。
+- en: 'By the way, if you are interested in resources used by a certain process, you
+    can still use the `linux_lsof` plugin. The point is that, in Linux philosophy,
+    everything is a file. That is to say, if the process used text files, sockets,
+    or pipes, all of those things can be found in the output of `linux_lsof`. For
+    example, if we run `linux_lsof` for rules_for_emplo and all the processes it spawns
+    and redirect the output to a text file, we will see the following:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 顺便提一下，如果你对某个进程使用的资源感兴趣，你仍然可以使用 `linux_lsof` 插件。关键在于，Linux 的哲学是“一切皆文件”。也就是说，如果进程使用了文本文件、套接字或管道，所有这些内容都可以在
+    `linux_lsof` 的输出中找到。例如，如果我们对 `rules_for_emplo` 及其所有派生的进程运行 `linux_lsof` 并将输出重定向到一个文本文件中，我们将看到以下内容：
+- en: '![Figure 9.37 – Volatility linux_lsof output'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.37 – Volatility linux_lsof 输出'
+- en: '](img/Figure_9.37_B17056.jpg)'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.37_B17056.jpg)'
+- en: Figure 9.37 – Volatility linux_lsof output
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.37 – Volatility linux_lsof 输出
+- en: 'Here, we see descriptors for the following resources:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们看到以下资源的描述符：
+- en: '`/dev/null` is a special file, which is a so-called *empty device*. Writing
+    to it is successful, regardless of the amount of information, and reading is equivalent
+    to reading the end of the file.'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/dev/null` 是一个特殊文件，通常被称为 *空设备*。无论写入多少信息，写入都总是成功的，而读取则相当于读取文件的末尾。'
+- en: '`/dev/ptmx` is a character file used to create a pseudo-terminal master and
+    slave pair.'
+  id: totrans-188
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/dev/ptmx` 是一个字符文件，用于创建伪终端主从对。'
+- en: '`/dev/pts` is a special directory that is created dynamically by the Linux
+    kernel. The entries in `/dev/pts` correspond to pseudo-terminals (**pseudo-TTYs**
+    or **PTYs**).'
+  id: totrans-189
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/dev/pts` 是由 Linux 内核动态创建的特殊目录。`/dev/pts` 中的条目对应于伪终端（**伪 TTY** 或 **PTY**）。'
+- en: '`/dev/tty` stands for the controlling terminal for the current process.'
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/dev/tty` 代表当前进程的控制终端。'
+- en: As you can see, in general, the initial malicious activity detection and analysis
+    process on Linux-based systems is not very different from that on Windows. We
+    concentrate on looking for suspicious connections, processes with weird names,
+    atypical child processes or behavior, and afterward, we untwist the chain based
+    on our findings. However, there are some peculiarities. For example, rootkits
+    were previously often used in attacks against Linux.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，一般来说，在基于 Linux 的系统上进行初步的恶意活动检测和分析过程，与 Windows 上的过程没有太大区别。我们主要关注寻找可疑的连接、具有奇怪名称的进程、非典型的子进程或行为，之后我们根据这些发现逐步解开链条。然而，也存在一些特殊情况。例如，rootkit
+    以前常用于对 Linux 的攻击。
+- en: Historically, the term *rootkit* was used to refer to loadable kernel modules,
+    which threat actors install immediately after gaining root privileges. A rootkit
+    allows them to gain persistence in a compromised system and hide activities by
+    hiding files, processes, and the presence of the rootkit in the system itself.
+    Despite the fact that rootkits are now almost non-existent, we believe it is necessary
+    to discuss the main analysis techniques that can help you detect the manipulation
+    of kernel objects and their associated interfaces.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 历史上，*rootkit* 这个术语曾用于指可加载的内核模块，攻击者在获得 root 权限后立即安装这些模块。Rootkit 使攻击者能够在被攻破的系统中获得持久性，并通过隐藏文件、进程和
+    rootkit 本身的存在来掩盖活动。尽管 rootkit 现在几乎不存在了，但我们认为有必要讨论一些主要的分析技术，帮助你检测内核对象及其相关接口的操作。
+- en: Examining kernel objects
+  id: totrans-193
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 检查内核对象
+- en: 'To begin with, rootkits are loaded kernel modules. Accordingly, we need methods
+    to detect loaded modules. For this case, Volatility has a couple of nice plugins:
+    `linux_lsmod`, which enumerates kernel modules, and `linux_hidden_modules`, which
+    carves memory to find hidden kernel modules.'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，rootkit 是已加载的内核模块。因此，我们需要检测已加载模块的方法。在这种情况下，Volatility 提供了一些非常实用的插件：`linux_lsmod`，它列举内核模块，以及
+    `linux_hidden_modules`，它通过内存切割找到隐藏的内核模块。
+- en: 'The first plugin enumerates kernel modules by walking the global list stored
+    within the `modules` variable. The output looks as follows:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个插件通过遍历 `modules` 变量中存储的全局列表来列举内核模块。输出结果如下所示：
+- en: '![Figure 9.38 – List of loaded kernel modules'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.38 – 加载的内核模块列表](img/Figure_9.38_B17056.jpg)'
+- en: '](img/Figure_9.38_B17056.jpg)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.38_B17056.jpg)'
+- en: Figure 9.38 – List of loaded kernel modules
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.38 – 加载的内核模块列表
+- en: Here, we can see the names of the loaded modules and their size. Note that if
+    you used tools that require the kernel module to be loaded when dumping, the loaded
+    module will also be on this list. For example, in our case, in the first line,
+    you can see the lime module.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到已加载模块的名称及其大小。请注意，如果使用需要加载内核模块进行转储的工具，加载的模块也会出现在此列表中。例如，在我们的案例中，第一行中可以看到
+    lime 模块。
+- en: 'The `linux_hidden_modules` plugin scans memory for instances of a module structure
+    and then compares the results with the list of modules reported by `linux_lsmod`.
+    It looks like this:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`linux_hidden_modules` 插件扫描内存中的模块结构实例，并将结果与 `linux_lsmod` 报告的模块列表进行比较。它的效果如下：'
+- en: '![Figure 9.39 – List of hidden kernel modules'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.39 – 隐藏的内核模块列表](img/Figure_9.39_B17056.jpg)'
+- en: '](img/Figure_9.39_B17056.jpg)'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.39_B17056.jpg)'
+- en: Figure 9.39 – List of hidden kernel modules
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.39 – 隐藏的内核模块列表
+- en: 'As we can see, there are two hidden modules in our case. In order to analyze
+    them, we can try to extract them with the Volatility `linux_moddump` plugin. To
+    do this, we have to use the `-b` option to set the base address and the `-D` option
+    to set the directory to save the result. For example, if we want to try to extract
+    the `RG24XR24AR24` module, we will need to run the following command:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，在我们的案例中有两个隐藏的模块。为了分析它们，我们可以尝试使用 Volatility 的 `linux_moddump` 插件提取它们。为此，我们需要使用
+    `-b` 选项设置基地址，并使用 `-D` 选项设置保存结果的目录。例如，如果我们想尝试提取 `RG24XR24AR24` 模块，我们需要运行以下命令：
+- en: '[PRE3]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Of course, rootkits will not always try to hide their module; instead, they
+    may use masquerading and try to look like legitimate modules. In this case, to
+    find the rootkit, it is possible to extract all modules found with `linux_lsmod`
+    and compare them with their legitimate counterparts.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，rootkit 不一定总是试图隐藏其模块；相反，它们可能会使用伪装，并试图看起来像合法的模块。在这种情况下，为了找到 rootkit，可以提取通过
+    `linux_lsmod` 找到的所有模块，并将它们与合法的模块进行比较。
+- en: Another important point is that rootkits often use hooking to perform their
+    activities.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个重要的观点是，rootkit 经常使用钩子来执行其活动。
+- en: Important Note
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Hooking is the process of modifying or augmenting the behavior of the operating
+    system, applications, or other software components by intercepting function calls,
+    messages, or events passed between those components.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 钩子（Hooking）是通过拦截在组件之间传递的函数调用、消息或事件来修改或增强操作系统、应用程序或其他软件组件行为的过程。
+- en: There are many hooking techniques, but the most common are IDT and syscall hooks.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 钩子技术有很多种，但最常见的是 IDT 钩子和系统调用钩子（syscall hooks）。
+- en: Important Note
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: An **Interrupt Descriptor Table** (**IDT**) stores pointers to interrupt service
+    routines. When an interrupt occurs, the processor stops its activity and calls
+    the interrupt service routine, which handles the interrupt. Such interrupts can
+    be triggered by button presses, mouse movements, or other events.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**中断描述符表**（**IDT**）存储指向中断服务例程的指针。当发生中断时，处理器停止当前活动并调用中断服务例程来处理该中断。此类中断可能由按钮按下、鼠标移动或其他事件触发。'
+- en: '`syscall` function that allows such calls to be made directly, and the Linux
+    system call table itself is part of that operating system''s API.'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`syscall` 函数允许直接进行此类调用，而 Linux 系统调用表本身就是该操作系统 API 的一部分。'
+- en: Volatility provides the `linux_check_idt` and `linux_check_syscall` plugins
+    to detect IDT and syscall hooks.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Volatility 提供了 `linux_check_idt` 和 `linux_check_syscall` 插件来检测 IDT 和系统调用钩子。
+- en: 'Running the first plugin is as follows:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个插件的运行方式如下：
+- en: '![Figure 9.40 – IDT hooks'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.40 – IDT 钩子'
+- en: '](img/Figure_9.40_B17056.jpg)'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.40_B17056.jpg)'
+- en: Figure 9.40 – IDT hooks
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.40 – IDT 钩子
+- en: In our case, no IDT hooks were detected because we would have seen the word
+    `HOOKED` in the output.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的案例中，没有检测到 IDT 钩子，因为我们会在输出中看到 `HOOKED` 这个词。
+- en: 'The second plugin runs the same way:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个插件的运行方式与第一个相同：
+- en: '![Figure 9.41 – Syscall hooks'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 9.41 – 系统调用钩子'
+- en: '](img/Figure_9.41_B17056.jpg)'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Figure_9.41_B17056.jpg)'
+- en: Figure 9.41 – Syscall hooks
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 9.41 – 系统调用钩子
+- en: Here, the situation is more interesting. We see a lot of system call hooks,
+    but unfortunately, there is no additional information about these hooks, so we
+    will have to analyze them manually.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，情况更为复杂。我们看到很多系统调用钩子，但遗憾的是没有关于这些钩子的额外信息，所以我们需要手动分析它们。
+- en: 'Among other things, Volatility provides a few more plugins for analyzing other
+    types of hooks:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除此之外，Volatility 还提供了几个插件，用于分析其他类型的钩子：
+- en: '`linux_apihooks` – Checks for userland apihooks'
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_apihooks` – 检查用户空间 API 钩子'
+- en: '`linux_check_evt_arm` – Checks the exception vector table to look for syscall
+    table hooking'
+  id: totrans-227
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_check_evt_arm` – 检查异常向量表，查找系统调用表钩子'
+- en: '`linux_check_inline_kernel` – Checks for inline kernel hooks'
+  id: totrans-228
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_check_inline_kernel` – 检查内联内核钩子'
+- en: '`linux_check_tty` – Checks the tty devices for hooks'
+  id: totrans-229
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`linux_check_tty` – 检查 tty 设备中的钩子'
+- en: In some situations, rootkits can also interact with different files. Volatility
+    allows us to find files that are opened from within the kernel with the `linux_kernel_opened_files`
+    plugin and to check file operation structures for rootkit modifications with the
+    `linux_check_fop` plugin.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，根套件（rootkits）也可以与不同的文件进行交互。Volatility 允许我们通过 `linux_kernel_opened_files`
+    插件找到从内核内部打开的文件，并通过 `linux_check_fop` 插件检查文件操作结构是否存在根套件修改。
+- en: This is how we can do an initial examination of kernel objects and search for
+    rootkits. But again, at the time of writing this book, rootkits are almost obsolete.
+    They have been replaced by the use of post-exploitation frameworks and dedicated
+    malware.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们如何进行初步的内核对象检查并搜索根套件。但是，再次说明，在写这本书时，根套件几乎已经过时。它们已被后期利用框架和专用恶意软件取代。
+- en: Summary
+  id: totrans-232
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: The techniques used to detect and analyze malicious activity on Linux-based
+    systems are similar to those used on Windows operating systems. We concentrate
+    on the investigation of active network connections and various anomalies in the
+    processes and their behavior. However, analysis of such activity often comes down
+    to examining network traffic dumps, which can also be extracted from memory; investigating
+    the memory of individual processes; or examining the filesystem in memory. In
+    most cases, it is these three elements that allow us to find the necessary evidence
+    and reconstruct the actions of the threat actors.
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于检测和分析 Linux 系统上恶意活动的技术与用于 Windows 操作系统的技术类似。我们集中在调查活跃的网络连接和进程行为中的各种异常。然而，这种活动的分析通常归结为检查网络流量转储（也可以从内存中提取）、调查单个进程的内存，或检查内存中的文件系统。在大多数情况下，正是这三个元素帮助我们找到必要的证据并重建威胁行为者的行动。
+- en: Undoubtedly, knowledge of the filesystem structure, the location, and the contents
+    of the major files play an important role in the investigation of Linux-based
+    systems. Thus, knowing what software is being used on the system under investigation,
+    and knowing where its logs and configuration files are stored, will allow you
+    to easily find the information you need and fill in the missing details of the
+    incident.
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 毫无疑问，了解文件系统结构、主要文件的位置和内容在调查基于 Linux 的系统中起着重要作用。因此，了解被调查系统上使用的软件，以及知道它的日志和配置文件存储在哪里，将使你能够轻松找到所需的信息并补充事件中的缺失细节。
+- en: This concludes our examination of Linux-based systems memory. Our last stop
+    on this difficult but fascinating journey will be devoted to macOS. We will discuss
+    the process of obtaining memory dumps from macOS and actually investigating them.
+    So, we cannot wait to see you in the next part.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就结束了我们对基于 Linux 系统内存的研究。我们在这段艰难但迷人的旅程中的最后一站将专注于 macOS。我们将讨论如何从 macOS 获取内存转储并实际进行调查。所以，我们迫不及待地想在下一部分见到你。

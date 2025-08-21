@@ -1,0 +1,1740 @@
+- en: '*Chapter 5*: Reversing Malware Using Ghidra'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第5章*：使用Ghidra逆向分析恶意软件'
+- en: In this chapter, we will introduce reverse engineering malware using Ghidra.
+    By using Ghidra, you will be able to analyze executable binary files containing
+    malicious code.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍使用Ghidra进行恶意软件的逆向工程。通过使用Ghidra，您将能够分析包含恶意代码的可执行二进制文件。
+- en: This chapter is a great opportunity to put into practice the knowledge acquired
+    during [*Chapter 1*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017), *Getting
+    Started with Ghidra*, and [*Chapter 2*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031),
+    *Automating RE Tasks with Ghidra Scripts*, about Ghidra's features and capabilities.
+    To put this knowledge into practice, we will analyze the Alina **Point of Sale**
+    (**PoS**) malware. This malware basically scrapes the RAM memory of PoS systems
+    to steal credit card and debit card information.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章是一个绝佳的机会，让您将[*第1章*](B16207_01_Final_SK_ePub.xhtml#_idTextAnchor017)，《Ghidra入门》和[*第2章*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031)，《使用Ghidra脚本自动化逆向工程任务》中的知识应用于实践。为了将这些知识付诸实践，我们将分析Alina
+    **销售点** (**PoS**) 恶意软件。该恶意软件基本上通过刮取PoS系统的内存来窃取信用卡和借记卡信息。
+- en: Our approach will start by setting up a safe analysis environment, then we will
+    look for malware indicators in the malware sample, and, finally, we will conclude
+    by performing in-depth malware analysis using Ghidra.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的方法将从设置安全的分析环境开始，然后我们将寻找恶意软件样本中的恶意软件指示符，最后，我们将通过使用Ghidra进行深入的恶意软件分析来结束。
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将覆盖以下主要主题：
+- en: Setting up the environment
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 设置环境
+- en: Looking for malware indicators
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 寻找恶意软件指示符
+- en: Dissecting interesting malware sample parts
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 剖析有趣的恶意软件样本部分
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The requirements for this chapter are as follows:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的要求如下：
+- en: 'VirtualBox, an x86 and AMD64/Intel64 virtualization software: [https://www.virtualbox.org/wiki/Downloads](https://www.virtualbox.org/wiki/Downloads)'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: VirtualBox，x86和AMD64/Intel64虚拟化软件：[https://www.virtualbox.org/wiki/Downloads](https://www.virtualbox.org/wiki/Downloads)
+- en: 'VirusTotal, an online malware analysis tool that aggregates many antivirus
+    engines and online engines for scanning: [https://www.virustotal.com/](https://www.virustotal.com/)'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: VirusTotal，一种在线恶意软件分析工具，汇集了多种杀毒引擎和在线引擎进行扫描：[https://www.virustotal.com/](https://www.virustotal.com/)
+- en: The GitHub repository containing all the necessary code for this chapter can
+    be found at [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter05](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter05).
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章所需的所有代码可以在以下GitHub仓库中找到：[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter05](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter05)
+- en: 'Check out the following link to see the Code in Action video: [https://bit.ly/3ou4OgP](https://bit.ly/3ou4OgP)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请查看以下链接，观看“Code in Action”视频：[https://bit.ly/3ou4OgP](https://bit.ly/3ou4OgP)
+- en: Setting up the environment
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设置环境
+- en: At the time of writing this book, the public version of Ghidra has no debugging
+    support for binaries. This limits the scope of Ghidra to static analysis, meaning
+    files are analyzed without being executed.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在撰写本书时，Ghidra的公开版本尚不支持二进制文件的调试。这将Ghidra的功能范围限制为静态分析，即分析文件时不执行它们。
+- en: But, of course, Ghidra static analysis can complement the dynamic analysis performed
+    by any existing debugger of your choice (such as x64dbg, WinDbg, and OllyDbg).
+    Both types of analysis can be performed in parallel.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但当然，Ghidra的静态分析可以补充您选择的任何现有调试器（例如x64dbg、WinDbg和OllyDbg）所执行的动态分析。这两种分析可以并行进行。
+- en: Setting up an environment for malware analysis is a broad topic, so we will
+    cover the basics of using Ghidra for this purpose. Keep in mind that the golden
+    rule when setting up a malware analysis environment is to isolate it from your
+    computer and network. Even if you are performing static analysis, it is recommended
+    to set up an isolated environment because you have no guarantee that the malware
+    won't exploit some Ghidra vulnerability and get executed anyway.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设置恶意软件分析环境是一个广泛的话题，因此我们将介绍使用Ghidra进行此目的的基础知识。请记住，设置恶意软件分析环境时的黄金法则是将其与您的计算机和网络隔离。即使您正在进行静态分析，建议还是设置一个隔离的环境，因为无法保证恶意软件不会利用某些Ghidra漏洞并最终执行。
+- en: The CVE-2019-17664 and CVE-2019-17665 Ghidra vulnerabilities
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CVE-2019-17664和CVE-2019-17665 Ghidra漏洞
+- en: 'I found two vulnerabilities on Ghidra that could lead to the unexpected execution
+    of malware when it is named: `cmd.exe` or `jansi.dll`. At the time of writing
+    this book, CVE-2019-17664 is not fixed yet: [https://github.com/NationalSecurityAgency/ghidra/issues/107](https://github.com/NationalSecurityAgency/ghidra/issues/107).'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我发现 Ghidra 存在两个漏洞，当恶意软件文件名为 `cmd.exe` 或 `jansi.dll` 时，可能会导致意外执行。在撰写本书时，CVE-2019-17664
+    仍未修复：[https://github.com/NationalSecurityAgency/ghidra/issues/107](https://github.com/NationalSecurityAgency/ghidra/issues/107)。
+- en: In order to analyze malware, you can use a physical computer (restorable to
+    a clean state via hard disk drive backups) or a virtual one. The first option
+    is more realistic but slower when restoring the backup and more expensive.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了分析恶意软件，你可以使用一台物理计算机（通过硬盘备份恢复到干净的状态）或者虚拟机。第一个选项更为现实，但恢复备份时速度较慢且成本更高。
+- en: You also have to isolate your network. A good example to illustrate the risk
+    is ransomware encrypting the shared folders during analysis.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还需要隔离你的网络。一个好的例子是，在分析过程中勒索软件会加密共享文件夹。
+- en: Let's use a VirtualBox virtualized environment, with read-only (for safety reasons)
+    shared folders in order to transfer files from the host machine to the guest and
+    no internet connection as it is not necessary for static analysis.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用一个 VirtualBox 虚拟化环境，设置只读（出于安全原因）共享文件夹，以便从宿主机转移文件到虚拟机，并且不连接互联网，因为静态分析不需要网络连接。
+- en: 'Then, we follow these steps:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们按照以下步骤进行：
+- en: 'Install VirtualBox by downloading it from the following link: [https://www.virtualbox.org/wiki/Downloads](https://www.virtualbox.org/wiki/Downloads)'
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过以下链接下载并安装 VirtualBox：[https://www.virtualbox.org/wiki/Downloads](https://www.virtualbox.org/wiki/Downloads)
+- en: 'Create a new VirtualBox virtual machine or download it from Microsoft: [https://aka.ms/windev_VM_virtualbox](https://aka.ms/windev_VM_virtualbox)'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个新的 VirtualBox 虚拟机，或者从 Microsoft 下载：[https://aka.ms/windev_VM_virtualbox](https://aka.ms/windev_VM_virtualbox)
+- en: 'Set up a VirtualBox read-only shared folder, allowing you to transfer files
+    from the host machine to the guest: https://www.virtualbox.org/manual/ch04.html#sharedfolders.'
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 设置一个 VirtualBox 只读共享文件夹，允许你将文件从宿主机转移到虚拟机：[https://www.virtualbox.org/manual/ch04.html#sharedfolders](https://www.virtualbox.org/manual/ch04.html#sharedfolders)。
+- en: Transfer Ghidra and its required dependencies to the guest machine, install
+    it, and also transfer the malware you are interested in analyzing.
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将 Ghidra 及其所需的依赖项转移到虚拟机上，安装它，并且还要转移你打算分析的恶意软件。
+- en: Additionally, you can transfer your own arsenal of Ghidra scripts and extensions.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，你还可以转移你自己的一套 Ghidra 脚本和扩展。
+- en: Looking for malware indicators
+  id: totrans-29
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 寻找恶意软件指示符
+- en: 'As you probably remember from previous chapters, Ghidra works with projects
+    containing zero or more files. Alina malware consists of two components: a Windows
+    driver (`rt.sys`) and a Portable Executable (`park.exe`). Therefore, a compressed
+    Ghidra project (`alina_ghidra_project.zip`) containing both components can be
+    found in the relevant GitHub project created for this book.'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能记得的那样，Ghidra 通过包含零个或多个文件的项目来工作。Alina 恶意软件由两个组件组成：一个 Windows 驱动程序（`rt.sys`）和一个便携式可执行文件（`park.exe`）。因此，一个包含这两个组件的压缩
+    Ghidra 项目（`alina_ghidra_project.zip`）可以在本书为此创建的相关 GitHub 项目中找到。
+- en: If you want to get the Alina malware sample as is instead of a Ghidra project,
+    you can also find it in the GitHub project (`alina_malware_sample.zip`), compressed
+    and protected with the password `infected`. It is quite common to share malware
+    in this way so that it does not accidentally get infected.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想直接获得 Alina 恶意软件样本，而不是 Ghidra 项目，你也可以在 GitHub 项目中找到它（`alina_malware_sample.zip`），它已被压缩并使用密码
+    `infected` 保护。这种共享恶意软件的方式很常见，以避免它被意外感染。
+- en: Next, we will try to quickly guess what kind of malware we are dealing with
+    in general terms. To do that, we will look for strings, which can be revealing
+    in many cases. We will also check external sources, which can be useful if the
+    malware has been analyzed or classified. Finally, we will analyze its capabilities
+    by looking for **Dynamic Linking Library** (**DLL**) functions.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将尝试快速猜测我们正在处理的恶意软件的大致类型。为此，我们将寻找字符串，很多情况下它们可以揭示有用的信息。我们还会检查外部来源，如果恶意软件已经被分析或分类，这些信息可能会很有用。最后，我们将通过查找**动态链接库**（**DLL**）函数来分析它的功能。
+- en: Looking for strings
+  id: totrans-33
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 寻找字符串
+- en: 'Let''s start by opening the Ghidra project and double-clicking on the `park.exe`
+    file from the Ghidra project in order to analyze it using `park.exe` outside of
+    the Ghidra project as it is malware and your system can get infected. A good starting
+    point is to list the strings of the file. We''ll go to **Search** | **For Strings…**
+    and start to analyze it:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们先打开 Ghidra 项目，双击 Ghidra 项目中的 `park.exe` 文件，然后使用 `park.exe` 外部分析它，因为它是恶意软件，您的系统可能会被感染。一个好的起点是列出文件中的字符串。我们将去
+    **搜索** | **查找字符串...** 开始分析：
+- en: '![Figure 5.1 – Some interesting strings found in park.exe'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.1 – 在 park.exe 中发现的一些有趣的字符串'
+- en: '](img/B16207_05_001.jpg)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_001.jpg)'
+- en: Figure 5.1 – Some interesting strings found in park.exe
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – 在 park.exe 中发现的一些有趣的字符串
+- en: As shown in the preceding screenshot, the user `Benson` seems to have compiled
+    this malware. This information could be useful to investigate the attribution
+    of this malware. There are a lot of suspicious strings here.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如上图所示，用户 `Benson` 似乎编译了这个恶意软件。这些信息可能对调查该恶意软件的归属有所帮助。这里有很多可疑的字符串。
+- en: For instance, it is hard to imagine the reason behind a legitimate program making
+    reference to `windefender.exe`. Also, `SHELLCODE_MUTEX` and **System Service Dispatch
+    Table** (**SSDT**) hooking references are both explicitly malicious.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，很难想象一个合法程序会引用 `windefender.exe`。此外，`SHELLCODE_MUTEX` 和 **系统服务分派表**（**SSDT**）的挂钩引用显然是恶意的。
+- en: System Service Dispatch Table
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 系统服务分派表
+- en: SSDT is an array of addresses to kernel routines for 32-bit Windows operating
+    systems or an array of relative offsets to the same routines for 64-bit Windows
+    operating systems.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SSDT 是针对 32 位 Windows 操作系统的内核例程的地址数组，或者是针对 64 位 Windows 操作系统的相对偏移数组，用于相同的例程。
+- en: A quick overview of the strings of the program can sometimes reveal whether
+    it is malware or not without further analysis. Simple and powerful.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对程序字符串的快速概览有时可以揭示它是否为恶意软件，无需进一步分析。简单且强大。
+- en: Intelligence information and external sources
+  id: totrans-43
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 情报信息和外部资源
+- en: 'It is also useful to investigate the information found using external sources
+    such as intelligence tools. For instance, as shown in the following screenshot,
+    we identified two domains when looking for strings, which can be investigated
+    using VirusTotal:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用外部资源（如情报工具）调查发现的信息也是很有用的。例如，在下面的截图中，我们通过查找字符串识别出了两个域名，这些域名可以通过 VirusTotal
+    进一步调查：
+- en: '![Figure 5.2 – Two domains found in strings'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.2 – 字符串中找到的两个域名'
+- en: '](img/B16207_05_002.jpg)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_002.jpg)'
+- en: Figure 5.2 – Two domains found in strings
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2 – 字符串中找到的两个域名
+- en: 'To analyze a URL in VirusTotal, go to the following link, write the domain,
+    and click on the magnifying glass icon to proceed: [https://www.virustotal.com/gui/home/url](https://www.virustotal.com/gui/home/url):'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 VirusTotal 中分析一个 URL，请访问以下链接，输入域名，然后点击放大镜图标继续：[https://www.virustotal.com/gui/home/url](https://www.virustotal.com/gui/home/url)：
+- en: '![Figure 5.3 – Searching for the URL to be analyzed'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.3 – 查找要分析的 URL'
+- en: '](img/B16207_05_003.jpg)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_003.jpg)'
+- en: Figure 5.3 – Searching for the URL to be analyzed
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 查找要分析的 URL
+- en: Search results are dynamic and might change from time to time. In this case,
+    both domains produce positive results in VirusTotal. The results can be viewed
+    at [https://www.virustotal.com/gui/url/422f1425108ae35666d2 f86f46f9cf565141cf6601c6924534cb7d9a536645bc/detection:](https://www.virustotal.com/gui/url/422f1425108ae35666d2f86f46f9cf565141cf6601c6924534cb7d9a536645bc/detection)
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 搜索结果是动态的，可能会随时变化。在这种情况下，这两个域名在 VirusTotal 中均产生了正面结果。结果可以在以下链接查看：[https://www.virustotal.com/gui/url/422f1425108ae35666d2f86f46f9cf565141cf6601c6924534cb7d9a536645bc/detection:](https://www.virustotal.com/gui/url/422f1425108ae35666d2f86f46f9cf565141cf6601c6924534cb7d9a536645bc/detection)
+- en: '![Figure 5.4 – Two domains found in strings'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.4 – 字符串中找到的两个域名'
+- en: '](img/B16207_05_004.jpg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_004.jpg)'
+- en: Figure 5.4 – Two domains found in strings
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – 字符串中找到的两个域名
+- en: 'Apart from that, VirusTotal can provide more useful information that you can
+    find by browsing through the page. For instance, it detected that the `javaoracle2.ru`
+    domain was also referenced by other suspicious files:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，VirusTotal 还可以提供更多有用的信息，您可以通过浏览页面找到这些信息。例如，它检测到 `javaoracle2.ru` 域名也被其他可疑文件引用：
+- en: '![Figure 5.5 – Malware threats referencing javaoracle2.ru'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.5 – 引用 javaoracle2.ru 的恶意软件威胁'
+- en: '](img/B16207_05_005.jpg)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_005.jpg)'
+- en: Figure 5.5 – Malware threats referencing javaoracle2.ru
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – 引用 javaoracle2.ru 的恶意软件威胁
+- en: When analyzing malware, it is recommended to review public resources before
+    starting the analysis because it can bring you a lot of useful information for
+    the starting point.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析恶意软件时，建议在开始分析之前先查看公共资源，因为它可以为你提供许多有用的信息，帮助你找到分析的起点。
+- en: How to look for malware indicators
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如何查找恶意软件指示
+- en: 'When looking for malware indicators, don''t just try to look for strings used
+    for malicious purposes, but also look for anomalies. Malware is usually easily
+    recognized for multiple reasons: some strings will never be found in goodware
+    files and the code could be artificially complex.'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在寻找恶意软件指示时，不仅要寻找用于恶意目的的字符串，还要注意异常情况。恶意软件通常容易被识别，原因有很多：某些字符串永远不会出现在良性文件中，且代码可能被人为地复杂化。
+- en: It is also interesting to check the imports of the file in order to investigate
+    its capabilities.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还可以通过检查文件的导入项来调查其功能。
+- en: Checking import functions
+  id: totrans-64
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 检查导入函数
+- en: 'As the binary references some malicious servers, it must implement some kind
+    of network communication. In this case, this communication is performed via an
+    HTTP protocol, as shown in the following import functions located in Ghidra''s
+    CodeBrowser **Symbol Tree** window:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于该二进制文件引用了一些恶意服务器，它必须实现某种网络通信。在这种情况下，通信是通过HTTP协议进行的，以下导入函数位于Ghidra的CodeBrowser
+    **符号树**窗口中：
+- en: '![Figure 5.6 – HTTP communication-related imports'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.6 – 与HTTP通信相关的导入项'
+- en: '](img/B16207_05_006.jpg)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_006.jpg)'
+- en: Figure 5.6 – HTTP communication-related imports
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – 与HTTP通信相关的导入项
+- en: 'Looking at `ADVAPI32.DLL`, we can identify functions named **Reg*** that allow
+    us to work with the Windows Registry, while others that mention the word **Service**
+    or **SCManager** allow us to interact with the Windows Service Control Manager,
+    which enables us to load drivers:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看`ADVAPI32.DLL`，我们可以识别出名为**Reg***的函数，这些函数允许我们操作Windows注册表，而其他提到**Service**或**SCManager**的函数则允许我们与Windows服务控制管理器交互，从而加载驱动程序：
+- en: '![Figure 5.7 – Windows Registry- and Service Control Manager-related imports'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.7 – 与Windows注册表和服务控制管理器相关的导入项'
+- en: '](img/B16207_05_007.jpg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_007.jpg)'
+- en: Figure 5.7 – Windows Registry- and Service Control Manager-related imports
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.7 – 与Windows注册表和服务控制管理器相关的导入项
+- en: 'There are really a lot of imports from `KERNEL32.DLL`, so, as well as many
+    other things, it allows us to interact with and perform actions related to named
+    pipes, files, and processes:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`KERNEL32.DLL`中有很多导入项，因此，它允许我们与命名管道、文件和进程进行交互并执行相关操作：'
+- en: '![Figure 5.8 – HTTP communication'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.8 – HTTP通信'
+- en: '](img/B16207_05_008.jpg)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_008.jpg)'
+- en: Figure 5.8 – HTTP communication
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.8 – HTTP通信
+- en: Runtime imports
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行时导入项
+- en: Remember that libraries imported at runtime and/or functions resolved at runtime
+    will not be listed in **Symbol Tree**, so be aware that the capabilities of the
+    program may not have been fully identified.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 记住，运行时导入的库和/或在运行时解析的函数不会列出在**符号树**中，因此要注意程序的功能可能并没有被完全识别。
+- en: We have identified a lot of things with a very quick analysis. If you are experienced,
+    you will know malware code patterns, leading to mentally matching API functions
+    with strings and easily inferring what the malware will try to do when given the
+    previously shown information.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过非常快速的分析，我们已经识别出了很多东西。如果你有经验，你会知道恶意软件的代码模式，从而通过将API函数与字符串相匹配，轻松推测恶意软件在给定前面所示信息时会尝试做什么。
+- en: Dissecting interesting malware sample parts
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 剖析有趣的恶意软件样本部分
+- en: 'As mentioned before, this malware consists of two components: a Portable Executable
+    file (`park.exe`) and a Windows driver file (`rk.sys`).'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，这个恶意软件由两个组件组成：一个可执行文件（`park.exe`）和一个Windows驱动文件（`rk.sys`）。
+- en: 'When more than one malicious file is found on a computer, it is quite common
+    that one of them generates the other(s). As `park.exe` can be executed by double-clicking
+    on it, while `rk.sys` must be loaded by another component such as the Windows
+    Service Control Manager or another driver, we can initially assume that `park.exe`
+    was executed and then it dropped `rk.sys` to the disk. In fact, during our static
+    analysis of the imports, we notice that `park.exe` has APIs to deal with the Windows
+    Service Control Manager. As shown in the following screenshot, this file starts
+    with the following pattern: `4d 5a 90 00`. The starting bytes are also used as
+    the signature of files; these signatures are also known as magic numbers or magic
+    bytes. In this case, the signature indicates that this file is a Portable Executable
+    (the file format for executables, object code, DLLs, and others used in 32-bit
+    and 64-bit versions of Windows operating systems):'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当计算机上发现多个恶意文件时，通常其中一个会生成其他恶意文件。由于`park.exe`可以通过双击执行，而`rk.sys`必须由另一个组件加载，如 Windows
+    服务控制管理器或其他驱动程序，我们可以初步假设是`park.exe`被执行后，将`rk.sys`写入磁盘。实际上，在我们对导入项的静态分析过程中，我们注意到`park.exe`具有处理
+    Windows 服务控制管理器的 API。如以下截图所示，该文件以如下模式开始：`4d 5a 90 00`。这些起始字节也常用作文件的签名，这些签名也被称为魔术数字或魔术字节。在本例中，签名表明该文件是可执行文件（Portable
+    Executable，适用于 32 位和 64 位 Windows 操作系统中的可执行文件、目标代码、DLL 等文件格式）：
+- en: '![Figure 5.9 – rk.sys file overview'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.9 – rk.sys 文件概览'
+- en: '](img/B16207_05_009.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_009.jpg)'
+- en: Figure 5.9 – rk.sys file overview
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9 – rk.sys 文件概览
+- en: 'By calculating the difference between the start address and the end address,
+    we obtained the size of the file, which is `0x51ff`, which will be used later
+    for extracting the `rk.sys` file embedded in `park.exe`. It is a great idea to
+    use the Python interpreter for this simple calculation:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过计算起始地址和结束地址之间的差值，我们获得了文件的大小，即`0x51ff`，这一值稍后将用于提取嵌入在`park.exe`中的`rk.sys`文件。使用
+    Python 解释器进行这个简单的计算是个不错的主意：
+- en: '![Figure 5.10 – rk.sys file size'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.10 – rk.sys 文件大小'
+- en: '](img/B16207_05_010.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_010.jpg)'
+- en: Figure 5.10 – rk.sys file size
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10 – rk.sys 文件大小
+- en: 'Then, we open `park.exe` and look for the file by clicking on `4D 5A 90 00`
+    pattern. Click on **Search All** to see all occurrences:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们打开`park.exe`，并通过点击`4D 5A 90 00`模式来查找文件。点击**搜索所有**以查看所有出现的实例：
+- en: '![Figure 5.11 – Looking for PE headers'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.11 – 查找 PE 头部'
+- en: '](img/B16207_05_011.jpg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_011.jpg)'
+- en: Figure 5.11 – Looking for PE headers
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – 查找 PE 头部
+- en: 'You will see two occurrences of this header pattern. The first one corresponds
+    to the header of the file we are analyzing, which is `park.exe`, while the second
+    one corresponds to the embedded `rk.sys`:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你将看到该头部模式出现两次。第一次对应我们正在分析的文件头部，即`park.exe`，而第二次则对应嵌入的`rk.sys`文件：
+- en: '![Figure 5.12 – PE headers found in park.exe'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.12 – 在 park.exe 中发现的 PE 头部'
+- en: '](img/B16207_05_012.jpg)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_012.jpg)'
+- en: Figure 5.12 – PE headers found in park.exe
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.12 – 在 park.exe 中发现的 PE 头部
+- en: 'As we know now that it starts at the `0x004f6850` address and, as calculated
+    before using the Python interpreter, is `0x51FF` bytes in size, we can select
+    those bytes by clicking on **Select** | **Bytes...**, entering the length in bytes
+    to select, starting from the current address and, finally, clicking on **Select
+    Bytes**:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们现在所知，它从`0x004f6850`地址开始，且如前面使用 Python 解释器计算得到的那样，大小为`0x51FF`字节，我们可以通过点击**选择**
+    | **字节...**，输入要选择的字节长度，从当前地址开始，最后点击**选择字节**来选择这些字节：
+- en: '![Figure 5.13 – Selecting the rk.sys file inside park.exe'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.13 – 在 park.exe 内选择 rk.sys 文件'
+- en: '](img/B16207_05_013.jpg)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_013.jpg)'
+- en: Figure 5.13 – Selecting the rk.sys file inside park.exe
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.13 – 在 park.exe 内选择 rk.sys 文件
+- en: 'By right-clicking on the selected bytes and choosing **Extract and Import…**,
+    which is also available with the *Ctrl* + *Alt* + *I* hotkey, we get the following
+    screen, where a data file is added to the project containing the selected bytes:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过右键点击选定的字节并选择**提取并导入...**，也可以使用 *Ctrl* + *Alt* + *I* 快捷键，我们将看到以下界面，其中包含选定字节的数据文件被添加到项目中：
+- en: '![Figure 5.14 – The data chunk is added to the project as a *.tmp file'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.14 – 数据块作为 *.tmp 文件被添加到项目中'
+- en: '](img/B16207_05_014.jpg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_014.jpg)'
+- en: Figure 5.14 – The data chunk is added to the project as a *.tmp file
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.14 – 数据块作为 *.tmp 文件被添加到项目中
+- en: We identified all the malware components. Now, let's analyze the malware from
+    the entry point of the program.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们识别了所有恶意软件组件。现在，让我们从程序的入口点开始分析这些恶意软件。
+- en: The entry point function
+  id: totrans-107
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 入口点函数
+- en: 'Let''s analyze `park.exe`. We start by opening it with `entry` function in
+    **Symbol Tree** to do that:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们分析 `park.exe`。我们通过 **符号树** 中的 `entry` 函数来打开它并进行分析：
+- en: '![Figure 5.15 – Entry point function'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.15 – 入口点函数'
+- en: '](img/B16207_05_015.jpg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_015.jpg)'
+- en: Figure 5.15 – Entry point function
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – 入口点函数
+- en: 'The decompilation of this function looks readable. `__security__init_cookie`
+    is a memory corruption protection function introduced by the compiler, so go ahead
+    with `__tmainCRTStartup` by double-clicking on it. There are a lot of functions
+    recognized by Ghidra here, so let''s focus on the only function not recognized
+    yet – `thunk_FUN_00455f60`:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数的反编译结果很容易阅读。`__security__init_cookie` 是一个由编译器引入的内存损坏保护函数，因此继续分析 `__tmainCRTStartup`，双击它。这里有很多
+    Ghidra 已识别的函数，所以我们集中分析唯一一个尚未识别的函数 – `thunk_FUN_00455f60`：
+- en: '![Figure 5.16 – The WinMain function unrecognized'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.16 – 未识别的 WinMain 函数'
+- en: '](img/B16207_05_016.jpg)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_016.jpg)'
+- en: Figure 5.16 – The WinMain function unrecognized
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – 未识别的 WinMain 函数
+- en: 'This is the main function of the program. If you have some C++ background,
+    you will also notice that `__wincmdln` initializes some global variables, the
+    environment, and the heap for the process, and then the `WinMain` function is
+    called. So, the `thunk_FUN_00455f60` function, following `__wincmdln`, is the
+    `WinMain` function. Let''s rename `thunk_FUN_00455f60` to `WinMain` by pressing
+    the *L* key while focusing on `thunk_FUN_00455f60`:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是程序的主函数。如果你有一定的 C++ 背景，你也会注意到 `__wincmdln` 初始化了一些全局变量、环境以及进程堆，然后调用了 `WinMain`
+    函数。因此，紧跟在 `__wincmdln` 后面的 `thunk_FUN_00455f60` 函数就是 `WinMain` 函数。让我们通过按下 *L*
+    键并聚焦在 `thunk_FUN_00455f60` 上，将 `thunk_FUN_00455f60` 重命名为 `WinMain`：
+- en: '![Figure 5.17 – Renaming the thunk_FUN_00455f60 function to WinMain'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.17 – 将 thunk_FUN_00455f60 函数重命名为 WinMain'
+- en: '](img/B16207_05_017.jpg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_017.jpg)'
+- en: Figure 5.17 – Renaming the thunk_FUN_00455f60 function to WinMain
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.17 – 将 thunk_FUN_00455f60 函数重命名为 WinMain
+- en: 'Ghidra allows you to rename variables and functions, introduce comments, and
+    modify the disassembly and decompiled code in a lot of aspects. This is essential
+    when reverse engineering malware:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra 允许你重命名变量和函数，加入注释，并在多个方面修改反汇编和反编译代码。这在逆向工程恶意软件时至关重要：
+- en: '![Figure 5.18 – The WinMain function with some irrelevant code (lines 5–19)
+    omitted'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.18 – 省略了一些无关代码（第 5–19 行）的 WinMain 函数'
+- en: '](img/B16207_05_018.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_018.jpg)'
+- en: Figure 5.18 – The WinMain function with some irrelevant code (lines 5–19) omitted
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.18 – 省略了一些无关代码（第 5–19 行）的 WinMain 函数
+- en: We took those steps to identify where the malware starts to analyze its flow
+    from the beginning, but there are some functions in the decompiled code listing
+    that we don't know anything about. So, our job here is to reveal their functionality
+    in order to understand the malware.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们采取这些步骤来确定恶意软件的启动位置，并从头分析其流程，但反编译代码列表中有一些我们不清楚的函数。因此，我们的任务是揭示这些函数的功能，以便理解恶意软件。
+- en: Keep in mind that malware analysis is a time-consuming task, so don't waste
+    your time with the details, but also don't forget anything important. Next, we
+    will analyze each of the functions listed in the `WinMain` decompiled code. We
+    will start analyzing the first function, which is located on line `20` and is
+    named `thunk_FUN_00453340`.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，恶意软件分析是一项耗时的任务，因此不要在细节上浪费时间，但也不要忽视任何重要内容。接下来，我们将分析 `WinMain` 反编译代码中列出的每个函数。我们将从分析第一个函数开始，它位于第
+    `20` 行，名为 `thunk_FUN_00453340`。
+- en: Analyzing the 0x00453340 function
+  id: totrans-126
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x00453340 函数
+- en: 'We will start by analyzing the first function, `thunk_FUN_00453340`:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将从分析第一个函数 `thunk_FUN_00453340` 开始：
+- en: '![Figure 5.19 – Partial code of the FUN_00453340 function'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.19 – FUN_00453340 函数的部分代码'
+- en: '](img/B16207_05_019.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_019.jpg)'
+- en: Figure 5.19 – Partial code of the FUN_00453340 function
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.19 – FUN_00453340 函数的部分代码
+- en: 'It is creating a class using `operator_new` and then calling its constructor:
+    `thunk_FUN_0044d440`.'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它通过 `operator_new` 创建一个类，然后调用其构造函数：`thunk_FUN_0044d440`。
+- en: 'In this function, you will see some Windows API calls. Then, you can rename
+    (by pressing the *L* key) the local variables, making the code more readable:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个函数中，你会看到一些 Windows API 调用。接下来，你可以重命名（按下 *L* 键）局部变量，使代码更加可读：
+- en: '![Figure 5.20 – Renaming a function parameter computerName'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.20 – 重命名函数参数 computerName'
+- en: '](img/B16207_05_020.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_020.jpg)'
+- en: Figure 5.20 – Renaming a function parameter computerName
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.20 – 重命名函数参数 computerName
+- en: 'You can do this according to the Microsoft documentation ([https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcomputernamea](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcomputernamea)):'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以根据微软文档来执行此操作（[https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcomputernamea](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcomputernamea)）：
+- en: '![Figure 5.21 – Looking for API information in the Microsoft docs'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.21 – 在微软文档中查找 API 信息'
+- en: '](img/B16207_05_021.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_021.jpg)'
+- en: Figure 5.21 – Looking for API information in the Microsoft docs
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.21 – 在微软文档中查找 API 信息
+- en: 'In fact, it is also possible to fully modify a function by clicking on **Edit
+    Function Signature**:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，也可以通过点击 **编辑函数签名** 完全修改一个函数：
+- en: '![Figure 5.22 – Editing a function signature'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.22 – 编辑函数签名'
+- en: '](img/B16207_05_022.jpg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_022.jpg)'
+- en: Figure 5.22 – Editing a function signature
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.22 – 编辑函数签名
+- en: In this case, this function is `strcpy`, which copies the `errorretriving` string
+    to the end of the `computerName` string (which has a `NULL` value when this line
+    is reached). Then, we can modify the signature according to its name and parameters.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，这个函数是 `strcpy`，它将 `errorretriving` 字符串复制到 `computerName` 字符串的末尾（当执行到这一行时，`computerName`
+    的值为 `NULL`）。然后，我们可以根据其名称和参数修改签名。
+- en: 'We can also modify the calling convention for the function. This is important
+    because some important details depend on the calling convention:'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以修改函数的调用约定。这很重要，因为某些关键细节依赖于调用约定：
+- en: How parameters are passed to the function (by register or pushed onto the stack)
+  id: totrans-146
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 参数是如何传递给函数的（通过寄存器或压入栈中）
+- en: Designates the callee function or the calling function with the responsibility
+    of cleaning the stack
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 指定被调用函数或调用函数有责任清理堆栈
+- en: 'Refer to the following screenshot to see how `thunk_FUN_004721f0` is renamed
+    to `strcpy`:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考下面的截图，查看 `thunk_FUN_004721f0` 是如何被重命名为 `strcpy` 的：
+- en: '![Figure 5.23 – Function signature editor'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.23 – 函数签名编辑器'
+- en: '](img/B16207_05_023.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_023.jpg)'
+- en: Figure 5.23 – Function signature editor
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.23 – 函数签名编辑器
+- en: 'We can also set the following pre-comment on line `105` – `0x1a = CSIDL_APPDATA`:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以在第 `105` 行设置以下前置注释 – `0x1a = CSIDL_APPDATA`：
+- en: '![Figure 5.24 – Setting a pre-comment'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.24 – 设置前置注释'
+- en: '](img/B16207_05_024.jpg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_024.jpg)'
+- en: Figure 5.24 – Setting a pre-comment
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.24 – 设置前置注释
+- en: 'This indicates that the second parameter of `SHGetFolderPathA` means the `%APPDATA%`
+    directory:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这表明 `SHGetFolderPathA` 的第二个参数代表 `%APPDATA%` 目录：
+- en: '![Figure 5.25 – Pre-comment in the decompiled code'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.25 – 反编译代码中的前置注释'
+- en: '](img/B16207_05_025.jpg)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_025.jpg)'
+- en: Figure 5.25 – Pre-comment in the decompiled code
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.25 – 反编译代码中的前置注释
+- en: After some analysis, you will notice that this function makes an RC4-encrypted
+    copy of the malware as `windefender.exe` in `%APPDATA%\ntkrnl\`.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 经过一些分析后，你会注意到这个函数会将恶意软件的一个 RC4 加密副本作为 `windefender.exe` 保存到 `%APPDATA%\ntkrnl\`
+    目录下。
+- en: Analyzing the 0x00453C10 function
+  id: totrans-161
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x00453C10 函数
+- en: 'Sometimes, the decompiled code is not correct and is incomplete; so, also check
+    the disassembly listing. In this case, we are dealing with a list of strings representing
+    files to delete but in the decompiled code, it is not shown:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时候，反编译的代码不正确并且不完整，因此也需要检查反汇编列表。在这种情况下，我们处理的是一个表示要删除的文件的字符串列表，但在反编译的代码中并没有显示：
+- en: '![Figure 5.26 – Showing a list of strings'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.26 – 显示字符串列表'
+- en: '](img/B16207_05_026.jpg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_026.jpg)'
+- en: Figure 5.26 – Showing a list of strings
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.26 – 显示字符串列表
+- en: This function is cleaning previous infections by deleting these files. As you
+    can see, the malware tries to be a little stealthy using names of legitimate programs.
+    Let's rename this function `cleanPreviousInfections` and continue with other functions.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数通过删除这些文件来清除之前的感染。正如你所看到的，恶意软件尝试使用合法程序的名称来伪装自己。让我们将这个函数重命名为 `cleanPreviousInfections`，然后继续处理其他函数。
+- en: Analyzing the 0x0046EA60 function
+  id: totrans-167
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x0046EA60 函数
+- en: 'This function creates a named `\\\\.\\pipe\\spark` pipe, which is an **Inter-Process
+    Communication** (**IPC**) mechanism:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数创建了一个名为 `\\\\.\\pipe\\spark` 的管道，这是一个 **进程间通信**（**IPC**）机制：
+- en: '![Figure 5.27 – Creating a named pipe'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.27 – 创建命名管道'
+- en: '](img/B16207_05_027.jpg)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_027.jpg)'
+- en: Figure 5.27 – Creating a named pipe
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.27 – 创建命名管道
+- en: Inter-process communication
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程间通信
+- en: IPC is a mechanism that allows processes to communicate with each other and
+    synchronize their actions. The communication between these processes can be seen
+    as a method of co-operation between them.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IPC 是一种机制，允许进程之间相互通信并同步它们的操作。这些进程之间的通信可以视为它们之间的协作方法。
+- en: Since a named pipe is created, we can expect to see some kind of communication
+    between malware components using it.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于创建了命名管道，我们可以预期看到恶意软件组件之间使用它进行某种通信。
+- en: Analyzing the 0x0046BEB0 function
+  id: totrans-175
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x0046BEB0 函数
+- en: 'This function sets up the command and control URL:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数设置了命令和控制的 URL：
+- en: '![Figure 5.28 – Command and control domains and endpoints'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.28 – 命令和控制域名及端点'
+- en: '](img/B16207_05_028.jpg)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_028.jpg)'
+- en: Figure 5.28 – Command and control domains and endpoints
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.28 – 命令和控制域名及端点
+- en: Analyzing the 0x0046E3A0 function
+  id: totrans-180
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x0046E3A0 函数
+- en: 'By analyzing this function, we notice that the pipe is used for some kind of
+    synchronization. The `CreateThread` API function receives as parameters the function
+    to execute as a thread and an argument to pass to the function; so, when a thread
+    creation appears, we have to analyze a new function – in this case, `lpStartAddress_00449049`:'
+  id: totrans-181
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 通过分析这个函数，我们注意到管道用于某种同步。`CreateThread` API 函数接收的参数是要作为线程执行的函数和传递给该函数的参数；因此，当线程创建出现时，我们必须分析一个新函数——在这种情况下是
+    `lpStartAddress_00449049`：
+- en: '![Figure 5.29 – Persisting the malware every 30 seconds'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.29 – 每 30 秒保持恶意软件的存在'
+- en: '](img/B16207_05_029.jpg)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_029.jpg)'
+- en: Figure 5.29 – Persisting the malware every 30 seconds
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.29 – 每 30 秒保持恶意软件的存在
+- en: 'Interesting. An infinite loop iterates every `30000` milliseconds (30 seconds),
+    performing persistence. Let''s analyze the `thunk_FUN_00454ba0` function:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有趣的是，一个无限循环每隔 `30000` 毫秒（30 秒）迭代一次，执行持久化操作。让我们分析一下 `thunk_FUN_00454ba0` 函数：
+- en: '![Figure 5.30 – Persistence via the Run registry key'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.30 – 通过 Run 注册表键实现持久化'
+- en: '](img/B16207_05_030.jpg)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_030.jpg)'
+- en: Figure 5.30 – Persistence via the Run registry key
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.30 – 通过 Run 注册表键实现持久化
+- en: It is opening the `Run` registry key, which is executed when the Microsoft Windows
+    user session starts. This is commonly used by malware to persist the infection
+    because it will be executed every time the computer starts. Let's rename the function
+    `persistence`.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它正在打开 `Run` 注册表键，当 Microsoft Windows 用户会话启动时会执行该键。这通常被恶意软件用来保持感染，因为每次计算机启动时都会执行它。我们将此函数重命名为
+    `persistence`。
+- en: Analyzing the 0x004559B0 function
+  id: totrans-190
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x004559B0 函数
+- en: 'This function deals with services via Service Control Manager APIs such as
+    `OpenSCManagerA` or `OpenServiceA`:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数通过服务控制管理器 API（如 `OpenSCManagerA` 或 `OpenServiceA`）处理服务：
+- en: '![Figure 5.31 – Using the Service Control Manager to open a service'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.31 – 使用服务控制管理器打开服务'
+- en: '](img/B16207_05_031.jpg)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_031.jpg)'
+- en: Figure 5.31 – Using the Service Control Manager to open a service
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.31 – 使用服务控制管理器打开服务
+- en: 'After some renaming, we notice that it checks whether users have the administrative
+    privileges that are necessary to create services. If they do, it deletes previous
+    rootkit instances (a rootkit is an application that allows us to hide system elements:
+    processes, files, and so on… but in this case, malware elements), writes the rootkit
+    to disk, and finally, creates a service with the rootkit again. As you can see,
+    the service is called `Windows Host Process` and the rootkit is installed in `%APPDATA%`
+    (or `C:\` if not available) and named `rk.sys`:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在重命名后，我们注意到它检查用户是否具有创建服务所必需的管理员权限。如果有，它会删除先前的 rootkit 实例（rootkit 是一种允许我们隐藏系统元素的应用程序：进程、文件等……但在这种情况下是恶意软件元素），将
+    rootkit 写入磁盘，并最终再次创建一个带有 rootkit 的服务。如您所见，服务被命名为 `Windows Host Process`，而 rootkit
+    安装在 `%APPDATA%`（如果不可用，则为 `C:\`）并命名为 `rk.sys`：
+- en: '![Figure 5.32 – Installing the rootkit but deleting the previous one if it
+    exists'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.32 – 安装 rootkit，但如果存在，则删除先前的 rootkit'
+- en: '](img/B16207_05_032.jpg)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_032.jpg)'
+- en: Figure 5.32 – Installing the rootkit but deleting the previous one if it exists
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.32 – 安装 rootkit，但如果存在，则删除先前的 rootkit
+- en: So, let's rename this function `installRookit`.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们将此函数重命名为 `installRookit`。
+- en: Analyzing the 0x004554E0 function
+  id: totrans-200
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析 0x004554E0 函数
+- en: 'It is trying to open the `explorer.exe` process, which is supposed to be the
+    shell of the user:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它试图打开 `explorer.exe` 进程，该进程应该是用户的 shell：
+- en: '![Figure 5.33 – Opening explorer.exe'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.33 – 打开 explorer.exe'
+- en: '](img/B16207_05_033.jpg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_033.jpg)'
+- en: Figure 5.33 – Opening explorer.exe
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.33 – 打开 explorer.exe
+- en: As you can see, it creates a mutex, which is a synchronization mechanism, and
+    prevents opening the `explorer.exe` process twice. The mutex name is very characteristic
+    and is hardcoded. We can use it as an `7YhngylKo09H`.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，它创建了一个互斥量，这是一个同步机制，并防止`explorer.exe`进程被打开两次。互斥量的名称非常有特点，且是硬编码的。我们可以将其用作`7YhngylKo09H`。
+- en: 'When analyzing malware, there are code patterns and API sequences that are
+    like an open book:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析恶意软件时，有些代码模式和API序列像一本打开的书：
+- en: '![Figure 5.34 – Injecting code into the explorer.exe process'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.34 – 将代码注入到explorer.exe进程'
+- en: '](img/B16207_05_034.jpg)'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_034.jpg)'
+- en: Figure 5.34 – Injecting code into the explorer.exe process
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.34 – 将代码注入到explorer.exe进程
+- en: 'In this case, you can see the following:'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，你可以看到以下内容：
+- en: '`VirtualAllocEx`: To allocate `0x3000` bytes of memory to the `explorer.exe`
+    process with the `0x40` flag meaning `PAGE_EXECUTE_READWRITE` (allowing you to
+    write and execute code here)'
+  id: totrans-211
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualAllocEx`：为`explorer.exe`进程分配`0x3000`字节的内存，`0x40`标志表示`PAGE_EXECUTE_READWRITE`（允许在此处写入和执行代码）'
+- en: '`WriteProcessMemory`: Writes the malicious code into `explorer.exe`'
+  id: totrans-212
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`WriteProcessMemory`：将恶意代码写入`explorer.exe`'
+- en: '`CreateRemoteThread`: Creates a new thread in the `explorer.exe` process in
+    order to execute the code.'
+  id: totrans-213
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CreateRemoteThread`：在`explorer.exe`进程中创建一个新线程以执行代码。'
+- en: We can rename `thunk_FUN_004555b0` to `injectShellcodeIntoExplorer`.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以将`thunk_FUN_004555b0`重命名为`injectShellcodeIntoExplorer`。
+- en: 'We now understand its parameters:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在理解了它的参数：
+- en: The explorer process handler in order to inject code into it
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用于注入代码的explorer进程处理器
+- en: The pointer to the code to inject (also known as shellcode)
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 注入代码的指针（也就是shellcode）
+- en: The size of the code to inject, which is `0x616` bytes
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 注入代码的大小是`0x616`字节
+- en: Shellcode
+  id: totrans-219
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Shellcode
+- en: The term "shellcode" was historically used to describe code executed by a target
+    program due to a vulnerability exploit and used to open a remote shell – that
+    is, an instance of a command-line interpreter – so that an attacker could use
+    that shell to further interact with the victim's system.
+  id: totrans-220
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '"shellcode"这个术语最早用于描述目标程序由于漏洞利用而执行的代码，用来打开远程Shell——即命令行解释器的一个实例——以便攻击者能够利用该Shell进一步与受害者的系统进行交互。'
+- en: 'By double-clicking on the **shellcode** parameter, we can see the bytes of
+    the shellcode, but by pressing the *D* key, we can also convert it into code:'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过双击**shellcode**参数，我们可以看到shellcode的字节，但按下*D*键，我们也可以将其转换为代码：
+- en: '![Figure 5.35 – Converting the shellcode into code in order to analyze it with
+    Ghidra'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.35 – 将shellcode转换为代码以便用Ghidra分析'
+- en: '](img/B16207_05_035.jpg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_035.jpg)'
+- en: Figure 5.35 – Converting the shellcode into code in order to analyze it with
+    Ghidra
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.35 – 将shellcode转换为代码以便用Ghidra分析
+- en: 'By clicking on some string of `shellcode`, you can see the strings used stored
+    in the same order as used by the program, so you can deduce what the program is
+    doing by reading its strings:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过点击一些`shellcode`字符串，你可以看到按程序使用的相同顺序存储的字符串，因此你可以通过读取这些字符串推断程序的行为：
+- en: '![Figure 5.36 – Quickly analyzing code by reading its strings'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.36 – 通过读取字符串快速分析代码'
+- en: '](img/B16207_05_036.jpg)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_036.jpg)'
+- en: Figure 5.36 – Quickly analyzing code by reading its strings
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.36 – 通过读取字符串快速分析代码
+- en: We have an encrypted copy of the malware in `%APPDATA%\ntkrnl` as we know from
+    a previous analysis. It is decrypted using the password `7YhngylKo09H`. Then,
+    a `windefender.exe`-decrypted malware is created and finally executed via `ShellExecuteA`.
+    This is performed in an infinite loop controlled by a mutex mechanism, as indicated
+    in the final string, `SHELLCODE_MUTEX`.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们有一个加密的恶意软件副本，存储在`%APPDATA%\ntkrnl`中，这点从之前的分析中得知。它使用密码`7YhngylKo09H`解密。然后，创建一个`windefender.exe`解密的恶意软件，并通过`ShellExecuteA`最终执行。这个过程在一个由互斥量机制控制的无限循环中执行，如最后的字符串`SHELLCODE_MUTEX`所示。
+- en: Mutex
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Mutex
+- en: A mutex object is a synchronization object whose state can be non-signaled or
+    signaled, depending, respectively, on whether it is owned by a thread or not.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 互斥量对象是一种同步对象，其状态可以是非信号或信号的，具体取决于它是否被某个线程拥有。
+- en: So, we can rename `thunk_FUN_004554e0` to `explorerPersistence`.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，我们可以将`thunk_FUN_004554e0`重命名为`explorerPersistence`。
+- en: Analyzing the 0x0046C860 function
+  id: totrans-233
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析0x0046C860函数
+- en: 'After initializing the class using `operator_new`, calls are made to its `thunk_FUN_0046c2c0`
+    constructor. As you can see, we have a thread to analyze here:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用`operator_new`初始化类后，调用它的`thunk_FUN_0046c2c0`构造函数。如你所见，我们有一个线程需要分析：
+- en: '![Figure 5.37 – Thread creation'
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.37 – 线程创建'
+- en: '](img/B16207_05_037.jpg)'
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_037.jpg)'
+- en: Figure 5.37 – Thread creation
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.37 – 线程创建
+- en: 'The `lpStartAddress_00447172` function consists of an infinite loop, which
+    calls to our analyzed `setupC&C` function, so we can expect some **Command and
+    Control** (**C&C**) communication. C&C is the server controlling and receiving
+    information from the malware sample. It is administered by the attacker:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`lpStartAddress_00447172`函数包含一个无限循环，它调用我们分析过的`setupC&C`函数，因此我们可以预期会有一些**命令与控制**（**C&C**）通信。C&C是控制并接收来自恶意软件样本信息的服务器。它由攻击者管理：'
+- en: '![Figure 5.38 – C&C communication loop'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.38 – C&C通信循环'
+- en: '](img/B16207_05_038.jpg)'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_038.jpg)'
+- en: Figure 5.38 – C&C communication loop
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.38 – C&C通信循环
+- en: 'Let''s click on one of the function strings and see what happens. We can also
+    make it a beautifier. Click on the **Create Array…** option to join null bytes
+    by selecting these bytes and right-clicking on it:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们点击其中一个函数字符串，看看会发生什么。我们还可以将其变为美化版。点击**创建数组…**选项，通过选择这些字节并右键单击它来连接空字节：
+- en: '![Figure 5.39 – Converting data into types and structures'
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.39 – 将数据转换为类型和结构'
+- en: '](img/B16207_05_039.jpg)'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_039.jpg)'
+- en: Figure 5.39 – Converting data into types and structures
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.39 – 将数据转换为类型和结构
+- en: It seems to be strings of HTTP parameters for C&C communication as it is quite
+    common to use this protocol. The most relevant string is `cardinterval`. What
+    does card interval mean?
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它似乎是用于C&C通信的HTTP参数字符串，因为使用此协议非常常见。最相关的字符串是`cardinterval`。cardinterval是什么意思？
+- en: '![Figure 5.40 – C&C communication HTTP parameters'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.40 – C&C通信HTTP参数'
+- en: '](img/B16207_05_040.jpg)'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_040.jpg)'
+- en: Figure 5.40 – C&C communication HTTP parameters
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.40 – C&C通信HTTP参数
+- en: Let's rename this function `C&Ccommunication` and move on with the next function.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将这个函数重命名为`C&Ccommunication`，然后继续处理下一个函数。
+- en: Analyzing the 0x0046A100 function
+  id: totrans-251
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 分析0x0046A100函数
+- en: 'Again, we have a `thunk_FUN_00464870` constructor calling an `lpStartAddress_04476db`
+    thread function. Let''s focus our attention on the thread function:'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次，我们看到一个`thunk_FUN_00464870`构造函数调用`lpStartAddress_04476db`线程函数。让我们将注意力集中在线程函数上：
+- en: '![Figure 5.41 – A mathematical function'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.41 – 数学函数'
+- en: '](img/B16207_05_041.jpg)'
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_041.jpg)'
+- en: Figure 5.41 – A mathematical function
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.41 – 数学函数
+- en: This function is a little bit complex. We can see a lot of math operations,
+    and due to this, a lot of numeric data types. Don't waste your time! Instead,
+    rename it to `mathAlgorithm` and come back to it later if needed.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个函数有点复杂。我们可以看到很多数学运算，由此产生了许多数字数据类型。不要浪费时间！将其重命名为`mathAlgorithm`，如果需要，稍后再回来处理。
+- en: 'The next function iterates over processes and uses the `__stricmp` function
+    to skip processes of the blacklist, which contains Windows processes and common
+    applications. We can assume it is looking for a non-common application:'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一个函数遍历进程，并使用`__stricmp`函数跳过黑名单中的进程，该黑名单包含Windows进程和常见应用程序。我们可以推测它在寻找一个非常见应用程序：
+- en: '![Figure 5.42 – Blacklisted processes'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.42 – 黑名单进程'
+- en: '](img/B16207_05_042.jpg)'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_042.jpg)'
+- en: Figure 5.42 – Blacklisted processes
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.42 – 黑名单进程
+- en: 'By analyzing the `lpStartAddress0047299` thread function located in `FUN_0045c570`,
+    we notice that it scraps the process memory looking for something:'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过分析位于`FUN_0045c570`中的`lpStartAddress0047299`线程函数，我们注意到它在抓取进程内存，寻找某些东西：
+- en: '![Figure 5.43 – Reading the process memory'
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.43 – 读取进程内存'
+- en: '](img/B16207_05_043.jpg)'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_043.jpg)'
+- en: Figure 5.43 – Reading the process memory
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.43 – 读取进程内存
+- en: It first obtains the memory region permissions via `VirtualQueryEx` and checks
+    whether it is in the `MEM_IMAGE` state, which indicates that the memory pages
+    within the region are mapped into the view of an image section. It also protects
+    `PAGE_READWRITE`.
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它首先通过`VirtualQueryEx`获取内存区域权限，并检查该区域是否处于`MEM_IMAGE`状态，这表示该区域内的内存页面已映射到图像段的视图中。它还会保护`PAGE_READWRITE`。
+- en: 'Then, it calls to `ReadProcessMemory` to read the memory, and finally, it looks
+    for credit card numbers in `FUN_004607c0`:'
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，它调用`ReadProcessMemory`来读取内存，最后在`FUN_004607c0`中查找信用卡号码：
+- en: '![Figure 5.44 – Memory-scrapping the process'
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.44 – 内存抓取过程'
+- en: '](img/B16207_05_044.jpg)'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_044.jpg)'
+- en: Figure 5.44 – Memory-scrapping the process
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.44 – 内存抓取过程
+- en: 'As you can see, the `local_28` variable is `0x10` bytes (`0x10` means the 16
+    digits of a credit card number) in size and the first byte of it is being compared
+    with the number `3`, as shown in the table I printed using the Python interpreter.
+    This malware implements the Luhn algorithm for credit card number checksum validation
+    during its scraping:'
+  id: totrans-270
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，`local_28`变量的大小为`0x10`字节（`0x10`代表信用卡号的16位数字），其首字节与数字`3`进行比较，正如我使用Python解释器打印的表格所示。该恶意软件在抓取过程中实现了Luhn算法，用于验证信用卡号的校验和：
+- en: '![Figure 5.45 – Renamed functions in WinMain'
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.45 – WinMain中的重命名函数](img/B16207_05_045.jpg)'
+- en: '](img/B16207_05_045.jpg)'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_05_045.jpg)'
+- en: Figure 5.45 – Renamed functions in WinMain
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.45 – WinMain中的重命名函数
+- en: Luhn makes it possible to check numbers (credit card numbers, in this case)
+    via a control key (called checksum, which is a number of the number, which makes
+    it possible to check the others). If a character is misread or badly written,
+    then Luhn's algorithm will detect this error.
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Luhn算法使得可以通过控制码（称为校验和，即数字的某种表示形式）检查数字（在这种情况下是信用卡号）。如果某个字符被误读或写错，Luhn算法将会检测到这个错误。
+- en: Luhn is well-known because Mastercard, **American Express** (**AmEx**), Visa,
+    and all other credit cards use it.
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Luhn算法因Mastercard、**美国运通**（**AmEx**）、Visa及所有其他信用卡都使用它而广为人知。
+- en: Summary
+  id: totrans-276
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned how to analyze malware using Ghidra. We analyzed
+    Alina POS malware, which is rich in features, namely pipes, threads, the `ring0`
+    rootkit, shellcode injection, and memory-scrapping.
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何使用Ghidra分析恶意软件。我们分析了功能丰富的Alina POS恶意软件，涉及的功能包括管道、线程、`ring0` rootkit、shellcode注入和内存抓取。
+- en: You have also learned how bad guys earn money every day with cybercriminal activities.
+    In other words, you learned about carding skills.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还学到了坏人是如何通过网络犯罪活动每天赚钱的。换句话说，你了解了卡片技术。
+- en: In the next chapter of this book, we will cover scripting malware analysis to
+    work faster and better when improving our analysis of Alina POS malware.
+  id: totrans-279
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的下一章中，我们将介绍如何通过脚本化恶意软件分析来提高分析速度和效果，特别是提升我们对Alina POS恶意软件的分析。
+- en: Questions
+  id: totrans-280
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What kind of information provides the imports of a Portable Executable file
+    during malware analysis? What can be done by combining both the `LoadLibrary`
+    and `GetProcAddress` API functions?
+  id: totrans-281
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在恶意软件分析过程中，便携式可执行文件的导入信息提供了什么样的内容？通过结合`LoadLibrary`和`GetProcAddress` API函数可以做些什么？
+- en: Can the disassembly be improved in some way when dealing with a C++ program,
+    as in this case?
+  id: totrans-282
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 处理C++程序时，反汇编是否可以以某种方式得到改进？
+- en: What are the benefits of malware when injecting code into another process compared
+    to executing it in the current process?
+  id: totrans-283
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在将代码注入到另一个进程中与在当前进程中执行代码相比，恶意软件注入代码有什么好处？
+- en: Further reading
+  id: totrans-284
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'You can refer to the following links for more information on the topics covered
+    in this chapter:'
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以参考以下链接获取本章所涵盖主题的更多信息：
+- en: 'During the analysis performed in this chapter, we didn''t need to use all of
+    Ghidra''s features. Check out the following Ghidra cheat sheet for further details:
+    [https://ghidra-sre.org/CheatSheet.html](https://ghidra-sre.org/CheatSheet.html)'
+  id: totrans-286
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在本章的分析中，我们并没有使用Ghidra的所有功能。查看以下Ghidra备忘单，获取更多细节：[https://ghidra-sre.org/CheatSheet.html](https://ghidra-sre.org/CheatSheet.html)
+- en: '*Learning Malware Analysis*, *Monnappa K A*, *June 2018:* [https://www.packtpub.com/eu/networking-and-servers/learning-malware-analysis](https://www.packtpub.com/eu/networking-and-servers/learning-malware-analysis)'
+  id: totrans-287
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*学习恶意软件分析*，*Monnappa K A*，*2018年6月*：[https://www.packtpub.com/eu/networking-and-servers/learning-malware-analysis](https://www.packtpub.com/eu/networking-and-servers/learning-malware-analysis)'
+- en: 'Alina, the latest POS malware – PandaLabs analysis: [https://www.pandasecurity.com/en/mediacenter/pandalabs/alina-pos-malware/](https://www.pandasecurity.com/en/mediacenter/pandalabs/alina-pos-malware/)'
+  id: totrans-288
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Alina，最新的POS恶意软件 – PandaLabs分析：[https://www.pandasecurity.com/en/mediacenter/pandalabs/alina-pos-malware/](https://www.pandasecurity.com/en/mediacenter/pandalabs/alina-pos-malware/)
+- en: '*Fundamentals of Malware Analysis*, *Munir Njenga*, *March 2018* [Video]: [https://www.packtpub.com/networking-and-servers/fundamentals-malware-analysis-video](https://www.packtpub.com/networking-and-servers/fundamentals-malware-analysis-video)'
+  id: totrans-289
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*恶意软件分析基础*，*Munir Njenga*，*2018年3月* [视频]：[https://www.packtpub.com/networking-and-servers/fundamentals-malware-analysis-video](https://www.packtpub.com/networking-and-servers/fundamentals-malware-analysis-video)'
+- en: 'Hybrid analysis – analyze and detect known threats: [https://www.hybrid-analysis.com/?lang=es](https://www.hybrid-analysis.com/?lang=es)'
+  id: totrans-290
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 混合分析 – 分析和检测已知威胁：[https://www.hybrid-analysis.com/?lang=es](https://www.hybrid-analysis.com/?lang=es)

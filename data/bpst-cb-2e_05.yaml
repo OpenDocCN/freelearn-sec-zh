@@ -1,0 +1,1260 @@
+- en: '5'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '5'
+- en: Assessing Authorization Checks
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 评估授权检查
+- en: This chapter covers the basics of authorization, including an explanation of
+    how an application uses roles to determine user functions. Web penetration testing
+    involves key assessments to determine how well the application validates functions
+    assigned to a given role or individual user, and we will learn how to use Burp
+    Suite to perform these tests.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章介绍了授权的基础知识，包括应用程序如何使用角色来确定用户功能的解释。Web 渗透测试涉及关键评估，以确定应用程序验证分配给特定角色或个人用户的功能的效果，我们将学习如何使用
+    Burp Suite 来执行这些测试。
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下实验：
+- en: Testing for directory traversal
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试目录遍历
+- en: Testing for **Local File** **Inclusion** (**LFI**)
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试 **本地文件** **包含**（**LFI**）
+- en: Testing for **Remote File** **Inclusion** (**RFI**)
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试 **远程文件** **包含**（**RFI**）
+- en: Testing for privilege escalation
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试权限提升
+- en: Testing for **Insecure Direct Object** **Reference** (**IDOR**)
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 测试 **不安全的直接对象** **引用**（**IDOR**）
+- en: Technical requirements
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete the recipes in this chapter, you will need the following:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成本章中的实验，你将需要以下工具：
+- en: 'OWASP **Broken Web Applications** (**BWA**) VM: the OWASP Mutillidae application'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OWASP **破损的 Web 应用程序**（**BWA**）虚拟机：OWASP Mutillidae 应用程序
+- en: Burp Suite Proxy Community or Professional (https://portswigger.net/burp/)
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Burp Suite 代理社区版或专业版（https://portswigger.net/burp/）
+- en: The use of a PortSwigger account to access Web Security Academy ([https://portswigger.net/web-security/all-labs](https://portswigger.net/web-security/all-labs))
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 PortSwigger 账户访问 Web 安全学院（[https://portswigger.net/web-security/all-labs](https://portswigger.net/web-security/all-labs)）
+- en: A Firefox browser configured to allow Burp Suite to proxy traffic ([https://www.mozilla.org/en-US/firefox/new/](https://www.mozilla.org/en-US/firefox/new/))
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置为允许 Burp Suite 代理流量的 Firefox 浏览器（[https://www.mozilla.org/en-US/firefox/new/](https://www.mozilla.org/en-US/firefox/new/)）
+- en: The **wfuzz** wordlist repository from GitHub ([https://github.com/xmendez/wfuzz](https://github.com/xmendez/wfuzz))
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自 GitHub 的 **wfuzz** 字典库（[https://github.com/xmendez/wfuzz](https://github.com/xmendez/wfuzz)）
+- en: Testing for directory traversal
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试目录遍历
+- en: Directory traversal attacks are attempts to discover or force-browse unauthorized
+    web pages usually designed for administrators of the application. If an application
+    does not configure the web document root properly and does not include proper
+    authorization checks on the server side for each page accessed, a directory traversal
+    vulnerability may exist. This type of weakness allows an attack to perform system
+    command injection exploitation or arbitrary code execution.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 目录遍历攻击是尝试发现或强制浏览通常为应用程序管理员设计的未授权网页。如果应用程序没有正确配置 Web 文档根目录，并且没有在服务器端对每个访问的页面进行适当的授权检查，就可能存在目录遍历漏洞。这类弱点允许攻击者执行系统命令注入或任意代码执行。
+- en: Getting ready
+  id: totrans-18
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using OWASP Mutillidae II as our target application, let’s determine whether
+    it contains any directory traversal vulnerabilities.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OWASP Mutillidae II 作为目标应用程序，让我们来检查它是否存在任何目录遍历漏洞。
+- en: Ensure that Burp Suite and the OWASP BWA VM are running, that Burp Suite is
+    configured in the Firefox browser (or use the Burp Suite browser), and that you
+    are viewing the OWASP BWA applications.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 Burp Suite 和 OWASP BWA 虚拟机正在运行，Burp Suite 已在 Firefox 浏览器中配置（或使用 Burp Suite
+    浏览器），并且你正在查看 OWASP BWA 应用程序。
+- en: How to do it...
+  id: totrans-21
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何执行...
+- en: From the OWASP BWA landing page, click the link to the OWASP Mutillidae II application.
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 OWASP BWA 登录页面，点击链接进入 OWASP Mutillidae II 应用程序。
+- en: Open the login screen of OWASP Mutillidae II in the Firefox browser. From the
+    top menu, click **Login**.
+  id: totrans-23
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Firefox 浏览器中打开 OWASP Mutillidae II 的登录界面。在顶部菜单中，点击**登录**。
+- en: 'Find the request you just performed within the **Proxy** | **HTTP history**
+    table. Look for the call to the **login.php** page. Highlight the message, move
+    your cursor into the **Raw** tab of the **Request** tab, right-click, and click
+    on **Send** **to Intruder**:'
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **Proxy** | **HTTP 历史** 表格中找到你刚刚执行的请求。查找对 **login.php** 页面的调用。选中该消息，将光标移到
+    **Request** 标签的 **Raw** 子标签中，右键点击，选择 **发送到 Intruder**：
+- en: "![Figure 5.1 – Send to Intruder\uFEFF](image/B21173_Figure_5.01.jpg)"
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.1 – 发送到 Intruder](image/B21173_Figure_5.01.jpg)'
+- en: Figure 5.1 – Send to Intruder
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – 发送到 Intruder
+- en: Switch over to the **Intruder** | **Positions** tab and clear all Burp-defined
+    payload markers by clicking the **Clear $** button on the right-hand side.
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 **Intruder** | **Positions** 标签，点击右侧的 **Clear $** 按钮，清除所有 Burp 定义的有效载荷标记。
+- en: 'Highlight the value currently stored in the **page** parameter (**login.php**),
+    and place a payload marker around it using the **Add §** button:'
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 高亮当前存储在 **page** 参数中的值 (**login.php**)，并使用 **添加 §** 按钮为其添加有效载荷标记：
+- en: '![Figure 5.2 – Intruder | Positions tab](image/B21173_Figure_5.02.jpg)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.2 – Intruder | Positions 标签页](image/B21173_Figure_5.02.jpg)'
+- en: Figure 5.2 – Intruder | Positions tab
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2 – Intruder | Positions 标签页
+- en: 'Continue to the **Intruder** | **Payloads** tab and select the following wordlist
+    from the **wfuzz** repository: **admin-panels.txt**. The location of the wordlist
+    from the GitHub repository follows this folder structure: **wfuzz/wordlist/general/admin-panels.txt**.'
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续到 **Intruder** | **Payloads** 标签页，选择以下来自 **wfuzz** 仓库的词表：**admin-panels.txt**。来自
+    GitHub 仓库的词表位置如下：**wfuzz/wordlist/general/admin-panels.txt**。
+- en: Click the **Load** button within the **Payload Options [Simple list]** section
+    of the **Intruder** | **Payloads** tab and a popup will display, prompting for
+    the location of your wordlist.
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **Intruder** | **Payloads** 标签页的 **有效载荷选项 [简单列表]** 部分点击 **加载** 按钮，弹出窗口将提示你选择词表的位置。
+- en: 'Browse to the location at which you downloaded the **wfuzz** repository from
+    GitHub. Continue to search through the **wfuzz** folder structure (**wfuzz/wordlist/general/**)
+    until you reach the **admin-panels.txt** file, then select the file, and click
+    **Open**:'
+  id: totrans-33
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 浏览到你从 GitHub 下载 **wfuzz** 仓库的位置。继续在 **wfuzz** 文件夹结构中查找 (**wfuzz/wordlist/general/**)，直到找到
+    **admin-panels.txt** 文件，然后选择该文件并点击 **打开**：
+- en: '![Figure 5.3 – Wordlist loading](image/B21173_Figure_5.03.jpg)'
+  id: totrans-34
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.3 – 词表加载](image/B21173_Figure_5.03.jpg)'
+- en: Figure 5.3 – Wordlist loading
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 词表加载
+- en: 'Scroll to the bottom and uncheck (by default, it is checked) the **URL-encode
+    these** **characters** option:'
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 滚动到页面底部，取消选中（默认情况下已选中）**URL 编码这些** **字符** 选项：
+- en: '![Figure 5.4 – Uncheck the payload encoding box](image/B21173_Figure_5.04.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.4 – 取消选中有效载荷编码框](image/B21173_Figure_5.04.jpg)'
+- en: Figure 5.4 – Uncheck the payload encoding box
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – 取消选中有效载荷编码框
+- en: You are now ready to begin the attack. Click the **Start attack** button in
+    the top right-hand corner of the **Intruder** | **Positions** page.
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在你准备好开始攻击了。点击 **攻击开始** 按钮，该按钮位于 **Intruder** | **Positions** 页面的右上角。
+- en: The attack results table will appear. Allow the attacks to complete. There are
+    137 payloads in the **admin-panels.txt** wordlist. Sort on the **Length** column
+    from ascending to descending order to see which of the payloads hit a web page.
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 攻击结果表格将会显示。允许攻击完成。**admin-panels.txt** 词表中有 137 个有效载荷。按 **长度** 列从升序排序为降序，以查看哪些有效载荷命中了网页。
+- en: 'Notice the payloads that have larger response lengths. This looks promising!
+    Perhaps we have stumbled upon administration pages that may contain fingerprinting
+    information or unauthorized access:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意那些响应长度较大的有效载荷。这看起来很有希望！也许我们发现了包含指纹信息或未经授权访问的管理页面：
+- en: '![Figure 5.5 – Results table](image/B21173_Figure_5.05.jpg)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.5 – 结果表格](image/B21173_Figure_5.05.jpg)'
+- en: Figure 5.5 – Results table
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – 结果表格
+- en: 'Select one of the pages found in the list with the largest lengths 99,000+,
+    such as **admin.php**. From the attack results table, look at the **Response**
+    | **Render** tab, and notice the page displays the PHP version and the system
+    information:'
+  id: totrans-44
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从结果列表中选择响应长度最大的页面之一（99,000+），例如 **admin.php**。在攻击结果表格中，查看 **响应** | **渲染** 标签，注意页面显示了
+    PHP 版本和系统信息：
+- en: '![Figure 5.6 – One successful result replayed in Repeater](image/B21173_Figure_5.06.jpg)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.6 – 在 Repeater 中重放一个成功的结果](image/B21173_Figure_5.06.jpg)'
+- en: Figure 5.6 – One successful result replayed in Repeater
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – 在 Repeater 中重放一个成功的结果
+- en: How it works...
+  id: totrans-47
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: Without even being logged in, we were able to force-browse to an unmapped area
+    of the web application. The term *unmapped* means the application itself had no
+    direct link to this secret configuration page. However, using Burp Suite Intruder
+    and a wordlist containing commonly known administration file names, we were able
+    to discover the page using the directory traversal attack.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使没有登录，我们也能强制浏览到 Web 应用程序的一个未映射区域。*未映射* 指的是该应用本身没有直接链接到这个秘密配置页面。但是，通过使用 Burp
+    Suite Intruder 和包含常见管理文件名的词表，我们能够通过目录遍历攻击发现该页面。
+- en: Testing for LFI
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试 LFI
+- en: Web servers control access to privileged files and resources using configuration
+    settings. Privileged files include files that should only be accessible to system
+    administrators – for example, the **/etc/passwd** file on Unix-like platforms
+    or the **boot.ini** file on Windows systems.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Web服务器通过配置设置来控制对特权文件和资源的访问。特权文件包括应仅对系统管理员可访问的文件——例如，在类Unix平台上的**/etc/passwd**文件或Windows系统中的**boot.ini**文件。
+- en: An **LFI** attack is an attempt to access privileged files using directory traversal
+    attacks. LFI attacks include different styles, including **dot-dot-slash attacks**
+    (**../**), **directory brute-forcing**, **directory climbing**, or **backtracking**.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**LFI**攻击是尝试通过目录遍历攻击访问特权文件。LFI攻击包括不同的风格，诸如**点点斜杠攻击**（**../**）、**目录暴力破解**、**目录爬升**或**回溯攻击**。'
+- en: Getting ready
+  id: totrans-52
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备开始
+- en: Using OWASP Mutillidae II as our target application, let’s determine whether
+    it contains any LFI vulnerabilities.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以OWASP Mutillidae II作为目标应用程序，来确定它是否包含任何LFI漏洞。
+- en: Ensure Burp Suite and OWASP BWA VM are running and that Burp Suite is configured
+    in the Firefox browser used to view the OWASP BWA applications.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保Burp Suite和OWASP BWA虚拟机正在运行，并且Burp Suite已经配置在用于查看OWASP BWA应用的Firefox浏览器中。
+- en: How to do it...
+  id: totrans-55
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: From the OWASP BWA Landing page, click the link to the OWASP Mutillidae II application.
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从OWASP BWA登陆页面，点击链接进入OWASP Mutillidae II应用。
+- en: Open the login screen of OWASP Mutillidae II in the Firefox browser. From the
+    top menu, click **Login**.
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Firefox浏览器中打开OWASP Mutillidae II的登录界面。点击顶部菜单中的**登录**。
+- en: Find the request you just performed within the **Proxy** | **HTTP history**
+    table. Look for the call to the **login.php** page. Highlight the message, move
+    your cursor into the **Raw** tab of the **Request** tab, right-click, and select
+    **Send** **to Intruder**.
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**代理** | **HTTP历史记录**表格中找到你刚刚执行的请求。查找对**login.php**页面的调用。高亮该消息，将光标移至**请求**标签的**原始**选项卡，右键点击并选择**发送**至**入侵者**。
+- en: Switch over to the **Intruder** | **Positions** tab and clear all Burp-defined
+    payload markers by clicking the **Clear §** button on the right-hand side.
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到**入侵者** | **位置**标签，并通过点击右侧的**清除§**按钮清除所有Burp定义的负载标记。
+- en: Highlight the value currently stored in the **page** parameter (**login.php**)
+    and place a payload marker around it using the **Add §** button on the right-hand
+    side.
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 高亮显示当前存储在**page**参数中的值（**login.php**），并使用右侧的**添加§**按钮为其添加负载标记。
+- en: 'Continue to the **Intruder** | **Payloads** tab. Select the following wordlist
+    from the **wfuzz** repository: **Traversal.txt**. The location of the wordlist
+    from the GitHub repository follows this folder structure: **wfuzz/wordlist/injections/Traversal.txt**.'
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 继续到**入侵者** | **负载**标签。选择以下来自**wfuzz**仓库的词表：**Traversal.txt**。该词表在GitHub仓库中的位置遵循以下文件夹结构：**wfuzz/wordlist/injections/Traversal.txt**。
+- en: Click the **Load** button within the **Payload Options [Simple list]** section
+    of the **Intruder** | **Payloads** tab. A popup will display, prompting for the
+    location of your wordlist.
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**入侵者** | **负载**标签中**负载选项 [简单列表]**部分内的**加载**按钮。将弹出一个窗口，提示输入你的词表位置。
+- en: 'Browse to the location at which you downloaded the **wfuzz** repository from
+    GitHub. Continue to search through the **wfuzz** folder structure until you reach
+    the **Traversal.txt** file. Select the file and click **Open**:'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 浏览到你从GitHub下载的**wfuzz**仓库的位置。继续通过**wfuzz**文件夹结构搜索，直到找到**Traversal.txt**文件。选择该文件并点击**打开**：
+- en: '![Figure 5.7 – Wordlist loading](image/B21173_Figure_5.07.jpg)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.7 – 词表加载](image/B21173_Figure_5.07.jpg)'
+- en: Figure 5.7 – Wordlist loading
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.7 – 词表加载
+- en: Scroll to the bottom and uncheck (by default, it is checked) the **URL-encode
+    these** **characters** option.
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 滚动到底部并取消选中（默认已选中）**对这些字符进行URL编码**选项。
+- en: You are now ready to begin the attack. Click the **Start attack** button at
+    the top-right-hand corner of the **Intruder** | **Positions** page.
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你现在可以开始攻击了。点击**入侵者** | **位置**页面右上角的**开始攻击**按钮。
+- en: The attack results table will appear. Allow the attacks to complete. Sort on
+    the **Length** column from ascending to descending order to see which of the payloads
+    hit a web page. Notice the payloads with larger lengths; perhaps we gained unauthorized
+    access to the system configuration files!
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 攻击结果表将显示出来。等待攻击完成。按**长度**列进行排序，从升序到降序排列，查看哪些负载命中了网页。注意那些长度较大的负载；也许我们已经获得了对系统配置文件的未授权访问！
+- en: '![Figure 5.8 – Results table snippet](image/B21173_05_008.jpg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.8 – 结果表片段](image/B21173_05_008.jpg)'
+- en: Figure 5.8 – Results table snippet
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.8 – 结果表格片段
+- en: Select request **2** in the list. From the attack results table, look at the
+    **Response** | **Render** tab and notice the page displays the contents of the
+    host file from the system! Alternatively, you can also send the request to **Repeater**
+    and replay the attack to see the same result.
+  id: totrans-71
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在列表中选择请求 **2**。从攻击结果表格中，查看 **Response** | **Render** 标签，注意页面显示了系统中主机文件的内容！或者，你也可以将请求发送到
+    **Repeater** 并重放攻击，以查看相同的结果。
+- en: "![Figure 5.9 – One successful result replayed in Rep\uFEFF\uFEFFeater](image/B21173_05_009.jpg)"
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.9 – 在 Repeater 中重放一次成功的结果](image/B21173_05_009.jpg)'
+- en: Figure 5.9 – One successful result replayed in Repeater
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9 – 在 Repeater 中重放一次成功的结果
+- en: How it works...
+  id: totrans-74
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Due to poorly protected file permissions and a lack of application authorization
+    checks, attackers can read privileged local files on a system containing sensitive
+    information. The danger behind LFI vulnerabilities is the discovery of secrets,
+    API keys, source code, and configuration files. Revelations of these kinds have
+    the potential to lead to remote code execution, system account takeovers, or even
+    pivoting to other machines across the network.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于文件权限保护不当以及缺乏应用程序授权检查，攻击者可以读取包含敏感信息的系统上的特权本地文件。LFI 漏洞背后的危险在于发现秘密、API 密钥、源代码和配置文件。这些泄露可能导致远程代码执行、系统账户接管，甚至进一步渗透到网络中的其他机器。
+- en: Testing for RFI
+  id: totrans-76
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试 RFI
+- en: '**RFI** is an attack that attempts to access external URLs and remotely located
+    files. This kind of attack is possible due to parameter manipulation, a lack of
+    server-side checks, and a lack of whitelisting for outbound traffic at the firewall
+    level. These oversights may lead to data exfiltration of user information to external
+    servers controlled by an attacker.'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**RFI** 是一种尝试访问外部 URL 和远程文件的攻击。这种攻击是由于参数操作、缺乏服务器端检查以及防火墙级别缺乏出站流量白名单造成的。这些疏忽可能导致用户信息的数据外泄，将其传送到由攻击者控制的外部服务器。'
+- en: Getting ready
+  id: totrans-78
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Using OWASP Mutillidae II as our target application, let’s determine whether
+    it contains any RFI vulnerabilities.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OWASP Mutillidae II 作为我们的目标应用程序，接下来让我们确定它是否包含任何 RFI 漏洞。
+- en: Ensure Burp Suite and OWASP BWA VM are running and that Burp Suite is configured
+    in the Firefox browser used to view the OWASP BWA applications.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保 Burp Suite 和 OWASP BWA 虚拟机正在运行，并且 Burp Suite 已在用于查看 OWASP BWA 应用程序的 Firefox
+    浏览器中配置好。
+- en: How to do it...
+  id: totrans-81
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何执行...
+- en: From the OWASP BWA landing page, click the link to the OWASP Mutillidae II application.
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 OWASP BWA 登陆页面，点击链接进入 OWASP Mutillidae II 应用程序。
+- en: Open the login screen of OWASP Mutillidae II in the Firefox browser. From the
+    top menu, click **Login**.
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Firefox 浏览器中打开 OWASP Mutillidae II 的登录页面。点击顶部菜单中的 **Login**。
+- en: 'Find the request you just performed within the **Proxy** | **HTTP history**
+    table. Look for the call to the **login.php** page:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **Proxy** | **HTTP 历史记录** 表格中找到你刚才执行的请求。寻找对 **login.php** 页面调用的记录：
+- en: '![Figure 5.10 – Finding the POST login request](image/B21173_05_010.jpg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.10 – 查找 POST 登录请求](image/B21173_05_010.jpg)'
+- en: Figure 5.10 – Finding the POST login request
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10 – 查找 POST 登录请求
+- en: 'Make a note of the **page** parameter that determines the page to load:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 记下 **page** 参数，该参数决定加载哪个页面：
+- en: '![Figure 5.11 – Note the page parameter](image/B21173_05_011.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.11 – 请注意页面参数](image/B21173_05_011.jpg)'
+- en: Figure 5.11 – Note the page parameter
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – 请注意页面参数
+- en: Let’s see whether we can exploit this parameter by providing a URL that is outside
+    the application. For demonstration purposes, we will use a URL that we control
+    in the OWASP BWA VM. However, in the wild, this URL would be attacker-controlled
+    instead.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看能否通过提供一个位于应用程序之外的 URL 来利用这个参数。为了演示，我们将使用一个我们控制的 OWASP BWA 虚拟机中的 URL。然而，在实际攻击中，这个
+    URL 将由攻击者控制。
+- en: Switch to the **Proxy** | **Intercept** tab, and press the **Intercept is**
+    **on** button.
+  id: totrans-91
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 **Proxy** | **Intercept** 标签，并点击 **Intercept is** **on** 按钮。
+- en: 'Return to the Firefox or Burp Suite browse, and reload the login page. The
+    request is paused and contained within the **Proxy** | **Intercept** tab:'
+  id: totrans-92
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回到 Firefox 或 Burp Suite 浏览器，重新加载登录页面。请求已暂停并包含在 **Proxy** | **Intercept** 标签中：
+- en: '![Figure 5.12 – Proxy | Intercept is on](image/B21173_05_012.jpg)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.12 – 代理 | 拦截已开启](image/B21173_05_012.jpg)'
+- en: Figure 5.12 – Proxy | Intercept is on
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.12 – 代理 | 拦截已开启
+- en: Now let’s manipulate the value of the **page** parameter from **login.php**
+    to a URL that is external to the application. Let’s use the login page to the
+    **GetBoo** application. Your URL will be specific to your machine’s IP address,
+    so adjust accordingly. The new URL will be **http://<your_IP_address>/getboo/**.
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们操作 **login.php** 中的 **page** 参数，将其值修改为指向应用程序外部的 URL。我们将使用 **GetBoo** 应用程序的登录页面。您的
+    URL 将特定于您的机器 IP 地址，因此请相应地调整。新的 URL 将是 **http://<your_IP_address>/getboo/**。
+- en: Reload the login page in your browser that is sending traffic to Burp Suite
+    by clicking the *refresh* button or pressing *F5*. You may also wish to click
+    the **Login/Register** button again.
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 重新加载您浏览器中的登录页面，通过点击 *刷新* 按钮或按 *F5* 键，使流量发送到 Burp Suite。您也可以再次点击 **Login/Register**
+    按钮。
+- en: '![Figure 5.13 – Clicking the Login/Register button](image/B21173_05_013.jpg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.13 – 点击登录/注册按钮](image/B21173_05_013.jpg)'
+- en: Figure 5.13 – Clicking the Login/Register button
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.13 – 点击登录/注册按钮
+- en: 'Notice the request is held up in **Proxy** | **Intercept**. You may need to
+    click the **Forward** button until you reach the **GET /multillidae/index.php?page=login.php**
+    request. Now we can manipulate the values before sending the request to the web
+    server:'
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 注意请求在 **Proxy** | **Intercept** 中被暂时拦截。您可能需要多次点击 **Forward** 按钮，直到您看到 **GET
+    /multillidae/index.php?page=login.php** 请求。现在我们可以在发送请求到 Web 服务器之前修改这些值：
+- en: '![Figure 5.14 – Login request captured in Proxy Intercept](image/B21173_05_014.jpg)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.14 – 在 Proxy Intercept 中捕获的登录请求](image/B21173_05_014.jpg)'
+- en: Figure 5.14 – Login request captured in Proxy Intercept
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.14 – 在 Proxy Intercept 中捕获的登录请求
+- en: 'Let’s start manipulating the parameters by replacing the **login.php** value
+    with **http://<your_IP_address>/getboo/** and clicking the **Forward** button:'
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们开始操作参数，将 **login.php** 的值替换为 **http://<your_IP_address>/getboo/** 并点击 **Forward**
+    按钮：
+- en: '![Figure 5.15 – Redirecting the user to the GetBoo application](image/B21173_05_015.jpg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.15 – 将用户重定向到 GetBoo 应用程序](image/B21173_05_015.jpg)'
+- en: Figure 5.15 – Redirecting the user to the GetBoo application
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – 将用户重定向到 GetBoo 应用程序
+- en: Now press **Intercept is on** again to toggle the intercept button to off(**Intercept**
+    **is off**).
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在再次按下 **Intercept is on** 按钮，将其切换为关闭状态（**Intercept is off**）。
+- en: Return to the Firefox browser and notice the page loaded is the **GetBoo** index
+    page within the context of the Mutillidae application!
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回 Firefox 浏览器，注意到加载的页面是 **GetBoo** 索引页，位于 Mutillidae 应用程序的上下文中！
+- en: "![Figure 5.16 – Evidence of a successful re\uFEFFdire\uFEFFction](image/B21173_05_016.jpg)"
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.16 – 成功重定向的证据](image/B21173_05_016.jpg)'
+- en: Figure 5.16 – Evidence of a successful redirection
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – 成功重定向的证据
+- en: How it works...
+  id: totrans-109
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: The **page** parameter does not include proper data validation to ensure the
+    values provided are whitelisted or contained in a prescribed list of acceptable
+    values. By exploiting this weakness, we can dictate values to this parameter,
+    redirecting our victim to a page of our choice, or worse, data exfiltration cookie
+    information and scrape sensitive data from our victim’s browser session.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**page** 参数没有适当的数据验证机制，无法确保提供的值是经过白名单验证的，或者包含在规定的可接受值列表中。通过利用这个漏洞，我们可以给这个参数指定值，将我们的受害者重定向到我们选择的页面，或者更糟糕的是，提取数据和窃取受害者浏览器会话中的敏感信息。'
+- en: Testing for privilege escalation
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试权限提升
+- en: Developer code in an application must include authorization checks on assigned
+    roles to ensure an authorized user is not able to elevate their role to a higher
+    privilege. As an attacker, frequent targets for accessing elevated functionality
+    include parameter tampering, forced browsing, and authentication bypass. These
+    types of privilege escalation attacks may potentially occur by modifying the value
+    of an assigned role or parameter value and replacing that value with another.
+    If the attack is successful, the bad actor gains unauthorized access to resources
+    or functionality normally restricted to administrators or more powerful accounts.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用程序中的开发者代码必须包括对分配角色的授权检查，以确保授权用户无法提升其角色到更高的权限。作为攻击者，常见的权限提升攻击目标包括参数篡改、强制浏览和身份验证绕过。通过修改分配的角色或参数值并将其替换为其他值，这些类型的权限提升攻击可能会发生。如果攻击成功，攻击者将获得对原本仅限管理员或更高权限账户访问的资源或功能的未授权访问。
+- en: Getting ready
+  id: totrans-113
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Let’s use the *Privilege escalation via server-side prototype pollution* PortSwigger
+    lab, which is located in the *Prototype pollution* section of *All labs*, as our
+    target application. We will attempt to find a weakness in the Node.js inheritance
+    hierarchy to elevate our privileges within the application.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用 *通过服务器端原型污染进行权限提升* 的 PortSwigger 实验，它位于 *所有实验* 的 *原型污染* 部分，作为我们的目标应用程序。我们将尝试在
+    Node.js 继承层次结构中寻找漏洞，以提升我们在应用中的权限。
+- en: 'Log in to your PortSwigger account and navigate to the following URL: [https://portswigger.net/web-security/prototype-pollution/server-side/lab-privilege-escalation-via-server-side-prototype-pollution](https://portswigger.net/web-security/prototype-pollution/server-side/lab-privilege-escalation-via-server-side-prototype-pollution).
+    Ensure Burp Suite is running and sending traffic through either Firefox or the
+    Burp Suite browser.'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 登录到你的 PortSwigger 账户并导航到以下网址：[https://portswigger.net/web-security/prototype-pollution/server-side/lab-privilege-escalation-via-server-side-prototype-pollution](https://portswigger.net/web-security/prototype-pollution/server-side/lab-privilege-escalation-via-server-side-prototype-pollution)。确保
+    Burp Suite 正在运行并通过 Firefox 或 Burp Suite 浏览器发送流量。
+- en: How to do it...
+  id: totrans-116
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'From the *Lab: Privilege escalation via server-side prototype pollution* landing
+    page, click the link entitled **Access the lab**. If you do not see the **Access
+    the lab** button, make sure you are logged in to your PortSwigger account.'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 *实验：通过服务器端原型污染进行权限提升* 登录页面，点击名为 **访问实验** 的链接。如果你没有看到 **访问实验** 按钮，请确保你已登录 PortSwigger
+    账户。
+- en: '![Figure 5.17 – Starting the PortSwigger lab instance](image/B21173_05_017.jpg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.17 – 启动 PortSwigger 实验实例](image/B21173_05_017.jpg)'
+- en: Figure 5.17 – Starting the PortSwigger lab instance
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.17 – 启动 PortSwigger 实验实例
+- en: A new tab will open in your browser and a unique instance of the lab will start
+    up just for you. Your URL will be unique, thus different from the one shown in
+    the following screenshot.
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 浏览器中将打开一个新标签，并且一个独特的实验实例将仅为你启动。你的 URL 将是唯一的，因此与下图中所示的 URL 不同。
+- en: '![Figure 5.18 – Instance of the lab running](image/B21173_05_018.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.18 – 正在运行的实验实例](image/B21173_05_018.jpg)'
+- en: Figure 5.18 – Instance of the lab running
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.18 – 正在运行的实验实例
+- en: With traffic running through Burp, log in to the application instance by clicking
+    the **My account** link on the top right-hand side. You will be presented with
+    a login page.
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Burp 中运行流量，通过点击右上角的**我的帐户**链接登录到应用实例。你将看到一个登录页面。
+- en: '![Figure 5.19 – Login page](image/B21173_05_019.jpg)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.19 – 登录页面](image/B21173_05_019.jpg)'
+- en: Figure 5.19 – Login page
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.19 – 登录页面
+- en: Credentials are provided in the lab description and solution, which are username
+    **wiener** and password **peter**. Log in to the application. After logging in,
+    you will be presented with a profile page. Update the address field with a number
+    or additional letter and submit.
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 凭证在实验描述和解决方案中提供，用户名是**wiener**，密码是**peter**。登录应用程序。登录后，将展示个人资料页面。更新地址字段，添加一个数字或额外的字母并提交。
+- en: '![Figure 5.20 – Profile landing page](image/B21173_05_020.jpg)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.20 – 个人资料登录页面](image/B21173_05_020.jpg)'
+- en: Figure 5.20 – Profile landing page
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.20 – 个人资料登录页面
+- en: 'Switch to Burp’s **Proxy** | **HTTP history** tab. Find the **POST** request
+    you just made on the profile page to update the address:'
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 Burp 的 **代理** | **HTTP 历史记录** 标签页。找到你刚才在个人资料页面上进行的 **POST** 请求，更新地址：
+- en: '![Figure 5.21 – Finding the address change POST request in the Proxy HTTP history
+    table](image/B21173_05_021.jpg)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.21 – 在代理 HTTP 历史记录表中查找地址更改的 POST 请求](image/B21173_05_021.jpg)'
+- en: Figure 5.21 – Finding the address change POST request in the Proxy HTTP history
+    table
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.21 – 在代理 HTTP 历史记录表中查找地址更改的 POST 请求
+- en: 'Right-click and select **Send** **to Repeater**:'
+  id: totrans-132
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键单击并选择 **发送到** **重复器**：
+- en: '![Figure 5.22 – Send to Repeater](image/B21173_05_022.jpg)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.22 – 发送到重复器](image/B21173_05_022.jpg)'
+- en: Figure 5.22 – Send to Repeater
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.22 – 发送到重复器
+- en: 'In **Repeater**, add a prototype property of **__proto__** to the JSON **POST**
+    body. Inside the new property, add a fake name/value pair. If you place the following
+    prototype property at the beginning or middle of the existing JSON body, you must
+    add a comma; otherwise, you will receive a JSON parsing error:'
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **重复器** 中，向 JSON **POST** 正文中添加一个名为 **__proto__** 的原型属性。在新的属性中，添加一个假名称/值对。如果你将以下原型属性放在现有
+    JSON 正文的开头或中间，必须添加逗号；否则，将收到 JSON 解析错误：
+- en: '[PRE0]'
+  id: totrans-136
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'This is shown in the following screenshot:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如下图所示：
+- en: '![Figure 5.23 – Adding a prototype into the JSON body of the POST request](image/B21173_05_023.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.23 – 在 POST 请求的 JSON 正文中添加原型](image/B21173_05_023.jpg)'
+- en: Figure 5.23 – Adding a prototype into the JSON body of the POST request
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.23 – 将原型添加到 POST 请求的 JSON 正文中
+- en: 'Send the request. Note the response is still valid. Also, notice there is a
+    property in the JSON response called **"****isAdmin": false**.'
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '发送请求。注意，响应仍然有效。另外，请注意在 JSON 响应中有一个名为**"isAdmin": false**的属性。'
+- en: '![Figure 5.24 – Note the isAdmin parameter in the response](image/B21173_05_024.jpg)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.24 – 注意响应中的 isAdmin 参数](image/B21173_05_024.jpg)'
+- en: Figure 5.24 – Note the isAdmin parameter in the response
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.24 – 注意响应中的 isAdmin 参数
+- en: Let’s use a prototype pollution attack to change this value from **false** to
+    **true**. Add the property of **"isAdmin":"true"** to the request where **"foo":"bar"**
+    originally was within the prototype **"****__proto__"** object.
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们使用原型污染攻击，将此值从**false**更改为**true**。将**"isAdmin":"true"**属性添加到原本是**"foo":"bar"**的请求中，该属性位于原型**"__proto__"**对象内。
+- en: '![Figure 5.25 – Manipulating the isAdmin parameter in the request](image/B21173_05_025.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.25 – 操控请求中的 isAdmin 参数](image/B21173_05_025.jpg)'
+- en: Figure 5.25 – Manipulating the isAdmin parameter in the request
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.25 – 操控请求中的 isAdmin 参数
+- en: 'Send the request and notice the response now reflects the change. We just elevated
+    our privileges to an admin! Return to the browser and refresh the **/my-account**
+    page. Notice you now have an **Admin panel** link available:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 发送请求并注意到响应现在反映了这一变化。我们刚刚将权限提升为管理员！返回浏览器并刷新**/my-account**页面。注意，你现在可以看到**Admin
+    panel**链接：
+- en: '![Figure 5.26 – Access to Admin panel is now available](image/B21173_05_026.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.26 – 现在可以访问管理员面板](image/B21173_05_026.jpg)'
+- en: Figure 5.26 – Access to Admin panel is now available
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.26 – 现在可以访问管理员面板
+- en: To solve this lab, click the **Admin panel** link. On the subsequent page, delete
+    the account **carlos**.
+  id: totrans-149
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了解决这个实验，点击**Admin panel**链接。在随后的页面中，删除账户**carlos**。
+- en: '![Figure 5.27 – Delete Carlos’ account](image/B21173_05_027.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.27 – 删除 Carlos 的账户](image/B21173_05_027.jpg)'
+- en: Figure 5.27 – Delete Carlos’ account
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.27 – 删除 Carlos 的账户
+- en: You should see the curtain display confirming you’ve solved the lab.
+  id: totrans-152
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你应该会看到幕布显示，确认你已解决实验。
+- en: "![Figure 5.28 – Lab is so\uFEFFl\uFEFFved](image/B21173_05_028.jpg)"
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.28 – 实验已解决](image/B21173_05_028.jpg)'
+- en: Figure 5.28 – Lab is solved
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.28 – 实验已解决
+- en: How it works...
+  id: totrans-155
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 运行机制...
+- en: In this recipe, we, as attackers, took advantage of a potential weakness in
+    Node.js objects known as prototype pollution. Each object constructed in Node.js
+    uses a prototype from which objects inherit characteristics and behaviors. If
+    an attack can *pollute* the top of the object hierarchy, then all the objects
+    constructed from that polluted prototype can be manipulated. By adding **"__proto__"**
+    to the **POST** JSON body, we found the presence of this weakness and exploited
+    it to elevate our privileges to an administrator.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，作为攻击者，我们利用了 Node.js 对象中的一个潜在弱点，称为原型污染。Node.js 中构造的每个对象都会使用一个原型，从而使对象继承其特性和行为。如果攻击能够*污染*对象层次结构的顶部，那么从这个被污染的原型构造出来的所有对象都可以被操控。通过将**"__proto__"**添加到**POST**
+    JSON 正文中，我们发现了这个弱点并利用它将我们的权限提升为管理员。
+- en: Testing for IDOR
+  id: totrans-157
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试 IDOR（不安全的直接对象引用）
+- en: Allowing unauthorized direct access to files or resources on a system based
+    on user-supplied input is known as IDOR. This vulnerability allows us to bypass
+    authorization checks placed on such files or resources. IDOR is a result of unchecked
+    user-supplied input to retrieve an object without performing authorization checks
+    in the application code.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 允许未经授权的直接访问系统上的文件或资源，通常是基于用户提供的输入，这被称为 IDOR（不安全的直接对象引用）。这种漏洞允许我们绕过对这些文件或资源所施加的授权检查。IDOR
+    是由于未经检查的用户提供输入，直接访问对象而未在应用程序代码中进行授权检查所导致的。
+- en: Getting ready
+  id: totrans-159
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Let’s use the *Insecure direct object references* PortSwigger lab, which is
+    located in the *Access control* section of *All labs*, as our target application.
+    We will attempt to find a direct object reference used as a value to a parameter,
+    manipulate it, and access information that should normally not be seen.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用*不安全的直接对象引用*（Insecure direct object references）PortSwigger 实验，它位于*所有实验*的*访问控制*部分，作为我们的目标应用程序。我们将尝试找到用作参数值的直接对象引用，操控它，并访问那些通常不应该看到的信息。
+- en: 'Log in to your PortSwigger account and navigate to the following URL: [https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references](https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references).
+    Ensure Burp Suite is running and sending traffic through either Firefox or the
+    Burp Suite browser.'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 登录到你的 PortSwigger 账户并导航到以下网址：[https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references](https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references)。确保
+    Burp Suite 正在运行，并通过 Firefox 或 Burp Suite 浏览器发送流量。
+- en: How to do it...
+  id: totrans-162
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'From the *Lab: Insecure direct object references* landing page, click the link
+    entitled **Access the lab**. If you do not see the **Access the lab** button,
+    make sure you are logged in to your PortSwigger account.'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '在 *Lab: Insecure direct object references* 登陆页面，点击名为 **Access the lab** 的链接。如果你没有看到
+    **Access the lab** 按钮，确保你已经登录到你的 PortSwigger 账户。'
+- en: '![Figure 5.29 – Starting the lab instance](image/B21173_05_029.jpg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.29 – 启动实验室实例](image/B21173_05_029.jpg)'
+- en: Figure 5.29 – Starting the lab instance
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.29 – 启动实验室实例
+- en: A new tab will open in your browser and a unique instance of the lab will start
+    up just for you. Your URL will be unique, thus different from the one shown in
+    the following screenshot.
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 浏览器中将打开一个新标签页，并为你启动一个独特的实验室实例。你的网址将是唯一的，因此与下面截图中显示的网址不同。
+- en: '![Figure 5.30 – Landing page of lab](image/B21173_05_030.jpg)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.30 – 实验室的登陆页面](image/B21173_05_030.jpg)'
+- en: Figure 5.30 – Landing page of lab
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.30 – 实验室的登陆页面
+- en: Click the **Live chat** link in the application.
+  id: totrans-169
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击应用程序中的 **实时聊天** 链接。
+- en: '![Figure 5.31 – The Live chat link](image/B21173_05_031.jpg)'
+  id: totrans-170
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.31 – 实时聊天链接](image/B21173_05_031.jpg)'
+- en: Figure 5.31 – The Live chat link
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.31 – 实时聊天链接
+- en: 'On the **Live chat** page, type in a simple message and click **Send** to send
+    it to the web server backend:'
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 **实时聊天** 页面，输入简单的消息并点击 **发送**，将其发送到 Web 服务器后端：
+- en: '![ Figure 5.32 – Sample message to send](image/B21173_05_032.jpg)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.32 – 要发送的示例信息](image/B21173_05_032.jpg)'
+- en: Figure 5.32 – Sample message to send
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.32 – 要发送的示例信息
+- en: After clicking the **Send** button, click the **View transcript** button. Notice
+    a file is downloaded to your local system containing the conversation.
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击 **发送** 按钮后，点击 **查看转录** 按钮。注意，一个文件会下载到你的本地系统，其中包含了对话内容。
+- en: '![Figure 5.33 – Clicking the View transcript button](image/B21173_05_033.jpg)'
+  id: totrans-176
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.33 – 点击查看转录按钮](image/B21173_05_033.jpg)'
+- en: Figure 5.33 – Clicking the View transcript button
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.33 – 点击查看转录按钮
+- en: View the downloaded file and see the conversation is captured in the transcript
+    as expected.
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 查看下载的文件，看到转录文件中如预期捕捉到了对话内容。
+- en: '![Figure 5.34 – Viewing the downloaded transcript file](image/B21173_05_034.jpg)'
+  id: totrans-179
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.34 – 查看下载的转录文件](image/B21173_05_034.jpg)'
+- en: Figure 5.34 – Viewing the downloaded transcript file
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.34 – 查看下载的转录文件
+- en: Switch to Burp’s **Proxy** | **HTTP history** tab. Find the **GET** request
+    immediately after the **POST** request to download the file. Notice our filename
+    is a number with the **.txt** extension. What would happen if we changed the value
+    of this number to **1**?
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 切换到 Burp 的 **代理** | **HTTP 历史** 标签页。找到紧接着 **POST** 请求的 **GET** 请求，来下载该文件。注意我们的文件名是一个带有
+    **.txt** 扩展名的数字。如果我们将这个数字的值更改为 **1**，会发生什么？
+- en: '![Figure 5.35 – Seeing the call to retrieve the transcript](image/B21173_05_035.jpg)'
+  id: totrans-182
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.35 – 查看调用以获取转录文件](image/B21173_05_035.jpg)'
+- en: Figure 5.35 – Seeing the call to retrieve the transcript
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.35 – 查看调用以获取转录文件
+- en: Right-click and send the request to **Repeater**. Let’s perform an IDOR attack
+    by manipulating the value assigned to our transcript to the number **1**. Send
+    the request. Notice you can now read the transcript of a different user! Inside
+    the transcript reveals their password!
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击并将请求发送到 **Repeater**。让我们通过操作分配给我们转录的数字值为 **1** 来执行一个 IDOR 攻击。发送请求。注意你现在可以读取不同用户的转录文件！转录文件中暴露了他们的密码！
+- en: '![Figure 5.36 – Manipulating the filename](image/B21173_05_036.jpg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.36 – 操作文件名](image/B21173_05_036.jpg)'
+- en: Figure 5.36 – Manipulating the filename
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.36 – 操作文件名
+- en: Using the password we’ve uncovered, let’s log in using **carlos** as the username
+    and the password revealed inside the transcript. Click on the **My account** link
+    to navigate to the login page. Type in the credentials. Note your password may
+    differ from mine since each instance may have different secrets.
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用我们已经发现的密码，使用 **carlos** 作为用户名和转录文件中显示的密码进行登录。点击 **我的账户** 链接进入登录页面。输入凭证。请注意，你的密码可能与我的不同，因为每个实例可能有不同的密钥。
+- en: '![Figure 5.37 – Using the revealed password to log in to Carlos’ account](image/B21173_05_037.jpg)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.37 – 使用揭示的密码登录到Carlos的账户](image/B21173_05_037.jpg)'
+- en: Figure 5.37 – Using the revealed password to log in to Carlos’ account
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.37 – 使用揭示的密码登录到Carlos的账户
+- en: After logging in, you should receive the curtain display confirming you’ve solved
+    the lab!
+  id: totrans-190
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 登录后，您应该会看到确认您已解决实验的幕布显示！
+- en: "![Figure 5.38 – Lab is solved\uFEFF](image/B21173_05_038.jpg)"
+  id: totrans-191
+  prefs: []
+  type: TYPE_IMG
+  zh: "![图 5.38 – 实验已解决\uFEFF](image/B21173_05_038.jpg)"
+- en: Figure 5.38 – Lab is solved
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.38 – 实验已解决
+- en: How it works...
+  id: totrans-193
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: Due to a lack of proper authorization checks on the **transcript** filename
+    parameter, we can view the transcript of a completely different user. In this
+    recipe, the transcript contained password information, which we leveraged to perform
+    an account takeover. Mitigation and prevention against this vulnerability include
+    access controls and checks prior to revealing sensitive files and resources. When
+    these access controls are missing, IDOR vulnerabilities may be present.
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于**成绩单**文件名参数缺乏适当的授权检查，我们可以查看完全不同用户的成绩单。在这个案例中，成绩单包含了密码信息，我们利用这些信息进行了账户接管。防范和缓解此漏洞的措施包括在揭示敏感文件和资源之前进行访问控制和检查。当这些访问控制缺失时，可能存在IDOR（不当对象引用）漏洞。

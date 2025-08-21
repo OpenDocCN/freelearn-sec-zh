@@ -1,0 +1,1687 @@
+- en: '*Chapter 4*: Azure Network Security'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第 4 章*：Azure 网络安全'
+- en: In [*Chapter 1*](B15414_01_Final_JM_ePub.xhtml#_idTextAnchor021), *Azure Security
+    Introduction*, we briefly touched on network security in Azure, but only discussed
+    how network security is handled by Microsoft inside Azure data centers. As the
+    network also falls under the shared responsibility model, in this chapter, we
+    will discuss network security from a user aspect and how to handle the security
+    we are responsible for.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 [*第 1 章*](B15414_01_Final_JM_ePub.xhtml#_idTextAnchor021)，《Azure 安全性简介》中，我们简要讨论了
+    Azure 中的网络安全，但仅讨论了 Microsoft 如何在 Azure 数据中心内处理网络安全。由于网络也属于共享责任模型，在本章中，我们将从用户的角度讨论网络安全，并探讨我们负责的安全处理方式。
+- en: 'We will cover the following topics in this chapter:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Understanding Azure Virtual Network
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure 虚拟网络
+- en: Considering other virtual networks' security
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 考虑其他虚拟网络的安全性
+- en: Understanding Azure Application Gateway
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure 应用程序网关
+- en: Understanding Azure Front Door
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 Azure Front Door
+- en: Understanding Azure Virtual Network
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 Azure 虚拟网络
+- en: The first step in the transition from an on-premises environment to the cloud
+    is **Infrastructure as a Service** (**IaaS**). One of the key elements in IaaS
+    is **Virtual Networks** (**VNets**). VNets are a virtual representation of our
+    local network with IP address ranges, subnets, and all other network components
+    that we would find in local infrastructure. Recently, we have seen a lot of cloud
+    network components introduced to on-premises networks as well, with the introduction
+    of **Software Defined Networking** (**SDN**) in OS Windows Server 2016.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从本地环境过渡到云的第一步是 **基础设施即服务** (**IaaS**)。IaaS 的一个关键要素是 **虚拟网络** (**VNets**)。虚拟网络是我们本地网络的虚拟表示，包含
+    IP 地址范围、子网及所有我们在本地基础设施中找到的其他网络组件。最近，我们也看到许多云网络组件被引入到本地网络中，尤其是 **软件定义网络** (**SDN**)
+    在 Windows Server 2016 操作系统中的引入。
+- en: Before we start looking at VNet security, let's remember that naming standards
+    should be applied to all Azure resources, and networking is no exception. As environments
+    grow, this will help you have better control over your environment, easier management,
+    and more insight into your security posture.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始研究虚拟网络安全之前，让我们记住，命名标准应适用于所有 Azure 资源，网络也不例外。随着环境的扩大，这将帮助你更好地控制环境，简化管理，并对安全态势有更多洞察。
+- en: Each VNet that we create is a completely isolated piece of network in Azure.
+    We can create multiple VNets inside one subscription, or even multiple VNets inside
+    one region. There is no direct communication between any VNets, even those created
+    inside a single subscription or region, unless configured otherwise. The first
+    thing that needs to be configured for a VNet is the IP address range. The next
+    thing we need is a subnet with its own range. One VNet can have multiple subnets.
+    Each subnet must have its own IP address range within the VNet's IP address range
+    and cannot overlap with other subnets in the same VNet.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们创建的每个虚拟网络都是 Azure 中完全隔离的网络。我们可以在一个订阅中创建多个虚拟网络，甚至在一个区域内创建多个虚拟网络。即使是在同一个订阅或区域内创建的虚拟网络之间也没有直接通信，除非另行配置。配置虚拟网络时，首先需要配置
+    IP 地址范围。接下来，我们需要一个具有自己范围的子网。一个虚拟网络可以有多个子网。每个子网必须在虚拟网络的 IP 地址范围内有自己的 IP 地址范围，并且不能与同一虚拟网络中的其他子网重叠。
+- en: One thing we need to consider when defining the IP address range is that it
+    should not overlap with other VNets we use. Even when there is no initial requirement
+    to create a connection between different VNets, this may become a requirement
+    in the future.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在定义 IP 地址范围时，我们需要考虑的一点是，范围不能与我们使用的其他虚拟网络重叠。即使最初没有要求在不同虚拟网络之间建立连接，这也可能在未来成为需求。
+- en: Important note
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: VNets that have overlapping IP ranges will not be compatible for connection.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 拥有重叠 IP 范围的虚拟网络将无法进行连接。
+- en: VNets are used for communication between Azure resources over private IP addresses.
+    Primarily, they're used for communication between Azure **Virtual Machines (VMs)**,
+    but other resources can be configured to use private IP addresses for communication
+    as well.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟网络（VNet）用于通过私有 IP 地址在 Azure 资源之间进行通信。主要用于 Azure **虚拟机（VMs）**之间的通信，但其他资源也可以配置为使用私有
+    IP 地址进行通信。
+- en: Communication between Azure VMs occurs over a **network interface card (NIC).**
+    Each VM can be assigned one or more NICs, depending on the VM size. A bigger size
+    allows more NICs to be associated with a VM. Each NIC can be assigned a private
+    and public IP address. A private IP address is required and a public IP address
+    is optional. As a NIC must have a private IP address, it must be associated with
+    VNet and subnet on the same VNet.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure 虚拟机之间的通信通过**网络接口卡（NIC）**进行。每个虚拟机可以根据大小分配一个或多个 NIC。较大的虚拟机允许更多的 NIC 关联。每个
+    NIC 可以分配私有 IP 地址和公共 IP 地址。私有 IP 地址是必需的，公共 IP 地址是可选的。由于 NIC 必须有一个私有 IP 地址，因此它必须与同一虚拟网络（VNet）和子网关联。
+- en: 'As a first line of defense, we can use a **network security group (NSG)** to
+    control traffic for Azure VMs. NSGs can be used to control inbound and outbound
+    traffic. Default inbound and outbound rules are created during the NSG''s creation,
+    but we can change (or remove) these rules and create additional rules based on
+    our requirements. The default inbound rules are shown in the following figure:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为第一道防线，我们可以使用**网络安全组（NSG）**来控制 Azure 虚拟机（VM）的流量。NSG 可以用于控制入站和出站流量。在创建 NSG 时会自动创建默认的入站和出站规则，但我们可以根据需求修改（或删除）这些规则并创建其他规则。默认的入站规则如图所示：
+- en: '![Figure 4.1 – Inbound security rules'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.1 – 入站安全规则'
+- en: '](img/Fig_4.1.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.1.jpg)'
+- en: Figure 4.1 – Inbound security rules
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.1 – 入站安全规则
+- en: The default inbound rules will allow any traffic coming from within a VNet and
+    any traffic forwarded from Azure Load Balancer. All other traffic will be blocked.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认的入站规则将允许来自虚拟网络（VNet）内的任何流量以及从 Azure 负载均衡器转发的任何流量。所有其他流量将被阻止。
+- en: 'Conversely, the default outbound rule will allow almost any outbound traffic.
+    The default rules will allow any outgoing traffic to a VNet or the internet, as
+    in the following figure:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 相反，默认的出站规则将允许几乎所有的出站流量。默认规则将允许任何流向 VNet 或互联网的出站流量，如下图所示：
+- en: '![Figure 4.2 – Outbound security rules'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.2 – 出站安全规则'
+- en: '](img/Fig_4.2.jpg)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.2.jpg)'
+- en: Figure 4.2 – Outbound security rules
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.2 – 出站安全规则
+- en: 'To add a new inbound rule, we need to define the source, source port range,
+    destination, destination port range, protocol, action, priority, and name. Optionally,
+    we can add a description that will help us understand why this rule was created.
+    An example of how to create a rule to allow traffic over port `443` (HTTPS) is
+    shown in the following figure:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要添加新的入站规则，我们需要定义源、源端口范围、目标、目标端口范围、协议、动作、优先级和名称。可选地，我们可以添加一个描述，帮助我们理解创建此规则的原因。以下图展示了如何创建一个允许通过端口`443`（HTTPS）的流量规则：
+- en: '![Figure 4.3 – Adding new inbound security rules'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.3 – 添加新的入站安全规则'
+- en: '](img/Fig_4.3.jpg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.3.jpg)'
+- en: Figure 4.3 – Adding new inbound security rules
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.3 – 添加新的入站安全规则
+- en: 'Alternatively, we can create the same rule with Azure PowerShell:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，我们可以使用 Azure PowerShell 创建相同的规则：
+- en: 'First, we need to create a resource group where resources will be deployed:'
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们需要创建一个资源组来部署资源：
+- en: '[PRE0]'
+  id: totrans-31
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Next, we need to deploy VNet:'
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要部署虚拟网络（VNet）：
+- en: '[PRE1]'
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'And finally, we deploy NSG and create a rule:'
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们部署 NSG 并创建规则：
+- en: New-AzNetworkSecurityGroup -Name "nsg1" -ResourceGroupName ` "Packt-Security"
+    -Location "westeurope"
+  id: totrans-35
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: New-AzNetworkSecurityGroup -Name "nsg1" -ResourceGroupName ` "Packt-Security"
+    -Location "westeurope"
+- en: '[PRE2]'
+  id: totrans-36
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'In order to add a new outbound rule, we need to define the same option as the
+    inbound rule. An example of how to create a rule to deny traffic over port `22`
+    is shown in the following figure:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要添加新的出站规则，我们需要定义与入站规则相同的选项。以下图展示了如何创建一个拒绝通过端口`22`的流量规则：
+- en: '![Figure 4.4 – Adding new outbound security rules'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.4 – 添加新的出站安全规则'
+- en: '](img/Fig_4.4.jpg)'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.4.jpg)'
+- en: Figure 4.4 – Adding new outbound security rules
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.4 – 添加新的出站安全规则
+- en: Note that the priority plays a very important role when it comes to NSGs. A
+    lower number means higher priority and a higher number means lower priority. If
+    we have two rules that are in contradiction, the rule with the lower number will
+    take precedence. For example, if we create a rule to allow traffic over port `443`
+    with a priority of `100`, and create a rule to deny traffic over port `443` with
+    a priority of `400`, traffic will be allowed, as the allow rule has a greater
+    priority.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，优先级在网络安全组（NSG）中起着非常重要的作用。数字越小表示优先级越高，数字越大表示优先级越低。如果我们有两个规则相互冲突，优先级较低的规则将优先执行。例如，如果我们创建了一个优先级为`100`的允许通过端口`443`的流量规则，而另一个优先级为`400`的规则拒绝通过端口`443`的流量，流量将被允许，因为允许规则的优先级更高。
+- en: 'Again, we can use Azure PowerShell to create the rule:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，我们可以使用 Azure PowerShell 来创建规则：
+- en: '[PRE3]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: An NSG can be associated with subnets and NICs. An NSG associated on a subnet
+    level will have all the rules applied to all the devices associated with that
+    subnet. When an NSG is associated with a NIC, rules will be applied only to that
+    NIC. It's recommended to associate NSGs with subnets instead of NICs for more
+    simple management. It's easy to manage traffic on a NIC level when we have fewer
+    VMs. But when the number of VMs is in the dozens, hundreds, or even thousands,
+    it becomes very hard to manage traffic on a NIC level. It's much better to have
+    VMs that have similar requirements associated on a subnet level.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个 NSG 可以与子网和 NIC 关联。与子网级别关联的 NSG 会将所有规则应用于该子网中所有关联的设备。当 NSG 与 NIC 关联时，规则只会应用于该
+    NIC。建议将 NSG 与子网关联，而不是与 NIC 关联，以便更简单的管理。当虚拟机数量较少时，管理 NIC 级别的流量比较简单。但当虚拟机数量达到几十、几百甚至几千时，管理
+    NIC 级别的流量就变得非常困难。将具有相似要求的虚拟机在子网级别关联会更好。
+- en: 'In order to associate an NSG with a subnet, follow these steps:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要将 NSG 与子网关联，请按以下步骤操作：
+- en: Go to the **Subnet** section under **NSG1** and select **Associate**, as in
+    the following figure:![Figure 4.5 – NSG subnet blade
+  id: totrans-46
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到 **NSG1** 下的 **子网** 部分，选择 **关联**，如下图所示：![图 4.5 – NSG 子网面板
+- en: '](img/Fig_4.5.jpg)'
+  id: totrans-47
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.5.jpg)'
+- en: Figure 4.5 – NSG Subnets blade
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 4.5 – NSG 子网面板
+- en: Next, we select the virtual network, as in the following screenshot:![Figure
+    4.6 – VNet association to NSG
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们选择虚拟网络，如下截图所示：![图 4.6 – VNet 与 NSG 的关联
+- en: '](img/Fig_4.6.jpg)'
+  id: totrans-50
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.6.jpg)'
+- en: Figure 4.6 – VNet association to NSG
+  id: totrans-51
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 4.6 – VNet 与 NSG 的关联
+- en: 'Finally, we select the subnet and confirm:'
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们选择子网并确认：
+- en: '![Figure 4.7 – Subnet association to NSG'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.7 – 子网与 NSG 的关联'
+- en: '](img/Fig_4.7.jpg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.7.jpg)'
+- en: Figure 4.7 – Subnet association to NSG
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.7 – 子网与 NSG 的关联
+- en: Now all of the Azure VMs added to this subnet will have all the NSG rules applied
+    immediately.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，所有添加到该子网中的 Azure 虚拟机将立即应用所有 NSG 规则。
+- en: 'The Azure PowerShell script to associate an NSG with a subnet is the following:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将 NSG 与子网关联的 Azure PowerShell 脚本如下：
+- en: '[PRE4]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Let's take a simple three-tier application architecture as an example. Here,
+    we would have VMs accessible from outside (over the internet), and these VMs should
+    be placed in a DMZ subnet, which would be associated with an NSG that would allow
+    such traffic. Next, we would have an application tier, which would allow traffic
+    inside a VNet but no direct access over the internet.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以一个简单的三层应用架构为例。在这里，我们将有可以从外部访问的虚拟机（通过互联网），这些虚拟机应该放置在 DMZ 子网中，并与一个允许此类流量的 NSG
+    关联。接下来，我们将有一个应用层，它允许内部 VNet 中的流量，但不允许直接通过互联网访问。
+- en: The application tier would be associated with an appropriate subnet, which would
+    (with the NSG on a subnet level) deny traffic over the internet but allow any
+    traffic coming from the DMZ. Lastly, we would have a database tier, which would
+    allow only traffic coming from the application tier, using the NSG associated
+    on a subnet level. This way, any request would be able to reach the DMZ tier.
+    Once a request is validated, it can pass to the application tier and from there
+    it can reach the database tier. No direct communication is allowed between the
+    DMZ and database tiers, and a direct request is not allowed to go from the internet
+    to the application or database tiers.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用层将与适当的子网关联，使用子网级别的 NSG 将拒绝互联网流量，但允许来自 DMZ 的任何流量。最后，我们将有一个数据库层，它只允许来自应用层的流量，使用与子网级别关联的
+    NSG。这样，任何请求都可以到达 DMZ 层。一旦请求被验证，它可以传递到应用层，然后再到达数据库层。DMZ 层与数据库层之间不允许直接通信，并且不允许从互联网直接请求访问应用层或数据库层。
+- en: For more security, resources can be associated with application groups. Using
+    NSGs and application groups, we can create additional security rules with more
+    network filtering options.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更安全，资源可以与应用程序组关联。通过使用 NSG 和应用程序组，我们可以创建具有更多网络过滤选项的附加安全规则。
+- en: We will now be looking at connecting on-premises networks with Azure.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们将讨论如何将本地网络与 Azure 连接。
+- en: Connecting on-premises networks with Azure
+  id: totrans-63
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 将本地网络与 Azure 连接
+- en: In most cases, we already have some sort of local infrastructure and want to
+    use the cloud as a hybrid where we combine cloud and on-premises resources. In
+    such cases, we need to think about how we are going to access **Azure Virtual
+    Network (VNet)** from our local network.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大多数情况下，我们已经有某种本地基础设施，并希望将云作为混合模式，将云和本地资源结合起来。在这种情况下，我们需要考虑如何从本地网络访问 **Azure
+    虚拟网络（VNet）**。
+- en: 'There are three options available:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有三个可用选项：
+- en: '**Point-to-Site connection (P2S)** is usually used for management. It enables
+    you to create a connection from a single on-premises computer to Azure VNet. It
+    has a secure connection, but not the most reliable one, and shouldn''t be used
+    for production purposes, only to perform management and maintenance tasks.'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**点对站连接（P2S）**通常用于管理。它使你能够从单个本地计算机创建到 Azure VNet 的连接。它有一个安全连接，但并不是最可靠的，不应用于生产环境，只能用于执行管理和维护任务。'
+- en: '**Site-to-Site connection (S2S)** is a more stable connection that enables
+    a network-to-network connection. In this case, that would be from an on-premises
+    network to a VNet, where all on-premises devices can connect to Azure resources
+    and vice versa. Using S2S enables you to expend local infrastructure to Azure,
+    use hybrid cloud, and take advantage of the best things both on-premises and cloud
+    networks can offer.'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**站点到站点连接（S2S）** 是一种更稳定的连接，它启用网络到网络的连接。在这种情况下，就是从本地网络到 VNet，在这种方式下，所有本地设备都可以连接到
+    Azure 资源，反之亦然。使用 S2S 使你能够将本地基础设施扩展到 Azure，使用混合云，并利用本地和云网络所能提供的最佳功能。'
+- en: '**ExpressRoute** is a direct connection from a local data center to Azure.
+    It doesn''t go over the internet and offers a much better connection. Compared
+    to an S2S connection, ExpressRoute offers more reliability and speed with lower
+    network latency.'
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**ExpressRoute** 是从本地数据中心到 Azure 的直接连接。它不经过互联网，提供更好的连接。与 S2S 连接相比，ExpressRoute
+    提供更高的可靠性和速度，并具有更低的网络延迟。'
+- en: Next, we will be checking out how to create an S2S connection.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将查看如何创建 S2S 连接。
+- en: Creating an S2S connection
+  id: totrans-70
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 创建 S2S 连接
+- en: In order to create an S2S connection, several resources must be created. First,
+    we need to create a **Virtual Network Gateway (VNG)**. During the process of creating
+    a VNG, we need to define a subscription, a name for the VNG, the region where
+    it will be created, and a VNet must be selected.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了创建 S2S 连接，必须创建多个资源。首先，我们需要创建一个 **虚拟网络网关（VNG）**。在创建 VNG 的过程中，我们需要定义订阅、VNG 的名称、创建的区域，并且必须选择一个
+    VNet。
+- en: The VNet that we can select is limited to the region where the VNG will be created.
+    A separate gateway subnet must be defined, so we can either select an existing
+    one or it will be created automatically if it doesn't exist on the selected VNet.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以选择的 VNet 限制于 VNG 将创建的区域。必须定义一个单独的网关子网，因此我们可以选择现有的子网，或者如果所选 VNet 上不存在该子网，则自动创建。
+- en: In the same section, we need to define the public IP address (create a new one
+    or select an existing one) and select to enable (or disable) active-active mode
+    or BGP. An example is shown in the figure that follows.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在同一部分，我们需要定义公共 IP 地址（创建一个新的或选择现有的）并选择启用（或禁用）主动-主动模式或 BGP。示例如下图所示。
+- en: 'The following details need to be filled in:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要填写以下详细信息：
+- en: '**Subscription**'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**订阅**'
+- en: '**Instance details**'
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**实例详细信息**'
+- en: '**Public IP address**'
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**公共 IP 地址**'
+- en: 'You can see an example of this in the following figure:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以在下图中看到一个示例：
+- en: '![Figure 4.8 – Creating a VNG'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.8 – 创建 VNG'
+- en: '](img/Fig_4.8.jpg)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.8.jpg)'
+- en: Figure 4.8 – Creating a VNG
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.8 – 创建 VNG
+- en: 'Another resource we need to create is a **Local Network Gateway (LNG)**. To
+    create an LNG, we need to define the following:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要创建的资源是 **本地网络网关（LNG）**。创建 LNG 时，我们需要定义以下内容：
+- en: '**Name**'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**名称**'
+- en: '**IP** **address**'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**IP** **地址**'
+- en: '**Address** **space**'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**地址** **空间**'
+- en: '**Subscription**'
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**订阅**'
+- en: '**Resource** **group**'
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**资源** **组**'
+- en: '**Location**'
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**位置**'
+- en: '**BGP** **settings**'
+  id: totrans-89
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**BGP** **设置**'
+- en: 'The BGP settings are optional. The IP address we need to define is the public
+    IP address of our VPN device, and the address range is the address range of our
+    local network. An example is shown in the following figure:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BGP 设置是可选的。我们需要定义的 IP 地址是我们 VPN 设备的公共 IP 地址，地址范围是我们本地网络的地址范围。示例如下图所示：
+- en: '![Figure 4.9 – Creating an LNG'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.9 – 创建 LNG'
+- en: '](img/Fig_4.9.jpg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.9.jpg)'
+- en: Figure 4.9 – Creating an LNG
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.9 – 创建 LNG
+- en: 'After a VNG and an LNG are created, we need to create a connection in VNet:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在创建 VNG 和 LNG 后，我们需要在 VNet 中创建连接：
+- en: Under the **connection settings** in the **VNet** blade, add a new connection.
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**VNet**面板中的**连接设置**下，添加一个新连接。
+- en: 'The following parameters need to be defined: **Name**, **Connection** **type**,
+    **Virtual** **network** **gateway**, **Local** **network** **gateway**, **Shared
+    key (PSK)** and **IKE** **Protocol**.'
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 需要定义以下参数：**名称**、**连接** **类型**、**虚拟** **网络** **网关**、**本地** **网络** **网关**、**共享密钥（PSK）**和**IKE**
+    **协议**。
+- en: '**Subscription**, **Resource** **group** and **Location** will be locked and
+    will use the same options as the ones assigned to the selected VNet:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**订阅**、**资源** **组**和**位置**将被锁定，并将使用与选定 VNet 相同的选项：'
+- en: '![Figure 4.10 – Creating a VPN connection'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.10 – 创建 VPN 连接'
+- en: '](img/Fig_4.10.jpg)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.10.jpg)'
+- en: Figure 4.10 – Creating a VPN connection
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.10 – 创建 VPN 连接
+- en: After a connection is created in Azure, we still need to create a connection
+    on our local VPN device. It's highly recommended to only use supported devices
+    (most industry leaders are supported, such as Cisco, Palo Alto, and Juniper, to
+    name a few). When configuring a connection on a local VPN device, we need to take
+    into account all the parameters used on the Azure side.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Azure 创建连接后，我们仍然需要在本地 VPN 设备上创建连接。强烈建议仅使用受支持的设备（大多数行业领导者的设备都支持，如 Cisco、Palo
+    Alto 和 Juniper 等）。在本地 VPN 设备上配置连接时，我们需要考虑 Azure 端使用的所有参数。
+- en: Once a connection is configured on both sides, the tunnel is up and we should
+    be able to access Azure resources from an on-premises network and from Azure to
+    a local network. Of course, we can control how traffic flows and what can access
+    what, how, and under which conditions.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦两边都配置了连接，隧道就会建立，我们应该能够从本地网络访问 Azure 资源，也可以从 Azure 访问本地网络。当然，我们可以控制流量的流动、什么可以访问什么、如何访问以及在什么条件下访问。
+- en: We have now seen how to create connections between Azure VNets and local networks.
+    But we often have a need to connect one VNet with another VNet. Of course, it's
+    still important to keep the same level of security, even if everything is inside
+    Azure. In the next section, we'll discuss how to connect networks in such a situation.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在已经了解了如何在 Azure VNet 和本地网络之间创建连接。但我们经常需要连接一个 VNet 到另一个 VNet。当然，即使一切都在 Azure
+    内部，保持相同的安全级别仍然很重要。在下一部分中，我们将讨论如何在这种情况下连接网络。
+- en: Connecting a VNet to another VNet
+  id: totrans-104
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 连接一个 VNet 到另一个 VNet
+- en: 'In a case where we have multiple VNets in Azure, we may need to create a connection
+    between them in order to allow services to communicate between networks. There
+    are two ways in which we can achieve this goal:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Azure 中有多个 VNet 的情况下，我们可能需要在它们之间创建连接，以便允许服务在网络之间进行通信。我们可以通过两种方式来实现这一目标：
+- en: The first one would be to create an S2S between the VNets. In this case, the
+    process is very similar to creating an S2S between a VNet and a local network.
+    We need to create a VNG for both VNets, but we don't need an LNG. When creating
+    a connection, we need to select **VNet-to-VNet** in **Connection types** and select
+    appropriate VNGs.
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个步骤是创建 VNets 之间的 S2S 连接。在这种情况下，过程与创建 VNet 和本地网络之间的 S2S 非常相似。我们需要为两个 VNet 创建
+    VNG，但不需要 LNG。创建连接时，我们需要在**连接类型**中选择**VNet 到 VNet**，并选择适当的 VNG。
+- en: Another option would be to create VNet peering. An S2S connection is secure
+    and encrypted, but it passes over the internet. Peering uses an Azure backbone
+    network in order to route traffic, and it never leaves Azure. This makes peering
+    even safer.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个选项是创建 VNet 对等连接。S2S 连接是安全且加密的，但它通过互联网传输。对等连接则使用 Azure 的骨干网络来路由流量，并且流量不会离开
+    Azure。这使得对等连接更加安全。
+- en: 'To create peering between VNets, we need to carry out the following steps:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 VNets 之间创建对等连接，我们需要执行以下步骤：
+- en: Go to the peerings section in the VNet blade and add a new peering.
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入 VNet 面板中的对等连接部分，添加一个新的对等连接。
+- en: We need to define the name and the VNet we want to create a connection to.
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们需要定义名称和我们想要建立连接的 VNet。
+- en: Other settings are also present, such as whether we want to allow connections
+    to go both ways, or whether we want to allow forwarded traffic.
+  id: totrans-111
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 还有其他设置，例如是否允许双向连接，或者是否允许转发流量。
+- en: 'A peering example is shown in the following figure:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下图示例展示了一个对等连接：
+- en: '![Figure 4.11 – Creating VNet-to-VNet peering'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.11 – 创建 VNet 到 VNet 的对等连接'
+- en: '](img/Fig_4.11.jpg)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.11.jpg)'
+- en: Figure 4.11 – Creating VNet-to-VNet peering
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.11 – 创建 VNet 到 VNet 的对等连接
+- en: It's very important to understand additional security settings in VNet peering
+    and how they affect the network traffic.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理解 VNet 对等连接中的附加安全设置及其如何影响网络流量非常重要。
+- en: 'The network access settings will define traffic access from one VNet to another.
+    For example, we may want to enable access from **VNet A** to **VNet B**. But,
+    because of security settings, we want to block access from **VNet B** to **VNet
+    A**. This way, resources in **VNet A** will be able to access resources in **VNet
+    B**, but resources in **VNet** **B** will not be able to access resources in **VNet**
+    **A**:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络访问设置将定义从一个 VNet 到另一个 VNet 的流量访问。例如，我们可能希望启用从 **VNet A** 到 **VNet B** 的访问。但是，由于安全设置，我们希望阻止从
+    **VNet B** 到 **VNet A** 的访问。这样，**VNet A** 中的资源可以访问 **VNet B** 中的资源，但 **VNet B**
+    中的资源无法访问 **VNet A** 中的资源：
+- en: '![Figure 4.12 – VNet peering'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.12 – VNet 对等连接'
+- en: '](img/Fig_4.12.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.12.jpg)'
+- en: Figure 4.12 – VNet peering
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.12 – VNet 对等连接
+- en: 'In the next section, we will define how we handle forwarded traffic. Let''s
+    say that **VNet** **A** is connected to **VNet** **B** and **VNet** **C**. There
+    is no connection between **VNet** **B** and **VNet** **C**. With these settings,
+    we define whether we want to allow traffic from **VNet** **B** to reach **VNet**
+    **C** over **VNet** **A**. The same thing can be defined the other way around:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将定义如何处理转发的流量。假设 **VNet** **A** 连接到 **VNet** **B** 和 **VNet** **C**，并且
+    **VNet** **B** 和 **VNet** **C** 之间没有连接。在这些设置下，我们定义是否希望允许 **VNet** **B** 的流量通过
+    **VNet** **A** 到达 **VNet** **C**。反过来也可以进行相同的定义：
+- en: '![Figure 4.13 – VNet peering with multiple VNets'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.13 – 多个 VNet 的 VNet 对等连接'
+- en: '](img/Fig_4.13.jpg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.13.jpg)'
+- en: Figure 4.13 – VNet peering with multiple VNets
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.13 – 多个 VNet 的 VNet 对等连接
+- en: The gateway transit settings allow us to control whether we want a current connection
+    to be able to use other connections with another network. For example, **VNet**
+    **A** is connected to **VNet B** and **VNet B** is connected to an on-premises
+    network (or another VNet). This setting will define whether traffic from **VNet
+    A** will be able to reach the on-premises network. In this case, one of the VNets
+    would be replaced with the on-premise network. If there is a connection between
+    the on-premise network and **VNet A**, and a connection between **VNet A** and
+    **VNet B**, the gateway transit would decide whether traffic from **VNet B** can
+    reach the on-premise network.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网关中继设置允许我们控制是否希望当前连接能够使用与另一个网络的其他连接。例如，**VNet** **A** 连接到 **VNet B**，且 **VNet
+    B** 连接到本地网络（或另一个 VNet）。此设置将定义 **VNet A** 的流量是否能够到达本地网络。在这种情况下，VNet 中的一个将被本地网络替换。如果存在本地网络与
+    **VNet A** 之间的连接，并且 **VNet A** 与 **VNet B** 之间也存在连接，网关中继将决定是否允许 **VNet B** 的流量访问本地网络。
+- en: In the next section, we will be discussing the most important thing when it
+    comes to security, which is service endpoints in VNets.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将讨论与安全性相关的最重要的内容，即 VNets 中的服务终结点。
+- en: VNet service endpoints
+  id: totrans-127
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: VNet 服务终结点
+- en: VNet service endpoints enable us to extend some **Platform as a Service (PaaS)**
+    services to use private address spaces. With service endpoints, we connect services
+    (that don't have this option by default) to our VNet enabling services to communicate
+    over private IP addresses. This way, traffic is never exposed publicly, and data
+    exchange is carried out over the Microsoft Azure backbone network.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VNet 服务终结点使我们能够扩展一些**平台即服务（PaaS）**服务，以使用私有地址空间。通过服务终结点，我们可以将服务（默认情况下没有此选项的）连接到我们的
+    VNet，从而使服务能够通过私有 IP 地址进行通信。这样，流量永远不会公开暴露，数据交换会通过 Microsoft Azure 骨干网络进行。
+- en: 'Only some Azure services support this feature:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 仅某些 Azure 服务支持此功能：
+- en: Azure App Service
+  id: totrans-130
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 应用服务
+- en: Azure Container Registry
+  id: totrans-131
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 容器注册表
+- en: Azure Cosmos DB
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure Cosmos DB
+- en: Azure Data Lake
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 数据湖
+- en: Azure Database for MariaDB
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure MariaDB 数据库
+- en: Azure Database for MySQL
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure MySQL 数据库
+- en: Azure Database for PostgreSQL
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure PostgreSQL 数据库
+- en: Azure Event Hub
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 事件中心
+- en: Azure Key Vault
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 密钥保管库
+- en: Azure Service Bus
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 服务总线
+- en: Azure Storage
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure 存储
+- en: Azure SQL Database
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据库
+- en: Azure SQL Data Warehouse
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Azure SQL 数据仓库
+- en: The first security benefit from using service endpoints is definitely that data
+    never leaves the private space. Let's say that we have Azure App Service and Azure
+    SQL Database connected to the VNet with service endpoints. This way, all communication
+    between the web application on App Service and the database on Azure SQL Database
+    would be done securely over the VNet. No data would be exposed publicly, as is
+    the case when using the same services without endpoints.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用服务端点的第一个安全好处显然是数据永远不会离开私有空间。假设我们有 Azure 应用服务和 Azure SQL 数据库，它们通过服务端点连接到 VNet。在这种情况下，应用服务上的
+    Web 应用程序与 Azure SQL 数据库上的数据库之间的所有通信都将通过 VNet 安全地进行。没有数据会公开暴露，正如没有使用端点时使用相同服务的情况一样。
+- en: Without this feature, both services would only have public IP addresses and
+    communication between them going over the internet. Even though there are ways
+    of doing this securely, with communication being sent encrypted over HTTPS, using
+    service endpoints partly removes the security risk in this communication.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有此功能，两个服务将只有公共 IP 地址，且它们之间的通信将通过互联网进行。虽然也有办法保证这种通信的安全性，例如通过 HTTPS 加密发送通信，但使用服务端点可以在一定程度上消除这种通信的安全风险。
+- en: But the security benefits of using service endpoints don't stop there. As services
+    connected to VNet with service endpoints are assigned private IP addresses from
+    a specific subnet, all security rules associated with this subnet are applied
+    to our services as well. If an NSG blocks specific traffic on our subnet, the
+    same traffic will be blocked for PaaS services as well.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，使用服务端点的安全性好处不仅仅止步于此。由于连接到 VNet 且使用服务端点的服务会从特定子网分配私有 IP 地址，所有与此子网相关的安全规则也会应用到我们的服务上。如果
+    NSG 阻止了子网上的特定流量，PaaS 服务的相同流量也会被阻止。
+- en: 'We can enable service points on VNet either during the creation of a VNet or
+    at a later time. Service endpoints are enabled on a subnet level, and this can
+    be done either on a VNet or subnet configuration. Follow these steps to enable
+    service endpoints in VNet:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以在创建 VNet 时，或者稍后启用 VNet 上的服务端点。服务端点是在子网级别启用的，可以在 VNet 或子网配置中进行此操作。按照以下步骤启用
+    VNet 中的服务端点：
+- en: Go to the VNet blade and select **service endpoints**. Click **add** and select
+    the subnet and services you want to use, as in the following figure:![Figure 4.14
+    – Adding PaaS service endpoints
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到 VNet 配置页面，选择**服务端点**。点击**添加**，然后选择你想使用的子网和服务，如下图所示：
+- en: '](img/Fig_4.14.jpg)'
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.14.jpg)'
+- en: Figure 4.14 – Adding PaaS service endpoints
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 4.14 – 添加 PaaS 服务端点
+- en: 'Go to the **subnet** configuration and select the services, as in the following
+    figure:'
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到**子网**配置，选择服务，如下图所示：
+- en: '![Figure 4.15 – Enabling service endpoints on subnet'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.15 – 在子网上启用服务端点'
+- en: '](img/Fig_4.15.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.15.jpg)'
+- en: Figure 4.15 – Enabling service endpoints on subnet
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.15 – 在子网上启用服务端点
+- en: Enabling service endpoints on a VNet and subnet is only half of the job. We
+    need to enable settings on a PaaS service for the service endpoint to take effect.
+    When enabling the service endpoint in the service settings, only subnets with
+    enabled service endpoints will show up.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 VNet 和子网上启用服务端点只是工作的一半。我们还需要在 PaaS 服务中启用设置，才能使服务端点生效。当在服务设置中启用服务端点时，只有启用了服务端点的子网会显示出来。
+- en: With service endpoints, we complete the network section that is available directly
+    on Azure VNet settings. But there are other things we need to consider when it
+    comes to network security. Let's see what else is available to increase network
+    security in Azure.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用服务端点后，我们完成了 Azure VNet 设置中直接可用的网络部分。但在网络安全方面，还有其他需要考虑的因素。让我们看看在 Azure 中增加网络安全性还有哪些其他可用的功能。
+- en: Considering other virtual networks' security
+  id: totrans-156
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 考虑其他虚拟网络的安全性
+- en: For additional security and traffic control, a **Network Virtual Appliance (NVA)**
+    can be used. An NVA can be deployed from Azure Marketplace. Once deployed, you
+    will realize that an NVA, in fact, is an Azure VM with a third-party firewall
+    installed. Most industry leaders are present in Azure Marketplace and we can deploy
+    firewall solutions that we are used to in an on-premises environment. It's important
+    to mention that we don't have to decide between NSGs or NVAs; these can be combined
+    for additional security.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了增强安全性和流量控制，可以使用**网络虚拟设备（NVA）**。NVA 可以通过 Azure Marketplace 部署。部署后，你会发现 NVA
+    实际上是一个安装了第三方防火墙的 Azure 虚拟机。大多数行业领导者都在 Azure Marketplace 中提供解决方案，我们可以部署我们在本地环境中习惯的防火墙解决方案。需要提到的是，我们不必在
+    NSG 和 NVA 之间做出选择；这两者可以结合使用，以提供额外的安全性。
+- en: 'Additional network security can be achieved with Azure Firewall as well. Azure
+    Firewall is a firewall as a service. It allows better network control than an
+    NSG and can be compared to an NVA solution in many aspects. But Azure Firewall
+    also has a few advantages compared to an NVA, such as built-in high availability,
+    the option to deploy to multiple Availability Zones, and unrestricted cloud scalability.
+    This means that no load balancers are needed. We can span Azure Firewall across
+    multiple Availability Zones (and achieve an SLA of 99.99%), and scaling is configured
+    to automatically accommodate any change in network traffic. Some options that
+    are supported are: application filtering, network traffic filtering, FQDN tags,
+    service tags, outbound SNAT support, inbound DNAT support, and multiple public
+    IP addresses. With these options, we can have complete control of network traffic
+    in our VNet. It''s important to mention that Azure Firewall is compliant with
+    many security standards, such as SOC 1 Type 2, SOC 2 Type 2, SOC 3, PCI DSS, and
+    ISO 27001, 27018, 20000-1, 22301, 9001, and 27017.'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Azure 防火墙还可以实现额外的网络安全。Azure 防火墙是一种作为服务提供的防火墙。它比 NSG 提供更好的网络控制，在许多方面可以与 NVA
+    解决方案进行比较。但与 NVA 相比，Azure 防火墙也有一些优势，如内置高可用性、可以部署到多个可用区的选项以及不受限制的云扩展性。这意味着无需负载均衡器。我们可以将
+    Azure 防火墙跨多个可用区部署（并实现 99.99% 的 SLA），并且扩展配置可以自动适应网络流量的任何变化。支持的选项包括：应用程序过滤、网络流量过滤、FQDN
+    标签、服务标签、出站 SNAT 支持、入站 DNAT 支持以及多个公共 IP 地址。通过这些选项，我们可以对 VNet 中的网络流量进行完全控制。需要注意的是，Azure
+    防火墙符合许多安全标准，如 SOC 1 Type 2、SOC 2 Type 2、SOC 3、PCI DSS 和 ISO 27001、27018、20000-1、22301、9001
+    和 27017。
+- en: Next, we will be looking at how to deploy and configure Azure Firewall through
+    the Azure portal.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将查看如何通过 Azure 门户部署和配置 Azure 防火墙。
+- en: Azure Firewall deployment and configuration
+  id: totrans-160
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Azure 防火墙的部署和配置
+- en: This example – to deploy and configure Azure Firewall – requires Azure PowerShell.
+    However, Azure Firewall can be configured and deployed through the Azure portal
+    as well.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本示例——部署和配置 Azure 防火墙——需要使用 Azure PowerShell。但是，也可以通过 Azure 门户配置和部署 Azure 防火墙。
+- en: Azure Firewall deployment
+  id: totrans-162
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Azure 防火墙的部署
+- en: 'In order to deploy Azure Firewall, we need to set up the required network and
+    infrastructure:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了部署 Azure 防火墙，我们需要设置所需的网络和基础设施：
+- en: 'First, we need to create subnets, create a VNet, and associate the subnets
+    with the VNet:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们需要创建子网，创建一个 VNet，并将子网与 VNet 关联：
+- en: '[PRE5]'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'Next, we need to deploy Azure VM, which will be used as a jump box (the VM
+    we connect to in order to perform admin tasks on other VMs in the network; we
+    don''t connect to other VMs directly, but only through a jump box):'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要部署 Azure 虚拟机（VM），该虚拟机将用作跳跃盒子（我们连接到该虚拟机以便对网络中的其他虚拟机执行管理任务；我们不会直接连接到其他虚拟机，而是通过跳跃盒子进行连接）：
+- en: '[PRE6]'
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'After the jump box, we create a test VM:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在跳跃盒子之后，我们创建一个测试虚拟机（VM）：
+- en: '[PRE7]'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Finally, we deploy Azure Firewall:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们部署 Azure 防火墙：
+- en: '[PRE8]'
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Next, we will look at the Azure Firewall configuration.
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们将查看 Azure 防火墙的配置。
+- en: The Azure Firewall configuration
+  id: totrans-173
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+  zh: Azure 防火墙的配置
+- en: 'After Azure Firewall is deployed, it doesn''t actually do anything. We need
+    to create a configuration and rules in order for Azure Firewall to be effective:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 部署 Azure 防火墙后，它实际上什么也不做。我们需要创建配置和规则，以使 Azure 防火墙生效：
+- en: 'First, we will create a new route table with the BGP propagation disabled:'
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们将创建一个新的路由表，并禁用 BGP 传播：
+- en: '[PRE9]'
+  id: totrans-176
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Next, we create an application rule that allows outbound access to [www.google.com](http://www.google.com):'
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们创建一个应用程序规则，允许访问 [www.google.com](http://www.google.com) 的出站流量：
+- en: '[PRE10]'
+  id: totrans-178
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'We then create a rule to allow a DNS on port `53`:'
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们创建一个规则，允许在端口 `53` 上进行 DNS 访问：
+- en: '[PRE11]'
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'And then we need to assign a DNS to an NIC:'
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们需要为网络接口卡（NIC）分配一个 DNS：
+- en: '[PRE12]'
+  id: totrans-182
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Try connecting to a jump box, and then through a jump box to test the VM. From
+    the test VM, try resolving multiple URLs. Only [www.google.com](http://www.google.com)
+    should succeed, as all outbound traffic is denied except for the explicit allow
+    rule we created.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尝试连接到跳跃盒子，然后通过跳跃盒子测试虚拟机。从测试虚拟机尝试解析多个 URL。只有 [www.google.com](http://www.google.com)
+    应该成功，因为除非我们创建了明确的允许规则，否则所有出站流量都会被拒绝。
+- en: Let's move on to networking in PaaS and see what else is available, besides
+    securing PaaS with service endpoints. We can have better network control and prevent
+    unwanted traffic even with endpoints publicly available.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们继续了解 PaaS 中的网络，并查看除了使用服务端点保护 PaaS 外，还有哪些可用的选项。即使服务端点公开可用，我们也能更好地控制网络并防止不需要的流量。
+- en: Understanding Azure Application Gateway
+  id: totrans-185
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解 Azure 应用程序网关
+- en: The next Azure service that can help increase security is Application Gateway.
+    Application Gateway is a web-traffic load balancer that enables traffic management
+    for web applications. It operates as **layer 7** **(L-7**, or **application layer**)
+    load balancing. This means that it supports URL-based routing and can route requests
+    based on the URI path or host header.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一个可以帮助增加安全性的Azure服务是应用网关。应用网关是一个用于Web应用程序的流量负载均衡器，能够管理Web应用程序的流量。它作为**第7层（L-7**或**应用层）**负载均衡器运行。这意味着它支持基于URL的路由，并可以根据URI路径或主机头路由请求。
+- en: Application Gateway supports **Secure Socket Layer (SSL/TSL)** termination at
+    the gateway. After the gateway, traffic flows unencrypted to backend servers,
+    which are unburdened from encryption and decryption overhead. However, if this
+    is not an option because of security, compliance, or any other requirements, full
+    end-to-end encryption is supported as well.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用网关支持**安全套接字层（SSL/TSL）**终止网关。网关之后，流量以未加密形式流向后端服务器，后端服务器无需承担加密和解密的开销。但是，如果因为安全、合规性或其他要求而不选择此选项，则还支持全端到端加密。
+- en: Application Gateway also supports scalability and zone redundancy. Scalability
+    allows autoscaling depending on traffic load, and zone redundancy allows the service
+    to be deployed to multiple availability zones in order to provide better fault
+    resiliency, and removing the need to deploy the service to multiple zones manually.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用网关还支持可伸缩性和区域冗余。可伸缩性允许根据流量负载进行自动扩展，而区域冗余允许将服务部署到多个可用区，以提供更好的故障容错性，并消除手动部署到多个区域的需求。
+- en: Overall, Azure Application Gateway is an L-7 load balancer and we could question
+    the security aspects of it (if we exclude SSL/TSL termination), as it's more a
+    question of reliability and availability. But Application Gateway has an amazing
+    security feature called Azure **Web Application Firewall (WAF)**. WAF protects
+    web applications against common exploits and vulnerabilities.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总体而言，Azure应用网关是一个L-7负载均衡器，如果排除SSL/TSL终止，我们可以质疑其安全方面，因为这更多是可靠性和可用性的问题。但是，应用网关具有一个称为Azure
+    **Web应用防火墙（WAF）**的出色安全功能。WAF保护Web应用程序免受常见的攻击和漏洞。
+- en: WAF is based on the **Open Web Application Security Project (OWASP)** and is
+    updated to address the latest vulnerabilities. As it's PaaS, all updates are done
+    automatically without any user configuration. From a policy perspective, we can
+    create multiple custom policies and apply different sets of policies to different
+    web applications.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAF基于**开放式Web应用安全项目（OWASP）**，并更新以解决最新的漏洞。由于它是平台即服务（PaaS），所有更新都会自动完成，无需用户配置。从策略的角度来看，我们可以创建多个自定义策略，并将不同的策略集应用于不同的Web应用程序。
+- en: 'Two modes are available: detection and prevention. In detection mode, WAF will
+    detect all suspicious requests but will not stop them, only log them. It''s important
+    to mention that WAF can be integrated with different logging tools, so logs can
+    be stored for auditing purposes. When in protection mode, WAF will also block
+    any malicious requests, return a `403 unauthorized access` exception, and close
+    the connection. Prevention mode also logs all attacks.'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 两种模式可供选择：检测模式和预防模式。在检测模式下，WAF将检测所有可疑请求，但不会阻止它们，只会记录下来。需要强调的是，WAF可以与不同的日志工具集成，因此日志可以用于审计目的。在预防模式下，WAF还将阻止任何恶意请求，返回`403
+    unauthorized access`异常，并关闭连接。预防模式也会记录所有攻击。
+- en: 'Attacks are categorized by four severity levels:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击按四个严重级别分类：
+- en: Critical (5)
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 严重（5）
+- en: Error (4)
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 错误（4）
+- en: Warning (3)
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 警告（3）
+- en: Notice (2)
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 注意（2）
+- en: Each level has a severity value and the threshold for blocking is `5`. So, a
+    single critical issue is enough to block a session with value `5`, but at least
+    2 error issues are needed to block a session, as 1 error with a value of `4` is
+    below the threshold.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个级别都有一个严重性值，阻止的阈值为`5`。因此，单个严重问题足以阻止值为`5`的会话，但至少需要2个错误问题才能阻止会话，因为一个值为`4`的错误低于阈值。
+- en: 'WAF works as a filter before Application Gateway – it will process a request,
+    decide whether it''s valid or not, and, based on this decision, it will allow
+    the request to proceed to Application Gateway or reject the request. Once the
+    request is allowed by WAF, Application Gateway acts as a normal L-7 load balancer,
+    as if WAF was turned off. You can see that in the following figure:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WAF在应用网关之前起到过滤器的作用 - 它会处理请求，决定其是否有效，并根据此决定允许请求继续传递到应用网关或拒绝请求。一旦WAF允许请求通过，应用网关则作为正常的L-7负载均衡器运行，就好像WAF已关闭一样。您可以在以下图中看到这一点：
+- en: '![Figure 4.16 – Application Gateway traffic flow'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 4.16 – 应用网关流量流动'
+- en: '](img/Fig_4.16.jpg)'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/Fig_4.16.jpg)'
+- en: Figure 4.16 – Application Gateway traffic flow
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.16 – 应用网关流量流动
+- en: 'Some of the attacks that can be detected and prevented with WAF are listed
+    here:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面列出了一些可以通过 WAF 检测并防止的攻击：
+- en: SQL injection
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SQL 注入
+- en: Cross-site scripting
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 跨站脚本攻击
+- en: Command injection
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 命令注入
+- en: Request smuggling
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 请求走私
+- en: Response splitting
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 响应分割
+- en: HTTP protocol violations and anomalies
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: HTTP 协议违反和异常
+- en: Protection against crawlers and scanners
+  id: totrans-209
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 防护爬虫和扫描器
+- en: Geo-filter traffic
+  id: totrans-210
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 地理过滤流量
+- en: WAF on Application Gateway supports logging options to Azure Monitor, diagnostic
+    logs to storage accounts, and integration with security tools such as Azure Security
+    Center or Azure Sentinel.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用网关上的 WAF 支持将日志选项传输到 Azure Monitor、诊断日志存储到存储账户，并与安全工具如 Azure Security Center
+    或 Azure Sentinel 集成。
+- en: Understanding Azure Front Door
+  id: totrans-212
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解 Azure Front Door
+- en: Azure Front Door works very similarly to Application Gateway but on a different
+    level. Like Application Gateway, it's an L-7 load balancer with an SSL offload.
+    The difference is that Application Gateway works with services in a single region
+    where Azure Front Door allows us to define, manage, and monitor routing on a global
+    level. With Azure Front Door, we can ensure the highest availability using global
+    distribution. A similar thing can be achieved with Azure Traffic Manager (in terms
+    of global distribution), but this service lacks L-7 load balancing and SSL offloading.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure Front Door 与应用网关的工作方式非常相似，但它位于不同的层级。像应用网关一样，它是一个具有 SSL 卸载的 L-7 负载均衡器。不同之处在于，应用网关只与单一区域中的服务协作，而
+    Azure Front Door 允许我们在全球范围内定义、管理和监控路由。通过 Azure Front Door，我们可以通过全球分发确保最高的可用性。使用
+    Azure Traffic Manager 也能实现类似的全球分发功能，但该服务不具备 L-7 负载均衡和 SSL 卸载功能。
+- en: What Azure Front Door provides actually combines Application Gateway and Traffic
+    Manager to enable an L-7 load balancer with global distribution. It's also important
+    to mention that a WAF is also available on Azure Front Door. Using a WAF on Azure
+    Front Door, we can provide web application protection for globally distributed
+    applications.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Azure Front Door 提供的功能实际上结合了应用网关和流量管理器，以实现具有全球分发的 L-7 负载均衡器。还需要提到的是，Azure Front
+    Door 上还可以使用 WAF。通过在 Azure Front Door 上使用 WAF，我们可以为全球分布的应用程序提供 Web 应用保护。
+- en: Summary
+  id: totrans-215
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we addressed network security and, prior to that, we saw how
+    to manage cloud identities. We need to remember that network security doesn't
+    stop with IaaS and VNets. Network security basics are usually associated with
+    VNets and NSGs. But even with IaaS, it does not stop there, and we have options
+    to extend with an NVA or Azure Firewall. With PaaS, we can leverage VNet's service
+    endpoints but extend security with services like Application Gateway or Azure
+    Front Door.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们讨论了网络安全，之前我们还讨论了如何管理云身份。我们需要记住，网络安全不仅仅止步于 IaaS 和 VNets。网络安全的基础通常与 VNets
+    和 NSGs 相关。但即使是在 IaaS 中，也不止于此，我们可以通过 NVA 或 Azure 防火墙来扩展安全性。在 PaaS 中，我们可以利用 VNet
+    的服务端点，并通过应用网关或 Azure Front Door 等服务进一步扩展安全性。
+- en: But, with all the preclusions limiting who, how, when, and from where we can
+    access our resources, we still need to handle sensitive information and data.
+    The next chapter will address how can we manage certificates, secrets, passwords,
+    and connection strings using Azure Key Vault.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，尽管有许多限制我们访问资源的前提条件，如谁、如何、何时以及从哪里获取资源，我们仍然需要处理敏感信息和数据。下一章将讲解如何使用 Azure Key
+    Vault 管理证书、机密、密码和连接字符串。
+- en: Questions
+  id: totrans-218
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: We can control traffic in virtual networks with…
+  id: totrans-219
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过……控制虚拟网络中的流量
+- en: A. A network interface
+  id: totrans-220
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 网络接口
+- en: B. A Network Security Group (NSG)
+  id: totrans-221
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 网络安全组（NSG）
+- en: C. An Access Control List (ACL)
+  id: totrans-222
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 访问控制列表（ACL）
+- en: What type of connection is available with on-premises networks?
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 与本地网络连接可用的类型是什么？
+- en: A. Point-to-Site
+  id: totrans-224
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 点到站点
+- en: B. Site-to-Site
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 站点到站点
+- en: C. VNet-to-VNet
+  id: totrans-226
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. VNet 对 VNet
+- en: A connection between Virtual Networks can be made with…
+  id: totrans-227
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 虚拟网络之间的连接可以通过……
+- en: A. VNet-to-VNet
+  id: totrans-228
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. VNet 对 VNet
+- en: B. VNet peering
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. VNet 对等连接
+- en: C. Both of the above
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 以上两项
+- en: D. None of the above
+  id: totrans-231
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. 以上都不正确
+- en: Which feature allows us to connect PaaS services to a virtual network?
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 哪个功能允许我们将 PaaS 服务连接到虚拟网络？
+- en: A. Service connection
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 服务连接
+- en: B. Service endpoints
+  id: totrans-234
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 服务端点
+- en: C. ExpressRoute
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. ExpressRoute
+- en: When multiple networks are involved…
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当涉及多个网络时……
+- en: A. We can define a route
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 我们可以定义路由
+- en: B. Traffic is blocked by default
+  id: totrans-238
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 默认情况下，流量被阻止
+- en: C. Traffic is allowed by default
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 默认情况下，流量允许
+- en: D. A and B are correct
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. A 和 B 正确
+- en: E. A and C are correct
+  id: totrans-241
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: E. A 和 C 正确
+- en: Which feature in Application Gateway adds additional security?
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在应用程序网关中，哪个功能可以增加额外的安全性？
+- en: A. Open Web Application Security Project (OWASP)
+  id: totrans-243
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. 开放网络应用安全项目（OWASP）
+- en: B. Web Application Firewall (WAF)
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 网络应用防火墙（WAF）
+- en: C. **S**ecure Socket Layer (SSL) / Transport Layer Security (TSL)
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. **安全套接字层**（SSL）/ 传输层安全协议（TSL）
+- en: What type of attack cannot be blocked with Application Gateway?
+  id: totrans-246
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 什么类型的攻击无法通过应用程序网关进行阻止？
+- en: A. SQL injection (SQLi)
+  id: totrans-247
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: A. SQL 注入（SQLi）
+- en: B. Cross-Site Scripting (XSS)
+  id: totrans-248
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: B. 跨站脚本攻击（XSS）
+- en: C. Distributed Denial of Service (DDoS)
+  id: totrans-249
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: C. 分布式拒绝服务攻击（DDoS）
+- en: D. HTTP protocol violations
+  id: totrans-250
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: D. HTTP 协议违规

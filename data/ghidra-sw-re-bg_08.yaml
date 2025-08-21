@@ -1,0 +1,1584 @@
+- en: '*Chapter 6*: Scripting Malware Analysis'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第六章*：脚本化恶意软件分析'
+- en: In this chapter, we will apply the scripting capabilities of Ghidra to malware
+    analysis. By using and writing Ghidra scripts, you will be able to analyze malware
+    in a more efficient way.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将应用 Ghidra 的脚本能力进行恶意软件分析。通过使用和编写 Ghidra 脚本，你将能够更加高效地分析恶意软件。
+- en: You will learn how to statically resolve the Kernel32 API hashed functions used
+    by Alina shellcode, which was superficially analyzed in the previous chapter.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你将学习如何静态解析 Alina shellcode 中使用的 Kernel32 API 哈希函数，该函数在上一章中进行了表面分析。
+- en: The Flat APIs are *simple* but powerful versions of the full-fledged complex
+    Ghidra API. They are a great starting point for anyone looking to develop Ghidra
+    modules and/or scripts.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat API 是 Ghidra API 的*简化*版，但功能强大。它们是任何想要开发 Ghidra 模块和/或脚本的人的绝佳起点。
+- en: We will start by classifying the Ghidra Flat API functions into categories in
+    order to get more comfortable when looking for a function. Following that, we
+    will look at how to iterate over the code using Java and Python, and, finally,
+    we will use the mentioned code to deobfuscate malware.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将通过将 Ghidra Flat API 函数分类来开始，以便在查找函数时更加得心应手。接下来，我们将学习如何使用 Java 和 Python 遍历代码，最后，我们将使用上述代码进行恶意软件的去混淆。
+- en: 'To deobfuscate is to convert a program that is difficult to understand into
+    one that is simple, understandable, and straightforward. There are tools available
+    to deobfuscate tough code or a tough program into a simple and understandable
+    form. Obfuscation is usually done to prevent reverse engineering, making it hard
+    for those with malicious intentions to understand its inner functionality. Similarly,
+    obfuscation may also be used to conceal malicious content in software. A deobfuscating
+    tool is used to reverse-engineer these programs. Although deobfuscation is always
+    possible, the attacker tries to benefit from the following asymmetry: little effort
+    required to obfuscate versus a lot of effort to deobfuscate.'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 去混淆是将一个难以理解的程序转化为一个简单、易懂、直观的程序。现有工具可以将复杂的代码或程序转换为简单易懂的形式。混淆通常是为了防止逆向工程，使得恶意意图的人难以理解程序的内在功能。同样，混淆也可以用来隐藏软件中的恶意内容。去混淆工具用于逆向工程这些程序。虽然去混淆总是可能的，但攻击者通常试图利用以下的不对称性：混淆所需的努力较小，而去混淆则需要大量的努力。
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主要内容：
+- en: Using the Ghidra scripting API
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Ghidra 脚本 API
+- en: Writing scripts using the Java programming language
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Java 编程语言编写脚本
+- en: Writing scripts using the Python programming language
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Python 编程语言编写脚本
+- en: Deobfuscating malware samples using scripts
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用脚本去混淆恶意软件样本
+- en: Technical requirements
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: The code for this chapter can be found at [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter06](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter06).
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码可以在[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter06](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter06)找到。
+- en: 'Check out the following link to see the Code in Action video: [https://bit.ly/36RZOMQ](https://bit.ly/36RZOMQ)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看以下链接，观看《代码实战》视频：[https://bit.ly/36RZOMQ](https://bit.ly/36RZOMQ)
+- en: Using the Ghidra scripting API
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Ghidra 脚本 API
+- en: The Ghidra scripting API is divided into the Flat API (`ghidra.app.decompiler.flatapi`)
+    and the rest of the functions ([http://ghidra.re/ghidra_docs/api/overview-tree.html](http://ghidra.re/ghidra_docs/api/overview-tree.html)),
+    which are more complex.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra 脚本 API 分为 Flat API（`ghidra.app.decompiler.flatapi`）和其他函数（[http://ghidra.re/ghidra_docs/api/overview-tree.html](http://ghidra.re/ghidra_docs/api/overview-tree.html)），后者更为复杂。
+- en: 'The Flat API is a simplified version of the Ghidra API, and it allows you,
+    in summary, to perform the following actions:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Flat API 是 Ghidra API 的简化版，总结起来，它允许你执行以下操作：
+- en: 'These functions allow you to work with memory addresses: `addEntryPoint`, `addInstructionXref`,
+    `createAddressSet`, `getAddressFactory`, and `removeEntryPoint`.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你处理内存地址：`addEntryPoint`、`addInstructionXref`、`createAddressSet`、`getAddressFactory`
+    和 `removeEntryPoint`。
+- en: 'Use these functions to perform code analysis: `analyze`, `analyzeAll`, `analyzeChanges`,
+    `analyzeAll`, and `analyzeChanges`.'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用这些函数进行代码分析：`analyze`、`analyzeAll`、`analyzeChanges`、`analyzeAll` 和 `analyzeChanges`。
+- en: 'Use the following function to clear the code listing: `clearListing`.'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用以下函数清除代码列表：`clearListing`。
+- en: 'The following functions allow you to declare data: `createAsciiString`, `createAsciiString`,
+    `createBookmark`, `createByte`, `createChar`, `createData`, `createDouble`, `createDWord`,
+    `createDwords`, `createEquate`, `createUnicodeString`, `removeData`, `removeDataAt`,
+    `removeEquate`, `removeEquate`, and `removeEquates`.'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下函数允许你声明数据：`createAsciiString`、`createAsciiString`、`createBookmark`、`createByte`、`createChar`、`createData`、`createDouble`、`createDWord`、`createDwords`、`createEquate`、`createUnicodeString`、`removeData`、`removeDataAt`、`removeEquate`、`removeEquate`
+    和 `removeEquates`。
+- en: 'Use these functions to get data from a memory address: `getInt`, `getByte`,
+    `getBytes`, `getShort`, `getLong`, `getFloat`, `getDouble`, `getDataAfter`, `getDataAt`,
+    `getDataBefore`, `getLastData`, `getDataContaining`, `getUndefinedDataAfter`,
+    `getUndefinedDataAt`, `getUndefinedDataBefore`, `getMemoryBlock`, `getMemoryBlocks`,
+    and `getFirstData`.'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用以下函数从内存地址获取数据：`getInt`、`getByte`、`getBytes`、`getShort`、`getLong`、`getFloat`、`getDouble`、`getDataAfter`、`getDataAt`、`getDataBefore`、`getLastData`、`getDataContaining`、`getUndefinedDataAfter`、`getUndefinedDataAt`、`getUndefinedDataBefore`、`getMemoryBlock`、`getMemoryBlocks`
+    和 `getFirstData`。
+- en: 'The following functions allow you to work with references: `createExternalReference`,
+    `createStackReference`, `getReference`, `getReferencesFrom`, `getReferencesTo`,
+    and `setReferencePrimary`.'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下函数允许你处理引用：`createExternalReference`、`createStackReference`、`getReference`、`getReferencesFrom`、`getReferencesTo`
+    和 `setReferencePrimary`。
+- en: 'These functions allow you to work with data types: `createFloat`, `createQWord`,
+    `createWord`, `getDataTypes`, and `openDataTypeArchive`.'
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你处理数据类型：`createFloat`、`createQWord`、`createWord`、`getDataTypes` 和 `openDataTypeArchive`。
+- en: 'Use these functions to set a value to some memory address: `setByte`, `setBytes`,
+    `setDouble`, `setFloat`, `setInt`, `setLong`, and `setShort`'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用以下函数将值设置到某个内存地址：`setByte`、`setBytes`、`setDouble`、`setFloat`、`setInt`、`setLong`
+    和 `setShort`
+- en: 'These functions allow you to create fragments: `getFragment`, `createFragment`,
+    `createFunction`, `createLabel`, `createMemoryBlock`, `createMemoryReference`,
+    `createSymbol`, `getSymbol`, `getSymbols`, `getSymbolAfter`, `getSymbolAt`, `getSymbolBefore`,
+    `getSymbols`, and `getBookmarks`.'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你创建代码片段：`getFragment`、`createFragment`、`createFunction`、`createLabel`、`createMemoryBlock`、`createMemoryReference`、`createSymbol`、`getSymbol`、`getSymbols`、`getSymbolAfter`、`getSymbolAt`、`getSymbolBefore`、`getSymbols`
+    和 `getBookmarks`。
+- en: 'Use the following function to disassemble bytes: `disassemble`.'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用以下函数进行字节反汇编：`disassemble`。
+- en: 'These functions allow you to work with transactions: `end` and `start`.'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你处理事务：`end` 和 `start`。
+- en: 'If you want to find values, use the following set of functions: `find`, `findBytes`,
+    `findPascalStrings`, and `findStrings`.'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果你想查找值，可以使用以下函数：`find`、`findBytes`、`findPascalStrings` 和 `findStrings`。
+- en: 'The following functions allow you to operate at a function level: `getGlobalFunctions`,
+    `getFirstFunction`, `getFunction`, `getFunctionAfter`, `getFunctionAt`, `getFunctionBefore`,
+    `getFunctionContaining`, and `getLastFunction`.'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下函数允许你在函数级别进行操作：`getGlobalFunctions`、`getFirstFunction`、`getFunction`、`getFunctionAfter`、`getFunctionAt`、`getFunctionBefore`、`getFunctionContaining`
+    和 `getLastFunction`。
+- en: 'The following functions allow you to operate at a program level: `getCurrentProgram`,
+    `saveProgram`, `set`, and `getProgramFile`.'
+  id: totrans-30
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下函数允许你在程序级别进行操作：`getCurrentProgram`、`saveProgram`、`set` 和 `getProgramFile`。
+- en: 'The following functions allow you to operate at an instruction level: `getFirstInstruction`,
+    `getInstructionAfter`, `getInstructionAt`, `getInstructionBefore`, `getInstructionContaining`,
+    and `getLastInstruction`.'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以下函数允许你在指令级别进行操作：`getFirstInstruction`、`getInstructionAfter`、`getInstructionAt`、`getInstructionBefore`、`getInstructionContaining`
+    和 `getLastInstruction`。
+- en: 'These functions allow you to work with equates: `getEquate` and `getEquates`.'
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你处理等式：`getEquate` 和 `getEquates`。
+- en: 'If you want to remove something, use the following set of functions: `removeBookmark`,
+    `removeFunction`, `removeFunctionAt`, `removeInstruction`, `removeInstructionAt`,
+    `removeMemoryBlock`, `removeReference`, and `removeSymbol`.'
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果你想删除某个内容，可以使用以下函数：`removeBookmark`、`removeFunction`、`removeFunctionAt`、`removeInstruction`、`removeInstructionAt`、`removeMemoryBlock`、`removeReference`
+    和 `removeSymbol`。
+- en: 'These functions allow you to work with comments: `setEOLComment`, `setPlateComment`,
+    `setPostComment`, `setPreComment`, `getPlateComment`, `getPostComment`, `getPreComment`,
+    `getEOLComment`, and `toAddr`.'
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 这些函数允许你处理注释：`setEOLComment`、`setPlateComment`、`setPostComment`、`setPreComment`、`getPlateComment`、`getPostComment`、`getPreComment`、`getEOLComment`
+    和 `toAddr`。
+- en: 'Use the following function to decompile bytes: `FlatDecompilerAPI`, `decompile`,
+    and `getDecompiler`.'
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用以下函数对字节进行反编译：`FlatDecompilerAPI`、`decompile` 和 `getDecompiler`。
+- en: 'And finally, some miscellaneous functions: `getMonitor`, `getNamespace`, and
+    `getProjectRootFolder`.'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最后，其他一些杂项函数：`getMonitor`、`getNamespace` 和 `getProjectRootFolder`。
+- en: This reference can be helpful to you when getting started with Ghidra scripting
+    to identify the function that you need and look for the prototype in the documentation.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个参考资料在你开始使用 Ghidra 脚本时非常有用，可以帮助你识别所需的函数并在文档中查找原型。
+- en: Writing scripts using the Java programming language
+  id: totrans-38
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Java 编程语言编写脚本
+- en: 'As you know from the previous chapter, Alina malware incorporates shellcode
+    that is injected into the `explorer.exe` process. If you want to deobfuscate the
+    shellcode Kernel32 API function calls, then you will need to identify call instructions.
+    You will also need to filter the functions in order to get only what you need,
+    and finally, of course, you will need to perform the deobfuscation:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你从上一章中了解到的，Alina 恶意软件包含注入到 `explorer.exe` 进程中的 shellcode。如果你想解混淆 shellcode
+    中的 Kernel32 API 函数调用，你需要识别调用指令。你还需要过滤这些函数，以便只提取所需的内容，最后，当然，你需要进行解混淆：
+- en: '[PRE0]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-44
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-46
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '[PRE7]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-48
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: '[PRE9]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-50
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'Let me explain how this code works line by line:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我逐行解释这段代码是如何工作的：
+- en: It obtains the function containing the current address (the focused address)
+    (line `01`).
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它获取包含当前地址（聚焦地址）的函数（第`01`行）。
+- en: The instruction at the current address is also obtained (line `02`).
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当前地址的指令也被获取（第`02`行）。
+- en: A loop iterating from the current instruction to the end of the function is
+    performed (line `03`).
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行从当前指令到函数末尾的循环（第`03`行）。
+- en: The mnemonic of the instruction is obtained (line `04`).
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 获取指令的助记符（第`04`行）。
+- en: It checks whether the mnemonic corresponds to a `CALL` instruction, which is
+    the type of instruction we are interested in (line `05`).
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它检查助记符是否对应于 `CALL` 指令，这是我们感兴趣的指令类型（第`05`行）。
+- en: The instruction operands are also retrieved (line `06`).
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 还会检索指令操作数（第`06`行）。
+- en: Since obfuscated calls are relative to the `EBP` address where the hash table
+    exists, we check whether `EBP` is an operand (line `07`).
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 由于混淆的调用与存在哈希表的 `EBP` 地址相关，我们检查 `EBP` 是否是一个操作数（第`07`行）。
+- en: The deobfuscation routine must be implemented in this line (line `08`).
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 解混淆过程必须在这一行实现（第`08`行）。
+- en: Retrieve the next instruction (line `11`).
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检索下一条指令（第`11`行）。
+- en: In this section, you learned how to use the Ghidra API to implement scripts
+    using the Java language. In the next section, you will learn how to do the same
+    thing using Python and we will compare both languages but in the context of Ghidra
+    scripting.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，你学习了如何使用 Java 语言和 Ghidra API 编写脚本。在下一节中，你将学习如何使用 Python 完成相同的任务，我们将比较这两种语言在
+    Ghidra 脚本编写中的应用。
+- en: Writing scripts using the Python programming language
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Python 编程语言编写脚本
+- en: 'If we rewrite the deobfucation code skeleton using Python, it looks as follows:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们使用 Python 重写解混淆代码框架，代码如下：
+- en: '[PRE12]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-66
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-68
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-70
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '[PRE20]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: As you can see, it is similar to Java in that it doesn't need additional explanation.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，它与 Java 相似，不需要额外的解释。
+- en: To develop a Ghidra script, it is not necessary to remember all the functions.
+    The only important thing is to be clear about what you want to do and have located
+    the necessary resources, such as documentation to locate the right API functions.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 开发 Ghidra 脚本时，并不需要记住所有函数。唯一重要的是明确你想做什么，并定位所需的资源，如文档，以便找到正确的 API 函数。
+- en: Python is an awesome language with an awesome community that develops libraries
+    and tools. If you want to write code really fast, Python is a great option. Unfortunately,
+    Ghidra doesn't incorporate a pure Python implementation. Ghidra is mostly implemented
+    in Java and then ported to Python via Jython.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Python 是一门很棒的语言，拥有一个活跃的社区，开发了大量的库和工具。如果你想快速编写代码，Python 是一个不错的选择。不幸的是，Ghidra
+    没有实现纯 Python 支持，Ghidra 主要是用 Java 实现的，然后通过 Jython 移植到 Python。
+- en: 'Theoretically, you can choose indistinctly to use either Python or Java but,
+    in practical terms, Jython has some issues:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 理论上，你可以选择使用 Python 或 Java，但实际上，Jython 存在一些问题：
+- en: Jython relies on Python 2.x, which is deprecated.
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Jython 依赖于已废弃的 Python 2.x。
+- en: 'Sometimes, some things work as expected in Java but don''t work in Jython.
+    Here are some examples:'
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 有时，一些代码在 Java 中按预期工作，但在 Jython 中却不起作用。以下是一些例子：
+- en: '- [https://github.com/NationalSecurityAgency/ghidra/issues/1890](https://github.com/NationalSecurityAgency/ghidra/issues/1890)'
+  id: totrans-80
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- [https://github.com/NationalSecurityAgency/ghidra/issues/1890](https://github.com/NationalSecurityAgency/ghidra/issues/1890)'
+- en: '- [https://github.com/NationalSecurityAgency/ghidra/issues/1608](https://github.com/NationalSecurityAgency/ghidra/issues/1608)'
+  id: totrans-81
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- [https://github.com/NationalSecurityAgency/ghidra/issues/1608](https://github.com/NationalSecurityAgency/ghidra/issues/1608)'
+- en: Due to the things mentioned here, it is your decision whether you implement
+    your scripts using a more stable language such as Java or a quicker but a little
+    more unstable one such as Python. Feel free to evaluate both options and make
+    your decision!
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这里提到的因素，你可以决定是否使用更稳定的语言（如 Java）或更快但稍微不稳定的语言（如 Python）来编写脚本。请随意评估这两种选择并做出决定！
+- en: Deobfuscating malware samples using scripts
+  id: totrans-83
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用脚本对恶意软件样本进行去混淆
+- en: In the previous chapter, we showed how Alina injects shellcode into the `explorer.exe`
+    process. We analyzed this by simply reading the strings, which is a quick, practical
+    approach, but we can be more accurate in our analysis. Let's focus on some shellcode
+    details.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们展示了 Alina 如何将 shellcode 注入到 `explorer.exe` 进程中。我们通过简单地读取字符串来分析这一过程，这是一种快速且实用的方法，但我们可以更准确地进行分析。让我们聚焦于一些
+    shellcode 的细节。
+- en: The delta offset
+  id: totrans-85
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 增量偏移
+- en: When injecting code, it is placed in a position that is unknown at development
+    time. As a consequence, the data cannot be accessed by using absolute addresses;
+    instead, it must be accessed via relative positions. The shellcode retrieves the
+    current address at runtime. In other words, it retrieves the `EIP` register.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在注入代码时，它被放置在开发时未知的位置。因此，数据不能通过绝对地址访问；相反，必须通过相对位置访问。shellcode 在运行时检索当前地址。换句话说，它检索
+    `EIP` 寄存器。
+- en: The purpose of the `EIP` register in x86 architecture (32-bit) is to point to
+    the next instruction to execute; so, it controls the flow of a program. It determines
+    the next instruction to execute.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`EIP` 寄存器在 x86 架构（32 位）中的作用是指向下一个要执行的指令；因此，它控制程序的执行流程。它决定了下一条要执行的指令。'
+- en: 'But, as the `EIP` register is controlled implicitly (by control-transfer instructions,
+    interruptions, and exceptions), it cannot be accessed directly, so it is retrieved
+    by the malware performing the following technique:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，由于 `EIP` 寄存器是通过控制转移指令、中断和异常间接控制的，无法直接访问，因此它通过恶意软件执行以下技术来恢复：
+- en: 'Performs a `CALL` instruction pointing to an address 5 bytes away. So, the
+    call performs two changes:'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行一个 `CALL` 指令，指向 5 字节远的地址。因此，调用会执行两个更改：
+- en: '- It pushes the return address (the address of the next instruction) onto the
+    stack, which is `0x004f6105`:'
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- 它将返回地址（下一条指令的地址）推入堆栈，该地址为 `0x004f6105`：'
+- en: '![Figure 6.1 – The CALL instruction pushes the return address onto the stack'
+  id: totrans-91
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '![图 6.1 – CALL 指令将返回地址推入堆栈'
+- en: '](img/B16207_06_001.jpg)'
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_001.jpg)'
+- en: Figure 6.1 – The CALL instruction pushes the return address onto the stack
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.1 – CALL 指令将返回地址推入堆栈
+- en: '- It transfers the control to the target address:'
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- 它将控制权转移到目标地址：'
+- en: '![Figure 6.2 – The CALL instruction transfers the flow to the target address'
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '![图 6.2 – CALL 指令将控制流转移到目标地址'
+- en: '](img/B16207_06_002.jpg)'
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_002.jpg)'
+- en: Figure 6.2 – The CALL instruction transfers the flow to the target address
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.2 – CALL 指令将控制流转移到目标地址
+- en: 'Then, it recovers the address stored in the stack via `POP EBP`. This instruction
+    does the following:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，它通过 `POP EBP` 恢复堆栈中存储的地址。该指令执行以下操作：
+- en: '- It removes the latest value pushed onto the stack:'
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- 它移除堆栈上最新推入的值：'
+- en: '![Figure 6.3 – The POP instruction removes the latest value pushed onto the
+    stack'
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '![图 6.3 – POP 指令移除堆栈上最新推入的值'
+- en: '](img/B16207_06_003.jpg)'
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_003.jpg)'
+- en: Figure 6.3 – The POP instruction removes the latest value pushed onto the stack
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.3 – POP 指令移除堆栈上最新推入的值
+- en: '- It stores the value in the targeting register, `EBP` in this case:'
+  id: totrans-103
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '- 它将值存储到目标寄存器中，此处为 `EBP`：'
+- en: '![Figure 6.4 – The POP instruction stores the removed stack value into the
+    targeting EBP register'
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '![图 6.4 – POP 指令将移除的堆栈值存储到目标 EBP 寄存器'
+- en: '](img/B16207_06_004.jpg)'
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_004.jpg)'
+- en: Figure 6.4 – The POP instruction stores the removed stack value into the targeting
+    EBP register
+  id: totrans-106
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 6.4 – POP 指令将移除的堆栈值存储到目标 EBP 寄存器
+- en: Finally, it subtracts `0x5` units from the `EBP` register to get the `EIP` value
+    (which we had when executing the `CALL` instruction, not the current one) stored
+    in `EBP`:![Figure 6.5 – The SUB instruction subtracts 5 units from the EBP register
+  id: totrans-107
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，它从 `EBP` 寄存器中减去 `0x5` 单位，以获取存储在 `EBP` 中的 `EIP` 值（即我们在执行 `CALL` 指令时的值，而非当前的值）：![图
+    6.5 – SUB 指令从 EBP 寄存器中减去 5 个单位
+- en: '](img/B16207_06_005.jpg)'
+  id: totrans-108
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_005.jpg)'
+- en: Figure 6.5 – The SUB instruction subtracts 5 units from the EBP register
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.5 – SUB 指令从 EBP 寄存器中减去 5 个单位
+- en: By using this trick, the malware developer can refer to data values using the
+    `EBP` register (the beginning of the shellcode) plus an offset to the mentioned
+    data. By using this technique, the resulting code is position-independent; no
+    matter in which position you place the shellcode, it will work anyway.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过使用这个技巧，恶意软件开发者可以通过`EBP`寄存器（shellcode的起始地址）加上偏移量来引用数据值。使用这种技术，生成的代码是位置无关的；无论将shellcode放置在哪个位置，它都会正常工作。
+- en: 'You can check this in the following code fragment:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过以下代码片段检查这一点：
+- en: '![Figure 6.6 – Delta offset stored in the EBP register for position-independent
+    code'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.6 – 存储在EBP寄存器中的增量偏移量，用于位置无关代码'
+- en: '](img/B16207_06_006.jpg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_006.jpg)'
+- en: Figure 6.6 – Delta offset stored in the EBP register for position-independent
+    code
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.6 – 存储在EBP寄存器中的增量偏移量，用于位置无关代码
+- en: 'This trick is commonly known as `0x5e2` offset relative to the shellcode starting
+    address:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个技巧通常被称为`0x5e2`，它是相对于shellcode起始地址的偏移量：
+- en: '![Figure 6.7 – Storing the base address of the API hash table'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.7 – 存储API哈希表的基地址'
+- en: '](img/B16207_06_007.jpg)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_007.jpg)'
+- en: Figure 6.7 – Storing the base address of the API hash table
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.7 – 存储API哈希表的基地址
+- en: After that, a function is responsible for replacing Kernel32 API function hashes
+    with function directions, allowing you to call it from the program.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，一个函数负责将Kernel32 API函数的哈希值替换为函数地址，从而允许你从程序中调用它。
+- en: 'Once the replacement is done, a lot of calls are done via offsets of this hash
+    table, which is now converted into a table of API addresses:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦替换完成，很多调用就通过这个哈希表的偏移量进行，这个哈希表现在已经被转换为一个API地址表：
+- en: '![Figure 6.8 – Calling resolved API functions via relative offsets'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.8 – 通过相对偏移量调用已解析的API函数'
+- en: '](img/B16207_06_008.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_008.jpg)'
+- en: Figure 6.8 – Calling resolved API functions via relative offsets
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.8 – 通过相对偏移量调用已解析的API函数
+- en: As you can see, the disassembly shows `CALL` instructions pointing to `EBP`
+    relative offsets. It is much more preferable to see the callee function name instead.
+    Improving the disassembly to show function names is our objective but, as a first
+    step, in the next section, you will learn how API hashes are replaced with their
+    corresponding API function addresses.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，反汇编显示了指向`EBP`相对偏移量的`CALL`指令。更希望看到被调用函数的名称。我们提升反汇编以显示函数名的目标是这样的，但是作为第一步，在下一部分，你将学习如何将API哈希替换为它们相应的API函数地址。
+- en: Translating API hashes to addresses
+  id: totrans-125
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 翻译API哈希为地址
+- en: 'The following function is responsible for replacing the hash of the functions
+    with the corresponding address of the function:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下函数负责用对应的函数地址替换函数的哈希值：
+- en: '![Figure 6.9 – The function responsible for replacing the table of function
+    hashes with addresses'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 6.9 – 负责用地址替换函数哈希表的函数'
+- en: '](img/B16207_06_009.jpg)'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_009.jpg)'
+- en: Figure 6.9 – The function responsible for replacing the table of function hashes
+    with addresses
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.9 – 负责用地址替换函数哈希表的函数
+- en: The previous code iterates over each API name, extracted from the `AddressOfNames`
+    section of the export table of the `kernel32.dll` library.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之前的代码遍历了每个API名称，这些名称从`kernel32.dll`库的导出表的`AddressOfNames`部分提取出来。
+- en: 'It is easy to identify the mentioned functionality if you have some background
+    in analyzing Portable Executable files because some offsets in the code are very
+    striking. Let''s see the correspondence between the offsets shown in the previous
+    `apiHashesToApiAdresses` disassembly and Portable Executable format fields:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你有分析可移植执行文件（Portable Executable，PE）格式的背景，识别上述功能就很容易了，因为代码中的一些偏移量非常显眼。让我们来看一下在之前的`apiHashesToApiAdresses`反汇编中显示的偏移量和可移植执行文件格式字段之间的对应关系：
+- en: '`0x3c` corresponds to the `e_lfanew` field, meaning the **Relative Virtual
+    Address** (**RVA**) of the Portable Executable header.'
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x3c` 对应于 `e_lfanew` 字段，表示**相对虚拟地址**（**RVA**）的可移植执行文件头。'
+- en: '`0x78` is the RVA to the export table.'
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x78` 是导出表的RVA。'
+- en: '`0x20` is the RVA of the name pointer table into the export table.'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x20` 是指向导出表的名称指针表的RVA。'
+- en: '`0x1c` is the RVA of the address table into the export table.'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x1c` 是指向导出表的地址表的RVA。'
+- en: '`0x24` is the RVA of the ordinal table into the export table.'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x24` 是指向导出表的顺序表的RVA。'
+- en: '`0x18` is the RVA of the number of names, which is the maximum number of loop
+    iterations.'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x18` 是名称数量的RVA，这是循环迭代的最大次数。'
+- en: 'Lines `21` and `22` in *Figure 6.9* are the key part of the code for deobfuscation
+    purposes. On these mentioned lines, for each character of the API, a series of
+    logical operations is applied. This series of operations can be easily translated
+    into Python, as shown in the following Python shell command listing:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*图6.9*中的第`21`行和第`22`行是去混淆代码的关键部分。在这些行中，对于API的每个字符，都会应用一系列逻辑操作。这些操作可以很容易地转化为Python代码，如以下Python
+    shell命令所示：'
+- en: '[PRE21]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '[PRE22]'
+  id: totrans-140
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '[PRE23]'
+  id: totrans-141
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: '[PRE25]'
+  id: totrans-143
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-145
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Let me clarify these four Python commands:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我澄清这四条Python命令：
+- en: We store the `lstrlenW` string in the `apiname` variable, as we want to compute
+    its hash value. In this way, we are testing our Python code over a real `kernel32.dll`
+    API name.
+  id: totrans-147
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将`lstrlenW`字符串存储在`apiname`变量中，因为我们要计算它的哈希值。通过这种方式，我们正在对一个真实的`kernel32.dll`
+    API名称测试我们的Python代码。
+- en: We initialize the `hash` value to `0`. This is the first step of this hashing
+    algorithm.
+  id: totrans-148
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将`hash`值初始化为`0`。这是此哈希算法的第一步。
+- en: We iterate over each character (variable `c`) of the `lstrlenW` string while
+    updating the `hash` variable value according to the hashing algorithm.
+  id: totrans-149
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们遍历`lstrlenW`字符串中的每个字符（变量`c`），同时根据哈希算法更新`hash`变量的值。
+- en: We finally print the hash value using hexadecimal notation. Please notice that
+    the `L` character at the end of the hash value means long data type and it doesn't
+    belong to the hash.
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们使用十六进制表示法打印哈希值。请注意，哈希值末尾的`L`字符表示长整型数据类型，并不属于哈希的一部分。
+- en: 'Of course, the mentioned code can also be translated into Java:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当然，提到的代码也可以转换成Java：
+- en: '[PRE28]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '[PRE29]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: '[PRE30]'
+  id: totrans-154
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '[PRE31]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: '[PRE32]'
+  id: totrans-156
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: '[PRE33]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: '[PRE34]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: '[PRE35]'
+  id: totrans-159
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '[PRE37]'
+  id: totrans-161
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: '[PRE38]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: '[PRE39]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: '[PRE40]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: '[PRE41]'
+  id: totrans-165
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '[PRE42]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: '[PRE43]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: '[PRE44]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: In this section, you learned how API hashing works and how to translate the
+    algorithm from assembly language into Python and Java. In the next section, we
+    will use the mentioned code to resolve the names of the callee functions and put
+    it into the disassembly listing.
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，你了解了API哈希如何工作，并且学习了如何将算法从汇编语言转换为Python和Java。在下一节中，我们将使用提到的代码来解析被调用函数的名称，并将其添加到反汇编列表中。
+- en: Deobfuscating the hash table using Ghidra scripting
+  id: totrans-170
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用Ghidra脚本去混淆哈希表
+- en: 'Before automatically deobfuscating the program, we need the complete list of
+    `Kernel32.dll`-exported API function names. You can find the following script
+    (`get_kernel32_exports.py`) on the dedicated GitHub repository, which uses Python''s
+    `pefile` module for this purpose:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在自动去混淆程序之前，我们需要`Kernel32.dll`导出的API函数名称的完整列表。你可以在专门的GitHub仓库中找到以下脚本（`get_kernel32_exports.py`），它使用Python的`pefile`模块来实现这一目的：
+- en: '[PRE45]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: '[PRE46]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: '[PRE47]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: '[PRE48]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: '[PRE49]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: 'This listed code does the following:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个列出的代码执行了以下操作：
+- en: Imports the `pefile` module, allowing it to parse in Portable Executable file
+    format, the file format used in 32-bit and 64-bit versions of Microsoft Windows
+    operating systems for executables, object code, DLLs, and others
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导入`pefile`模块，允许解析便携式可执行文件格式，这是微软Windows操作系统中用于可执行文件、目标代码、DLL等的32位和64位版本的文件格式。
+- en: Stores in `pe` an instance of the parsed `Kernel32.dll` Portable Executable
+    file
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将解析后的`Kernel32.dll`便携式可执行文件的实例存储在`pe`中
+- en: Creates an empty set of `Kernel32.dll`-exported functions
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建一个空的`Kernel32.dll`导出函数集合
+- en: Iterates over the `Kernel32.dll`-exported functions
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 遍历`Kernel32.dll`导出的函数
+- en: Retrieves the name of the exported function (encoded using ASCII character codification)
+    and adds it to the set of **exports**.
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检索导出函数的名称（使用ASCII字符编码）并将其添加到**exports**集合中。
+- en: 'The result produced by the previous script is a set containing the Kernel32
+    exports, as shown in the following partial output:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面脚本生成的结果是一个包含Kernel32导出函数的集合，如以下部分输出所示：
+- en: '[PRE50]'
+  id: totrans-184
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'Finally, we can put all the pieces together in order to automate the task of
+    resolving hashed Kernel32 API addresses:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们可以将所有部分组合在一起，从而自动化解决哈希Kernel32 API地址的任务：
+- en: '[PRE51]'
+  id: totrans-186
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: '[PRE52]'
+  id: totrans-187
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: '[PRE53]'
+  id: totrans-188
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: '[PRE54]'
+  id: totrans-189
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: '[PRE55]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: '[PRE56]'
+  id: totrans-191
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: '[PRE57]'
+  id: totrans-192
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: '[PRE58]'
+  id: totrans-193
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: '[PRE59]'
+  id: totrans-194
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: '[PRE60]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: '[PRE61]'
+  id: totrans-196
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: '[PRE62]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: '[PRE63]'
+  id: totrans-198
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: '[PRE64]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: '[PRE65]'
+  id: totrans-200
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: '[PRE66]'
+  id: totrans-201
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: '[PRE67]'
+  id: totrans-202
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: '[PRE68]'
+  id: totrans-203
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: '[PRE69]'
+  id: totrans-204
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE69]'
+- en: '[PRE70]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE70]'
+- en: '[PRE71]'
+  id: totrans-206
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE71]'
+- en: '[PRE72]'
+  id: totrans-207
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE72]'
+- en: '[PRE73]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE73]'
+- en: '[PRE74]'
+  id: totrans-209
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE74]'
+- en: '[PRE75]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE75]'
+- en: 'In summary, we are doing the following:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结一下，我们正在做以下操作：
+- en: We are declaring the set of Kernel32 API names at line `05`.
+  id: totrans-212
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们在第`05`行声明了Kernel32 API名称的集合。
+- en: We are looking for matches with those API names for a provided hash at line
+    `06`.
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们正在寻找与提供的哈希值匹配的API名称，位于第`06`行。
+- en: We are traversing the function looking for obfuscated calls in lines `14` to
+    `20`.
+  id: totrans-214
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们在第`14`行到第`20`行之间遍历函数，寻找混淆的调用。
+- en: Finally, we are setting a comment and printing the name of the function in lines
+    `23` and `24`, respectively.
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们在第`23`行和第`24`行分别设置了一个注释并打印了函数的名称。
+- en: 'The execution of the script produces the following changes in the disassembly
+    listing (comments about the called functions):'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本的执行会在反汇编列表中产生以下变化（关于调用函数的注释）：
+- en: '![Figure 6.10 – Comments generated by the script indicating the resolved Kernel32
+    API functions'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.10 – 脚本生成的注释，指示已解析的Kernel32 API函数'
+- en: '](img/B16207_06_010.jpg)'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_010.jpg)'
+- en: Figure 6.10 – Comments generated by the script indicating the resolved Kernel32
+    API functions
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.10 – 脚本生成的注释，指示已解析的Kernel32 API函数
+- en: Showing function names is better than nothing but it is much better to show
+    symbols because they reference the function as well as showing the name. In the
+    next section, you will see how to add this improvement.
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显示函数名称总比什么都不显示好，但显示符号更好，因为它们不仅引用函数，还显示了函数名称。在接下来的部分，你将看到如何添加这个改进。
+- en: Improving the scripting results
+  id: totrans-221
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 改进脚本结果
+- en: 'You can also improve the result by adding the necessary Kernel32 symbols to
+    it. For instance, you can look for the `CreateFileA` symbol in the **Symbol Tree**
+    window:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还可以通过向其中添加必要的Kernel32符号来改善结果。例如，你可以在**符号树**窗口中查找`CreateFileA`符号：
+- en: '![Figure 6.11 – Looking for the CreateFileA symbol'
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.11 – 查找CreateFileA符号'
+- en: '](img/B16207_06_011.jpg)'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_011.jpg)'
+- en: Figure 6.11 – Looking for the CreateFileA symbol
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.11 – 查找CreateFileA符号
+- en: 'Attach this symbol to the current program and access the function address by
+    double-clicking on it:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将此符号附加到当前程序，并通过双击它访问函数地址：
+- en: '![](img/B16207_06_012.jpg)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/B16207_06_012.jpg)'
+- en: Figure 6.12 – Looking for the CreateFileA API address
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.12 – 查找CreateFileA API地址
+- en: 'Then, patch the `CALL` instruction by using the *Ctrl* + *Shift* + *G* key
+    combination:'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，使用*Ctrl* + *Shift* + *G*键组合修补`CALL`指令：
+- en: '![Figure 6.13 – Editing a CALL instruction'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.13 – 编辑CALL指令'
+- en: '](img/B16207_06_013.jpg)'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_013.jpg)'
+- en: Figure 6.13 – Editing a CALL instruction
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.13 – 编辑CALL指令
+- en: 'Patch it with the `CreateFileA` address obtained before:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用之前获得的`CreateFileA`地址修补它：
+- en: '![Figure 6.14 – Patching the CALL instruction with the target CreateFileA API
+    address'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.14 – 使用目标CreateFileA API地址修补CALL指令'
+- en: '](img/B16207_06_014.jpg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_014.jpg)'
+- en: Figure 6.14 – Patching the CALL instruction with the target CreateFileA API
+    address
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.14 – 使用目标CreateFileA API地址修补CALL指令
+- en: 'Press the *R* key and set this reference to `INDIRECTION`:'
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按下*R*键，并将此引用设置为`INDIRECTION`：
+- en: '![Figure 6.15 – Modifying the CALL address reference type to INDIRECTION'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.15 – 修改CALL地址引用类型为INDIRECTION'
+- en: '](img/B16207_06_015.jpg)'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_015.jpg)'
+- en: Figure 6.15 – Modifying the CALL address reference type to INDIRECTION
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.15 – 修改CALL地址引用类型为INDIRECTION
+- en: 'After this modification, the code is modified, allowing Ghidra to identify
+    function parameters, identify references to the function, and so on when analyzing
+    the code, which is always better than putting a comment. In the following screenshot,
+    you can see the resulting disassembly listing:'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 经过此修改后，代码被更改，允许Ghidra在分析代码时识别函数参数、识别对函数的引用等，这总比添加注释要好。在下方的截图中，你可以看到修改后的反汇编清单：
+- en: '![Figure 6.16 – Disassembly listing using symbols instead of comments'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图6.16 – 使用符号而非注释的反汇编清单'
+- en: '](img/B16207_06_016.jpg)'
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_06_016.jpg)'
+- en: Figure 6.16 – Disassembly listing using symbols instead of comments
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.16 – 使用符号而非注释的反汇编清单
+- en: As you can see, scripting can be very useful when analyzing malware because
+    repetitive tasks such as string deobfuscation, resolving API addresses, code deobfuscation,
+    and so on can be fully automated by writing a few, simple lines of code.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，在分析恶意软件时，脚本非常有用，因为诸如字符串去混淆、解析API地址、代码去混淆等重复性任务，可以通过编写几行简单的代码来完全自动化。
+- en: In addition, the more scripts you write, the more efficient you will become,
+    and the more code you can reuse for your future scripts and projects.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，你写的脚本越多，你的效率就会越高，你也可以在未来的脚本和项目中复用更多代码。
+- en: Summary
+  id: totrans-247
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned how to use scripting to be more efficient when
+    analyzing malware using Ghidra. We have used scripting to go beyond the limitations
+    of static analysis and resolve some API function hashes that are calculated at
+    runtime.
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何使用脚本在使用Ghidra分析恶意软件时提高效率。我们已经使用脚本突破静态分析的局限，解决了一些在运行时计算的API函数哈希值。
+- en: You also learned the advantages and disadvantages of using Python or Java when
+    developing a script.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还学到了在开发脚本时使用Python或Java的优缺点。
+- en: You learned how to translate assembly language algorithms into Java and Python,
+    and also learned skills in scripting while developing your first extremely useful
+    script. By using the provided Ghidra Flat API function classification, you are
+    now able to quickly identify Ghidra API functions required by your own scripts
+    without needing to remember or waste time looking for a function in the documentation.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你学会了如何将汇编语言算法转换为 Java 和 Python，并且在开发第一个极为有用的脚本时，还学到了脚本编写技能。通过使用提供的 Ghidra Flat
+    API 函数分类，你现在可以快速识别自己脚本所需的 Ghidra API 函数，而无需记住或浪费时间查找文档中的函数。
+- en: In the next chapter of this book, we will cover Ghidra headless mode, which
+    can be very useful in some situations, such as performing analysis of a huge amount
+    of binaries or using Ghidra alone to integrate it with other tools.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的下一章中，我们将介绍 Ghidra 的无头模式，它在一些情况下非常有用，例如分析大量二进制文件或单独使用 Ghidra 将其与其他工具集成。
+- en: Questions
+  id: totrans-252
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Given a memory address, what Ghidra Flat API allows you to set the byte located
+    at the given memory address? Describe the steps you followed when looking for
+    this function.
+  id: totrans-253
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 给定一个内存地址，哪个 Ghidra Flat API 允许你设置位于该内存地址的字节？描述你在寻找这个函数时遵循的步骤。
+- en: What is the programming language that is best supported by Ghidra and how does
+    Ghidra support Python?
+  id: totrans-254
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Ghidra 最佳支持的编程语言是什么？Ghidra 如何支持 Python？
+- en: Is it possible to statically analyze things that are resolved at runtime?
+  id: totrans-255
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 是否可以静态分析那些在运行时解决的问题？
+- en: Further reading
+  id: totrans-256
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'You can refer to the following links for more information on the topics covered
+    in this chapter:'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以参考以下链接以获取更多关于本章涉及话题的信息：
+- en: 'Ghidra scripting course: [https://ghidra.re/courses/GhidraClass/Intermediate/Scripting_withNotes.html#Scripting.html](https://ghidra.re/courses/GhidraClass/Intermediate/Scripting_withNotes.html#Scripting.html)'
+  id: totrans-258
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Ghidra 脚本课程：[https://ghidra.re/courses/GhidraClass/Intermediate/Scripting_withNotes.html#Scripting.html](https://ghidra.re/courses/GhidraClass/Intermediate/Scripting_withNotes.html#Scripting.html)
+- en: '*Java Fundamentals*, *Gazihan Alankus, Rogério Theodoro de Brito, Basheer Ahamed
+    Fazal et al.*, *March 2019*:[https://www.packtpub.com/eu/application-development/java-fundamentals](https://www.packtpub.com/eu/application-development/java-fundamentals)'
+  id: totrans-259
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Java 基础知识*，*Gazihan Alankus, Rogério Theodoro de Brito, Basheer Ahamed Fazal
+    等人*，*2019年3月*：[https://www.packtpub.com/eu/application-development/java-fundamentals](https://www.packtpub.com/eu/application-development/java-fundamentals)'
+- en: '*Python Automation Cookbook*, *Jaime Buelta*, *May 2020*: [https://www.packtpub.com/eu/programming/python-automation-cookbook-second-edition](https://www.packtpub.com/eu/programming/python-automation-cookbook-second-edition)'
+  id: totrans-260
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Python 自动化食谱*，*Jaime Buelta*，*2020年5月*：[https://www.packtpub.com/eu/programming/python-automation-cookbook-second-edition](https://www.packtpub.com/eu/programming/python-automation-cookbook-second-edition)'

@@ -1,0 +1,2421 @@
+- en: Chapter 5. Scripting and Plugins
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第5章 脚本和插件
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下实例：
+- en: Using a client-side up/down script
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用客户端的up/down脚本
+- en: Using a `client-connect` script
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`client-connect`脚本
+- en: Using a `learn-address` script
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`learn-address`脚本
+- en: Using a `tls-verify` script
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`tls-verify`脚本
+- en: Using an `auth-user-pass-verify` script
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`auth-user-pass-verify`脚本
+- en: Script order
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本顺序
+- en: Script security and logging
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本安全性和日志记录
+- en: Scripting and IPv6
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 脚本编写与IPv6
+- en: Using the `down-root` plugin
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`down-root`插件
+- en: Using the PAM authentication plugin
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用PAM认证插件
+- en: Introduction
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简介
+- en: One of the most powerful features of OpenVPN is its scripting capability and
+    the ability to extend OpenVPN itself through the use of plugins. Using client-side
+    scripting, the connection process can be tailored to the site-specific needs,
+    such as setting up advanced routing options, adding firewall rules or mapping
+    network drives. With server-side scripting, it is possible to assign a custom
+    IP address to different clients, or to extend the authentication process by adding
+    an extra username and password check. Plugins are very useful when integrating
+    OpenVPN authentication into existing authentication frameworks, such as PAM, LDAP,
+    or even Active Directory.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN的一个强大功能是其脚本能力，并通过插件扩展OpenVPN本身。通过客户端脚本，可以根据站点的具体需求定制连接过程，比如设置高级路由选项、添加防火墙规则或映射网络驱动器。通过服务器端脚本，可以为不同客户端分配自定义IP地址，或者通过增加额外的用户名和密码检查来扩展认证过程。插件在将OpenVPN认证集成到现有的认证框架（如PAM、LDAP或Active
+    Directory）中时非常有用。
+- en: In this chapter, the focus will be on scripting, both at the client side and
+    at the server side, and on a few often-used plugins.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将重点介绍脚本编写，包括客户端和服务器端的脚本，以及一些常用的插件。
+- en: Using a client-side up/down script
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用客户端的up/down脚本
+- en: In this recipe, we will use very simple `up` and `down` scripts on the client
+    side to show how OpenVPN calls these scripts. By logging messages to a file, as
+    well as the environment variables, we can easily see which information OpenVPN
+    provides to the `up` and `down` scripts.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个实例中，我们将在客户端使用非常简单的`up`和`down`脚本来展示OpenVPN如何调用这些脚本。通过将消息记录到文件以及环境变量中，我们可以轻松地看到OpenVPN提供给`up`和`down`脚本的信息。
+- en: Getting ready
+  id: totrans-17
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the *Setting up the public and
+    private keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running Fedora 22 Linux and OpenVPN 2.3.10\. The client was running
+    Windows 7 64 bit and OpenVPN 2.3.10\. Keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章 客户端-服务器仅IP网络")中的*设置公钥和私钥*实例来设置客户端和服务器证书，*客户端-服务器仅IP网络*。在这个实例中，服务器计算机运行的是Fedora
+    22 Linux和OpenVPN 2.3.10，客户端运行的是Windows 7 64位和OpenVPN 2.3.10。保留服务器配置文件`basic-udp-server.conf`，该文件来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章 客户端-服务器仅IP网络")中的*服务器端路由*实例。
+- en: How to do it...
+  id: totrans-19
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何实现...
+- en: 'Start the server:'
+  id: totrans-20
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE0]'
+  id: totrans-21
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Create the client configuration file:'
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建客户端配置文件：
+- en: '[PRE1]'
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'Save the file as `example5-1.ovpn`. Note the backslashes: when specifying the `ca`, `cert`, `key`,
+    and `tls-auth` directives, forward slashes can be used, but not for the `up` and `down`
+    scripts!'
+  id: totrans-24
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将文件保存为`example5-1.ovpn`。请注意反斜杠：在指定`ca`、`cert`、`key`和`tls-auth`指令时可以使用正斜杠，但`up`和`down`脚本不能使用！
+- en: 'Next, on the Windows client, create the batch file `updown.bat` batch file
+    in the  `C:\Program Files\OpenVPN\scripts` directory:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，在Windows客户端上，在`C:\Program Files\OpenVPN\scripts`目录中创建批处理文件`updown.bat`：
+- en: '[PRE2]'
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: Finally, start the OpenVPN client:![How to do it...](img/image00375.jpeg)
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，启动OpenVPN客户端：![如何实现...](img/image00375.jpeg)
+- en: 'After the client successfully connects to the OpenVPN server, the  `c:\temp\openvpn.log`
+    log file will contain an output similar to the following:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端成功连接到OpenVPN服务器后，`c:\temp\openvpn.log`日志文件将包含类似以下的输出：
+- en: '[PRE3]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: When the client disconnects from the server, the script is called again, with
+    the exact same command-line parameters, but now the `script_type` is set to `down`.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端与服务器断开连接时，脚本会再次被调用，且命令行参数完全相同，但此时`script_type`设置为`down`。
+- en: Note that the first command-line argument contains the name of the `TUN` device.
+    On Linux and Mac OS systems, this will generally be `tun0` or `tun1`, but on Windows
+    platforms, it is the actual name of the TAP-Win32 adapter.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，第一个命令行参数包含 `TUN` 设备的名称。在 Linux 和 Mac OS 系统上，这通常是 `tun0` 或 `tun1`，但在 Windows
+    平台上，它是实际的 TAP-Win32 适配器名称。
+- en: How it works...
+  id: totrans-32
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: After the initial connection is made with the OpenVPN server, but before the
+    VPN is fully established, the OpenVPN client calls the `up` script. If the `up`
+    script returns with an exit code not equal to zero, the connection sequence is
+    aborted.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在与 OpenVPN 服务器建立初始连接后，但在 VPN 完全建立之前，OpenVPN 客户端调用 `up` 脚本。如果 `up` 脚本返回的退出代码不等于零，则连接过程会被中止。
+- en: Similarly, when the connection is shut down the `down` script is executed after
+    the VPN connection has been stopped.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，当连接关闭时，`down` 脚本会在 VPN 连接停止后执行。
+- en: 'Note the use of the double backslashes (`\\`) in the `up` and `down` directives:
+    OpenVPN translates the backslash character internally and hence it needs to be
+    specified twice. The backslash between `c:\\program` and `files` is required as
+    otherwise OpenVPN cannot find the `up` and `down` scripts without it.'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意在 `up` 和 `down` 指令中使用双反斜杠 (`\\`)：OpenVPN 在内部翻译反斜杠字符，因此需要指定两次。在 `c:\\program`
+    和 `files` 之间的反斜杠是必需的，否则 OpenVPN 无法找到 `up` 和 `down` 脚本。
+- en: There's more...
+  id: totrans-36
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: In this section, we will see some more advanced tricks when using the `up` and `down`
+    scripts, including a sample script to verify the remote hostname of a VPN server.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将看到使用 `up` 和 `down` 脚本的一些更高级技巧，包括一个示例脚本，用于验证 VPN 服务器的远程主机名。
+- en: Environment variables
+  id: totrans-38
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 环境变量
+- en: The script used in this recipe merely writes out all the environment variables
+    to a file. These environment variables contain useful information about the remote
+    server, such as the `common_name` certificate. An extension to this script would
+    be to check whether the  `common_name` certificate matches the remote hostname.
+    The IP address of the remote hostname is available as `trusted_ip`.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方中使用的脚本仅将所有环境变量写入文件。这些环境变量包含有关远程服务器的有用信息，如 `common_name` 证书。此脚本的扩展可以检查 `common_name`
+    证书是否与远程主机名匹配。远程主机名的 IP 地址作为 `trusted_ip` 提供。
+- en: Calling the down script before the connection terminates
+  id: totrans-40
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在连接终止之前调用 `down` 脚本
+- en: 'The `down` script is executed after the actual connection to the OpenVPN server
+    has been stopped. It is also possible to execute the script during the disconnect
+    phase before the connection to the server is dropped. To do this, add the following
+    directive to the client configuration file:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`down` 脚本在与 OpenVPN 服务器的实际连接停止后执行。也可以在断开连接阶段执行该脚本，即在与服务器的连接断开之前。要实现此功能，请将以下指令添加到客户端配置文件中：'
+- en: '[PRE4]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Advanced - verify the remote hostname
+  id: totrans-43
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 高级 - 验证远程主机名
+- en: 'A more advanced usage of an `up` script would be to verify that the remote
+    hostname matches the remote IP address, similar to the way that a web browser
+    verifies the address of secure websites. On Linux systems, this can easily be
+    done using a shell script as an `up` script:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`up` 脚本的更高级用法是验证远程主机名是否与远程 IP 地址匹配，类似于 Web 浏览器验证安全网站地址的方式。在 Linux 系统上，这可以通过使用
+    shell 脚本作为 `up` 脚本轻松实现：'
+- en: '[PRE5]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: But on Windows, this is trickier to achieve without resorting to tools such
+    as PowerShell or Cygwin.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但在 Windows 上，除非使用 PowerShell 或 Cygwin 等工具，否则这会更加复杂。
+- en: Using a client-connect script
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用客户端连接脚本
+- en: 'This recipe will demonstrate how to set up a client-connect script that gets
+    executed on the server side when a new client connects. Similarly, we can specify
+    a `client-disconnect` script that is executed when a client disconnects from the
+    server. Client-connect and client-disconnect scripts can be used for several purposes:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本配方将演示如何设置一个客户端连接脚本，该脚本在新客户端连接时在服务器端执行。同样，我们可以指定一个 `client-disconnect` 脚本，该脚本在客户端与服务器断开连接时执行。客户端连接和客户端断开脚本可以用于多种目的：
+- en: Extra authentication
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 额外认证
+- en: Opening and closing firewall ports
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 开放和关闭防火墙端口
+- en: Assigning specific IP address to special clients
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为特定客户端分配特定 IP 地址
+- en: Writing out connection-specific configuration lines for a client
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为客户端编写特定的连接配置行
+- en: In this recipe, we will use a client-connect script to disable client access
+    to the client with a `client2` certificate between 10 p.m. (or 22:00 hours) and
+    6 a.m. During other hours, a static IP is assigned to this client.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个教程中，我们将使用`client-connect`脚本，在晚上10点（或22:00）到早上6点之间禁用使用`client2`证书的客户端访问。其他时间段内，将为该客户端分配一个静态IP地址。
+- en: Getting ready
+  id: totrans-54
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 正在准备中
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running Fedora 22 Linux and OpenVPN 2.3.10\. The client was running
+    Windows 7 64 bit and OpenVPN 2.3.10\. Keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    at hand. For the client, keep the client configuration file, `basic-udp-client.ovpn`,
+    from the *Using an ifconfig-pool block* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    at hand.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本。确保计算机通过网络连接。使用[第2章](part0025.xhtml#aid-NQU21 "第2章.
+    客户端-服务器IP网络")的第一个教程设置客户端和服务器证书，*客户端-服务器IP网络*。在这个示例中，服务器计算机运行的是Fedora 22 Linux和OpenVPN
+    2.3.10，而客户端运行的是Windows 7 64位和OpenVPN 2.3.10。保持`basic-udp-server.conf`服务器配置文件（来自*服务器端路由*教程，出自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP网络")，*客户端-服务器IP网络*）在手。对于客户端，保持`basic-udp-client.ovpn`配置文件（来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP网络")的*使用ifconfig-pool块*教程，*客户端-服务器IP网络*）在手。
+- en: How to do it...
+  id: totrans-56
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Append the following lines to the `basic-udp-server.conf` server configuration
+    file:'
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将以下内容添加到`basic-udp-server.conf`服务器配置文件中：
+- en: '[PRE6]'
+  id: totrans-58
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Save it as `example5-2-server.conf`.
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-2-server.conf`。
+- en: 'Next, create the connect script:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建连接脚本：
+- en: '[PRE7]'
+  id: totrans-61
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Save this file as `example5-2-connect.sh`.
+  id: totrans-62
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将此文件保存为`example5-2-connect.sh`。
+- en: 'Make sure that the script is executable:'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保脚本是可执行的：
+- en: '[PRE8]'
+  id: totrans-64
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Start the server:'
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE9]'
+  id: totrans-66
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Start the OpenVPN client:![How to do it...](img/image00376.jpeg)
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动OpenVPN客户端：![如何操作...](img/image00376.jpeg)
+- en: 'If the client is started after 6 am and before 10 p.m., the connection will
+    be established successfully. Otherwise, the client log file will show lines similar
+    to the following:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果客户端在早上6点到晚上10点之间启动，连接将会成功建立。否则，客户端日志文件将显示类似以下的内容：
+- en: '[PRE10]'
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Also, the server log will more clearly state the reason for the connection
+    refusal:'
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 同时，服务器日志会更明确地说明连接拒绝的原因：
+- en: '[PRE11]'
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: How it works...
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When a client connects, the OpenVPN server executes the `client-connect` script
+    with several environment variable sets that are related to the client connecting.
+    The script writes out two lines to the connect-specific configuration file, which
+    is passed as the first and only parameter to the `client-connect` script. This
+    configuration file is then processed by the OpenVPN server as if it's a normal
+    configuration file. The two possible lines that we use are `disable` and `ifconfig-push
+    10.200.0.200 255.255.255.0`.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端连接时，OpenVPN服务器会执行`client-connect`脚本，并设置一些与客户端连接相关的环境变量。该脚本会向特定于连接的配置文件写入两行，这个配置文件作为第一个也是唯一的参数传递给`client-connect`脚本。然后，OpenVPN服务器会像处理普通配置文件一样处理这个配置文件。我们使用的两个可能的选项是`disable`和`ifconfig-push
+    10.200.0.200 255.255.255.0`。
+- en: The first option disables a client from connecting. The second option pushes
+    a pre-defined IP to the client.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个选项禁用客户端连接。第二个选项向客户端推送预定义的IP地址。
+- en: There's more...
+  id: totrans-75
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: In this section, we focus on `client-disconnect` and the many environment variables
+    that are available to all OpenVPN scripts.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们重点讲解`client-disconnect`和所有OpenVPN脚本可用的许多环境变量。
+- en: Pitfall in using ifconfig-push
+  id: totrans-77
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用ifconfig-push时的陷阱
+- en: The `client-connect` script used here did not check whether the IP address that
+    was assigned using the `ifconfig-push 10.200.0.200 255.255.255.0` command was
+    actually available. If many clients connect to the server, then this IP address
+    will also be assigned from the pool of IP addresses that is formed as a result
+    of the `server 10.200.0.0 255.255.255.0` statement.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里使用的`client-connect`脚本没有检查通过`ifconfig-push 10.200.0.200 255.255.255.0`命令分配的IP地址是否实际上可用。如果有多个客户端连接到服务器，那么这个IP地址将从由`server
+    10.200.0.0 255.255.255.0`语句生成的IP地址池中分配。
+- en: When assigning static IP addresses to a client, it is best to assign them from
+    a special subnet.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在为客户端分配静态IP地址时，最好从一个特殊的子网分配它们。
+- en: The client-disconnect scripts
+  id: totrans-80
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 客户端断开连接脚本
+- en: 'A `client-disconnect` script can be specified using the following:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用以下方式指定 `client-disconnect` 脚本：
+- en: '[PRE12]'
+  id: totrans-82
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: This script is executed when the client disconnects from the server. Be aware
+    that when a client first disconnects and `explicit-exit-notify` is not specified
+    on the client side, then the OpenVPN server will first try to reconnect several
+    times to the client. If a client does not respond after several attempts, then
+    the `client-disconnect` script will be executed. Depending on the server configuration,
+    this might be several minutes after the client has actually disconnected. When
+    using TCP connections, it is not needed to specify `explicit-exit-notify`, as
+    the client is disconnected immediately when the TCP connection stops.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端从服务器断开连接时执行此脚本。请注意，当客户端首次断开连接且客户端端未指定 `explicit-exit-notify` 时，OpenVPN 服务器将首先尝试多次重新连接客户端。如果客户端在多次尝试后仍未响应，则将执行
+    `client-disconnect` 脚本。根据服务器配置，这可能是客户端实际断开连接后数分钟。使用TCP连接时，无需指定 `explicit-exit-notify`，因为当TCP连接停止时，客户端会立即断开连接。
+- en: Environment variables
+  id: totrans-84
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 环境变量
+- en: 'There is a multitude of environment variables available inside a client-connect
+    and client-disconnect script. It is very instructive to write a `client-connect`
+    script that does a little more than the following:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `client-connect` 和 `client-disconnect` 脚本中可用多种环境变量。编写一个比以下脚本更详细的 `client-connect`
+    脚本非常有教育意义：
+- en: '[PRE13]'
+  id: totrans-86
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Also, similar to the `up` and `down` script, is the `script_type` environment
+    variable that contains the type of script as configured in the server configuration
+    file. This gives the server administrator the option to write a single script
+    for both `client-connect` and `client-disconnect`.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 `up` 和 `down` 脚本类似的还有 `script_type` 环境变量，该变量包含在服务器配置文件中配置的脚本类型。这使服务器管理员可以为
+    `client-connect` 和 `client-disconnect` 编写单个脚本。
+- en: Absolute paths
+  id: totrans-88
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 绝对路径
+- en: 'Note that an absolute path is used for the script. Relative paths are allowed,
+    but especially for the OpenVPN server, it is more secure to use absolute paths.
+    Assuming that the OpenVPN server is always started in the same directory is a
+    bad security practice. An alternative is to use the following:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意脚本使用了绝对路径。允许使用相对路径，但特别是对于OpenVPN服务器，使用绝对路径更安全。假设OpenVPN服务器始终在相同目录中启动是不良的安全实践。一个替代方法是使用以下内容：
+- en: '[PRE14]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: Using a learn-address script
+  id: totrans-91
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`learn-address`脚本
+- en: This recipe will demonstrate how to set up a `learn-address` script that is
+    executed on the server side when there is a change in the address of a connecting
+    client. Learn-address scripts can be used to dynamically set up firewalling rules
+    for specific clients or to adjust routing tables.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本文档将演示如何设置一个 `learn-address` 脚本，该脚本在连接客户端地址变化时在服务器端执行。`learn-address` 脚本可用于为特定客户端动态设置防火墙规则或调整路由表。
+- en: In this recipe, we will use a `learn-address` script to open up a firewall and
+    to set up masquerading for a client. When the client disconnects, the firewall
+    is closed again and the `iptables` masquerading rule is removed.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本文档中，我们将使用一个 `learn-address` 脚本来打开防火墙并为客户端设置伪装。当客户端断开连接时，关闭防火墙，并移除 `iptables`
+    伪装规则。
+- en: Getting ready
+  id: totrans-94
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running Fedora 22 Linux and OpenVPN 2.3.10, and the client was running
+    Windows 7 64 bit and OpenVPN 2.3.10\. For the client, keep the client configuration
+    file, `basic-udp-client.ovpn`, from the *Using an ifconfig-pool block* recipe,
+    from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本。确保计算机通过网络连接。使用第一章节的客户端和服务器证书配置[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 仅IP客户端服务器网络")中的第一个配方，*仅IP客户端服务器网络*。对于这个配方，服务器计算机运行Fedora 22 Linux和OpenVPN
+    2.3.10，客户端运行Windows 7 64位和OpenVPN 2.3.10。对于客户端，保留来自*使用ifconfig-pool block*配方的客户端配置文件`basic-udp-client.ovpn`，从[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 仅IP客户端服务器网络")，*仅IP客户端服务器网络*。
+- en: How to do it...
+  id: totrans-96
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做…
+- en: 'Create the server configuration file:'
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE15]'
+  id: totrans-98
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Save it as `example5-3-server.conf`. Note that this server configuration file
+    does not have the lines `user nobody` and `group nobody` (nor `group nogroup`).
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example5-3-server.conf`。注意，此服务器配置文件中没有 `user nobody` 和 `group nobody`（也没有
+    `group nogroup`）行。
+- en: 'Next, create the `learn-address` script:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建 `learn-address` 脚本：
+- en: '[PRE16]'
+  id: totrans-101
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: Save this file as `example5-3-learn-address.sh`.
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将此文件保存为 `example5-3-learn-address.sh`。
+- en: 'Make sure that the script is executable and start the OpenVPN server:'
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保脚本是可执行的，并启动 OpenVPN 服务器：
+- en: '[PRE17]'
+  id: totrans-104
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: Start the client using the Windows GUI using the basic configuration file:![How
+    to do it...](img/image00377.jpeg)
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用基本配置文件通过 Windows GUI 启动客户端：![如何操作...](img/image00377.jpeg)
+- en: 'After the client connects to the server, check the `iptables` firewall rules
+    on the server:'
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 客户端连接到服务器后，检查服务器上的 `iptables` 防火墙规则：
+- en: '[PRE18]'
+  id: totrans-107
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Disconnect the client, wait for a few minutes, and then verify that the `iptables`
+    rules have been removed.
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 断开客户端连接，等待几分钟，然后验证 `iptables` 规则是否已被移除。
+- en: How it works...
+  id: totrans-109
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'When a client connects to the OpenVPN server or disconnects from it, the OpenVPN
+    server executes the `learn-address` script with several command-line arguments:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端连接或断开连接 OpenVPN 服务器时，OpenVPN 服务器会使用几个命令行参数执行 `learn-address` 脚本：
+- en: '`$1`: Action (add, update, delete).'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`$1`：操作（添加、更新、删除）。'
+- en: '`$2`: IP or MAC. For tun-based networks, this is the client IP address. For tap-based
+    networks, this is the client (virtual) MAC address.'
+  id: totrans-112
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`$2`：IP 或 MAC。对于基于 tun 的网络，这是客户端的 IP 地址。对于基于 tap 的网络，这是客户端（虚拟）MAC 地址。'
+- en: '`$3`: `client_common` name.'
+  id: totrans-113
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`$3`：`client_common` 名称。'
+- en: In this recipe, the `learn-address` script is used to open up the firewall for
+    the connecting client and to set up the masquerading rules for the client so that
+    the clients can reach the other machines on the server-side LAN.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本例中，`learn-address` 脚本用于为连接的客户端打开防火墙，并为客户端设置伪装规则，以便客户端可以访问服务器端局域网上的其他计算机。
+- en: There's more...
+  id: totrans-115
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: In the following section, some details of the use of the `user nobody` directive
+    and the `update` action of the `learn-address` script are given.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分中，将介绍 `user nobody` 指令和 `learn-address` 脚本的 `update` 操作的一些细节。
+- en: User nobody
+  id: totrans-117
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 用户 nobody
+- en: 'As stated earlier, this server configuration does not include the following
+    lines:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，此服务器配置不包括以下行：
+- en: '[PRE19]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Or, on some Linux distributions, it can be as follows:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，在某些 Linux 发行版中，它可以如下所示：
+- en: '[PRE20]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: If we had added these lines, then the OpenVPN server process would be running
+    as user `nobody`. This user does not have the required rights to open and close
+    firewall ports using `iptables`, hence they were removed in this example.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们添加了这些行，那么 OpenVPN 服务器进程将作为 `nobody` 用户运行。此用户没有足够的权限通过 `iptables` 打开和关闭防火墙端口，因此在本例中将其删除。
+- en: The update action
+  id: totrans-123
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 更新操作
+- en: The `learn-address` script is also called when the OpenVPN server detects an
+    address change on the client side. This can happen most often in a TAP-based network
+    when an external DHCP server is used. The `learn-address` script can then adjust
+    routing tables or firewalling rules based on the new client IP address, using
+    the `update` action.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当 OpenVPN 服务器检测到客户端侧的地址变化时，也会调用 `learn-address` 脚本。这个情况在使用外部 DHCP 服务器的 TAP 网络中最为常见。此时，`learn-address`
+    脚本可以基于新的客户端 IP 地址调整路由表或防火墙规则，使用 `update` 操作。
+- en: Another method to generate a `learn-address update` action is by triggering
+    a soft-reset of the server; for example, by sending a USR1 signal to the server
+    process. This will cause all clients to reconnect, this time triggering an `update`
+    action.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生成 `learn-address update` 操作的另一种方法是通过触发服务器的软重启；例如，通过向服务器进程发送 USR1 信号。这将导致所有客户端重新连接，这时会触发
+    `update` 操作。
+- en: Using a tls-verify script
+  id: totrans-126
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 tls-verify 脚本
+- en: OpenVPN has several layers in which the credentials of a connecting client are
+    verified. It is even possible to add a custom layer to the verification process
+    by specifying a `tls-verify` script. In this recipe, we will demonstrate how such
+    a script can be used to allow access only for a particular certificate.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 在多个层次上验证连接客户端的凭证。通过指定 `tls-verify` 脚本，甚至可以向验证过程添加自定义层。在本例中，我们将演示如何使用该脚本，只允许某个特定证书进行访问。
+- en: Getting ready
+  id: totrans-128
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the *Setting up the public and private keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    For this recipe, the server computer was running Fedora 22 Linux and OpenVPN 2.3.10\.
+    The client was running Windows 7 64 bit and OpenVPN 2.3.10\. For the client, keep
+    the client configuration file, `basic-udp-client.ovpn`, from the *Using an ifconfig-pool
+    block* recipe, from Chapter 2, *Client-server IP-only Networks* .
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3 或更高版本。确保计算机之间通过网络连接。使用[第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章 客户端-服务器 IP-only 网络")中的 *设置公钥和私钥* 例子来设置客户端和服务器证书，*客户端-服务器 IP-only 网络*。在这个例子中，服务器计算机运行
+    Fedora 22 Linux 和 OpenVPN 2.3.10，而客户端运行 Windows 7 64 位和 OpenVPN 2.3.10。对于客户端，保留第
+    2 章 *使用 ifconfig-pool 块* 例子中的 `basic-udp-client.ovpn` 配置文件，*客户端-服务器 IP-only 网络*。
+- en: How to do it...
+  id: totrans-130
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Create the server configuration file:'
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE21]'
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: Save it as `example5-4-server.conf`.
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example5-4-server.conf`。
+- en: 'Next, create the `tls-verify` script:'
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建 `tls-verify` 脚本：
+- en: '[PRE22]'
+  id: totrans-135
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: Save this file as `example5-4-tls-verify.sh`.
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将此文件保存为 `example5-4-tls-verify.sh`。
+- en: 'Make sure that the script is executable:'
+  id: totrans-137
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保脚本是可执行的：
+- en: '[PRE23]'
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'Finally, create the list of allowed certificates:'
+  id: totrans-139
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，创建允许的证书列表：
+- en: '[PRE24]'
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Note that this is a one-line command.
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，这是一个单行命令。
+- en: 'Start the OpenVPN server:'
+  id: totrans-142
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 OpenVPN 服务器：
+- en: '[PRE25]'
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Start the client with the Windows GUI using the basic configuration file:![How
+    to do it...](img/image00378.jpeg)
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 Windows GUI 启动客户端，使用基本配置文件：![如何操作...](img/image00378.jpeg)
+- en: The client should be able to connect normally.
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 客户端应该能够正常连接。
+- en: 'Now, on the OpenVPN server, remove the `/etc/openvpn/cookbook/example5-4-tls-verify.sh.allowed`
+    file and reconnect. This time the server log will show the following:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，在 OpenVPN 服务器上，删除 `/etc/openvpn/cookbook/example5-4-tls-verify.sh.allowed`
+    文件并重新连接。这时，服务器日志将显示以下内容：
+- en: '[PRE26]'
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: This means that the client is denied access by the OpenVPN server.
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这意味着客户端被 OpenVPN 服务器拒绝访问。
+- en: How it works...
+  id: totrans-149
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: When a client connects to the OpenVPN server, the `tls-verify` script is executed
+    several times to verify the entire certificate chain of the connecting client.
+    In this recipe, we look for the end-user certificate, which is the equivalent
+    of the `client1.crt` file. When this end-user certificate is found in the `example5-4-tls-verify.sh.allowed`
+    file, the script returns `0`, indicating a successful verification. If it is not
+    found, a message is printed to the OpenVPN log and the script returns `1`. The
+    OpenVPN server then denies the access to this particular client.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端连接到 OpenVPN 服务器时，`tls-verify` 脚本会多次执行，以验证连接客户端的整个证书链。在这个例子中，我们查找终端用户证书，它相当于
+    `client1.crt` 文件。当在 `example5-4-tls-verify.sh.allowed` 文件中找到该终端用户证书时，脚本返回 `0`，表示验证成功。如果没有找到，OpenVPN
+    日志中会打印一条消息，脚本返回 `1`。然后，OpenVPN 服务器会拒绝该客户端的访问。
+- en: There's more...
+  id: totrans-151
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: In this recipe, we focus only on the end-user certificate using a simple lookup
+    table. Of course, this could also have been achieved in many other ways (for example,
+    by using a `client-config-dir` file). With a `tls-verify` script, it is also possible
+    to disallow all the certificates from a particular certificate authority (CA).
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个例子中，我们只关注终端用户证书，使用一个简单的查找表。当然，也可以通过其他多种方式来实现（例如，使用 `client-config-dir` 文件）。通过
+    `tls-verify` 脚本，还可以禁止来自特定证书颁发机构（CA）的所有证书。
+- en: 'In more complex setups, where client certificates can be signed by many different
+    CAs, it is sometimes very useful to temporarily refuse access to all the certificates
+    from a particular CA. For example, to deny access to all certificates that are
+    signed with the CA certificate with the subject name "Cookbook 2.4 CA" from [Chapter
+    2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server IP-only Networks"), *Client-server
+    IP-only Networks*, the following script could be used:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在更复杂的设置中，如果客户端证书可能由多个不同的 CA 签发，临时拒绝来自特定 CA 的所有证书的访问是非常有用的。例如，为了拒绝所有由主题名称为 "Cookbook
+    2.4 CA" 的 CA 证书签发的证书访问，可以使用以下脚本：[第 2 章](part0025.xhtml#aid-NQU21 "第 2 章 客户端-服务器
+    IP-only 网络")中的 *客户端-服务器 IP-only 网络*：
+- en: '[PRE27]'
+  id: totrans-154
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: Using an auth-user-pass-verify script
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 auth-user-pass-verify 脚本
+- en: Other than certificates and private keys, OpenVPN also offers the option to
+    use a username and password mechanism for verifying client access. In this recipe,
+    we will demonstrate how to set up an `auth-user-pass-verify` script, which is
+    executed on the server side when a client connects. This script can be used to
+    look up a user in a database or file and can also be used to verify that the right
+    password was specified.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了证书和私钥外，OpenVPN还提供了使用用户名和密码机制来验证客户端访问的选项。在这个示例中，我们将演示如何设置一个`auth-user-pass-verify`脚本，该脚本在客户端连接时由服务器端执行。这个脚本可以用来在数据库或文件中查找用户，也可以用来验证输入的密码是否正确。
+- en: Getting ready
+  id: totrans-157
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.10, and the client was running
+    Fedora 22 and OpenVPN 2.3.10\. For the server, keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本。确保这两台计算机已通过网络连接。使用[第2章](part0025.xhtml#aid-NQU21 "Chapter
+    2. Client-server IP-only Networks")中的第一个示例设置客户端和服务器证书，*客户端-服务器IP-only网络*。对于本示例，服务器计算机运行CentOS
+    6 Linux和OpenVPN 2.3.10，客户端运行Fedora 22和OpenVPN 2.3.10。对于服务器，保持使用*服务器端路由*示例中的服务器配置文件`basic-udp-server.conf`，该示例来自[第2章](part0025.xhtml#aid-NQU21
+    "Chapter 2. Client-server IP-only Networks")，*客户端-服务器IP-only网络*。
+- en: How to do it...
+  id: totrans-159
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Append a line to the server configuration file, `basic-udp-server.conf`:'
+  id: totrans-160
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 向服务器配置文件`basic-udp-server.conf`添加一行：
+- en: '[PRE28]'
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Note that the last line is a single line. Save it as `example5-5-server.conf`.
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，最后一行是单独的一行。将其保存为`example5-5-server.conf`。
+- en: 'Create the `auth-user-pass-verify` script:'
+  id: totrans-163
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建`auth-user-pass-verify`脚本：
+- en: '[PRE29]'
+  id: totrans-164
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: Save it as `example5-5-aupv.sh`.
+  id: totrans-165
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-5-aupv.sh`。
+- en: 'Set up a (very unsafe!) password file:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 设置一个（非常不安全的！）密码文件：
+- en: '[PRE30]'
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Make sure that the `auth-user-pass-verify` script is executable, then start
+    the server:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保`auth-user-pass-verify`脚本是可执行的，然后启动服务器：
+- en: '[PRE31]'
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Next, create the client configuration file:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置文件：
+- en: '[PRE32]'
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: Save it as `example5-5-client.conf`.
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-5-client.conf`。
+- en: 'Start the client:'
+  id: totrans-173
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动客户端：
+- en: '[PRE33]'
+  id: totrans-174
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: 'First, the OpenVPN client will ask for the username and password:'
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，OpenVPN客户端将询问用户名和密码：
+- en: '[PRE34]'
+  id: totrans-176
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Then, if the correct password is entered, the connection is established as normal.
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，如果输入正确的密码，连接将正常建立。
+- en: 'Next, try to reconnect using a different username:'
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，尝试使用不同的用户名重新连接：
+- en: '[PRE35]'
+  id: totrans-179
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'The server log will now show the following:'
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 服务器日志现在将显示以下内容：
+- en: '[PRE36]'
+  id: totrans-181
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: And the client is now refused access.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端现在被拒绝访问。
+- en: How it works...
+  id: totrans-183
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The OpenVPN client first prompts the user for the Auth username and password.
+    Note that the password is sent to the server over a secure channel, but the password
+    itself is not hashed or encrypted. The server-side `auth-user-pass-verify` script
+    is passed the username and password in a file on two lines. The script then looks
+    up the username in its password file and verifies whether the right password was
+    specified. If so, then the script exits with exit code 0, indicating success.
+    Otherwise, the exit code of 1 is returned, causing the server to abort the client
+    connection.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN客户端首先提示用户输入身份验证的用户名和密码。请注意，密码通过安全通道发送到服务器，但密码本身没有被哈希或加密。服务器端的`auth-user-pass-verify`脚本会将用户名和密码以文件形式传递，其中密码位于两行中。脚本随后在密码文件中查找用户名，并验证是否指定了正确的密码。如果密码正确，脚本将以退出代码0退出，表示成功。否则，返回退出代码1，导致服务器中止客户端连接。
+- en: There's more...
+  id: totrans-185
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: In the following section, we'll see some details about how a password can be
+    specified and can be passed from the server to the `auth-user-pass-verify` script.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分中，我们将看到有关如何指定密码以及如何将密码从服务器传递到`auth-user-pass-verify`脚本的一些细节。
+- en: Specifying the username and password in a file on the client
+  id: totrans-187
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在客户端文件中指定用户名和密码
+- en: OpenVPN has the option to specify the username and password in a file on the
+    client. For this, OpenVPN needs to be compiled with a special flag, which is enabled
+    by default starting with OpenVPN 2.3.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN提供了在客户端的文件中指定用户名和密码的选项。为了实现这一点，OpenVPN需要使用一个特殊的标志进行编译，从OpenVPN 2.3开始默认启用该选项。
+- en: Note that it is unsafe to allow the password to be stored on the client (in
+    plaintext format!).
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，允许密码以明文格式存储在客户端是不安全的！
+- en: Passing the password via environment variables
+  id: totrans-190
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 通过环境变量传递密码
+- en: 'In this recipe, we used the following:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们使用了以下内容：
+- en: '[PRE37]'
+  id: totrans-192
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: This configured the OpenVPN server to pass the client-supplied username and
+    password via a temporary file. This temporary file is accessible only to the server
+    process, and hence, this is a safe mechanism to pass the encrypted password to
+    the `auth-user-pass-verify` script.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将配置OpenVPN服务器通过临时文件传递客户端提供的用户名和密码。该临时文件仅对服务器进程可访问，因此这是将加密密码安全地传递给`auth-user-pass-verify`脚本的机制。
+- en: 'It is also possible to pass the username and password to the `auth-user-pass-verify`
+    script via environment variables:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以通过环境变量将用户名和密码传递给`auth-user-pass-verify`脚本：
+- en: '[PRE38]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: 'The advantage of this is that no extra files need to be created. The downside
+    is that passing a password via plaintext and via the environment is slightly less
+    secure: it is easier (but not easy!) to snoop the environment of another process
+    than it is to read a secure file owned by another user.'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样做的优点是无需创建额外的文件。缺点是通过明文和环境变量传递密码的安全性稍差：比起读取其他用户拥有的安全文件，嗅探其他进程的环境要容易（但并非易事！）。
+- en: Script order
+  id: totrans-197
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 脚本顺序
+- en: With all the possible scripts that can be configured on the OpenVPN server,
+    it becomes important to determine the order in which these scripts are executed.
+    In this recipe, we will find out what the order is, as well as the command-line
+    parameters for each of these scripts.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在OpenVPN服务器上可以配置多种脚本，因此确定这些脚本的执行顺序变得非常重要。在本节中，我们将了解执行顺序是什么，以及每个脚本的命令行参数。
+- en: Getting ready
+  id: totrans-199
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentSO 6 Linux and OpenVPN 2.3.10., and the client was running
+    Fedora 22 and OpenVPN 2.3.10\. For the server, keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+    For the client, keep the client configuration file from the previous recipe at
+    hand.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本，确保计算机通过网络连接。使用[第2章](part0025.xhtml#aid-NQU21 "第2章
+    客户端-服务器仅IP网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器仅IP网络*。在此配方中，服务器计算机运行CentSO 6 Linux和OpenVPN
+    2.3.10，客户端运行Fedora 22和OpenVPN 2.3.10。对于服务器，保留来自*服务器端路由*配方的服务器配置文件`basic-udp-server.conf`，该配方来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章 客户端-服务器仅IP网络")，*客户端-服务器仅IP网络*。对于客户端，保留上一节中的客户端配置文件。
+- en: How to do it...
+  id: totrans-201
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Append the following lines to the server configuration file, `basic-udp-server.conf`:'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将以下行追加到服务器配置文件`basic-udp-server.conf`中：
+- en: '[PRE39]'
+  id: totrans-203
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: Save it as `example5-6-server.conf`.
+  id: totrans-204
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-6-server.conf`。
+- en: 'Create the following script:'
+  id: totrans-205
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建以下脚本：
+- en: '[PRE40]'
+  id: totrans-206
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: Save it as `example5-6-script.sh`.
+  id: totrans-207
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-6-script.sh`。
+- en: 'Make sure that the script is executable and then start the server:'
+  id: totrans-208
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保脚本可执行，然后启动服务器：
+- en: '[PRE41]'
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'Next, start the client:'
+  id: totrans-210
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动客户端：
+- en: '[PRE42]'
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: The Auth username and password can be chosen arbitrarily, as they are not used.
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Auth用户名和密码可以任意选择，因为它们并不会被使用。
+- en: After successfully connecting to the server, disconnect the client and wait
+    for a few minutes until the server recognizes that the client has disconnected.
+    Now, stop the OpenVPN server as well.
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 成功连接到服务器后，断开客户端连接并等待几分钟，直到服务器识别出客户端已断开连接。现在，也停止OpenVPN服务器。
+- en: 'A log file will be created in `/tmp/example5-6.log`, parts of which are shown
+    here:'
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 日志文件将被创建在`/tmp/example5-6.log`中，以下为部分内容：
+- en: '[PRE43]'
+  id: totrans-215
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: How it works...
+  id: totrans-216
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'There are many script hooks built into OpenVPN. When the OpenVPN server starts
+    up and when a client connects and then disconnects, these scripts are executed
+    one by one. The order (for OpenVPN 2.3) is as follows:'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN内置了许多脚本钩子。当OpenVPN服务器启动、客户端连接并断开时，这些脚本会依次执行。顺序（针对OpenVPN 2.3）如下：
+- en: The `up` script as user `root`.
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以用户`root`执行`up`脚本。
+- en: The `route-up` script as user `root`; afterwards, root privileges are dropped
+    and OpenVPN switches to the user `nobody` as specified in the server configuration.
+  id: totrans-219
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以用户`root`执行`route-up`脚本；之后，root权限会被丢弃，OpenVPN会切换到配置文件中指定的`nobody`用户。
+- en: The `tls-verify` script. The CA certificate that was used to sign the client
+    certificate is passed for verification.
+  id: totrans-220
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tls-verify` 脚本。用于签署客户端证书的 CA 证书会传递进行验证。'
+- en: The `tls-verify` script. The client certificate itself is passed.
+  id: totrans-221
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tls-verify` 脚本。客户端证书本身会传递。'
+- en: The `user-pass-verify` script.
+  id: totrans-222
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`user-pass-verify` 脚本。'
+- en: The `client-connect` script.
+  id: totrans-223
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`client-connect` 脚本。'
+- en: The `learn-address` script with the action, `add`.
+  id: totrans-224
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有动作 `add` 的 `learn-address` 脚本。
+- en: 'At this point, the client has successfully established a VPN connection. Now,
+    when the client disconnects:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，客户端已经成功建立 VPN 连接。现在，当客户端断开连接时：
+- en: The `client-disconnect` script
+  id: totrans-226
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`client-disconnect` 脚本'
+- en: The `learn-address` script with the action, `delete`
+  id: totrans-227
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 带有动作 `delete` 的 `learn-address` 脚本
+- en: 'And when the server shuts down:'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当服务器关闭时：
+- en: The `down` command; note that this is run as the user `nobody`!
+  id: totrans-229
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`down` 命令；请注意，这是以用户 `nobody` 身份运行的！'
+- en: There's more...
+  id: totrans-230
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'When writing scripts, it is very important to keep the script execution time
+    in mind. The design of OpenVPN 2 is very monolithic: everything (except plugins,
+    which we will come to later in this chapter) is run under a single thread. This
+    means that while a script is executing, the whole OpenVPN server is temporarily
+    unavailable for all other clients: the routing of packets stops, other clients
+    cannot connect or disconnect, and even the management interface will not respond.
+    So, it is very important to ensure that all the server-side scripts execute very
+    quickly.'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编写脚本时，牢记脚本执行时间非常重要。OpenVPN 2 的设计非常单体化：所有内容（插件除外，我们将在本章后面讨论插件）都在单个线程中运行。这意味着，在脚本执行时，整个
+    OpenVPN 服务器会暂时对所有其他客户端不可用：数据包路由停止，其他客户端无法连接或断开连接，甚至管理界面也不会响应。因此，确保所有服务器端脚本快速执行非常重要。
+- en: This design flaw has been recognized, but it is not expected that there will
+    be a major change until the arrival of OpenVPN 3.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个设计缺陷已经被识别，但预计在 OpenVPN 3 到来之前不会有重大变化。
+- en: Script security and logging
+  id: totrans-233
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 脚本安全性和日志记录
+- en: One of the major differences between OpenVPN 2.0 and later versions is related
+    to the security when running scripts. With OpenVPN 2.0, all scripts were executed
+    using a `system` call and the entire set of server environment variables was passed
+    to each script. Starting with OpenVPN 2.1, the `script-security` configuration
+    directive is introduced and the default for executing scripts is now the `execv`
+    call, which is more secure. Also, it is advisable to log output of your scripts
+    for security reasons. With script logging output, including timestamps, it becomes
+    much easier to track down problems and possible security incidents. Starting with
+    OpenVPN 2.3, it is no longer possible to add the `system` option to the `script-security`
+    configuration directive.
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 2.0 及以后版本之间的一个主要区别与运行脚本时的安全性有关。在 OpenVPN 2.0 中，所有脚本都是通过 `system` 调用执行的，并且将整个服务器环境变量集传递给每个脚本。从
+    OpenVPN 2.1 开始，引入了 `script-security` 配置指令，默认执行脚本的方式变为 `execv` 调用，这更加安全。此外，出于安全原因，建议记录脚本输出。通过日志记录脚本输出（包括时间戳），可以更容易地追踪问题和可能的安全事件。从
+    OpenVPN 2.3 开始，不能再将 `system` 选项添加到 `script-security` 配置指令中。
+- en: In this recipe, we will focus on the different options for the `script-security`
+    configuration directive and on the methods to ease the logging of script output.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个方案中，我们将重点介绍 `script-security` 配置指令的不同选项，以及简化脚本输出日志记录的方法。
+- en: Getting ready
+  id: totrans-236
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentSO 6 Linux and OpenVPN 2.3.10, and the client was running
+    Fedora 22 and OpenVPN 2.3.10\. For the server, keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3 或更高版本。确保计算机通过网络连接。使用 [第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章 客户端-服务器 IP-only 网络") 中的第一个方案设置客户端和服务器证书，*客户端-服务器 IP-only 网络*。对于本方案，服务器计算机运行的是
+    CentSO 6 Linux 和 OpenVPN 2.3.10，客户端运行的是 Fedora 22 和 OpenVPN 2.3.10。对于服务器，保留来自
+    *服务器端路由* 方案的服务器配置文件 `basic-udp-server.conf`，来自 [第 2 章](part0025.xhtml#aid-NQU21
+    "第 2 章 客户端-服务器 IP-only 网络")，*客户端-服务器 IP-only 网络*。
+- en: How to do it...
+  id: totrans-238
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何执行...
+- en: 'Start the OpenVPN server using the configuration file from the *Using a client-side
+    up/down script* recipe:'
+  id: totrans-239
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用来自 *使用客户端端 up/down 脚本* 配方的配置文件启动 OpenVPN 服务器：
+- en: '[PRE44]'
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'Create the client configuration file:'
+  id: totrans-241
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建客户端配置文件：
+- en: '[PRE45]'
+  id: totrans-242
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: Save it as `example5-7-client.conf`. Notice the lack of the `script-security`
+    directive.
+  id: totrans-243
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example5-7-client.conf`。注意缺少 `script-security` 指令。
+- en: 'Create the `up` script:'
+  id: totrans-244
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建 `up` 脚本：
+- en: '[PRE46]'
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: Save it as `example5-7-up.sh` and make sure that it is executable.
+  id: totrans-246
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example5-7-up.sh` 并确保它是可执行的。
+- en: 'Start the OpenVPN client:'
+  id: totrans-247
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 OpenVPN 客户端：
+- en: '[PRE47]'
+  id: totrans-248
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'The client appears to connect successfully until the `up` script needs to be
+    executed:'
+  id: totrans-249
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 客户端似乎连接成功，直到需要执行 `up` 脚本时：
+- en: '[PRE48]'
+  id: totrans-250
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'When we repeat the preceding with an extra command-line parameter, `--script-security
+    2`, the client can connect successfully:'
+  id: totrans-251
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当我们重复上述操作，并添加额外的命令行参数 `--script-security 2` 时，客户端可以成功连接：
+- en: '[PRE49]'
+  id: totrans-252
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: 'The `/etc/openvpn/cookbook/example5-7.log` log file now shows the following:'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/etc/openvpn/cookbook/example5-7.log` 日志文件现在显示以下内容：'
+- en: '[PRE50]'
+  id: totrans-254
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: If we repeat this preceding exercise using `--script-security 3`, we would get
+    a similar output.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们使用 `--script-security 3` 重复此操作，我们将得到类似的输出。
+- en: How it works...
+  id: totrans-256
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'In order to execute the scripts on either the client or the server, the directive,
+    `script-security 2` (or 3) must be specified; otherwise, OpenVPN 2.1 or higher
+    will refuse to start. The following parameters can be specified for the `script-security`
+    directive:'
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了在客户端或服务器上执行脚本，必须指定指令 `script-security 2`（或 3）；否则，OpenVPN 2.1 或更高版本将拒绝启动。可以为
+    `script-security` 指令指定以下参数：
+- en: '`0`: This parameter specifies that no external programs can be called. This
+    means that OpenVPN cannot successfully start up, except on Microsoft Windows under
+    certain circumstances.'
+  id: totrans-258
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0`：此参数指定不允许调用外部程序。这意味着除非在某些特定情况下在 Microsoft Windows 上，否则 OpenVPN 无法成功启动。'
+- en: '`1`: This parameter specifies that only built-in external programs (such as `/sbin/ifconfig`,
+    and `/sbin/ip` on Linux, and `netsh.exe`, and `route.exe` on Windows) can be called.'
+  id: totrans-259
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`1`：此参数指定只能调用内置的外部程序（例如在 Linux 上的 `/sbin/ifconfig` 和 `/sbin/ip`，以及在 Windows
+    上的 `netsh.exe` 和 `route.exe`）。'
+- en: '`2`: This parameter specifies that built-ins and scripts can be called.'
+  id: totrans-260
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`2`：此参数指定可以调用内置程序和脚本。'
+- en: '`3`: This is the same as `2`, but now here, passwords can be passed to scripts
+    via environment variables as well.'
+  id: totrans-261
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`3`：这与 `2` 相同，但现在可以通过环境变量将密码传递给脚本。'
+- en: There's more...
+  id: totrans-262
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: There are subtle differences between running scripts on Linux/NetBSD/Mac OS
+    and on Windows. On Windows, the system call, `CreateProcess` , is used by default.
+    This makes it impossible to pass extra parameters to some scripts, such as the `up`
+    script, as the entire text enclosed with quotes after the `up` directive is considered
+    as the name of the executable or script.
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux/NetBSD/Mac OS 和 Windows 上运行脚本之间存在细微差异。在 Windows 上，默认使用系统调用 `CreateProcess`。这使得无法将额外的参数传递给某些脚本，例如
+    `up` 脚本，因为 `up` 指令后的整个文本（用引号括起来的部分）被视为可执行文件或脚本的名称。
+- en: Scripting and IPv6
+  id: totrans-264
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 脚本编写与 IPv6
+- en: Now that IPv6 addresses are more common, it is instructive to show how IPv6
+    addresses are passed from the server to client-side scripts. Basically, all environment
+    variables that existed for IPv4 addresses also exist for IPv6, simply by appending
+    or inserting `_ipv6` to the environment variable. In this recipe, we will show
+    you how to process these environment variables.
+  id: totrans-265
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在 IPv6 地址更为普及，展示如何将 IPv6 地址从服务器传递到客户端脚本是很有帮助的。基本上，所有适用于 IPv4 地址的环境变量，对于 IPv6
+    也同样适用，只需在环境变量后附加或插入 `_ipv6` 即可。在本例中，我们将向您展示如何处理这些环境变量。
+- en: Getting ready
+  id: totrans-266
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.10., and the client was running
+    Fedora 22 and OpenVPN 2.3.10\. For the server, keep the server configuration file, `basic-udp-server.conf`,
+    from the *Server-side routing* recipe, from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本。确保计算机已通过网络连接。使用[第2章](part0025.xhtml#aid-NQU21 "第2章.
+    客户端-服务器IP-only网络")中的第一个配方设置客户端和服务器证书，*客户端-服务器IP-only网络*。在这个配方中，服务器计算机运行CentOS
+    6 Linux和OpenVPN 2.3.10，而客户端运行Fedora 22和OpenVPN 2.3.10。对于服务器，保留*服务器端路由*配方中的服务器配置文件`basic-udp-server.conf`，该配方来自[第2章](part0025.xhtml#aid-NQU21
+    "第2章. 客户端-服务器IP-only网络")，*客户端-服务器IP-only网络*。
+- en: How to do it...
+  id: totrans-268
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Append two lines to the server configuration file, `basic-udp-server.conf`:'
+  id: totrans-269
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将两行添加到服务器配置文件`basic-udp-server.conf`中：
+- en: '[PRE51]'
+  id: totrans-270
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: Save it as `example5-8-server.conf`.
+  id: totrans-271
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-8-server.conf`。
+- en: 'Start the server:'
+  id: totrans-272
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器：
+- en: '[PRE52]'
+  id: totrans-273
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: 'Next, create the client configuration file:'
+  id: totrans-274
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建客户端配置文件：
+- en: '[PRE53]'
+  id: totrans-275
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: Save it as `example5-8-client.conf`.
+  id: totrans-276
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-8-client.conf`。
+- en: 'Create the following script:'
+  id: totrans-277
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建以下脚本：
+- en: '[PRE54]'
+  id: totrans-278
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: Save it as `example5-8-script.sh`.
+  id: totrans-279
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-8-script.sh`。
+- en: 'Make sure that the `example5-8.sh` script is executable, and then start the
+    client:'
+  id: totrans-280
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保`example5-8.sh`脚本是可执行的，然后启动客户端：
+- en: '[PRE55]'
+  id: totrans-281
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'After the client has is connected, check the client-side log file, `/tmp/example5-8.log`:'
+  id: totrans-282
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 客户端连接后，检查客户端日志文件`/tmp/example5-8.log`：
+- en: '[PRE56]'
+  id: totrans-283
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: How it works...
+  id: totrans-284
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The OpenVPN server assigns an IPv6 address to the client and also pushes out
+    two IPv6 routes to the client using the `push "route-ipv6 ..."` directive. The
+    client picks up these directives and passes them on to the `up` and `route-up`
+    scripts. These scripts only show the environment variables that have `ipv6` in
+    them, which gives a good overview of the IPv6 settings that are available to scripts
+    and plugins.
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN服务器为客户端分配一个IPv6地址，并通过`push "route-ipv6 ..." `指令将两个IPv6路由推送到客户端。客户端接收这些指令并将其传递给`up`和`route-up`脚本。这些脚本只显示包含`ipv6`的环境变量，这可以很好地概述可用于脚本和插件的IPv6设置。
+- en: There's more...
+  id: totrans-286
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多…
+- en: Be careful when passing IPv6 routes to clients that contain the IPv6 address
+    of the server itself—these routes can take precedence over an existing route to
+    the server, causing the VPN connection to stall.
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当传递包含服务器自身IPv6地址的IPv6路由给客户端时要小心——这些路由可能会优先于现有的到服务器的路由，导致VPN连接停滞。
+- en: Using the down-root plugin
+  id: totrans-288
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用down-root插件
+- en: OpenVPN supports a plugin architecture, where external plugins can be used to
+    extend the functionality of OpenVPN. Plugins are special modules or libraries
+    that adhere to the OpenVPN Plugin API. One of these plugins is the `down-root`
+    plugin, which is available only on Linux. This allows the user to run specified
+    commands as a user `root` plugin when OpenVPN shuts down. Normally, the OpenVPN
+    process drops root privileges (if the `--user` directive is used) for security
+    reasons. While this is a good security measure, it makes it difficult to undo
+    some of the actions that an `up` script can perform, which is run as a user `root`
+    plugin. For this, the `down-root` plugin was developed. This recipe will demonstrate
+    how the `down-root` plugin can be used to remove a file that was created by an `up`
+    script.
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN支持插件架构，外部插件可以用来扩展OpenVPN的功能。插件是遵循OpenVPN插件API的特殊模块或库。其中一个插件是`down-root`插件，它仅在Linux上可用。这个插件允许用户在OpenVPN关闭时以`root`用户身份运行指定的命令。通常，OpenVPN进程会出于安全原因丢弃root权限（如果使用了`--user`指令）。虽然这是一个很好的安全措施，但它使得撤销某些`up`脚本作为`root`用户插件执行的操作变得困难。为此，开发了`down-root`插件。本配方将演示如何使用`down-root`插件删除由`up`脚本创建的文件。
+- en: Getting ready
+  id: totrans-290
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Set up the client and server certificates using the *Setting up public and private
+    keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.10\. No client computer was
+    required.
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用[第2章](part0025.xhtml#aid-NQU21 "第2章. 客户端-服务器IP-only网络")中的*设置公钥和私钥*配方设置客户端和服务器证书，*客户端-服务器IP-only网络*。在这个配方中，服务器计算机运行CentOS
+    6 Linux和OpenVPN 2.3.10。不需要客户端计算机。
+- en: How to do it...
+  id: totrans-292
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Create the server configuration file:'
+  id: totrans-293
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE57]'
+  id: totrans-294
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: Save it as `example5-9-server.conf`.
+  id: totrans-295
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为 `example5-9-server.conf`。
+- en: 'Next, create the `up` script, which we will also use for the `down-root` plugin:'
+  id: totrans-296
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建 `up` 脚本，我们也将使用它来实现 `down-root` 插件：
+- en: '[PRE58]'
+  id: totrans-297
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: Save it as `example5-9.sh` and make sure that it is executable.
+  id: totrans-298
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example5-9.sh`并确保它是可执行的。
+- en: 'Start the OpenVPN server:'
+  id: totrans-299
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 OpenVPN 服务器：
+- en: '[PRE59]'
+  id: totrans-300
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: 'The server log file will now show the following:'
+  id: totrans-301
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 服务器日志文件现在会显示以下内容：
+- en: '[PRE60]'
+  id: totrans-302
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: This indicates the plugin has started. The fact that there were no error codes
+    right after the `up` script was executed indicates that it ran successfully.
+  id: totrans-303
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这表示插件已启动。`up` 脚本执行后没有出现错误代码，说明其成功运行。
+- en: Verify that the `/tmp/example5-9.tempfile` file was created on the server.
+  id: totrans-304
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证服务器上是否创建了 `/tmp/example5-9.tempfile` 文件。
+- en: 'Next, stop the server. The server log will now show the following:'
+  id: totrans-305
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，停止服务器。服务器日志现在会显示以下内容：
+- en: '[PRE61]'
+  id: totrans-306
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: Verify that the `/tmp/example5-9.tempfile` file has been removed.
+  id: totrans-307
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证 `/tmp/example5-9.tempfile` 文件是否已被删除。
+- en: How it works...
+  id: totrans-308
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The `down-root` plugin is registered at system startup when the OpenVPN server
+    process is still running with `root` privileges. Plugins are spawned off in a
+    separate thread, meaning that when the main OpenVPN process drops its root privileges,
+    the plugins will still have full `root` access. When OpenVPN shuts down, the plugin
+    is called and it removes the file created by the user `root` plugin when the server
+    started.
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`down-root` 插件在系统启动时注册，当 OpenVPN 服务器进程仍然以 `root` 权限运行时。插件将在单独的线程中生成，这意味着当主
+    OpenVPN 进程丧失其 root 权限时，插件仍然可以完全访问 `root` 权限。当 OpenVPN 关闭时，将调用插件，它会删除服务器启动时由 `root`
+    插件创建的文件。'
+- en: 'Here is an interesting part of the server log file is:'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里是服务器日志文件中的一个有趣部分：
+- en: '[PRE62]'
+  id: totrans-311
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: This indicates that the OpenVPN process was indeed not capable of running the
+    command `/sbin/ifconfig tun0 0.0.0.0`, proving that `root` privileges had been
+    successfully dropped. The plugin was then called, which did have `root` privileges,
+    so that it could remove the root-owned file in `/tmp`.
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这表明 OpenVPN 进程确实无法执行命令 `/sbin/ifconfig tun0 0.0.0.0`，证明 `root` 权限已成功被移除。然后插件被调用，该插件具有
+    `root` 权限，因此它能够删除 `/tmp` 中由 `root` 用户创建的文件。
+- en: Note that it is required to specify a path starting with `./` for the script
+    that the plugin runs. If the leading `./` is not specified on Linux or Mac OS,
+    then OpenVPN will not be able to find the script that the plugin needs to run,
+    as the current directory (`.`) normally is not part of the PATH environment variable.
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，插件运行的脚本必须指定一个以 `./` 开头的路径。如果在 Linux 或 Mac OS 上没有指定前导的 `./`，则 OpenVPN 将无法找到插件需要运行的脚本，因为当前目录（`.`）通常不在
+    PATH 环境变量中。
+- en: Also note that the `up` script is called with the `script_type` environment
+    variable set but that this is not true for plugins. To overcome this, an extra
+    parameter was added so that the same script could be used as both the `up` and `down-root`
+    scripts.
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还要注意，`up` 脚本会设置 `script_type` 环境变量，但插件则不然。为了解决这个问题，添加了一个额外的参数，以便同一个脚本可以同时用作
+    `up` 和 `down-root` 脚本。
+- en: There's more...
+  id: totrans-315
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'Plugins are supported on Linux, Net/FreeBSD, and on Windows. The following
+    script callbacks can be intercepted using a plugin:'
+  id: totrans-316
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 插件支持 Linux、Net/FreeBSD 和 Windows 操作系统。以下脚本回调可以通过插件进行拦截：
+- en: '`up`'
+  id: totrans-317
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`up`'
+- en: '`down`'
+  id: totrans-318
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`down`'
+- en: '`route-up`'
+  id: totrans-319
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`route-up`'
+- en: '`ipchange`'
+  id: totrans-320
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ipchange`'
+- en: '`tls-verify`'
+  id: totrans-321
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tls-verify`'
+- en: '`auth-user-pass-verify`'
+  id: totrans-322
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`auth-user-pass-verify`'
+- en: '`client-connect`'
+  id: totrans-323
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`client-connect`'
+- en: '`client-disconnect`'
+  id: totrans-324
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`client-disconnect`'
+- en: '`learn-address`'
+  id: totrans-325
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`learn-address`'
+- en: See also
+  id: totrans-326
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The next recipe, *Using the PAM authentication plugin*, which explains how to
+    use an OpenVPN plugin to authenticate remote VPN clients
+  id: totrans-327
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一个食谱，*使用 PAM 身份验证插件*，它解释了如何使用 OpenVPN 插件来验证远程 VPN 客户端。
+- en: Using the PAM authentication plugin
+  id: totrans-328
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 PAM 身份验证插件
+- en: A very useful plugin for OpenVPN is a plugin to validate a username using the
+    Linux/UNIX PAM authentication system. **PAM** stands for **pluggable authentication
+    modules** and is a very modular system for allowing users access to system resources.
+    It is used by most modern Linux and UNIX variants, offering a very flexible and
+    extendible system for authenticating and authorizing users. In this recipe, we
+    will use the PAM authentication plugin as a replacement of an `auth-user-pass-verify`
+    script to validate a remote user's credentials against the system PAM configuration.
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于OpenVPN，一个非常有用的插件是使用Linux/UNIX PAM认证系统验证用户名的插件。**PAM**代表**可插拔认证模块**，它是一个非常模块化的系统，允许用户访问系统资源。大多数现代Linux和UNIX变种都使用它，提供一个非常灵活和可扩展的用户认证和授权系统。在本食谱中，我们将使用PAM认证插件来替代`auth-user-pass-verify`脚本，以根据系统PAM配置验证远程用户的凭证。
+- en: Getting ready
+  id: totrans-330
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3 or higher on two computers. Make sure that the computers
+    are connected over a network. Set up the client and server certificates using
+    the first recipe from [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*. For this recipe, the server
+    computer was running CentOS 6 Linux and OpenVPN 2.3.11\. The client was running
+    Fedora 22 Linux and OpenVPN 2.3.11\. For the client, keep the client configuration
+    file, `example5-5-client.conf`, from the *Using an auth-user-pass-verify script*
+    recipe at hand.
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3或更高版本。确保计算机通过网络连接。使用[第2章](part0025.xhtml#aid-NQU21 "第2章：仅客户端-服务器IP网络")中的第一个食谱设置客户端和服务器证书，*仅客户端-服务器IP网络*。在本食谱中，服务器计算机运行CentOS
+    6 Linux和OpenVPN 2.3.11，而客户端运行Fedora 22 Linux和OpenVPN 2.3.11。对于客户端，准备好使用*使用auth-user-pass-verify脚本*食谱中的`example5-5-client.conf`客户端配置文件。
+- en: How to do it...
+  id: totrans-332
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Create the server configuration file:'
+  id: totrans-333
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE63]'
+  id: totrans-334
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: Note that the last line of the server configuration file is a single line. Save
+    it as: `example5-10-server.conf`.
+  id: totrans-335
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，服务器配置文件的最后一行是单行的。将其保存为：`example5-10-server.conf`。
+- en: 'Start the OpenVPN server:'
+  id: totrans-336
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动OpenVPN服务器：
+- en: '[PRE64]'
+  id: totrans-337
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: 'The server log file will now show:'
+  id: totrans-338
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 服务器日志文件现在将显示：
+- en: '[PRE65]'
+  id: totrans-339
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: This indicates that the PAM plugin successfully initialized in the background.
+  id: totrans-340
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这表示PAM插件已在后台成功初始化。
+- en: 'Start the OpenVPN client. OpenVPN will first prompt for the Auth username and
+    password:'
+  id: totrans-341
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动OpenVPN客户端。OpenVPN首先会提示输入认证用户名和密码：
+- en: '[PRE66]'
+  id: totrans-342
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: 'On the server used in this recipe, a special user `cookbook` was created. After
+    typing in the username and password, the connection to the server is successfully
+    established. The OpenVPN server log shows the following:'
+  id: totrans-343
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本食谱中使用的服务器上，创建了一个特殊的用户`cookbook`。输入用户名和密码后，成功建立与服务器的连接。OpenVPN服务器日志显示如下：
+- en: '[PRE67]'
+  id: totrans-344
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE67]'
+- en: This shows that the user was successfully authenticated using PAM.
+  id: totrans-345
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这表明用户已经通过PAM成功认证。
+- en: How it works...
+  id: totrans-346
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'The PAM authentication plugin intercepts the `auth-user-pass-verify` callback.
+    When the OpenVPN client connects and passes along the username and password, the
+    plugin wakes up. It queries the PAM subsystem by looking at the `login` module
+    (this is the first parameter for the `openvpn-auth-pam.so` file). The other parameters
+    are used by the `auth-pam` plugin to know which input to expect from the PAM subsystem:'
+  id: totrans-347
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PAM认证插件会拦截`auth-user-pass-verify`回调。当OpenVPN客户端连接并传递用户名和密码时，插件会被唤醒。它通过查看`login`模块（这是`openvpn-auth-pam.so`文件的第一个参数）来查询PAM子系统。其他参数被`auth-pam`插件用来确定PAM子系统会提供哪些输入：
+- en: '[PRE68]'
+  id: totrans-348
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE68]'
+- en: The PAM `login` subsystem will ask for the username by presenting the `login
+    prompt` and will ask for the password by presenting the `password` prompt. The `auth-pam`
+    plugin uses this information to know where to fill in the username (`USERNAME`)
+    and password (`PASSWORD`).
+  id: totrans-349
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PAM `login`子系统会通过显示`login prompt`来请求用户名，并通过显示`password`提示来请求密码。`auth-pam`插件使用这些信息来知道在哪里填写用户名（`USERNAME`）和密码（`PASSWORD`）。
+- en: After the user has been successfully authenticated by the PAM subsystem, the
+    connection is established.
+  id: totrans-350
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用户在通过PAM子系统成功认证后，连接被建立。
+- en: There's more...
+  id: totrans-351
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'It would also have been possible to authenticate a user using an `auth-user-pass-verify`
+    script, which queries the PAM subsystem. There are two major advantages to using
+    the PAM plugin for this:'
+  id: totrans-352
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以使用`auth-user-pass-verify`脚本通过查询PAM子系统来验证用户。使用PAM插件有两个主要优点：
+- en: It is not required to use the `script-security` directive at all.
+  id: totrans-353
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完全不需要使用`script-security`指令。
+- en: The plugin method is much faster and far more scalable. When many users try
+    to connect to the OpenVPN server at the same time, the VPN performance would be
+    greatly affected when using an `auth-user-pass-verify` script, as for each user
+    connection, a separate process needs to be started, during which the OpenVPN's
+    main thread is installed.
+  id: totrans-354
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 插件方法要更快且具有更好的可扩展性。当多个用户同时尝试连接到 OpenVPN 服务器时，使用 `auth-user-pass-verify` 脚本会极大地影响
+    VPN 性能，因为每个用户连接时都需要启动一个单独的进程，在此过程中会安装 OpenVPN 的主线程。
+- en: See also
+  id: totrans-355
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: The previous recipe, *Using the down-root plugin*, in which the basics of using
+    OpenVPN plugins are explained
+  id: totrans-356
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 前面的食谱，*使用 down-root 插件*，解释了如何使用 OpenVPN 插件的基本方法。

@@ -1,0 +1,579 @@
+- en: '8'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '8'
+- en: Boot, BIOS, and Firmware Security
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 启动、BIOS 和固件安全性
+- en: So far, we have covered TPM and LUKS disk encryption to protect the data. This
+    chapter will push you to reflect deeper into the basest of hardware functions
+    and your boot system itself. I’m going to warn you upfront. The settings we will
+    review here are truly a double-edged sword, and by that, I mean simply that they
+    can protect the system but also, they can make supporting the same system at a
+    customer site painfully difficult.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经讨论了 TPM 和 LUKS 磁盘加密来保护数据。本章将促使你更深入思考最基础的硬件功能和你的启动系统本身。我事先警告你，这些设置确实是把双刃剑，换句话说，它们可以保护系统，但也可能使在客户现场支持同一系统变得异常困难。
+- en: Understanding how to best lock down and protect your BIOS (short for Basic Input
+    Output System), its firmware, and your operating systems’ ability to boot securely
+    will ensure that your customers are rewarded with a more resilient product and
+    your team has reduced your company’s exposure to risks.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解如何最好地锁定和保护你的 BIOS（基本输入输出系统），其固件，以及操作系统安全启动的能力，将确保你的客户获得更具韧性的产品，同时你的团队可以减少公司面临的风险。
+- en: Locking down your BIOS and boot options, albeit a great idea, does have support
+    implications that I feel compelled to highlight. We’ll cover some of these in
+    greater detail.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管锁定 BIOS 和启动选项是一个好主意，但它确实有支持方面的影响，我觉得有必要强调一下。我们将在后续详细讨论其中的一些问题。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涉及以下主题：
+- en: Deep dive into various booting system components
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 深入探讨各种启动系统组件
+- en: Understanding boot-level security using examples
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用实例理解启动级安全性
+- en: Possible threats in firmware
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 固件中的潜在威胁
+- en: Deep dive into various booting system components
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入探讨各种启动系统组件
+- en: Ever wonder what happens when you turn on a Linux system? Let’s take a quick
+    look at what really goes on.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 曾经想过开机时 Linux 系统发生了什么吗？我们来快速了解一下实际发生的事情。
+- en: First, we’ll dive into your system’s BIOS. Virtually all modern x86_64 platforms
+    leverage a Unified Extensible Firmware Interface (UEFI) BIOS, which is basically
+    a firmware interface that serves as a gateway from your operating system to the
+    hardware it controls. Older platforms have vendor-specific or legacy BIOS types
+    that follow limited standards from one system to another. For ease of understanding
+    the differences between legacy BIOS and the new standard UEFI BIOS, I’ve created
+    a table here to contrast their features or functionalities.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将深入研究系统的 BIOS。几乎所有现代 x86_64 平台都使用统一可扩展固件接口（UEFI）BIOS，它基本上是一个固件接口，作为操作系统与其控制的硬件之间的桥梁。较旧的平台使用厂商特定或遗留的
+    BIOS 类型，遵循的标准在不同系统之间有限。为了便于理解遗留 BIOS 与新标准 UEFI BIOS 之间的差异，我在这里创建了一个表格来对比它们的功能或特性。
+- en: '| **Concern** | **Legacy BIOS** | **UEFI BIOS** |'
+  id: totrans-12
+  prefs: []
+  type: TYPE_TB
+  zh: '| **关注点** | **遗留 BIOS** | **UEFI BIOS** |'
+- en: '| --- | --- | --- |'
+  id: totrans-13
+  prefs: []
+  type: TYPE_TB
+  zh: '| --- | --- | --- |'
+- en: '| Standardization | Each vendor has its own feature/functionality | Industry-standard
+    functionality regardless of vendor |'
+  id: totrans-14
+  prefs: []
+  type: TYPE_TB
+  zh: '| 标准化 | 每个厂商都有自己的功能/特性 | 无论厂商如何，都是行业标准功能 |'
+- en: '| Digital signatures | None | Secure Boot |'
+  id: totrans-15
+  prefs: []
+  type: TYPE_TB
+  zh: '| 数字签名 | 无 | 安全启动 |'
+- en: '| Partition table support | MBR partition table only | GUID partition table
+    support added |'
+  id: totrans-16
+  prefs: []
+  type: TYPE_TB
+  zh: '| 分区表支持 | 仅支持 MBR 分区表 | 增加了对 GUID 分区表的支持 |'
+- en: '| Platform | Limited | x86, X86_64, ARM, ARM64, PowerPC, and others |'
+  id: totrans-17
+  prefs: []
+  type: TYPE_TB
+  zh: '| 平台 | 有限 | x86, X86_64, ARM, ARM64, PowerPC 等 |'
+- en: '| Modularity | None | Modular – vendors can add additional support (i.e., networking,
+    storage, etc.) |'
+  id: totrans-18
+  prefs: []
+  type: TYPE_TB
+  zh: '| 模块化 | 无 | 模块化 – 厂商可以添加额外的支持（例如：网络、存储等） |'
+- en: Table 8.1 – Contrast of the two BIOS types
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表 8.1 – 两种 BIOS 类型的对比
+- en: It all starts with the pushing of the Power On button. A modern marvel of chain
+    reactions begins. The system’s firmware BIOS/UEFI kicks into action. It initiates
+    a POST (short for Power-On Self-Test). Once it’s completed checking itself, it
+    searches for and initiates a Master Boot Record (MBR).
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一切从按下电源按钮开始。现代技术的连锁反应随之展开。系统的固件 BIOS/UEFI 启动工作。它执行 POST（电源自检）。完成自检后，它搜索并启动主引导记录（MBR）。
+- en: The MBR kicks off the bootloader, which, in our example, is GRUB2\. GRUB2 then
+    loads the defined kernel executable. The Initramfs then kicks into gear and takes
+    care of tasks such as decryption, software RAID, and filesystem loaders.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MBR 启动引导程序，我们的例子中是 GRUB2。GRUB2 然后加载定义的内核可执行文件。接着 Initramfs 启动并处理诸如解密、软件 RAID
+    和文件系统加载程序等任务。
+- en: Once all of that orchestration has concluded and the root filesystem is loaded,
+    systemd gets started. Systemd loads all the other filesystems and starts up all
+    enabled network functions and application services. And there you have it… a functional
+    Linux system.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦所有的协调工作完成并且根文件系统被加载，systemd就会启动。systemd会加载所有其他文件系统并启动所有启用的网络功能和应用服务。就这样…一个功能完备的Linux系统。
+- en: '![Figure 8.1 – Booting up](img/B22104_08_1.jpg)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图8.1 – 启动](img/B22104_08_1.jpg)'
+- en: Figure 8.1 – Booting up
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图8.1 – 启动
+- en: None of this goodness happens without your firmware UEFI BIOS. Locking down
+    what can be accessed and how boot devices can be used is crucial. Without such
+    precautions, it will be impossible to protect the system from massive changes
+    like having an alternative boot source becoming available, which would enable
+    anyone with direct access to the hardware not only to boot from a non-approved
+    device but possibly introduce malicious code into your system or, even worse,
+    erase your entire system’s drives.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 没有你的固件UEFI BIOS，这一切都无法实现。限制可以访问的内容以及如何使用启动设备至关重要。如果没有这样的预防措施，将无法保护系统免受重大变化，例如使备用启动源可用，这将使任何有直接访问硬件的人不仅能够从未批准的设备启动，还可能向系统中引入恶意代码，甚至更糟糕的是，清除你整个系统的驱动器。
+- en: Let’s move on to some security examples in the next section.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将进入下一个部分，讨论一些安全示例。
+- en: Understanding boot-level security using examples
+  id: totrans-27
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过示例理解启动级安全性
+- en: In this section, we’ll look at how to access the UEFI configuration and then
+    we’ll walk through some of the key security settings that you need to be aware
+    of. We’ll also review some of the pros and cons of such configurations.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将看看如何访问UEFI配置，然后逐步了解一些你需要注意的关键安全设置。我们还将回顾这些配置的优缺点。
+- en: Depending upon the distribution (and version of said distribution) of Linux
+    you choose to deploy, the tooling available to you and the complexities around
+    using such are as varied as the weather. Again, I will reiterate that choosing
+    an enterprise-supported version of Linux will ultimately provide a better outcome.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据你选择部署的Linux发行版（以及该发行版的版本），你可用的工具和使用这些工具的复杂性千差万别。再次强调，选择一个企业支持的Linux版本最终会带来更好的结果。
+- en: Additionally, the newer your hardware platform is, the more likely you are to
+    have the latest security enhancements in your firmware, CPU, and, of course, your
+    BIOS. Let’s now move on to how one can access those security settings.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，硬件平台越新，你的固件、CPU以及当然还有BIOS中可能包含的安全增强功能也就越新。现在让我们继续讨论如何访问这些安全设置。
+- en: Accessing the UEFI configuration
+  id: totrans-31
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 访问UEFI配置
+- en: Let me begin by addressing the key step in securing the UEFI configuration.
+    This requires that you have physical access to the machine’s console.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我从保障UEFI配置安全的关键步骤开始。这个步骤要求你有物理访问计算机控制台的权限。
+- en: How does one access the UEFI BIOS interface on their machine? There are a few
+    paths that all lead to the same destination.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如何访问计算机上的UEFI BIOS界面？有几条路径都可以通向相同的目的地。
+- en: First, one can interrupt the boot sequence; usually, this is done by pressing
+    a function key before GRUB kicks in on its part of the boot process. The specific
+    key to be pressed is often different between vendors and models of systems. This
+    step is a true interruption of the POST process and is the easiest way of getting
+    to the BIOS, in my opinion.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，可以中断启动序列；通常，在GRUB开始其启动过程之前，通过按下某个功能键来完成此操作。具体按哪个键通常因供应商和系统型号而异。我认为这是中断POST过程的真正方式，也是进入BIOS的最简单方法。
+- en: Second, one can use GRUB2’s menu. Often, there is an entry that can allow you
+    to enter the UEFI configuration, but this may not be present on all systems or
+    distributions. Some platforms may also make editing UEFI firmware settings a manual
+    transaction separate from the bootloader.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二，可以使用GRUB2的菜单。通常会有一个选项允许你进入UEFI配置，但这并非所有系统或发行版都有。某些平台可能会将编辑UEFI固件设置作为与启动加载程序分开的手动操作。
+- en: 'Third, from within the OS… Well, not exactly. The OS can be rebooted into the
+    firmware setup without prompting you. Here’s a quick but exact example of how
+    to tell your system to directly reboot and enter the UEFI configuration utility.
+    Like all administrative functions, this one must be run as root:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第三，从操作系统内部……嗯，严格来说并非如此。操作系统可以在没有提示的情况下重启并进入固件设置。这里有一个快速而准确的例子，教你如何让系统直接重启并进入UEFI配置工具。像所有管理功能一样，这个操作必须以root身份执行：
+- en: '[PRE0]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The above command has no output, per se, but will immediately reboot into the
+    UEFI configuration screen.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令本身没有输出，但会立即重新启动并进入 UEFI 配置屏幕。
+- en: Well, since we’re talking about boot processes, let’s mention the password that
+    can be present (or set) here. The UEFI admin password setting, in my professional
+    opinion, is a double-edged sword. For the exact same reasons, I feel the same
+    way about also setting a bootloader (i.e., GRUB2) password. This is quite similar
+    in effect to the issues I have highlighted in leveraging things like LUKS without
+    TPM automation, as mentioned in *Chapters 6* and *7*.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，既然我们在谈论引导过程，那么我们也应该提到这里可能存在（或设置的）密码。根据我的专业意见，UEFI 管理员密码设置是一把双刃剑。出于同样的原因，我对设置引导加载程序（即
+    GRUB2）密码的看法也一样。这与我在*第 6 章*和*第 7 章*中提到的，利用类似 LUKS 而没有 TPM 自动化的问题非常相似。
+- en: Assume you elect to set a password for either of these settings. Let’s review
+    the implications for your end-users. Granted, for the UEFI admin password, it’s
+    a 1-in-100,000 odds situation where the end-user would have a legitimate excuse
+    for accessing it. It may never be an issue. Sadly, this is not the case in setting
+    a bootloader (i.e., GRUB2) password. Every boot/reboot would force the user to
+    manually enter the password on the console for the appliance to boot. For appliances
+    with no keyboard perpetually attached, this is impossible besides impractical.
+    For appliances with a keyboard, the result of this is that a lazy end-user tapes
+    a note with the password to boot the system directly on it, and that eliminates
+    any benefit of having the password to begin with.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你选择为其中一个设置密码。我们来看看这对最终用户的影响。对于 UEFI 管理员密码，虽然概率很小——大约 1/100,000 的概率，最终用户才会有合理的理由访问这个密码——这可能永远都不是问题。不幸的是，这种情况并不适用于设置引导加载程序（即
+    GRUB2）密码。每次启动或重启都会迫使用户手动在控制台上输入密码才能启动系统。对于没有键盘永远连接的设备来说，这几乎是不可能的，甚至不切实际。对于有键盘的设备，最终用户往往会在设备上贴个便条，写上启动系统的密码，这样一来，原本设置密码的好处就完全没有了。
+- en: So, you might be asking yourself why this is an issue. My response is human
+    nature and bad behaviors. It’s generally safe to assume that all people most often
+    will take the path of least resistance. This will obviously be the case in something
+    that is required at every boot cycle. The end-customer would absolutely require
+    access to this password.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，你可能会问，为什么这会是一个问题？我的回答是人性和坏习惯。一般来说，可以安全地假设大多数人总是会选择最轻松的路径。这显然适用于每次引导周期都需要的情况。最终客户绝对需要访问这个密码。
+- en: In the case of the UEFI admin password, let’s assume that it’s a support issue
+    that forces your company to give that information to a customer. In both cases,
+    the security such passwords are implied to carry is devalued by an end-user not
+    only having them, but the probability that they will be shared outside your customers’
+    organizations is the greatest threat to be mentioned.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以 UEFI 管理员密码为例，假设这是一个支持问题，迫使你的公司必须将这个信息提供给客户。在这两种情况下，密码所暗示的安全性会被削弱，因为最终用户不仅有这些密码，而且他们将其分享给客户组织外部的概率是最大的威胁。
+- en: I urge caution in leveraging either unless each individual appliance has unique
+    passwords assigned and your support team has a database of them. Even then, once
+    shared with the end-customer, they are to be considered compromised, negating
+    the protections they were designed to provide.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我建议谨慎使用这两者，除非每个设备都分配了唯一的密码，并且你的支持团队有这些密码的数据库。即便如此，一旦与最终客户共享，密码也应视为已泄露，从而失去其原本的保护作用。
+- en: What is Secure Boot?
+  id: totrans-44
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 什么是安全启动？
+- en: Long answer short, **Secure Boot** is an excellent way of establishing with
+    your users that your operating system is running on a kernel and binaries that
+    your company personally has tested and signed with a key.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简而言之，**安全启动**是向用户表明你的操作系统运行的是经过你公司亲自测试并签署的内核和二进制文件的一个优秀方式。
+- en: 'There are some key variables at play, as shown in *Table 8.2*:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一些关键变量在发挥作用，如*表 8.2*所示：
+- en: '| **Credential/Variable** | **Purpose** | **Creating Entity** |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| **凭证/变量** | **目的** | **创建实体** |'
+- en: '| Platform Key (PK) | Root Key | Platform Manufacturer |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| 平台密钥 (PK) | 根密钥 | 平台制造商 |'
+- en: '| Key Exchange Key (KEK) | List of certificate owners | OS Partner or OEM |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| 密钥交换密钥 (KEK) | 证书拥有者列表 | 操作系统合作伙伴或 OEM |'
+- en: '| Authorized Database (db) | List of allowed driver or app | OS Partner or
+    CA |'
+  id: totrans-50
+  prefs: []
+  type: TYPE_TB
+  zh: '| 授权数据库 (db) | 允许的驱动程序或应用程序列表 | 操作系统合作伙伴或 CA |'
+- en: '| Exclusion Database (dbx) | List of revoked signers | Signing Authority |'
+  id: totrans-51
+  prefs: []
+  type: TYPE_TB
+  zh: '| 排除数据库 (dbx) | 被撤销的签名者列表 | 签名授权机构 |'
+- en: '| SetupMode | 1 = Setup Mode, 0 = Secure Boot Enabled |  |'
+  id: totrans-52
+  prefs: []
+  type: TYPE_TB
+  zh: '| SetupMode | 1 = 设置模式，0 = 启用安全启动 |  |'
+- en: '| SecureBoot | 1 = Secure Boot is enforced, 0 = Secure Boot is disabled |  |'
+  id: totrans-53
+  prefs: []
+  type: TYPE_TB
+  zh: '| SecureBoot | 1 = 强制启用安全启动，0 = 禁用安全启动 |  |'
+- en: Table 8.2 – Key variables and their roles in Secure Boot
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表 8.2 – 安全启动中关键变量及其角色
+- en: Before we start getting our hands dirty with exercises, let’s look at the differences
+    in the boot process without and then with Secure Boot enabled. Here’s a graphical
+    representation of the boot process without Secure Boot in place.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始进行练习之前，先看看没有启用安全启动和启用安全启动时启动过程的不同。这里是没有启用安全启动的启动过程的图示。
+- en: '![Figure 8.2 – Non-secure boot chain](img/B22104_08_2.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.2 – 非安全启动链](img/B22104_08_2.jpg)'
+- en: Figure 8.2 – Non-secure boot chain
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.2 – 非安全启动链
+- en: As you can see from the preceding graphic, anything could be loaded without
+    any checks or balances. Generally, that’s a bad idea when building a product.
+    So let’s work toward guaranteeing to our customer base that what they are running
+    is verified, true, and secure. Here’s a graphic that describes the Secure Boot
+    process.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如前面的图示所示，在没有任何检查或平衡的情况下，任何东西都可以被加载。一般来说，在构建产品时这是一个不好的主意。因此，让我们朝着确保我们的客户正在运行经过验证、真实且安全的系统的目标努力。这是描述安全启动过程的图示。
+- en: '![Figure 8.3 – Leveraging Secure Boot and keys](img/B22104_08_3.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 8.3 – 利用安全启动和密钥](img/B22104_08_3.jpg)'
+- en: Figure 8.3 – Leveraging Secure Boot and keys
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 8.3 – 利用安全启动和密钥
+- en: Configuring Secure Boot in Linux just got harder for most people trying to leverage
+    their own keys. As of the writing of this book, the primary tool for achieving
+    this functionality was a package called **efitools**. This extensive toolbox provided
+    for the backup and recovery of keys, directly setting keys in the UEFI firmware,
+    and much more. Sadly, as happens in open source from time to time, a critical
+    tool is abandoned without its replacement being ready for primetime.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对大多数尝试使用自定义密钥的人来说，配置 Linux 中的安全启动变得更加困难了。在本书编写时，实现此功能的主要工具是一个名为**efitools**的包。这个全面的工具箱提供了密钥的备份和恢复，直接在
+    UEFI 固件中设置密钥等功能。可惜的是，正如开源项目时常发生的那样，一个关键工具被遗弃，而其替代品尚未准备好投入使用。
+- en: The planned replacement, from what best information I have seen, is a new tool
+    called **sbctl**. There is limited information regarding this tool as of now.
+    I am hopeful that it may find its way into Fedora 42 and other distributions very
+    soon. Here’s a link to the project’s GitHub – [https://github.com/Foxboron/sbctl](https://github.com/Foxboron/sbctl)
+    – where you will find some interesting information on this exciting project.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据我目前看到的最佳信息，计划中的替代方案是一种名为**sbctl**的新工具。目前关于这个工具的信息有限。我希望它能很快出现在 Fedora 42 和其他发行版中。这是该项目
+    GitHub 的链接 – [https://github.com/Foxboron/sbctl](https://github.com/Foxboron/sbctl)
+    – 在这里你可以找到一些关于这个激动人心的项目的有趣信息。
+- en: 'So, this does create a temporary quandary for those of us wanting to use our
+    own keys for Secure Boot in our appliances. There are a few options. This is where
+    you must make your own judgement call until the new tooling gets itself into the
+    mainstream Linux distributions. It’s difficult for me to advise in any direction
+    here:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，这确实为那些想在自己的设备上使用自定义密钥进行安全启动的用户带来了一个临时的困境。有几个选项。在新的工具进入主流 Linux 发行版之前，你必须做出自己的判断。我很难在这里给出具体的建议：
+- en: '**Option 1**: You could rely solely on your Linux distribution’s keys themselves
+    for the enablement of Secure Boot. This may or may not work depending on whether
+    or not your solution requires custom kernel modules, which may or may not contain
+    the correct signatures or even one at all.'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**选项 1**：你可以仅依赖 Linux 发行版本身的密钥来启用安全启动。这可能会起作用，也可能不起作用，取决于你的解决方案是否需要自定义内核模块，而这些模块可能包含正确的签名，或者根本没有签名。'
+- en: '**Option 2**: Forgo the usage of Secure Boot temporarily until you can run
+    it on your own terms and with your own keys in the driver’s seat. There’s no timeline
+    for when you may be able to veer away from this course yet unless you consider
+    exploring one of the other options. As a close friend pointed out to me, this
+    also lacks a disclaimer that notifies you that you may be exposed to malware risks.'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**选项 2**：暂时放弃使用安全启动，直到你能在自己的条件下并用自己的密钥来运行。除非你考虑探索其他选项，否则目前还没有时间表告诉你何时可以偏离这个路径。正如一位好朋友提醒我的，这还缺少一个免责声明，告知你可能会暴露在恶意软件的风险中。'
+- en: '**Option 3**: Albeit the immediate path to using your own keys and truly using
+    Secure Boot with only your own keys, you could download an existing *efitools*
+    package for your distribution or compile it yourself from source code.'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**选项 3**：尽管直接使用您自己的密钥并仅使用您自己的密钥启用 Secure Boot 是可行的，您可以下载适用于您的发行版的 *efitools*
+    包，或从源代码自行编译。'
+- en: '**Option 4**: If you’re feeling daring, you could attempt to use an early-release
+    version of *sbctl* by getting it from the project’s GitHub and building it yourself.'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**选项 4**：如果您有点冒险精神，您可以尝试使用 *sbctl* 的早期版本，通过从项目的 GitHub 获取并自行构建来实现。'
+- en: You are not without choices on this Secure Boot issue, but that is just one
+    issue you’ll need to consider. Let’s move on to other issues that can impact your
+    firmware.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个 Secure Boot 问题，您并非没有选择，但这是您需要考虑的其中一个问题。接下来让我们讨论其他可能影响您固件的问题。
+- en: Possible threats in firmware
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 固件中的潜在威胁
+- en: Malicious code infecting firmware, such as a BIOS rootkit, seems to be the newest
+    attack vector on a global scale. It is also a difficult-to-detect issue for security
+    teams. This problem is industry-wide and, by that statement, it impacts virtually
+    all hardware vendors creating solutions for the x86_64 platform family. One high-profile
+    example of such evil comes through the appropriately named LogoFAIL attack.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意代码感染固件，例如 BIOS rootkit，似乎是全球范围内最新的攻击方式。这也是一个安全团队很难发现的问题。这个问题在整个行业中都存在，因此几乎所有为
+    x86_64 平台系列开发解决方案的硬件厂商都会受到影响。一个典型的恶意攻击案例就是名为 LogoFAIL 的攻击。
+- en: LogoFAIL exploits a feature within all manufacturers’ UEFI BIOS, which enables
+    them to create a custom splash screen at boot, hence displaying their company
+    logo. It has found a way of injecting malicious code into the process, which enables
+    the execution of code without the users’ knowledge with severe security implications.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LogoFAIL 利用所有制造商的 UEFI BIOS 中的一个功能，该功能使他们能够在启动时创建自定义的启动画面，从而显示他们的公司 logo。它找到了一种方法，将恶意代码注入到该过程当中，进而在用户不知情的情况下执行代码，带来了严重的安全隐患。
+- en: In the past couple of years, two dozen high-severity CVEs have been created
+    for vulnerabilities that impact millions of systems globally – network hardware,
+    storage systems, servers, industrial controllers, edge devices, and laptops. Virtually
+    all global manufacturers have been forced to make emergency updates to battle
+    these possible attack vectors. As of today, when I’m writing this page (September
+    2024), when I search in NIST’s National Vulnerability Database, the query returns
+    over 4,500 results for firmware CVEs alone. To me, that quantity is grievously
+    staggering to think about. The only good news I can offer in this situation is
+    that the vast majority of those are already reported as resolved.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在过去几年里，已经创建了两打高危 CVE 漏洞，这些漏洞影响了全球数百万系统——网络硬件、存储系统、服务器、工业控制器、边缘设备和笔记本电脑几乎都受到了影响。几乎所有全球制造商都被迫进行紧急更新，以应对这些潜在的攻击途径。截止到今天（2024年9月），当我在
+    NIST 的国家漏洞数据库中进行搜索时，查询结果仅固件 CVE 就超过了 4500 个。对我来说，这个数量令人震惊，难以想象。唯一的好消息是，绝大多数漏洞已经被报告为已解决。
+- en: Some of these vulnerabilities stem from hardcoded credentials for support access
+    being compromised, others from their very own bytecode having massive security
+    gaps. The worst cases involve situations where actual malicious code has been
+    installed without the end-user even knowing. Regardless of what the inception
+    of the vulnerability is, its impact can be devastating. These are ticking time
+    bombs, as bad actors can compromise a system and simply wait before leveraging
+    the exploit.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些漏洞中的一些源于支持访问的硬编码凭据被泄露，另一些则源于它们自身字节码存在严重的安全漏洞。最严重的情况是，恶意代码已被安装，但最终用户根本不知道。无论漏洞的起因是什么，它的影响都可能是毁灭性的。这些都是定时炸弹，因为攻击者可以妥协一个系统，然后静静等待再利用漏洞。
+- en: For a product manager, these CVEs must be noted, tracked, and fixed. Your key
+    takeaway from these firmware horror stories is twofold. First, ensure that the
+    firmware on your appliances is at the version recommended by your hardware vendor.
+    Second, ensure your firmware supply chain itself is secure. Accept updates only
+    from credible sources or the vendors themselves. Do not assume that the firmware
+    your systems arrived with should be the version that your team will ship. Again,
+    trust but verify. Double check. Triple check.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于产品经理来说，这些CVE（公共漏洞和暴露）必须被记录、跟踪和修复。从这些固件噩梦故事中，你的主要收获有两点。首先，确保你的设备固件版本符合硬件厂商的推荐版本。其次，确保你的固件供应链本身是安全的。只接受来自可信来源或厂商本身的更新。不要假设你系统出厂时的固件版本就应该是你团队发货时的版本。同样的，信任但要验证，仔细检查，再仔细检查。
+- en: Virus scanners cannot help with detection. They look at dissected files, not
+    firmware. They have their place, but they are only a part of an overall assessment
+    of security, not totality.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 病毒扫描器无法帮助检测。它们查看的是已拆解的文件，而不是固件。它们有其作用，但它们只是整体安全评估的一部分，而不是全部。
+- en: A new generation of tools has been created to help administrators detect, report,
+    and update vulnerable firmware and BIOS modules. Open source has greatly assisted
+    in this effort. Hardware vendors can openly share their updates with the community
+    via tools such as a firmware update manager (aka the Linux Vendor Firmware Service).
+    Vendors can choose to either share information regarding the versioning of specific
+    firmware or to also provide updates to the ecosystem. With this new service in
+    Linux, administrators can be easily made aware of available updates and/or automatically
+    install them on their appliances. This is also a great way of sending updates
+    to an appliance in the field.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一代新工具已被创建，帮助管理员检测、报告和更新脆弱的固件和BIOS模块。开源在这项工作中起到了极大的帮助。硬件厂商可以通过像固件更新管理器（也叫Linux厂商固件服务）这样的工具，公开与社区分享他们的更新。厂商可以选择公开具体固件的版本信息，或将更新提供给生态系统。通过Linux中的这一新服务，管理员可以轻松地了解到可用的更新，并/或自动将它们安装到设备上。这也是一种将更新发送到现场设备的好方法。
+- en: Summary
+  id: totrans-77
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: I hope you have taken this chapter to heart. We have covered a topic here that
+    is often referred to as a dark art in security circles due to the complexities
+    it creates. By that, I mean securing firmware and the boot process along with
+    the digital signatures of your stack. I trust that this chapter has instilled
+    a higher degree of understanding of how to configure boot-level securities. Finally,
+    we have also touched upon the unseen and often untalked-about vulnerabilities
+    that can exist in firmware. Through services like those now provided by Linux
+    or via the NIST database, you can stay informed about threats as they are reported.
+    Knowing is half the battle. In our next chapter, we’ll explore a new way of deploying
+    a Linux appliance through immutable images.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我希望你已经将本章内容牢记于心。我们在这里讨论了一个话题，它由于所带来的复杂性，常常被安全领域称为黑暗艺术。我的意思是，保护固件和启动过程，以及你技术栈的数字签名。我相信本章已经帮助你更深入地理解如何配置启动级别的安全性。最后，我们还涉及了那些隐藏且常常不被谈论的固件漏洞。通过像Linux提供的服务或NIST数据库，你可以及时了解已报告的威胁。知道问题就是胜利的一半。在下一章中，我们将探索通过不可变镜像部署Linux设备的新方法。

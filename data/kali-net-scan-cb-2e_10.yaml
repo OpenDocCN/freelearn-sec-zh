@@ -1,0 +1,992 @@
+- en: Attacking the Browser with BeEF
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用BeEF攻击浏览器
+- en: 'The Browser Exploitation Framework (a.k.a. BeEF) is a structured code base
+    for attacking web browsers. BeEF can attack any browser, but the OS, browser type,
+    settings, plugins, and version will all have an effect on what attacks it can
+    execute. BeEF runs as a server; when we hook a browser, it connects back to the
+    BeEF server. From there, we can execute commands against it. In this chapter,
+    we will cover the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 浏览器利用框架（也称为BeEF）是一个用于攻击网页浏览器的结构化代码库。BeEF可以攻击任何浏览器，但操作系统、浏览器类型、设置、插件和版本都会影响它能够执行的攻击。BeEF作为一个服务器运行；当我们挂钩一个浏览器时，它会连接回BeEF服务器。从那里，我们可以对其执行命令。本章将涵盖以下内容：
+- en: Hooking the browser with BeEF
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用BeEF挂钩浏览器
+- en: Collecting information with BeEF
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用BeEF收集信息
+- en: Creating a persistent connection with BeEF
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与BeEF建立持久连接
+- en: Integrating BeEF and Metasploit
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将BeEF与Metasploit集成
+- en: Using the BeEF autorule engine
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用BeEF自动规则引擎
+- en: Hooking the browser with BeEF
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用BeEF挂钩浏览器
+- en: 'In order to use BeEF, we need to start its services and be able to access its
+    console. Additionally, in order to exploit a victim''s browser, we need to find
+    a way to hook their browser. There are a number of ways of exploiting a victim''s
+    browser; in this chapter, we will cover two ways:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了使用BeEF，我们需要启动它的服务并能够访问它的控制台。此外，为了利用受害者的浏览器，我们需要找到一种方法来挂钩他们的浏览器。攻击受害者浏览器的方法有很多种；在本章中，我们将介绍两种方法：
+- en: The first shows how we can deploy a script on a website that we are able to
+    directly edit.
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一个示例展示了我们如何在可以直接编辑的网站上部署脚本。
+- en: In the second example, we will exploit a website vulnerable to XSS attacks.
+    In this way, we can deploy our script on a site we have no administrative access
+    to.
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在第二个示例中，我们将利用一个易受XSS攻击的网站。通过这种方式，我们可以在没有管理员访问权限的网站上部署我们的脚本。
+- en: Getting ready
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: BeEF comes preinstalled on Kali Linux. In the examples provided, an instance
+    of Metasploitable2 is used to demonstrate hooking a browser via XSS. For more
+    information on how to set up systems in a local lab environment, refer to the
+    *Installing Metasploitable2* and *Installing Windows Server* recipes in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem using a text
+    editor, such as Vim or GNU nano. For more information on how to write scripts,
+    refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF已预装在Kali Linux中。在提供的示例中，使用Metasploitable2实例演示了通过XSS挂钩浏览器。有关如何在本地实验环境中设置系统的更多信息，请参考[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装Metasploitable2*和*安装Windows
+    Server*食谱，*入门*部分。此外，本节还需要使用文本编辑器（如Vim或GNU nano）将脚本写入文件系统。有关如何编写脚本的更多信息，请参阅[第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*使用文本编辑器（Vim和GNU
+    nano）*食谱，*入门*部分。
+- en: How to do it…
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Now let''s get started and learn to hook the browser with BeEF:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们开始并学习如何使用BeEF挂钩浏览器：
+- en: 'Go to Applications | Exploitation Tools | beEF xss framework:'
+  id: totrans-15
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到应用程序 | 利用工具 | beEF XSS框架：
+- en: '![](../images/00584.jpeg)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00584.jpeg)'
+- en: 'A Terminal window will open and start the BeEF server. When it has completed,
+    it will open a browser and take you to the BeEF console:'
+  id: totrans-17
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一个终端窗口将打开并启动BeEF服务器。当完成后，它将打开一个浏览器并带你进入BeEF控制台：
+- en: '![](../images/00437.jpeg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00437.jpeg)'
+- en: 'The default Username and Password is `beef/beef`. Once authenticated, we see
+    the BeEF console:'
+  id: totrans-19
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 默认的用户名和密码是`beef/beef`。验证通过后，我们将看到BeEF控制台：
+- en: '![](../images/00641.jpeg)'
+  id: totrans-20
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00641.jpeg)'
+- en: 'Next, we need to hook the browser. There are many methods we could use. We
+    will demonstrate two methods here:'
+  id: totrans-21
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要挂钩浏览器。有很多方法可以实现。我们将在这里演示两种方法：
+- en: '**Method 1**: First, let''s see how we could simply insert some JavaScript
+    into a page we have control over:'
+  id: totrans-22
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**方法 1**：首先，让我们看看如何在我们能够控制的页面中简单地插入一些JavaScript代码：'
+- en: 'Notice in the Terminal that launched when we started BeEF the line that shows
+    a sample hook:'
+  id: totrans-23
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，在我们启动BeEF时打开的终端窗口中，显示了一个示例挂钩的行：
+- en: '![](../images/00440.jpeg)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00440.jpeg)'
+- en: 'We see that we hook a browser by calling the `hook.js` file, so let''s make
+    a page that will do that. We navigate to our web root directory and create a file;
+    we will call it `beef.html`:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们看到，通过调用`hook.js`文件来挂钩浏览器，因此让我们创建一个页面来实现这个功能。我们进入网站根目录并创建一个文件；我们将它命名为`beef.html`：
+- en: '![](../images/00013.jpeg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00013.jpeg)'
+- en: 'Now, we will create a simple web page and embed our script between the `<head>`
+    and `</head>` tags:'
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们将创建一个简单的网页，并在 `<head>` 和 `</head>` 标签之间嵌入我们的脚本：
+- en: '![](../images/00442.jpeg)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00442.jpeg)'
+- en: 'Now, when someone navigates to our web page, it will load the `hook.js` script
+    and create a connection to our BeEF server. However, there will be no visual cues.
+    If you navigate to our web page, you will see something like this:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，当有人访问我们的网页时，它会加载 `hook.js` 脚本并与我们的 BeEF 服务器建立连接。然而，这不会有任何视觉提示。如果你访问我们的网页，你会看到类似这样的内容：
+- en: '![](../images/00078.jpeg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00078.jpeg)'
+- en: 'Now let''s go look at the BeEF console, and we will see that we have hooked
+    the browser:'
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们查看 BeEF 控制台，我们将看到已经 hook 了浏览器：
+- en: '![](../images/00109.jpeg)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00109.jpeg)'
+- en: '**Method 2: **We can get a little trickier and do this on a site we don''t
+    own using XSS. We will use Mutillidae.  Specifically, we will exploit the Add
+    To Your Blog function of Mutillidae that is vulnerable to XSS.'
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**方法 2：**我们可以采取一些更复杂的方式，在我们不拥有的网站上使用 XSS。我们将使用 Mutillidae。具体来说，我们将利用 Mutillidae
+    中容易受到 XSS 攻击的“添加到你的博客”功能。'
+- en: 'On this page, we will simply use the same script we used on our web page earlier.
+    So, we navigate to the `add-t0-your-blog.php` page and enter our script:'
+  id: totrans-34
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这一页，我们将简单地使用之前在网页上使用过的相同脚本。所以，我们进入 `add-t0-your-blog.php` 页面并输入我们的脚本：
+- en: '![](../images/00143.jpeg)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00143.jpeg)'
+- en: 'Now let''s navigate to our blog post:'
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们导航到我们的博客文章：
+- en: '![](../images/00449.jpeg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00449.jpeg)'
+- en: 'The `hook.js` script is loaded in the background, and it''s persistent. Anyone
+    now visiting this blog will be hooked. If we take a look at the BeEF console,
+    we will now see the browser we have hooked:'
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`hook.js` 脚本已经在后台加载，并且是持久的。现在，任何访问此博客的人都会被 hook。如果我们查看 BeEF 控制台，我们现在就能看到我们已经
+    hook 的浏览器：'
+- en: '![](../images/00224.jpeg)'
+  id: totrans-39
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00224.jpeg)'
+- en: How it works…
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: BeEF runs as a server on Kali Linux. Once we have started BeEF and deployed
+    its hook, it is only a matter of waiting for a browser to come across and load
+    our `hook.js` file. This in turn will connect the exploited browser to our BeEF
+    server.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 在 Kali Linux 上作为服务器运行。一旦我们启动了 BeEF 并部署了它的 hook，只需等待浏览器访问并加载我们的 `hook.js`
+    文件。这样，受害者的浏览器就会连接到我们的 BeEF 服务器。
+- en: Collecting information with BeEF
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 BeEF 收集信息
+- en: Once we have successfully hooked a browser, we are ready to use BeEF to exploit
+    it. This recipe covers how we can use some basic BeEF commands to collect information
+    and exploit a victim's browser.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们成功 hook 了浏览器，就可以使用 BeEF 来利用它。本教程将介绍如何使用一些基本的 BeEF 命令来收集信息并利用受害者的浏览器。
+- en: Getting ready
+  id: totrans-44
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: BeEF comes preinstalled on Kali Linux. In the examples provided, an instance
+    of Metasploitable2 is used to demonstrate hooking a browser via XSS. For more
+    information on how to set up systems in a local lab environment, refer to the
+    *Installing Metasploitable2* and *Installing Windows Server* recipes in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem using a text
+    editor, such as Vim or GNU nano. For more information on how to write scripts,
+    refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 已经预安装在 Kali Linux 上。在所提供的示例中，使用了 Metasploitable2 实例来演示通过 XSS hook 浏览器。有关如何在本地实验环境中设置系统的更多信息，请参考
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426) 中的 *安装 Metasploitable2*
+    和 *安装 Windows Server* 配方，*入门* 部分。此外，本节还需要使用文本编辑器（如 Vim 或 GNU nano）将脚本写入文件系统。有关如何编写脚本的更多信息，请参考
+    [第1章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426) 中的 *使用文本编辑器（Vim 和
+    GNU nano）* 配方，*入门* 部分。
+- en: How to do it…
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Now let''s get started and learn to collect information with BeEF:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们开始学习如何使用 BeEF 收集信息：
+- en: 'Returning to the previous recipe, let''s take a look at the BeEF console. We
+    once again see that we have a hooked browser. BeEF gives some information right
+    away about our hooked browser. In the following example, it tells us using icons
+    that the browser is Internet Explorer, the operating system is Microsoft Windows,
+    and our hardware is a virtual machine. Additionally, it gives us the IP address
+    of the hooked machine''s browser:'
+  id: totrans-48
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 回到之前的教程，我们来看看 BeEF 控制台。我们再次看到已经有一个被 hook 的浏览器。BeEF 会立即提供一些关于已 hook 浏览器的信息。在以下示例中，它通过图标告诉我们，浏览器是
+    Internet Explorer，操作系统是 Microsoft Windows，硬件是虚拟机。此外，它还给出了被 hook 机器浏览器的 IP 地址：
+- en: '![](../images/00452.jpeg)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00452.jpeg)'
+- en: We can get more information about the hooked browser by selecting it with our
+    mouse. When we do this, a new tab pops up and reveals details about the hooked
+    browser. We get the browser type, version, more details about the platform, and
+    even the resolution of the browser. We also get information on the browser's plugins
+    and components and information on the page that was used to hook the browser.
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以通过鼠标选择已挂钩的浏览器来获取更多信息。当我们这样做时，会弹出一个新标签页，显示有关已挂钩浏览器的详细信息。我们可以获得浏览器类型、版本、平台的更多细节，甚至是浏览器的分辨率。我们还可以查看浏览器的插件和组件，以及用于挂钩浏览器的页面的信息。
+- en: 'Finally, we get some more details about the browser''s host computer:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们获得了一些关于浏览器主机计算机的更多细节：
+- en: '![](../images/00294.jpeg)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00294.jpeg)'
+- en: 'We can now run commands against our victim''s browser, but before we do, let''s
+    examine the traffic light icons and see what each means:'
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们可以对受害者的浏览器运行命令了，但在我们操作之前，先查看一下交通灯图标，并了解它们的含义：
+- en: '![](../images/00454.jpeg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00454.jpeg)'
+- en: 'You will notice when we expand the module tree under the Commands tab that
+    each command will have a corresponding traffic-light icon. This gives us some
+    idea as to what is available to us as well as whether or not the user may notice
+    when we execute a command. For this example, let''s expand the `Browser` folder
+    in the module tree:'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你会注意到，当我们展开“命令”标签下的模块树时，每个命令都会有一个对应的交通灯图标。这让我们对可用的命令有了一定了解，同时也能判断执行命令时，用户是否会注意到。以这个示例为例，让我们展开模块树中的
+    `Browser` 文件夹：
+- en: '![](../images/00376.jpeg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00376.jpeg)'
+- en: 'We can see a number of options, but let''s try Get Visited URLs. If we click
+    on that command, we get a brief description and a text box in which to enter the
+    URL(s) that we would like to see whether the hooked browser has visited. Let''s
+    first try it with the default entry, [http://beefproject.com/](http://beefproject.com/).
+    When we click on Execute, we see that the command returns false:'
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们可以看到很多选项，但让我们试一下“获取访问过的 URL”。如果我们点击该命令，我们会看到一个简短的描述和一个文本框，在其中输入我们想查看是否已访问过的
+    URL。我们先使用默认的 [http://beefproject.com/](http://beefproject.com/)。点击“执行”后，我们看到命令返回
+    false：
+- en: '![](../images/00459.jpeg)'
+  id: totrans-58
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00459.jpeg)'
+- en: 'To test whether this command works, we will modify the value of the URL(s)
+    with a page we know the browser has visited and see what it returns. In this example,
+    let''s use the `http://172.16.69.135/beef.html` URL.  When we execute this, we
+    see that the command now returns true:'
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了测试这个命令是否有效，我们将修改 URL 的值，使用浏览器已访问过的页面，并查看它返回什么。在这个示例中，我们使用 `http://172.16.69.135/beef.html`
+    URL。当我们执行此命令时，结果返回 true：
+- en: '![](../images/00257.jpeg)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00257.jpeg)'
+- en: 'Lets try another command. In this example, we will redirect the browser to
+    a URL of our choosing. You will see that the traffic light next to this command
+    is orange, as the user will obviously notice that they have be redirected once
+    the command is executed:'
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们尝试另一个命令。在这个示例中，我们将浏览器重定向到我们选择的 URL。你会看到这个命令旁边的交通灯是橙色的，因为用户显然会注意到他们在执行命令后已被重定向：
+- en: '![](../images/00258.jpeg)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00258.jpeg)'
+- en: 'For our example, I am just going to redirect them to the root of our website
+    hosting the `beef.html` page.  So we will modify the redirect URL to `http://172.16.69.135/`
+    and click on the Execute **button** . If we click on the command we just executed,
+    the result shows that the redirect happened:'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对于我们的示例，我将只是将它们重定向到我们托管 `beef.html` 页面的网站根目录。所以我们会将重定向 URL 修改为 `http://172.16.69.135/`，然后点击执行**按钮**。如果我们点击刚刚执行的命令，结果会显示重定向已发生：
+- en: '![](../images/00262.jpeg)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00262.jpeg)'
+- en: 'Going back to our Windows XP hooked browser, we can see that, indeed, the browser
+    was redirected to `http://172.16.69.135/`:'
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 返回到我们挂钩的 Windows XP 浏览器上，我们可以看到，确实，浏览器已被重定向到 `http://172.16.69.135/`：
+- en: '![](../images/00265.jpeg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00265.jpeg)'
+- en: How it works…
+  id: totrans-67
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的……
+- en: BeEF runs as a server on Kali Linux. Once we have started BeEF and deployed
+    its hook, it is a matter of waiting for a browser to come across and load our
+    `hook.js` file. This in turn will connect the exploited browser to our BeEF server.
+    Once connected, BeEF has a number of functions that will allow us to collect information
+    about our exploited target.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 在 Kali Linux 上作为服务器运行。一旦我们启动 BeEF 并部署了其挂钩，它就是等待浏览器访问并加载我们的 `hook.js` 文件。这样一来，受害的浏览器将连接到我们的
+    BeEF 服务器。连接后，BeEF 提供了多种功能，允许我们收集关于被攻击目标的信息。
+- en: Creating a persistent connection with BeEF
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建与 BeEF 的持久连接
+- en: When a browser gets hooked by BeEF, by default it only stays hooked as long
+    as it is on the page that infected it. If the user navigates away from that page,
+    it will no longer be hooked to our BeEF console. In this recipe, we show how can
+    create persistence with BeEF even if a user navigates away from the infecting
+    page.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当一个浏览器被 BeEF 挂钩时，默认情况下它只会在停留在感染页面时保持连接。如果用户离开该页面，它将不再与我们的 BeEF 控制台保持连接。在本节中，我们将展示即使用户离开感染页面，如何仍然能够通过
+    BeEF 保持持久连接。
+- en: Getting ready
+  id: totrans-71
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: BeEF comes preinstalled on Kali Linux. In the examples provided, an instance
+    of Metasploitable2 is used to demonstrate hooking a browser via XSS. For more
+    information on how to set up systems in a local lab environment, refer to the
+    *Installing Metasploitable2* and *Installing Windows Server* recipes in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem using a text
+    editor, such as Vim or GNU nano. For more information on how to write scripts,
+    refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 已经预装在 Kali Linux 上。在提供的示例中，使用了一个 Metasploitable2 实例来演示通过 XSS 挂钩浏览器的过程。有关如何在本地实验环境中设置系统的更多信息，请参见[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *安装 Metasploitable2*
+    和 *安装 Windows Server* 配方，*入门*。此外，本节还需要使用文本编辑器（如 Vim 或 GNU nano）将脚本写入文件系统。有关如何编写脚本的更多信息，请参见[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和 GNU
+    nano）* 配方，*入门*。
+- en: How to do it…
+  id: totrans-73
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何实现…
+- en: 'Now let''s learn to create a persistent connection with BeEF:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们学习如何与 BeEF 创建持久连接：
+- en: 'Let''s go to the BeEF console and verify that we still have the hooked browser
+    from the previous recipe. If not, we can hook the browser again by going to the
+    page `http://172.16.69.135/beef.html`:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们进入 BeEF 控制台，确认我们是否仍然保持着之前的挂钩浏览器。如果没有，我们可以通过访问页面`http://172.16.69.135/beef.html`再次挂钩浏览器：
+- en: '![](../images/00268.jpeg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00268.jpeg)'
+- en: 'Having the browser hooked is great; however, once the user navigates away from
+    the page that infected it, we no longer have the browser hooked. It goes from
+    showing up in an `Online Browsers` folder and shows up in our `Offline Browsers` folder,
+    as shown in the following screenshot:'
+  id: totrans-77
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 挂钩浏览器很好；然而，一旦用户离开感染它的页面，我们将无法继续保持对该浏览器的控制。它将从“在线浏览器”文件夹中消失，并出现在我们的“离线浏览器”文件夹中，如下图所示：
+- en: '![](../images/00248.jpeg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00248.jpeg)'
+- en: Obviously, this is not ideal from our perspective. Once we have hooked a browser,
+    it would be ideal to have some persistence even if the user navigates away from
+    our infecting page. To make this happen, we navigate to the Commands tab, and
+    expand the Persistence folder.
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 显然，从我们的角度来看，这并不是理想的。一旦我们成功感染了一个浏览器，理想的情况是即使用户离开了我们感染页面，连接依然能够保持。为了实现这一点，我们导航到“命令”选项卡，并展开“持久性”文件夹。
+- en: 'Here, we can see several options available to us. For this example, we will
+    use the Create Pop Under command. This command will create a new browser window
+    and then hide it from the user. As long as this window remains open, we will have
+    a persistent connection:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这里，我们可以看到一些可用的选项。在这个示例中，我们将使用“创建弹出窗口”命令。此命令将创建一个新的浏览器窗口，并将其隐藏。只要这个窗口保持打开状态，我们就可以维持持久连接：
+- en: '![](../images/00263.jpeg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00263.jpeg)'
+- en: 'Once we click on the Execute button, we can go take a look at our infected
+    browser. Here, you can see in the Windows XP taskbar at the bottom that we have
+    two instances of Internet Explorer running now:'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦我们点击“执行”按钮，就可以去查看我们感染的浏览器。在这里，你可以看到在 Windows XP 的任务栏底部，我们现在有两个 Internet Explorer
+    实例在运行：
+- en: '![](../images/00273.jpeg)'
+  id: totrans-83
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00273.jpeg)'
+- en: 'Now, if the user navigates away from our page, we will still have the pop-under
+    window hooked and can maintain our persistence. Looking at the BeEF console, we
+    can see that we have one online browser and one offline with the same IP address.
+    The offline browser is the one that has navigated away from our infecting page,
+    while the online one is the one we instantiated using the Create Pop Under command:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，如果用户离开了我们的页面，我们仍然可以保持弹出窗口连接，并维持我们的持久性。查看 BeEF 控制台，我们可以看到有一个在线浏览器和一个离线浏览器，它们的
+    IP 地址是相同的。离线浏览器是已经离开了我们感染页面的浏览器，而在线浏览器则是我们通过“创建弹出窗口”命令实例化的浏览器：
+- en: '![](../images/00276.jpeg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00276.jpeg)'
+- en: How it works…
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: In order to maintain persistence with BeEF, the browser needs to keep using
+    the `hook.js` resource. When a user navigates away from our infecting page, it
+    no longer is using `hook.js`, so we lose our connection. In order to maintain
+    persistence, we can use an IFrame or another browser window to maintain our connection
+    by loading our `hook.js` file in it.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了保持 BeEF 的持久性，浏览器需要继续使用 `hook.js` 资源。当用户离开我们感染的页面时，它就不再使用 `hook.js`，因此我们失去了连接。为了保持持久性，我们可以使用
+    IFrame 或另一个浏览器窗口来加载我们的 `hook.js` 文件，从而保持连接。
+- en: Integrating BeEF and Metasploit
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 集成 BeEF 和 Metasploit
+- en: We know now that BeEF is a great framework for exploiting the browser and that
+    Metasploit is a great framework for exploiting a host. In this recipe, we'll see how
+    we can use BeEF and Metasploit together. After hooking a browser with BeEF, we
+    redirect the victim's browser to an executable that creates a reverse shell.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在知道，BeEF 是一个非常适合利用浏览器的框架，而 Metasploit 是一个非常适合利用主机的框架。在本配方中，我们将看到如何将 BeEF
+    和 Metasploit 一起使用。在用 BeEF 劫持浏览器之后，我们将受害者的浏览器重定向到一个可执行文件，该文件创建一个反向 shell。
+- en: Getting ready
+  id: totrans-90
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: BeEF comes preinstalled on Kali Linux. In the examples provided, an instance
+    of Metasploitable2 is used to demonstrate hooking a browser via XSS. For more
+    information on how to set up systems in a local lab environment, refer to the
+    *Installing Metasploitable2* and *Installing Windows Server* recipes in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem using a text
+    editor, such as Vim or GNU nano. For more information on how to write scripts,
+    refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 已经预装在 Kali Linux 中。在提供的示例中，使用了一个 Metasploitable2 实例来演示通过 XSS 劫持浏览器。有关如何在本地实验环境中设置系统的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*安装 Metasploitable2*和*安装
+    Windows Server*配方，*入门*部分。此外，本节还需要通过文本编辑器（如 Vim 或 GNU nano）向文件系统写入脚本。有关如何编写脚本的更多信息，请参考[第
+    1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的*使用文本编辑器（Vim 和 GNU
+    nano）*配方，*入门*部分。
+- en: How to do it…
+  id: totrans-92
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Now let''s learn how to integrate BeEF and Metaspoilt:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在让我们学习如何集成 BeEF 和 Metasploit：
+- en: 'We will begin by creating a reverse shell and packaging it into an executable.
+    We know that our hooked browser is Microsoft Windows, so we will build an executable
+    to match the victim''s platform. We are using the payload `windows/shell/reverse_tcp`.
+    We then enter `LHOST` as the IP address of our Kali host, and we will set `LPORT`
+    as `4444`. We do some encoding and output our file in our web root so that we
+    can redirect our victim to it when we are ready:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将首先创建一个反向 shell 并将其打包成可执行文件。我们知道我们的劫持浏览器是 Microsoft Windows，因此我们将构建一个与受害者平台匹配的可执行文件。我们使用有效载荷
+    `windows/shell/reverse_tcp`。然后我们将 `LHOST` 设置为我们的 Kali 主机的 IP 地址，并将 `LPORT` 设置为
+    `4444`。我们进行一些编码，并将输出文件放在我们的 Web 根目录下，这样我们就可以在准备好时将受害者引导到该文件：
+- en: '![](../images/00278.jpeg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00278.jpeg)'
+- en: 'Now that we have created our exploit, we need to set up our listener. We do
+    this by opening the MSF console and typing `use exploit/multi/handler`. Then,
+    we set the payload to the same one we used in `msfvenom`: `set payload windows/shell/reverse_tcp`.
+    From here, we need to set `LHOST` to `172.16.69.133` and `LPORT` to `4444`. Once
+    we have all our options set, type `exploit` and the listener will start:'
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经创建了我们的漏洞利用，我们需要设置我们的监听器。我们通过打开 MSF 控制台并输入 `use exploit/multi/handler`
+    来完成此操作。然后，我们将有效载荷设置为与 `msfvenom` 中使用的相同：`set payload windows/shell/reverse_tcp`。接下来，我们需要将
+    `LHOST` 设置为 `172.16.69.133`，并将 `LPORT` 设置为 `4444`。一旦所有选项设置完成，输入 `exploit`，监听器就会启动：
+- en: '![](../images/00281.jpeg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00281.jpeg)'
+- en: 'Now we go back to our BeEF console and decide how we want to direct the user
+    to our `shell.exe` file. We could perform a redirect or open a new window, but
+    for this example, we will use an IFrame. When we click on the command, we are
+    presented with a textbox to enter our URL. Here, we enter the path to our `shell.exe`
+    file we just created. In our example, it is `http://172.16.69.133`:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们回到 BeEF 控制台，并决定如何将用户引导到我们的 `shell.exe` 文件。我们可以执行重定向或打开新窗口，但在本例中，我们将使用 IFrame。当我们点击该命令时，会弹出一个文本框让我们输入
+    URL。在这里，我们输入刚刚创建的 `shell.exe` 文件的路径。在我们的示例中，它是 `http://172.16.69.133`：
+- en: '![](../images/00284.jpeg)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00284.jpeg)'
+- en: 'When we click on Execute, the victim''s browser is going to receive a prompt
+    and has to make a decision about whether or not to open or save it. Of course,
+    the user does not have to open our file, and if they do not, there will be no
+    reverse shell. This is meant purely as an example, but there is a lot we could
+    do to encourage the user by making this look like something they want to install.
+    When it comes to exploiting, this is where creativity comes into play. For now,
+    let''s suppose our victim does open our file:'
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当我们点击 **执行** 时，受害者的浏览器将收到一个提示，必须决定是否打开或保存文件。当然，用户不必打开我们的文件，如果他们不打开，反向 shell
+    就不会启动。这仅作为一个示例，但我们可以做很多事情来鼓励用户，让它看起来像他们想要安装的东西。进行攻击时，创造力是关键。现在，假设我们的受害者确实打开了我们的文件：
+- en: '![](../images/00287.jpeg)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00287.jpeg)'
+- en: Once opened, a reverse shell is created, and you can see that we get the Microsoft
+    Windows Command Prompt. From here, we can do whatever the compromised user can
+    do from the Terminal.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打开后，会创建一个反向 shell，您可以看到我们获得了 Microsoft Windows 命令提示符。从这里，我们可以做任何被破坏用户在终端中可以做的操作。
+- en: '![](../images/00288.jpeg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00288.jpeg)'
+- en: How it works…
+  id: totrans-104
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: BeEF provides a framework that allows us to exploit the victim's browser. In
+    this recipe, we take the exploited browser and have it download a reverse shell
+    executable, linking it back to our Metasploit host.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 提供了一个框架，允许我们利用受害者的浏览器。在这个配方中，我们让被利用的浏览器下载一个反向 shell 可执行文件，并将其链接回我们的 Metasploit
+    主机。
+- en: Using the BeEF autorule engine
+  id: totrans-106
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 BeEF 自动规则引擎
+- en: We have now seen some of the power of BeEF. Wouldn't it be great if we could
+    automate some of that power? With the BeEF autorule engine, we can do just that.
+    As an example, it would be great to create a persistent connection automatically
+    with our victim as soon as the browser is hooked. This recipe looks into this
+    and some other ideas.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在已经看到了 BeEF 的一些强大功能。如果我们能自动化其中的一些功能，那该多好？借助 BeEF 自动规则引擎，我们可以做到这一点。例如，能够在浏览器一旦被挂载时，就自动与受害者建立持久连接，将会非常棒。本节将探讨这个问题以及其他一些想法。
+- en: Getting ready
+  id: totrans-108
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: BeEF comes preinstalled on Kali Linux. In the examples provided, an instance
+    of Metasploitable2 is used to demonstrate hooking a browser via XSS. For more
+    information on how to set up systems in a local lab environment, refer to the
+    *Installing Metasploitable2* and *Installing Windows Server* recipes in [Chapter
+    1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426), *Getting Started*. Additionally,
+    this section will require a script to be written to the filesystem using a text
+    editor, such as Vim or GNU nano. For more information on how to write scripts,
+    refer to the *Using text editors (Vim and GNU nano)* recipe in [Chapter 1](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426),
+    *Getting Started*.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF 已经预装在 Kali Linux 上。在提供的示例中，使用 Metasploitable2 实例演示通过 XSS 挂载浏览器。有关如何在本地实验环境中设置系统的更多信息，请参阅
+    [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *安装 Metasploitable2*
+    和 *安装 Windows Server* 配方，*入门*。此外，本节需要使用文本编辑器（如 Vim 或 GNU nano）编写脚本到文件系统中。有关如何编写脚本的更多信息，请参阅
+    [第 1 章](part0026.html#OPEK1-cf89710d791c4a3bb78ec273d9322426)中的 *使用文本编辑器（Vim 和
+    GNU nano）* 配方，*入门*。
+- en: How to do it…
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'In order to automate BeEF, we will be using the BeEF **Autorun Rule Engine**
+    (**ARE**). With ARE, we can automatically run commands on a browser when it is
+    hooked, provided it meets the requirements we specify. As an example, we would
+    only want to run Google Chrome commands if the browser that is hooked is Google
+    Chrome:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了自动化 BeEF，我们将使用 BeEF 的 **自动运行规则引擎**（**ARE**）。通过 ARE，我们可以在浏览器被挂载时自动运行命令，前提是它符合我们指定的要求。例如，我们只希望在被挂载的浏览器是
+    Google Chrome 时，才运行 Google Chrome 的相关命令：
+- en: 'BeEF comes prepackaged with a number of ARE rules. On Kali, we can view them
+    by navigating to the `/usr/share/beef-xss/arerules/` directory and viewing its
+    contents, as shown in the following screenshot:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: BeEF 已经预包装了许多 ARE 规则。在 Kali 中，我们可以通过导航到 `/usr/share/beef-xss/arerules/` 目录并查看其内容来查看这些规则，如下图所示：
+- en: '![](../images/00289.jpeg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00289.jpeg)'
+- en: Although BeEF comes prepackaged with ARE commands, these commands are continually
+    being updated and added to. To view the latest comprehensive list of ARE commands,
+    we can visit the BeEF projects arerules page at [https://github.com/beefproject/beef/tree/master/arerules](https://github.com/beefproject/beef/tree/master/arerules).
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尽管 BeEF 已经预装了 ARE 命令，但这些命令正在不断更新和增加。要查看最新的 ARE 命令全面列表，我们可以访问 BeEF 项目的 ARE 规则页面：[https://github.com/beefproject/beef/tree/master/arerules](https://github.com/beefproject/beef/tree/master/arerules)。
+- en: 'To get the latest rules, we will download the BeEF master archive. We switch
+    to the `/tmp/` directory and download the latest BeEF archive from [https://github.com/beefproject/beef/archive/master.zip](https://github.com/beefproject/beef/archive/master.zip).
+    We can now unzip the contents using the `unzip` command:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了获取最新的规则，我们将下载 BeEF 主存档。我们切换到 `/tmp/` 目录并从 [https://github.com/beefproject/beef/archive/master.zip](https://github.com/beefproject/beef/archive/master.zip)
+    下载最新的 BeEF 存档。现在，我们可以使用 `unzip` 命令解压内容：
+- en: '![](../images/00293.jpeg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00293.jpeg)'
+- en: Notice that we have downloaded the entire BeEF project, although all we need
+    is to update the rules. So let's switch to the `autorule` directory, and we will
+    run a command to look for autorule files and move them to the `/usr/share/beef-xss/arerules/`
+    directory.
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 请注意，我们已下载整个 BeEF 项目，尽管我们只需要更新规则。因此，让我们切换到 `autorule` 目录，并运行命令查找 autorule 文件，并将其移动到
+    `/usr/share/beef-xss/arerules/` 目录。
+- en: 'We can then switch back over to the `/usr/share/beef-xss/arerules/` directory
+    and confirm whether the files were moved. We should also go back to the `/tmp/`
+    directory and remove the files there as they are not needed. We can do this by
+    executing the `rm -r /tmp/beef-master` and `rm master.zip` commands:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，我们可以切换回 `/usr/share/beef-xss/arerules/` 目录，确认文件是否已移动。我们还应该返回 `/tmp/` 目录并删除那里的文件，因为它们不再需要。可以通过执行
+    `rm -r /tmp/beef-master` 和 `rm master.zip` 命令来完成：
+- en: '![](../images/00431.jpeg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00431.jpeg)'
+- en: Now that we have the latest ARE rules, let's look specifically at the `man_in_the_browser.json` file.
+    Man-in-the-browser attacks work by intercepting the request when a user clicks
+    on a link. If the link is on the same domain, it simply will make an AJAX call
+    to load the new page. To the user, it doesn't look any different from what they
+    would normally experience; however they remain hooked. In the event that the link
+    is to another domain, a new tab is launched to load the requested page. This may
+    or may not tip off the user; however, it is not that uncommon for sites to open
+    pages in new tabs. This is required because the same-origin policy won't allow
+    us to make the request in the same way as if the link were to another page on
+    our given domain.
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们已经有了最新的 ARE 规则，接下来我们具体看看 `man_in_the_browser.json` 文件。浏览器中间人攻击通过在用户点击链接时拦截请求来工作。如果链接在同一域上，它只会发出一个
+    AJAX 请求来加载新页面。对于用户来说，这看起来和他们正常的体验没有任何区别；然而，他们仍然被钩住。如果链接指向其他域，则会启动一个新标签页加载请求的页面。这可能会或不会让用户察觉；不过，网站在新标签页中打开页面并不罕见。这是因为同源策略不允许我们像访问同一域上的其他页面那样发出请求。
+- en: In order for us to automatically run our ARE rules, we must move them from the
+    `/usr/share/beef-xss/arerules/` directory to the `/usr/share/beef-xss/arerules/enabled/` directory.
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了让我们自动运行 ARE 规则，我们必须将它们从 `/usr/share/beef-xss/arerules/` 目录移动到 `/usr/share/beef-xss/arerules/enabled/`
+    目录。
+- en: 'After moving them, we need to restart BeEF in order for it to pick up the new
+    configuration:'
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 移动它们之后，我们需要重启 BeEF，以便它能加载新的配置：
+- en: '![](../images/00298.jpeg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00298.jpeg)'
+- en: 'When we originally created our web page to hook our victims, we did not add
+    any links to the page. Let''s begin by editing our `beef.html` file with the `vi`
+    editor:'
+  id: totrans-124
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当我们最初创建网页以钩住受害者时，并没有在页面中添加任何链接。让我们开始使用 `vi` 编辑器编辑我们的 `beef.html` 文件：
+- en: '![](../images/00299.jpeg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00299.jpeg)'
+- en: 'Now, we can edit the page and add a link. In this example, we will add the
+    following HTML to our page:'
+  id: totrans-126
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们可以编辑页面并添加链接。在这个例子中，我们将向页面添加以下 HTML：
+- en: '[PRE0]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '![](../images/00476.jpeg)'
+  id: totrans-128
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00476.jpeg)'
+- en: 'Now we navigate to `172.16.69.133/beef.html` from our Windows XP machine. From
+    our BeEF panel we can see that the browser is  hooked as expected:'
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们从我们的 Windows XP 机器导航到 `172.16.69.133/beef.html`。从我们的 BeEF 面板中，我们可以看到浏览器按预期被钩住：
+- en: '![](../images/00304.jpeg)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00304.jpeg)'
+- en: 'When we navigate away from our page and to `www.packtpub.com`, our `man_in_the_browser.json` file
+    goes to work, keeping our browser hooked. If we look in the logs, we can see that
+    it was executed. Additionally, even though the user navigated away, we can see
+    that our browser remains online:'
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当我们离开我们的页面并导航到 `www.packtpub.com` 时，我们的 `man_in_the_browser.json` 文件开始工作，保持浏览器连接。如果我们查看日志，可以看到它已被执行。此外，尽管用户离开了页面，我们仍然可以看到浏览器保持在线：
+- en: '![](../images/00307.jpeg)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00307.jpeg)'
+- en: How it works…
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: The BeEF ARE allows us to choose specific commands to be executed automatically
+    when a browser is hooked by BeEF. This allows us to collect information and create
+    persistence, among a number of other functions.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: BeEF ARE 允许我们在浏览器被 BeEF 钩取时选择特定的命令自动执行。这使我们能够收集信息并创建持久性，以及其他许多功能。

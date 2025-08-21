@@ -1,0 +1,1669 @@
+- en: RE for Windows Platforms
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows 平台的逆向工程
+- en: With Windows being one of the most popular operating systems in the world, most
+    software in the cyber world has been written for it. This includes malware.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 Windows 是全球最流行的操作系统之一，网络世界中的大多数软件都为其编写。这其中包括恶意软件。
+- en: 'This chapter focuses on the analysis of the Windows native executable, the
+    PE file, and evolves directly by doing file analysis, that is, gathering static
+    information and performing dynamic analysis. We will dig deeper into understanding
+    how the PE file behaves with the Windows operating system. The following topics
+    will be covered in this chapter:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章聚焦于 Windows 本地可执行文件 PE 文件的分析，并通过文件分析直接进行演变，即收集静态信息并执行动态分析。我们将深入了解 PE 文件如何与
+    Windows 操作系统交互。以下主题将在本章中进行讲解：
+- en: Analyzing Windows PE
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析 Windows PE 文件
+- en: Tools
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 工具
+- en: Static analysis
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 静态分析
+- en: Dynamic analysis
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 动态分析
+- en: Technical requirements
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: This chapter requires knowledge of the Windows environment and its administration.
+    The reader should also know how to use commands in Command Prompt. The first portion
+    of this chapter requires the user to have basic knowledge of building and compiling
+    C programs using Visual Studio or similar software.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章需要读者具备 Windows 环境及其管理的知识。读者还应了解如何在命令提示符中使用命令。本章的第一部分要求读者具备使用 Visual Studio
+    或类似软件构建和编译 C 程序的基本知识。
+- en: Hello World
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Hello World
+- en: Programs in the Windows environment communicate with the system by using Windows
+    APIs. These APIs are built around the file system, memory management (including
+    processes, the stack, and allocations), the registry hive, network communication,
+    and so forth. Regarding reverse engineering, a wide coverage of these APIs and
+    their library modules is a good advantage when it comes to easily understanding
+    how a program works when seen in its low-level language equivalent. So, the best
+    way to begin exploring APIs and their libraries would be to develop some programs
+    ourselves.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 环境中的程序通过使用 Windows API 与系统进行通信。这些 API 是围绕文件系统、内存管理（包括进程、栈和分配）、注册表、网络通信等构建的。在逆向工程方面，广泛覆盖这些
+    API 及其库模块，在通过低级语言等效视角理解程序的工作方式时具有很大优势。因此，开始探索 API 及其库的最佳方式是自己开发一些程序。
+- en: There are many high-level languages used by developers like C, C++, C#, and
+    Visual Basic.  C, C++, and Visual Basic (native) compile to an executable that
+    directly executes instructions in the x86 language. C# and Visual Basic (`p-code`)
+    are usually compiled to use interpreters as a layer that turns the p-code into
+    actual x86 instructions. For this chapter, we will focus on executable binaries
+    compiled from C/C++ and assembly language. The goal is to have a better understanding
+    of the behavior of programs that use Windows APIs.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 开发者使用的高级语言有很多，比如 C、C++、C# 和 Visual Basic。C、C++ 和 Visual Basic（本地）编译为可执行文件，直接执行
+    x86 语言的指令。C# 和 Visual Basic（`p-code`）通常会被编译成使用解释器的形式，解释器将 p-code 转换为实际的 x86 指令。本章将重点讨论从
+    C/C++ 和汇编语言编译的可执行二进制文件。目标是更好地理解使用 Windows API 的程序行为。
+- en: For this chapter, our choice for building C/C++ programs will be the Visual
+    Studio Community edition. Visual Studio is widely used for building Microsoft
+    Windows programs. Given that it is also a product of Microsoft, it already contains
+    the compatible libraries required to compile programs. You can download and install
+    Visual Studio Community edition from [https://visualstudio.microsoft.com/downloads/](https://visualstudio.microsoft.com/downloads/).
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于本章，我们选择使用 Visual Studio Community 版来构建 C/C++ 程序。Visual Studio 是广泛用于构建 Microsoft
+    Windows 程序的工具。由于它也是微软的产品，已包含编译程序所需的兼容库。你可以从 [https://visualstudio.microsoft.com/downloads/](https://visualstudio.microsoft.com/downloads/)
+    下载并安装 Visual Studio Community 版。
+- en: 'These programs are neither harmful nor malicious. The following C programming
+    activities can be done with Visual Studio in a bare metal machine. In case you
+    are planning on installing Visual Studio in a Windows VM, at the time of writing
+    this book, Visual Studio 2017 Community edition has the following recommended
+    system requirements:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些程序既不有害也不恶意。以下 C 编程活动可以在裸机上使用 Visual Studio 完成。如果你计划在 Windows 虚拟机上安装 Visual
+    Studio，根据本书的编写时间，Visual Studio 2017 Community 版的推荐系统要求如下：
+- en: 1.8 GHz dual core
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 1.8 GHz 双核
+- en: 4 GB of RAM
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 4 GB 的内存
+- en: 130 GB of disk space
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 130 GB 的磁盘空间
+- en: These system requirements can be found at [https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs](https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs).
+    You may need to perform some Windows updates and install the .NET framework. This
+    can also be installed from the Windows 7 setup that we previously downloaded from
+    [https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/](https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/)
+    . Please visit the Microsoft Visual Studio website for the requirements of newer
+    versions.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些系统要求可以在[https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs](https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs)找到。你可能需要执行一些Windows更新，并安装.NET框架。也可以从我们之前下载的Windows
+    7安装包中安装，下载链接为[https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/](https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/)。请访问微软Visual
+    Studio网站，了解新版的要求。
+- en: There are many Visual Studio alternatives that have minimal requirements like
+    Bloodshed Dev C++, Zeus IDE, and Eclipse. However, some of these IDE may not be
+    up-to-date and/or may need to the compiler and its dependencies to have been properly
+    set up.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多Visual Studio的替代工具，它们有较小的系统要求，例如Bloodshed Dev C++、Zeus IDE和Eclipse。然而，这些IDE中的一些可能不是最新的，或者可能需要正确设置编译器及其依赖项。
+- en: Learning about the APIs
+  id: totrans-19
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 学习API
+- en: 'We''ll be skipping `Hello World` here since we have already made one in the
+    previous chapters. Instead, we''ll be looking into the following example programs:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在此跳过`Hello World`，因为我们在前面的章节已经做过了。相反，我们将研究以下示例程序：
+- en: A keylogger saved to a `filez`
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将键盘记录器保存到`filez`中
+- en: Enumerating a registry key and printing it out
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 枚举注册表键并打印输出
+- en: List processes and printing out
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 列出进程并打印输出
+- en: Encrypting data and storing it in a file
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加密数据并将其存储到文件中
+- en: Decrypting an encrypted file
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解密加密文件
+- en: Listening to port `9999` and sending back a message when connected
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 监听端口`9999`并在连接时发送回一个消息
+- en: The source code for these programs can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch7](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch7).
+    Feel free to play with these programs, add your own code, or even create your
+    own version. The aim here is to get you to learn how these APIs work, hand in
+    hand.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些程序的源代码可以在[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch7](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/ch7)找到。可以随意使用这些程序，添加自己的代码，甚至创建自己的版本。这里的目标是让你学习这些API如何协同工作。
+- en: One of the keys to determining how a program behaves is to learn how APIs are
+    used. The use of each API is documented in the Microsoft Developer Network (MSDN)
+    library. The programs we are about to look into are just examples of program behaviors.
+    We use these APIs to build upon these behaviors. Our goal here is to learn how
+    these APIs are used and interact with each other.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定程序行为的关键之一是学习如何使用API。每个API的使用方法都在微软开发者网络（MSDN）文档库中有记录。我们即将查看的程序只是程序行为的示例。我们利用这些API在这些行为的基础上进行扩展。我们在这里的目标是学习这些API的使用方法以及它们如何相互交互。
+- en: As a reverse engineer, it is expected and required for the reader to use the
+    MSDN or other resources to further understand the details on how the API works.
+    The API name can be searched in the MSDN library at [https://msdn.microsoft.com](https://msdn.microsoft.com).
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为一名逆向工程师，读者应当并且要求使用MSDN或其他资源进一步了解API的工作原理。可以在MSDN文档库中搜索API名称，网址为[https://msdn.microsoft.com](https://msdn.microsoft.com)。
+- en: Keylogger
+  id: totrans-30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 键盘记录器
+- en: A keylogger is a program that logs what keys have been pressed by a user. The
+    log is usually stored in a file. The core API used here is `GetAsyncKeyState`.
+    Every button that can be pressed from the keyboard or the mouse has an assigned
+    ID called a virtual key code. Specifying a virtual key code, the `GetAsyncKeyState`
+    gives information about whether the key has been pressed or not.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 键盘记录器是一个记录用户按键的程序。日志通常保存在一个文件中。这里使用的核心API是`GetAsyncKeyState`。每个可以从键盘或鼠标按下的按钮都有一个被称为虚拟键代码的分配ID。指定虚拟键代码后，`GetAsyncKeyState`会提供关于该键是否被按下的信息。
+- en: The source code for this program can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/keylogger.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/keylogger.cpp).
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个程序的源代码可以在[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/keylogger.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/keylogger.cpp)找到。
+- en: 'For keylogging to work, we will need to check the state of each virtual key
+    code and run them in a loop. Once a key has been identified as pressed, the virtual
+    key code gets stored into a file. The following code does just that:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了使键盘记录功能正常工作，我们需要检查每个虚拟键码的状态，并将它们放入一个循环中。一旦识别到一个按键被按下，虚拟键码就会被存储到文件中。以下代码实现了这一功能：
+- en: '[PRE0]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '`LogFile` here is a function that accepts two parameters: the data that it
+    writes and the file path of the log file. `lpBuffer` contains the data and is
+    formatted by the `sprintf_s` API as `\\x%02x`. As a result, the format converts
+    any numbers into a two-digit hexadecimal string. The number 9 becomes `\x09`,
+    and the number 106 becomes `\x6a`.'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`LogFile` 是一个函数，接受两个参数：它写入的数据和日志文件的文件路径。`lpBuffer` 包含数据，并通过 `sprintf_s` API
+    格式化为 `\\x%02x`。因此，格式会将任何数字转换为两位数的十六进制字符串。数字 9 会变成 `\x09`，数字 106 会变成 `\x6a`。'
+- en: 'All we need are three Windows API functions to implement the storage of data
+    to a log file – `CreateFile`, `WriteFile`, and `CloseHandle` – as shown in the
+    following code:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们只需要三个 Windows API 函数来实现将数据存储到日志文件中——`CreateFile`、`WriteFile` 和 `CloseHandle`——如下面的代码所示：
+- en: '[PRE1]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '`CreateFileA` is used to create or open a new file given the filename and how
+    the file will be used. Since the purpose of this exercise is to continuously log
+    the virtual key codes of pressed keys, we need to open the file in append mode
+    (`FILE_APPEND_DATA`). A file handle is returned to `hFile` and is used by `WriteFile`. `lpBuffer`
+    contains the formatted virtual key code. One of the parameters `WriteFile` requires
+    is the size of the data to be written. The `strlen` API was used here to determine
+    the length of the data. Finally, the file handle is closed using the `CloseHandle`.
+    It is important to close file handles to make the file available for use.'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`CreateFileA` 用于根据文件名和文件的使用方式创建或打开一个新文件。由于这个练习的目的是不断记录按键的虚拟键码，我们需要以追加模式打开文件（`FILE_APPEND_DATA`）。返回的文件句柄存储在
+    `hFile` 中，并被 `WriteFile` 使用。`lpBuffer` 包含格式化的虚拟键码。`WriteFile` 需要的参数之一是要写入的数据大小。这里使用了
+    `strlen` API 来确定数据的长度。最后，使用 `CloseHandle` 关闭文件句柄。关闭文件句柄是很重要的，这样文件才会可供使用。'
+- en: There are different keyboard variants that cater to the language of the user.
+    Thus, different keyboards may have different virtual key codes. At the start of
+    the program, we used `GetKeyboardLayoutNameA(lpBuffer)` to identify the type of
+    keyboard being used.  When reading the log, the type of keyboard will be used
+    as a reference to properly identify which keys were pressed.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有不同的键盘变体，旨在适应用户的语言。因此，不同的键盘可能具有不同的虚拟键码。在程序开始时，我们使用 `GetKeyboardLayoutNameA(lpBuffer)`
+    来识别正在使用的键盘类型。在读取日志时，将使用键盘类型作为参考，以正确识别哪些键被按下。
+- en: regenum
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: regenum
+- en: The `regenum` program, as mentioned below, aims to enumerate all values and
+    data in a given registry key. The parameters required for the APIs depend on the
+    result of the previous APIs. Just like how we were able to write data to a file
+    in the keylogger program, registry enumerating APIs also require a handle. In
+    this case, a handle to the registry key is used by the `RegEnumValueA` and `RegQueryValueExA`
+    APIs.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如下所述，`regenum` 程序旨在枚举给定注册表项中的所有值和数据。API 所需的参数取决于前一个 API 的结果。就像我们在键盘记录器程序中能够写入数据到文件一样，注册表枚举的
+    API 也需要一个句柄。在这种情况下，`RegEnumValueA` 和 `RegQueryValueExA` API 使用的是注册表项的句柄。
+- en: The source code for this program can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/regenum.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/regenum.cpp).
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个程序的源代码可以在 [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/regenum.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/regenum.cpp)
+    找到。
+- en: '[PRE2]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The enumeration begins by retrieving a handle for the registry key via `RegOpenKeyExA`.
+    A successful return value should be non-zero, while its output should show a handle
+    stored in `hkResult`. The registry key that is being targeted here is `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 枚举从通过 `RegOpenKeyExA` 获取注册表项的句柄开始。成功的返回值应该是非零的，而输出应该显示存储在 `hkResult` 中的句柄。这里要访问的注册表项是
+    `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`。
+- en: The handle in `hkResult` is used by `RegEnumValueA` to begin enumerating each
+    registry value under the registry key. Subsequent calls to `RegEnumValueA` gives
+    the next registry value entry. This block of code is therefore placed in a loop
+    until it fails to return an `ERROR_SUCCESS` result. An `ERROR_SUCCESS` result
+    means that a registry value was successfully retrieved.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`hkResult`中的句柄由`RegEnumValueA`使用，用于开始枚举注册表键下的每个注册表值。后续对`RegEnumValueA`的调用将返回下一个注册表值条目。因此，这段代码被放在循环中，直到返回`ERROR_SUCCESS`结果为止。`ERROR_SUCCESS`结果表示成功检索到注册表值。'
+- en: For every registry value, `RegQueryValueExA` is called. Remember that we only
+    go the registry value, but not its respective data. Using `RegQueryValueExA`,
+    we should be able to acquire the registry data.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个注册表值，都会调用`RegQueryValueExA`。记住，我们只获取了注册表值，但没有获取其对应的数据。通过使用`RegQueryValueExA`，我们应该能够获取到注册表数据。
+- en: Finally, we have to close the handle by using `RegCloseKey`.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们需要通过使用`RegCloseKey`来关闭句柄。
+- en: 'Other APIs that are used here are `printf`, `strlen`, and `sprintf`. `printf`
+    was used in the program to print the target registry key, value, and data to the
+    command-line console. `strlen` was used to get the text string length. Every registry
+    key has a default value. Since `RegEnumValueA` will return `ERROR_SUCCEPantf`,
+    we are able to replace the `ValueName` variable with a string called `(Default)`:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里使用的其他API包括`printf`、`strlen`和`sprintf`。`printf`在程序中用于将目标注册表键、值和数据打印到命令行控制台。`strlen`用于获取文本字符串的长度。每个注册表键都有一个默认值。由于`RegEnumValueA`将返回`ERROR_SUCCEPantf`，我们可以将`ValueName`变量替换为一个名为`(Default)`的字符串：
+- en: '![](img/3fd38a99-d50a-449c-8af2-5b5cd45d5fa6.png)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3fd38a99-d50a-449c-8af2-5b5cd45d5fa6.png)'
+- en: processlist
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: processlist
+- en: Similar to how enumerating registry values works, listing processes also works
+    on the same concept. Since the processes in real-time change fast, a snapshot
+    of the process list needs to be taken. The snapshot contains a list of process
+    information at the time the snapshot was taken. The snapshot can be taken using
+    `CreateToolhelp32Snapshot`. The result is stored in `hSnapshot`, which is the
+    snapshot handle.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似于枚举注册表值的方式，列出进程也基于相同的概念。由于实时进程变化快速，需要获取进程列表的快照。该快照包含快照创建时的进程信息列表。可以使用`CreateToolhelp32Snapshot`来获取快照。结果存储在`hSnapshot`中，它是快照句柄。
+- en: To begin enumerating the list, `Process32First` is used to acquire the first
+    process information from the list. This information is stored in the `pe32` variable,
+    which is a `PROCESSENTRY32` type. Subsequent process information is retrieved
+    by calling `Process32Next`. `CloseHandle` is finally used when done with the list.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要开始枚举列表，使用`Process32First`来获取列表中的第一个进程信息。该信息存储在`pe32`变量中，类型为`PROCESSENTRY32`。通过调用`Process32Next`来检索后续的进程信息。当处理完列表后，最终使用`CloseHandle`。
+- en: 'Again, `printf` is used to print out the executable file name and the process
+    ID:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次使用`printf`来打印出可执行文件名和进程ID：
+- en: '[PRE3]'
+  id: totrans-54
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The source code for this program can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/processlist.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/processlist.cpp).
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序的源代码可以在[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/processlist.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/processlist.cpp)找到。
+- en: Encrypting and decrypting a file
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密和解密文件
+- en: Ransomware has been one of the most popular malware to spread out globally.
+    Its core element is being able to encrypt files.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 勒索软件已成为全球传播的最流行恶意软件之一，其核心要素是能够加密文件。
+- en: In these encrypt and decrypt programs, we are going to learn about some of the
+    basic APIs used in encryption and decryption.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些加密和解密程序中，我们将学习一些用于加密和解密的基本API。
+- en: The API used to encrypt is `CryptEncrypt`, while `CryptDecrypt` is used for
+    decryption. However, these APIs require at least a handle to the encryption key.
+    To obtain the handle to the encryption key, a handle to the **Cryptographic Service
+    Provider** (**CSP**) is required. In essence, before calling `CryptEncrypt` or
+    `CryptDecrypt`, calling a couple of APIs is required to set up the algorithm that
+    will be used.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于加密的API是`CryptEncrypt`，而`CryptDecrypt`用于解密。然而，这些API至少需要一个加密密钥的句柄。为了获得加密密钥的句柄，需要先获得**加密服务提供商**（**CSP**）的句柄。从本质上讲，在调用`CryptEncrypt`或`CryptDecrypt`之前，必须先调用一些API来设置将要使用的算法。
+- en: 'In our program, `CryptAcquireContextA` is used to get a `CryptoAPI` handle
+    of a key container from a CSP. It is in this API where the algorithm, AES, is
+    indicated. The key that the encryption will be using will be controlled by a user-defined
+    password which is set in the `password[]` string. To get a handle to the derived
+    key, the APIs `CryptCreateHash`, `CryptHashData`, and `CryptDeriveKey` are used
+    while passing the user-defined `password` to `CryptHashData`. The data to be encrypted
+    and assigned in the `buffer` variable,is passed to `CryptEncrypt`. The resulting
+    encrypted data is written in the same data buffer, overwriting it in the process:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的程序中，`CryptAcquireContextA`用于从CSP获取一个`CryptoAPI`密钥容器句柄。在这个API中，算法AES被指定。加密将使用的密钥由用户定义的密码控制，该密码设置在`password[]`字符串中。为了获取派生密钥的句柄，使用了`CryptCreateHash`、`CryptHashData`和`CryptDeriveKey`这些API，并将用户定义的`password`传递给`CryptHashData`。要加密并赋值给`buffer`变量的数据，会传递给`CryptEncrypt`。最终加密后的数据会被写入同一数据缓冲区，并在此过程中覆盖原数据：
+- en: '[PRE4]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Using the modified version of the `LogFile` function, which now includes the
+    size of the data to write, the encrypted data is stored in the `message.enc` file:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用修改后的`LogFile`函数，该函数现在包括写入数据的大小，已将加密数据存储在`message.enc`文件中：
+- en: '[PRE5]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: To gracefully close the `CryptoAPI` handles, `CryptDestroyKey`, `CryptDestroyHash`,
+    and `CryptReleaseContext` are used.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了优雅地关闭`CryptoAPI`句柄，使用了`CryptDestroyKey`、`CryptDestroyHash`和`CryptReleaseContext`。
+- en: 'The encrypted message `Hello World!` will now look like this:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密后的消息`Hello World!`现在会变成这样：
+- en: '![](img/a1321858-fd88-4cbb-9dcc-a106625f8811.png)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a1321858-fd88-4cbb-9dcc-a106625f8811.png)'
+- en: 'The way to decrypt the message is to use the same `CryptoAPIs`, but now use
+    `CryptDecrypt`. This time, the contents of `message.enc` is read to the data buffer,
+    decrypted, and then stored in `message.dec`. The CryptoAPIs are used in the same
+    way as they were for acquiring the key handle. The buffer length stored in `dwDataLen`
+    should initially contain the maximum length of the buffer:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密消息的方法是使用相同的`CryptoAPI`，但这次使用`CryptDecrypt`。这时，`message.enc`的内容会被读入数据缓冲区，解密后存储在`message.dec`中。CryptoAPI的使用方式与获取密钥句柄时相同。缓冲区的长度应存储在`dwDataLen`中，初始值应为缓冲区的最大长度：
+- en: '[PRE6]'
+  id: totrans-68
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '![](img/66ef97e5-3570-4b6d-95c1-b2ca7bdcccb1.png)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/66ef97e5-3570-4b6d-95c1-b2ca7bdcccb1.png)'
+- en: 'The source code for the encryption and decryption programs can be found at
+    the following links:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密和解密程序的源代码可以在以下链接中找到：
+- en: Encryption: [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/encfile.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/encfile.cpp).
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密：[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/encfile.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/encfile.cpp)。
+- en: Decryption: [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/decfile.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/decfile.cpp).
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 解密：[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/decfile.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/decfile.cpp)。
+- en: The server
+  id: totrans-73
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 服务器
+- en: In *[Chapter 6](079c24b7-4a53-4894-8890-74f9e16d53b9.xhtml), RE in Linux Platforms*,
+    we learned about using socket APIs to control network communication between a
+    client and a server. The same code can be implemented for the Windows operating
+    system. For Windows, the socket library needs to be initiated by using the `WSAStartup`
+    API before using socket APIs. In comparison to Linux functions, instead of using `write`, `send` is
+    used to send data back to the client. Also, regarding `close`, the equivalent
+    of this is `closesocket`, which is used to free up the socket handle.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*[第6章](079c24b7-4a53-4894-8890-74f9e16d53b9.xhtml)，Linux平台上的逆向工程*中，我们学习了如何使用套接字API来控制客户端和服务器之间的网络通信。相同的代码也可以在Windows操作系统中实现。对于Windows，使用套接字API之前，需要通过`WSAStartup`API初始化套接字库。与Linux的函数相比，不再使用`write`，而是使用`send`来向客户端发送数据。同时，关于`close`，它在Windows中对应的是`closesocket`，用于释放套接字句柄。
+- en: 'Here''s a graphical representation of how a server and a client generally communicate
+    with the use of socket APIs.  Take note that the functions shown in the following
+    diagram are Windows API functions:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个图示，展示了服务器和客户端通常如何通过使用套接字API进行通信。请注意，下面图示中显示的函数是Windows API函数：
+- en: '![](img/666541d2-4b6c-4946-ac7d-a0dfe3caf938.png)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/666541d2-4b6c-4946-ac7d-a0dfe3caf938.png)'
+- en: The `socket` function is used to initiate a socket connection. When we're done
+    with the connection, the communication is closed via the `closesocket` function. 
+    The server requires that we `bind` the program with a network port. The `listen`
+    and `accept` function is used to  wait for client connections. The send and `recv`
+    functions are used for the data transfer between the server and the client. `send`
+    is used to send data while `recv` is used to receive data. Finally,  `closesocket`
+    is used to terminate the transmission. The code below shows an actual C source
+    code of a server-side program that accepts connections and replies with `You have
+    connected to the Genie. Nothing to see here`<q>.</q>
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`socket` 函数用于初始化一个套接字连接。完成连接后，通过 `closesocket` 函数关闭通信。服务器要求我们将程序与一个网络端口 `bind`
+    绑定。`listen` 和 `accept` 函数用于等待客户端连接。`send` 和 `recv` 函数用于服务器和客户端之间的数据传输。`send` 用于发送数据，而
+    `recv` 用于接收数据。最后，`closesocket` 用于终止传输。以下代码显示了一个实际的服务器端程序 C 源代码，它接受连接并回复 `You have
+    connected to the Genie. Nothing to see here`<q>.</q>'
+- en: '[PRE7]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: The source code for this program can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/server.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/server.cpp).
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序的源代码可以在 [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/server.cpp](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/server.cpp)
+    上找到。
+- en: What is the password?
+  id: totrans-80
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 密码是什么？
+- en: In this section, we are going to reverse the `passcode.exe` program. As a practice
+    run, we'll gather the information we need by using static and dynamic analysis
+    tools. We'll use some of the Windows tools that were introduced in the previous
+    chapters. Do not be limited by the tools that we are going to use here. There
+    are a lot of alternatives that can do the same task.  The OS environment used
+    to analyze this program is a Windows 10, 32-bit, 2 GB RAM, 2 core processor in
+    a VirtualBox.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一部分，我们将对 `passcode.exe` 程序进行逆向工程。作为练习，我们将通过使用静态和动态分析工具来收集我们需要的信息。我们将使用前几章介绍的一些
+    Windows 工具。不要仅限于我们在这里使用的工具，实际上有很多其他工具也能完成相同的任务。用于分析该程序的操作系统环境是一个 Windows 10、32
+    位、2 GB 内存、2 核处理器的虚拟机环境。
+- en: Static analysis
+  id: totrans-82
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 静态分析
+- en: 'The second piece of information that you''ll need to know, next to knowing
+    the filename, is the hash of the file. Let''s pick Quickhash ([https://quickhash-gui.org/](https://quickhash-gui.org/))
+    to help us with this task.  After opening the `passcode.exe` file using Quickhash,
+    we can get the hash calculations for various algorithms.  The following screenshot
+    shows the calculated `SHA256` hash for the `passcode.exe` file:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了文件名，你还需要知道的第二个信息是文件的哈希值。我们可以使用 Quickhash ([https://quickhash-gui.org/](https://quickhash-gui.org/))
+    来帮助完成这个任务。在使用 Quickhash 打开 `passcode.exe` 文件后，我们可以获得各种算法的哈希计算。以下截图显示了 `passcode.exe`
+    文件的 `SHA256` 哈希值：
+- en: '![](img/e277180a-3544-4b33-8330-ebd5ccacd89a.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e277180a-3544-4b33-8330-ebd5ccacd89a.png)'
+- en: 'The file has a name extension of `.exe`. This initially sets us to use tools
+    for analyzing Windows executable files. However, to make sure that this is indeed
+    a Windows executable, let''s use `TriD` to get the file type. `TrID` ([http://mark0.net/soft-trid-e.html](http://mark0.net/soft-trid-e.html))
+    is console-based and should be run on the Command Prompt. We will also need to
+    download and extract `TriD`''s definitions from[ http://mark0.net/download/triddefs.zip](http://mark0.net/download/triddefs.zip). 
+    In the following screenshot, we used `dir` and `trid`. By using directory listing
+    with `dir`, we were able to get the file''s time stamp and file size.  With the
+    `trid` tool, we were able to identify what type of file `passcode.exe` is:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该文件的扩展名为 `.exe`。这使得我们首先想到使用用于分析 Windows 可执行文件的工具。但是，为了确保它确实是一个 Windows 可执行文件，我们可以使用
+    `TriD` 来获取文件类型。`TrID` ([http://mark0.net/soft-trid-e.html](http://mark0.net/soft-trid-e.html))
+    是基于命令行的工具，应在命令提示符下运行。我们还需要从 [http://mark0.net/download/triddefs.zip](http://mark0.net/download/triddefs.zip)
+    下载并解压 `TrID` 的定义文件。在下面的截图中，我们使用了 `dir` 和 `trid`。通过使用 `dir` 获取目录列表，我们得到了文件的时间戳和文件大小。使用
+    `trid` 工具后，我们能够识别 `passcode.exe` 是什么类型的文件：
+- en: '![](img/606a1727-d929-435c-9ef7-eed012c1cecf.png)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/606a1727-d929-435c-9ef7-eed012c1cecf.png)'
+- en: 'Now that we have verified that it is a Windows executable, using CFF Explorer
+    should give us more file structure details. Download and install CFF Explorer
+    from [https://ntcore.com/](https://ntcore.com/). Here is what you will see upon
+    opening it:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经验证它是一个 Windows 可执行文件，使用 CFF Explorer 应该能给我们更多的文件结构细节。从 [https://ntcore.com/](https://ntcore.com/)
+    下载并安装 CFF Explorer。打开后，你会看到以下界面：
+- en: '![](img/1b396fed-b7e9-405a-b57b-3a9deb72eeae.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1b396fed-b7e9-405a-b57b-3a9deb72eeae.png)'
+- en: Both `TrID` and CFF Explorer identified the file as a Windows executable, but
+    are not agreeing on their decisions. This might be confusing since TrID identified
+    the file as a `Win64 Executable` while CFF Explorer identified it as a `Portable
+    Executable 32`.  This requires identifying the machine type from the PE header
+    itself. The header reference for PE files can be viewed at [http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx).
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`TrID` 和 CFF Explorer 都将该文件识别为 Windows 可执行文件，但它们的识别结果不一致。这可能会令人困惑，因为 TrID 将该文件识别为
+    `Win64 可执行文件`，而 CFF Explorer 将其识别为 `可移植可执行文件 32`。这需要从 PE 头文件本身识别机器类型。PE 文件的头文件参考可以在
+    [http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx)
+    查看。'
+- en: 'We can use CFF Explorer''s `Hex Editor` to view the binary. The first column
+    shows the file offset, the middle column shows the hexadecimal equivalent of the
+    binary, and the right-most column shows the printable characters:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用 CFF Explorer 的 `Hex Editor` 查看二进制文件。第一列显示文件偏移量，中间列显示二进制的十六进制表示，最右边一列显示可打印字符：
+- en: '![](img/ada629dc-e4d0-4abe-b076-717c6ed39dd9.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ada629dc-e4d0-4abe-b076-717c6ed39dd9.png)'
+- en: The file begins with the `MZ` magic header, or `0x4d5a`, denoting a Microsoft
+    executable file. At file offset `0x3c`, the `DWORD` value, read in little endian,
+    is `0x00000080`. This is the file offset where the PE header is expected to be
+    located. The PE header begins with a `DWORD` value equivalent of `0x00004550`
+    or `PE` followed by two null bytes. This is followed by a `WORD` value that tells
+    you on which machine type the program can run on. In this program, we get `0x014c`,
+    which is equivalent to `IMAGE_FILE_MACHINE_I386` and means that it runs in Intel
+    386 (a 32-bit microprocessor) processors or later, but also other compatible processors.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件以 `MZ` 魔术头（即 `0x4d5a`）开始，表示这是一个 Microsoft 可执行文件。在文件偏移量 `0x3c` 处，`DWORD` 值（按小端格式读取）为
+    `0x00000080`。这就是 PE 头部所在的文件偏移位置。PE 头部以 `DWORD` 值 `0x00004550` 或 `PE` 开头，后面跟随两个空字节。接下来是一个
+    `WORD` 值，告诉你程序可以运行的机器类型。在本程序中，我们得到 `0x014c`，这相当于 `IMAGE_FILE_MACHINE_I386`，意味着它可以在
+    Intel 386（32 位微处理器）及更高版本的处理器上运行，也可以在其他兼容的处理器上运行。
+- en: 'At this point, what we already know is as follows:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，我们已经知道的信息如下：
+- en: '[PRE8]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: To get to know the file better, let's run it in the sandbox.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更好地了解文件，我们将其在沙盒中运行。
+- en: A quick run
+  id: totrans-96
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 快速运行
+- en: 'From the VM, open Windows sandbox, and then drop and run a copy of `passcode.exe`
+    in it:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从虚拟机中打开 Windows 沙盒，然后将 `passcode.exe` 的副本拖放并运行：
+- en: '![](img/9c34cf4c-dfa0-4bc4-9ade-fe3a9a144677.png)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9c34cf4c-dfa0-4bc4-9ade-fe3a9a144677.png)'
+- en: 'The program asks for a password. After guessing a password, the program suddenly
+    closes. The information that we get from this event is as follows:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序要求输入密码。猜测密码后，程序突然关闭。从这一事件中，我们获得的信息如下：
+- en: The first piece of information is about the program asking for a password
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第一条信息是关于程序要求输入密码的。
+- en: The second piece of information is that it opens Command prompt
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第二条信息是程序打开了命令提示符。
+- en: This just means that the program should be run in the  Command prompt.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这只是意味着程序应该在命令提示符下运行。
+- en: Deadlisting
+  id: totrans-103
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 死亡列表
+- en: For the password, we may be able to find it in the text strings lying around
+    the file itself. To get a list of strings from the file, we'll need to use SysInternal
+    Suite's Strings ([https://docs.microsoft.com/en-us/sysinternals/downloads/strings](https://docs.microsoft.com/en-us/sysinternals/downloads/strings)).
+    Strings is a console-based tool. The list of strings at the output are printed
+    out on the console.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于密码，我们可能能在文件本身的文本字符串中找到它。为了从文件中获取字符串列表，我们需要使用 SysInternal Suite 的 Strings 工具（[https://docs.microsoft.com/en-us/sysinternals/downloads/strings](https://docs.microsoft.com/en-us/sysinternals/downloads/strings)）。Strings
+    是一个基于控制台的工具，输出的字符串列表将打印到控制台上。
+- en: The source code for this program can be found at [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.c](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.c).
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序的源代码可以在 [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.c](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.c)
+    找到。
+- en: 'We should redirect the output to a text file by running it as `strings.exe
+    passcode.exe > strings.txt`:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们应该通过运行 `strings.exe passcode.exe > strings.txt` 将输出重定向到文本文件：
+- en: '![](img/5890e0a1-68bd-4337-98e9-363148a50ab4.png)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5890e0a1-68bd-4337-98e9-363148a50ab4.png)'
+- en: Regardless, we still get a wrong password when we try out the strings. That
+    being said, the strings do show us that a correct message would most likely display
+    `correct password. bye!`. The list also shows a lot of APIs that the program uses.
+    However, knowing that this was compiled using MingWin-Dev C++, it is possible
+    that most of the APIs used are part of the program's initialization.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管如此，当我们尝试字符串时仍然得到错误密码。也就是说，字符串确实显示了一个正确消息很可能会显示`correct password. bye!`。列表还显示了程序使用的许多API。但是，知道这是使用MingWin-Dev
+    C++编译的，大部分使用的API可能是程序的初始化的一部分。
+- en: Disassembling the file using the IDA Pro 32-bit decompiler, we get to see the
+    main function code. You can download and install IDA Pro from [https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/Disassembler%20Tools](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/Disassembler%20Tools).
+    Since we are working in a Windows 32-bit environment, install the 32-bit `idafree50.exe`
+    file. These installers were pulled from the official IDA Pro website and are hosted
+    in our GitHub repository for the purpose of availability.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用IDA Pro 32位反编译器对文件进行反汇编，我们可以看到主函数的代码。您可以从[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/Disassembler%20Tools](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/tree/master/tools/Disassembler%20Tools)下载并安装IDA
+    Pro。由于我们在Windows 32位环境中工作，请安装32位的`idafree50.exe`文件。这些安装程序是从官方IDA Pro网站获取的，并托管在我们的GitHub存储库中以确保可用性。
+- en: 'This file is a PE file, or Portable Executable. It should be opened as a Portable
+    Executable to read the executable codes of the PE file. If opened using the MS-DOS
+    executable, the resulting code will be the 16-bit MS-DOS stub:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个文件是一个PE文件，或者可移植可执行文件。应该以可移植可执行文件的形式打开，以读取PE文件的可执行代码。如果使用MS-DOS可执行文件打开，结果代码将是16位MS-DOS存根：
+- en: '![](img/c0a289fb-3640-4e17-bede-0b423f56019d.png)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c0a289fb-3640-4e17-bede-0b423f56019d.png)'
+- en: 'IDA Pro was able to identify the main function. It is located at the address
+    `0x004012B8`. Scrolling down to the Graph overview shows the branching of the
+    blocks and may give you an idea of how the program''s code will flow when executed.
+    To view the code in plain disassembly, that is, without the graphical representation,
+    just change to Text view mode:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA Pro 能够识别主函数。它位于地址`0x004012B8`。向下滚动到图形概览，显示了块的分支情况，可能会让你了解程序代码在执行时的流程。要查看纯汇编代码，即没有图形表示，只需切换到文本视图模式：
+- en: '![](img/7b166065-08e0-43eb-a462-08ba6de3aaf4.png)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7b166065-08e0-43eb-a462-08ba6de3aaf4.png)'
+- en: 'Knowing that this is a C compiled code, we only need to focus our analysis
+    on the `_main` function. We will try to make pseudocode out of the analysis. The
+    information that will be gathered are the APIs, since they are used in the flow
+    of code, the conditions that make the jump branches, and the variables used. There
+    might be some specific compiler code injected into the program that we may have
+    identify and skip:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这是一个C编译代码，我们只需要关注`_main`函数的分析。我们将尝试从分析中生成伪代码。将收集的信息包括API，因为它们在代码流程中使用，使跳转分支的条件，以及使用的变量。程序中可能会注入一些特定的编译器代码，我们可能需要识别并跳过：
+- en: '![](img/2aa631b8-027e-41ab-9a94-38912d12e9d5.png)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2aa631b8-027e-41ab-9a94-38912d12e9d5.png)'
+- en: 'Quickly inspecting the functions `sub_401850` and `sub_4014F0`, we can see
+    that the `_atexit` API was used here. The `atexit` API is used to set the code
+    that will be executed once the program terminates normally. `atexit` and similar
+    APIs are commonly used by high-level compilers to run cleanup code. This cleanup
+    code is usually designed to prevent possible memory leaks, close opened and unused
+    handles, de-allocate allocated memory, and/or realign the heap and stack for a
+    graceful exit:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 快速检查函数`sub_401850`和`sub_4014F0`，我们可以看到这里使用了`_atexit` API。`atexit` API 用于设置程序正常终止后将执行的代码。`atexit`和类似的API通常由高级编译器使用来运行清理代码。这些清理代码通常设计用于防止可能的内存泄漏，关闭已打开但未使用的句柄，释放已分配的内存，和/或为了优雅退出重新调整堆栈和堆：
+- en: '![](img/5f60e302-b265-4961-966f-0de079779645.png)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5f60e302-b265-4961-966f-0de079779645.png)'
+- en: The parameter used in `_atexit` points to `sub_401450`,  and contains the cleanup
+    codes.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`_atexit`中使用的参数指向`sub_401450`，包含清理代码。
+- en: 'Continuing, we get to a call the `printf` function. In assembly language, calling
+    APIs requires that its parameters are placed in sequence from the top of the stack.
+    The `push` instruction is what we commonly use to store the data in the stack.
+    This code does just the same thing. If you right-click on `[esp+88h+var_88]`,
+    a drop-down menu will pop out, showing a list of possible variable structures.
+    The instruction line can be better understood as `mov dword ptr [esp], offset
+    aWhatIsThePassw`:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将调用 `printf` 函数。在汇编语言中，调用 API 需要将其参数按照顺序放置在栈顶。我们通常使用 `push` 指令将数据存入栈中。这段代码正是做了同样的事情。如果你右击
+    `[esp+88h+var_88]`，会弹出一个下拉菜单，显示可能的变量结构列表。可以将指令行理解为 `mov dword ptr [esp], offset
+    aWhatIsThePassw`：
+- en: '![](img/0cbc9fee-7f3e-44ed-a8da-68a58646ab55.png)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0cbc9fee-7f3e-44ed-a8da-68a58646ab55.png)'
+- en: This does the same as `push offset aWhatIsThePassw`.  The square brackets were
+    used to define a data container. In this case, `esp` is the address of the container
+    where the address of `what is the password? ` gets stored. There is a difference
+    between using `push` and `mov`.  In the `push` instruction, the stack pointer, `esp`,
+    is decremented. Overall, `printf` got the parameter it needed to display the message
+    to the console.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这与 `push offset aWhatIsThePassw` 做的事情相同。方括号用于定义一个数据容器。在这个例子中，`esp` 是容器的地址，容器中存储的是
+    "`what is the password?`" 的地址。使用 `push` 和 `mov` 之间有区别。在 `push` 指令中，栈指针 `esp` 会被递减。总体而言，`printf`
+    得到了它需要的参数，用来将信息显示到控制台。
+- en: 'The next API is `scanf`.  `scanf` requires two parameters: the format of the
+    input and the address where the input gets stored. The first parameter is located
+    at the top of stack, and should be in the format of the input followed by the
+    address where the input will be placed. Revising the variable structure should
+    look like this:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一个 API 是 `scanf`。`scanf` 需要两个参数：输入格式和存储输入的地址。第一个参数位于栈顶，应该是输入格式，后面是存储输入的地址。修改后的变量结构应该是这样的：
+- en: '![](img/69f98b29-7b53-4ba1-845a-4d0fd6a94b41.png)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/69f98b29-7b53-4ba1-845a-4d0fd6a94b41.png)'
+- en: The format given is `"%30[0-9a-zA-Z ]"` , which means that `scanf` will only
+    read 30 characters from the start of the input and that it will only accept the
+    first set of characters that are within the square bracket. The accepted characters
+    would only be "`0`" to "`9`", "`a`" to "`z`", "`A`" to "`Z`", and the space character.
+    This type of input format is used to prevent exceeding a 30 character input. It
+    is also used to prevent the rest of the code from processing non-alphanumeric
+    characters, with the exception of the space character.
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 给定的格式是 `"%30[0-9a-zA-Z ]"`，这意味着 `scanf` 只会从输入的开头读取 30 个字符，并且只会接受方括号内的第一个字符集。接受的字符仅限于
+    "`0`" 到 "`9`"、"`a`" 到 "`z`"、"`A`" 到 "`Z`" 和空格字符。此类型的输入格式用于防止超过 30 个字符的输入。它还用于防止其余代码处理非字母数字字符，空格字符除外。
+- en: The second parameter, placed at `[esp+4]`, should be an address to where the
+    input will be stored. Tracing back, the value of the `eax` register is set as
+    [`ebp+var_28`]. Let's just take note that the address stored at `var_28` is the
+    inputted password.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个参数，位于 `[esp+4]`，应该是存储输入的地址。追溯回来，`eax` 寄存器的值设置为 [`ebp+var_28`]。我们只需注意，`var_28`
+    存储的地址是输入的密码。
+- en: 'The `strlen` API comes right after and requires only one parameter. Tracing
+    back the value of `eax`, `var_28`, the inputted password, is the string that `strlen`
+    will be using. The resulting length of the string is stored in the `eax` register.
+    The string size is compared to a value of `11h` or `17`.  After a `cmp`, a conditional
+    jump is usually expected. The `jnz` instruction is used. The red line is followed
+    if the comparison deems *false*. A green line is followed for a *true *condition.
+    A blue line simply follows the next code block, as shown here:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`strlen` API 紧接其后，且只需要一个参数。追溯 `eax` 寄存器的值，`var_28`，即输入的密码，它是 `strlen` 将要使用的字符串。字符串的最终长度将存储在
+    `eax` 寄存器中。字符串大小与 `11h` 或 `17` 进行比较。在 `cmp` 之后，通常会有一个条件跳转。使用了 `jnz` 指令。如果比较结果为*假*，则跟随红线。如果条件为*真*，则跟随绿线。蓝线则直接跳到下一个代码块，如下所示：'
+- en: '![](img/53406422-23b4-4c15-a2f6-452868f5b91e.png)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/53406422-23b4-4c15-a2f6-452868f5b91e.png)'
+- en: 'Following the red line means that the string length is equal to 17\. At this
+    point, our pseudocode is as follows:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 跟随红线表示字符串长度为 17。此时，我们的伪代码如下：
+- en: '[PRE9]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'It is more than likely that if the size of the password is not 17, it will
+    say wrong password. Let''s follow the green path first:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果密码的长度不是 17，很可能会显示错误密码。 让我们首先跟随绿色路径：
+- en: '![](img/0b076472-1c2d-451d-8e79-e511d0686774.png)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0b076472-1c2d-451d-8e79-e511d0686774.png)'
+- en: 'The green line goes down to the `loc_4013F4` block, followed by the `loc_401400` block
+    that ends the `_main` function. The instruction at `loc_4013F4` is a call to `sub_401290`. 
+    This function contains code that indeed displays the wrong password message. Take
+    note that a lot of lines point to `loc_4013F4`:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 绿线进入 `loc_4013F4` 块，随后是结束 `_main` 函数的 `loc_401400` 块。 `loc_4013F4` 处的指令是对 `sub_401290`
+    的调用。 该函数包含显示错误密码消息的代码。 请注意，许多行指向 `loc_4013F4`：
+- en: '![](img/2e29152e-209b-4530-b48e-8a8a787a2265.png)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2e29152e-209b-4530-b48e-8a8a787a2265.png)'
+- en: 'Here''s the continuation of building our pseudocode with this wrong password
+    function:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下面是使用错误密码功能构建伪代码的延续：
+- en: '[PRE10]'
+  id: totrans-135
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: One good technique in reverse engineering is to find the shortest exit path
+    possible. However, this takes practice and experience. This makes it easier to
+    picture the whole structure of the code.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在逆向工程中的一个好技巧是尽可能找到最短的退出路径。 然而，这需要实践和经验。 这使得更容易描绘代码的整体结构。
+- en: 'Now, let''s analyze the rest of the code under a 17 character string size.
+    Let''s trace the branching instructions and work backwards with the conditions:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们分析 17 个字符长度的代码的其余部分。 让我们跟踪分支指令，并根据条件向后工作：
+- en: '![](img/50701e46-f8ec-426d-9484-fb1888571f81.png)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/50701e46-f8ec-426d-9484-fb1888571f81.png)'
+- en: 'The condition for `jle` is a comparison between the values at `var_60` and
+    0.  `var_60` is set with a value of 5, which came from `var_5c`. This prompts
+    the code direction to follow the red line, like so:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`jle` 的条件是对 `var_60` 和 0 的比较。 `var_60` 的值为 5，来自 `var_5c`。 这促使代码的方向沿着红线进行，如下所示：'
+- en: '![](img/934fc0ad-e6d3-42ec-a70d-0a8bb6fc8ea5.png)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/934fc0ad-e6d3-42ec-a70d-0a8bb6fc8ea5.png)'
+- en: Zooming out, the code we are looking at is actually a loop that has two exit
+    points. The first exit point is a condition that the value at `var_60` is less
+    than or equal to `0`. The second exit point is a condition where the byte pointed
+    to by register `eax` should not be equal to `65h`. If we inspect the variables
+    in the loop further, the initial value, at `var_60`, is `5`. The value at `var_60`
+    is being decremented in the `loc_401373` block. This means that the loop will
+    iterate 5 times.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 放大一点，我们正在查看的代码实际上是一个具有两个退出点的循环。 第一个退出点是 `var_60` 的值小于或等于 `0` 的条件。 第二个退出点是寄存器
+    `eax` 指向的字节不应等于 `65h` 的条件。 如果进一步检查循环中的变量，可以看到 `var_60` 的初始值为 `5`。 `var_60` 的值在
+    `loc_401373` 块中递减。 这意味着循环将迭代 5 次。
+- en: 'We can also see `var_8` and `var_5c` in the loop. However, since the start
+    of the main code, `var_8` was never set. `var_5c` was also used not as a variable,
+    but as part of a calculated address. IDA Pro helped to identify possible variable
+    usage as part of the `main` function''s stack frame and set its base in the `ebp`
+    register. This time, we may need to undo this variable identification by removing
+    the variable structure only on `var_8` and `var_5c` in the loop code. This can
+    be done by choosing the structure from the list given by right-clicking the variable
+    names:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以在循环中看到 `var_8` 和 `var_5c`。 但是，自主代码的开始以来，`var_8` 从未被设置。 `var_5c` 也不是作为变量使用，而是作为计算地址的一部分。
+    IDA Pro 帮助识别了可能作为 `main` 函数堆栈帧一部分使用的变量，并将其基础设置为 `ebp` 寄存器中。 这次，我们可能需要通过仅在循环代码中选择给出的列表中的结构来取消对
+    `var_8` 和 `var_5c` 的变量识别。 这可以通过右键单击变量名称来完成：
+- en: '![](img/866bdc1a-a774-427f-8081-06af3e03b364.png)'
+  id: totrans-143
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/866bdc1a-a774-427f-8081-06af3e03b364.png)'
+- en: 'Thereby, for calculating the value in `eax`, we begin from the `lea` instruction
+    line. The value stored to `edx` is the difference taken from `ebp` minus 8.  `lea`
+    here does not take the value stored at `ebp-8`, unlike when using the `mov` instruction.
+    The value stored in `ebp` is the value in the `esp` register after entering the
+    `main` function. This makes `ebp` the stack frame''s base address. Referencing
+    variables in the stack frame makes use of `ebp`. Remember that the stack is used
+    by descending from a high memory address. This is the reason why referencing from
+    the `ebp` register requires subtracting relatively:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，计算 `eax` 中的值时，我们从 `lea` 指令行开始。存储到 `edx` 中的值是从 `ebp` 中减去 8 后得到的差值。这里的 `lea`
+    并不会获取 `ebp-8` 中存储的值，不同于使用 `mov` 指令时的行为。存储在 `ebp` 中的值是进入 `main` 函数后 `esp` 寄存器中的值。这使得
+    `ebp` 成为堆栈帧的基址。引用堆栈帧中的变量需要使用 `ebp`。记住，堆栈是通过从高地址向低地址递减来使用的。这就是为什么从 `ebp` 寄存器引用时需要相对减法的原因：
+- en: '![](img/a1e6eda0-6ae9-489f-8339-3546d1345d2f.png)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a1e6eda0-6ae9-489f-8339-3546d1345d2f.png)'
+- en: 'Now, in the `add` instruction line, the value to be stored in `edx` will be
+    the sum of `edx`, and the value stored from a calculated address. This calculated
+    address is `eax*4-5Ch`.  `eax` is the value from `var_60` which contains a value
+    that decrements from `5` down to `0`.  But since the loop terminates when `var_60`
+    reaches `0`, `eax` in this line will only have values from `5` down to `1`.   Calculating
+    all five addresses, we should get the following output:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，在 `add` 指令行中，要存储到 `edx` 中的值将是 `edx` 和从计算地址中存储的值的总和。这个计算出的地址是 `eax*4-5Ch`。`eax`
+    是来自 `var_60` 的值，包含从 `5` 到 `0` 递减的值。但由于当 `var_60` 达到 `0` 时循环结束，这行中的 `eax` 只会有从
+    `5` 到 `1` 的值。计算所有五个地址时，应该得到以下输出：
+- en: '[PRE11]'
+  id: totrans-147
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'It also happens that the values stored at these stack frame addresses were
+    set before calling the first `printf` function. At this point, given the value
+    of `eax` from `5` down to `1`, `edx` should have the resulting values:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也正因为如此，在调用第一个 `printf` 函数之前，这些堆栈帧地址中存储的值就已设置。在此时，给定 `eax` 从 `5` 到 `1` 的值，`edx`
+    应该具有以下结果值：
+- en: '[PRE12]'
+  id: totrans-149
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The resulting value of `edx` is then stored in `eax` by the `mov` instruction.
+    However, right after this, `20h` is subtracted from `eax`:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`edx` 的结果值随后通过 `mov` 指令存储到 `eax` 中。然而，在这之后，`eax` 会被减去 `20h`：'
+- en: '[PRE13]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: The next two lines of code is the second exit condition for the loop. The `cmp`
+    instruction compares `65h` with the value stored at the address pointed to by
+    `eax`. The equivalent ASCII character of `65h` is "e". If the values at the addresses
+    pointed to by eax don't match a value of `65h`, the code exits the loop. If a
+    mismatch happens, following the red line ends up with a call to `sub_401290`,
+    which happens to be the wrong password function. The addresses being compared
+    to with the character "`e`" must be part of the input string.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的两行代码是循环的第二个退出条件。`cmp` 指令将 `65h` 与 `eax` 指向的地址中存储的值进行比较。`65h` 的等效 ASCII 字符是
+    "e"。如果 `eax` 指向的地址中的值与 `65h` 不匹配，代码将退出循环。如果发生不匹配，跟随红色线条会调用 `sub_401290`，这恰好是错误密码函数。与字符
+    "`e`" 进行比较的地址必须是输入字符串的一部分。
+- en: 'If we made a map out of the stack frame in a table, it would look something
+    like this:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们将堆栈帧绘制成一个表格，它看起来可能是这样的：
+- en: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+  id: totrans-154
+  prefs: []
+  type: TYPE_TB
+  zh: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+- en: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+  id: totrans-155
+  prefs: []
+  type: TYPE_TB
+  zh: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+- en: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+  id: totrans-156
+  prefs: []
+  type: TYPE_TB
+  zh: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+- en: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-157
+  prefs: []
+  type: TYPE_TB
+  zh: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| -30h |  |  |  |  |  |  |  |  | X | X | X | e | X | e | X | e |'
+  id: totrans-158
+  prefs: []
+  type: TYPE_TB
+  zh: '| -30h |  |  |  |  |  |  |  |  | X | X | X | e | X | e | X | e |'
+- en: '| -20h | X | X | X | X | X | X | e | X | e |  |  |  |  |  |  |  |'
+  id: totrans-159
+  prefs: []
+  type: TYPE_TB
+  zh: '| -20h | X | X | X | X | X | X | e | X | e |  |  |  |  |  |  |  |'
+- en: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-160
+  prefs: []
+  type: TYPE_TB
+  zh: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-161
+  prefs: []
+  type: TYPE_TB
+  zh: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: We have to consider that `scanf` stored the input password at `ebp-var_28` or
+    `ebp-28`. Knowing that there are exactly 17 characters for a correct password,
+    we marked these input locations with X. Let's also set the addresses that should
+    match with "`e`" to proceed. Remember that the string begins at offset `0`, not
+    `1`.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要考虑 `scanf` 将输入的密码存储在 `ebp-var_28` 或 `ebp-28` 中。知道正确密码恰好有 17 个字符，我们用 X 标记了这些输入位置。我们还需要设置那些应该与
+    "`e`" 匹配的地址以继续。记住，字符串从偏移量 `0` 开始，而不是 `1`。
+- en: 'Now that we''re good with the loop, here''s what our pseudocode should look
+    like by now:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们对循环很熟悉了，那么我们的伪代码到目前为止应该是这个样子：
+- en: '[PRE14]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Moving on, after the loop, we will see another block that uses `strcmp`. This
+    time, we corrected some of the variable structures to get a better grasp of what
+    our stack frame would look like:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在循环之后，我们会看到另一个使用`strcmp`的块，这次我们校正了一些变量结构，以更好地了解我们的栈帧可能是什么样子：
+- en: '![](img/7bd3c5ec-2c74-4cac-93c4-317d01dba058.png)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7bd3c5ec-2c74-4cac-93c4-317d01dba058.png)'
+- en: The first two instructions read `DWORD` values from `ebp-1Ah` and `ebp-25h`,
+    and are used to calculate a binary, AND. Looking at our stack frame, both locations
+    are within the inputted password string area. Eventually, a binary AND is again
+    used on the resulting value and `0FFFFFFh`. The final value is stored at `ebp-2Ch`.
+    `strcmp` is then used to compare the value stored at `ebp-2Ch` with the string
+    "`ere`". If the string comparison does not match, the green line goes to the wrong
+    password code block.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前两条指令从`ebp-1Ah`和`ebp-25h`读取`DWORD`值，并用于计算二进制AND。查看我们的栈帧，这两个位置都在输入密码字符串区域内。最终再次使用二进制AND处理结果值和`0FFFFFFh`。最终值存储在`ebp-2Ch`。然后使用`strcmp`比较存储在`ebp-2Ch`处的值与字符串"`ere`"。如果字符串比较不匹配，绿线会进入错误密码代码块。
+- en: 'Using the `AND` instruction with `0FFFFFFh` means that it was only limited
+    to `3` characters.  Using `AND` on the two `DWORD`s from the password string would
+    only mean that both should be equal, at least on the 3 characters. Thus, `ebp-1Ah`
+    and `ebp-25h` should contain "`ere`":'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`AND`指令和`0FFFFFFh`意味着只限于3个字符。对来自密码字符串的两个`DWORD`使用`AND`将意味着两者应该相等，至少在3个字符上。因此，`ebp-1Ah`和`ebp-25h`应包含"`ere`"：
+- en: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+  id: totrans-169
+  prefs: []
+  type: TYPE_TB
+  zh: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+- en: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+  id: totrans-170
+  prefs: []
+  type: TYPE_TB
+  zh: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+- en: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+  id: totrans-171
+  prefs: []
+  type: TYPE_TB
+  zh: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+- en: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-172
+  prefs: []
+  type: TYPE_TB
+  zh: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| -30h |  |  |  |  | e | r | e |  | X | X | X | e | r | e | X | e |'
+  id: totrans-173
+  prefs: []
+  type: TYPE_TB
+  zh: '| -30h |  |  |  |  | e | r | e |  | X | X | X | e | r | e | X | e |'
+- en: '| -20h | X | X | X | X | X | X | e | r | e |  |  |  |  |  |  |  |'
+  id: totrans-174
+  prefs: []
+  type: TYPE_TB
+  zh: '| -20h | X | X | X | X | X | X | e | r | e |  |  |  |  |  |  |  |'
+- en: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-175
+  prefs: []
+  type: TYPE_TB
+  zh: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-176
+  prefs: []
+  type: TYPE_TB
+  zh: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: 'Let''s mode on to the next set of code, following the red line:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们继续下一个代码集，按照红线操作：
+- en: '![](img/73b53cca-7aef-41c5-b9a3-0afc4e6ebca1.png)'
+  id: totrans-178
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/73b53cca-7aef-41c5-b9a3-0afc4e6ebca1.png)'
+- en: All green lines point to the wrong password code block. So, to keep moving forward,
+    we'll have to follow the conditions that go with the red line. The first code
+    block in the preceding screenshot uses the `XOR` instruction to validate that
+    the characters at `ebp-1Eh` and `ebp-22h` are equal.  The second block adds both
+    character values from the same offsets, `ebp-1Eh` and `ebp-22h`.  The sum should
+    be `40h`. In that case, the character should have an ASCII value of `20h`, a space
+    character.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有的绿线都指向错误密码代码块。因此，为了继续前进，我们必须遵循与红线相关的条件。在前面截图的第一个代码块中，使用`XOR`指令验证`ebp-1Eh`和`ebp-22h`处的字符是否相等。第二个块将来自相同偏移量`ebp-1Eh`和`ebp-22h`的字符值相加。总和应为`40h`。在这种情况下，字符应具有ASCII值`20h`，即空格字符。
+- en: The third block reads a `DWORD` value from `ebp-28h` and then uses the AND instruction
+    to only take the first 3 characters. The result is compared with `647541h`. If
+    translated to ASCII characters, it is read as "`duA`".
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第三块从`ebp-28h`读取`DWORD`值，然后使用AND指令仅取前3个字符。结果与`647541h`进行比较。如果转换为ASCII字符，读作"`duA`"。
+- en: The fourth block does the same method as the third but takes the `DWORD` from
+    `ebp-1Dh` and compares it with `636146h`, or "`caF`".
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第四个块执行与第三个相同的方法，但从`ebp-1Dh`中取出`DWORD`，并将其与`636146h`或"`caF`"进行比较。
+- en: The last block takes a WORD value from `ebp-20h` and compares it with `7473h`,
+    or "`ts`".
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一个块从`ebp-20h`读取一个WORD值，并将其与`7473h`或"`ts`"进行比较。
+- en: 'Writing all these down to our stack frame table should be done in little endian:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 把这些写到我们的栈帧表中应该用小端法完成：
+- en: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+  id: totrans-184
+  prefs: []
+  type: TYPE_TB
+  zh: '|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F |'
+- en: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+  id: totrans-185
+  prefs: []
+  type: TYPE_TB
+  zh: '| -60h |  |  |  |  |  |  |  |  | 03 | 00 | 00 | 00 | 05 | 00 | 00 | 00 |'
+- en: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+  id: totrans-186
+  prefs: []
+  type: TYPE_TB
+  zh: '| -50h | 07 | 00 | 00 | 00 | 0e | 00 | 00 | 00 | 10 | 00 | 00 | 00 |  |  |  |  |'
+- en: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-187
+  prefs: []
+  type: TYPE_TB
+  zh: '| -40h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| -30h |  |  |  |  | e | r | e |  | A | u | d | e | r | e |  | e |'
+  id: totrans-188
+  prefs: []
+  type: TYPE_TB
+  zh: '| -30h |  |  |  |  | e | r | e |  | A | u | d | e | r | e |  | e |'
+- en: '| -20h | s | t |  | F | a | c | e | r | e |  |  |  |  |  |  |  |'
+  id: totrans-189
+  prefs: []
+  type: TYPE_TB
+  zh: '| -20h | s | t |  | F | a | c | e | r | e |  |  |  |  |  |  |  |'
+- en: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-190
+  prefs: []
+  type: TYPE_TB
+  zh: '| -10h |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+  id: totrans-191
+  prefs: []
+  type: TYPE_TB
+  zh: '| ebp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |'
+- en: 'The password should be "`Audere est Facere`". If successful, it should run
+    the correct password function:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 密码应该是 "`Audere est Facere`"。如果成功，它应该会运行正确的密码函数：
+- en: '![](img/c34a978b-bbf5-492c-8000-ce107e4ce454.png)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c34a978b-bbf5-492c-8000-ce107e4ce454.png)'
+- en: 'To complete our pseudocode, we have to compute the string''s relative offsets
+    from `ebp-28h`.  `ebp-28h` is the password string''s offset, 0, while the last
+    offset, offset 16, in the string should be at `ebp-18h`:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了完成我们的伪代码，我们需要计算从 `ebp-28h` 开始的字符串相对偏移量。`ebp-28h` 是密码字符串的偏移量，值为 0，而字符串中的最后一个偏移量，即偏移量
+    16，应位于 `ebp-18h`：
+- en: '[PRE15]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Dynamic analysis with debugging
+  id: totrans-196
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用调试器进行动态分析
+- en: 'There is nothing better than verifying what we assumed during our static analysis.
+    Simply running the program and entering the password should finish the job:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 没有什么比验证我们在静态分析中假设的内容更好的了。只需运行程序并输入密码，任务就完成了：
+- en: '![](img/914f5cdf-219e-431e-8e7f-f8d26418db19.png)'
+  id: totrans-198
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/914f5cdf-219e-431e-8e7f-f8d26418db19.png)'
+- en: Deadlisting is as important as debugging a program. Both can be done at the
+    same time. Debugging can help speed up the deadlisting process as it is also validated
+    at the same time. For this exercise, we're going to redo the analysis of `passcode.exe`
+    by using `x32dbg` from [https://x64dbg.com](https://x64dbg.com).
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 死列表与调试程序同样重要。两者可以同时进行。调试有助于加速死列表过程，因为它也能同时验证。对于本次练习，我们将通过使用 `x32dbg` 重新分析 `passcode.exe`，下载地址为
+    [https://x64dbg.com](https://x64dbg.com)。
+- en: 'After opening `passcode.exe` in `x32dbg`, registering EIP will be at a high
+    memory region. This is definitely not in any part of the `passcode.exe` image:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `x32dbg` 中打开 `passcode.exe` 后，注册 EIP 时会位于一个较高的内存区域。这绝对不在 `passcode.exe` 映像的任何部分：
+- en: '![](img/0b25b1d6-f32f-482d-a242-7cc8d83686e7.png)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0b25b1d6-f32f-482d-a242-7cc8d83686e7.png)'
+- en: 'To go around this, click on Options->Preferences, and then under the Events
+    tab, uncheck *System Breakpoint**:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了绕过这个问题，点击“选项->首选项”，然后在“事件”标签下，取消选中 *系统断点*：
+- en: '![](img/0755eb35-8860-4dd3-a857-289f1510204b.png)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0755eb35-8860-4dd3-a857-289f1510204b.png)'
+- en: 'Click on the Save button and then use Debug->Restart or press `Ctrl + F2`.
+    This restarts the program, but now, EIP should stop at the PE file''s entry point
+    address:'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击保存按钮，然后使用“调试->重启”或按 `Ctrl + F2`。这将重启程序，但现在 EIP 应该会停在 PE 文件的入口点地址：
+- en: '![](img/12921e1d-8132-4ff3-98fd-80225be0baa4.png)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/12921e1d-8132-4ff3-98fd-80225be0baa4.png)'
+- en: 'And since we also know the address of the `main` function, we need to set a
+    breakpoint there and let the program run (`*F9*`). To do that, in the Command
+    box, enter the following:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们也知道 `main` 函数的地址，我们需要在该地址设置一个断点并让程序运行（`*F9*`）。为此，在命令框中输入以下内容：
+- en: '[PRE16]'
+  id: totrans-207
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'After running, EIP should stop at the `main` function''s address. We get to
+    see a familiar piece of code as we did during deadlisting:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行后，EIP 应该停在 `main` 函数的地址。我们能看到与死列表时相同的一段代码：
+- en: '![](img/bb43f02d-e2cc-4819-bf62-82d4264411ac.png)'
+  id: totrans-209
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bb43f02d-e2cc-4819-bf62-82d4264411ac.png)'
+- en: '*F7* and *F8* are the shortcut keys for Step in and Step over. Click on the
+    Debug menu and you should see the shortcut keys assigned to the debug command.
+    Just keep on playing with the commands; if you ever mess things up, you can always
+    restart.'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*F7* 和 *F8* 是进入单步执行和单步跳过的快捷键。点击调试菜单，你应该可以看到分配给调试命令的快捷键。继续尝试这些命令；如果弄乱了，随时可以重启。'
+- en: 'The advantage of using the Debugger is that you should easily be able to see
+    the stack frame. There are five memory dump windows consisting of the stack frame.
+    Let''s use Dump 2 to show us the stack frame. Make two instruction steps to get
+    `ebp` set with the stack frame''s base. On the left pane, in the list of registers,
+    right-click on Register EBP and then select Follow in Dump->Dump 2\. This should
+    bring Dump 2 forward. Since the stack moves down from a higher address, you''ll
+    have to roll the scroll bar up to show the initial data we have in the stack frame:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用调试器的好处是你应该能轻松看到堆栈帧。有五个内存转储窗口组成堆栈帧。我们来使用转储 2 来展示堆栈帧。执行两步指令，让 `ebp` 设置为堆栈帧的基址。在左侧窗格的寄存器列表中，右击寄存器
+    EBP，然后选择“跟随转储->转储 2”。这将把转储 2 显示出来。由于堆栈是从较高地址向下移动的，你需要将滚动条向上滚动，显示堆栈帧中的初始数据：
+- en: '![](img/a37a6d40-e0fd-43a6-946e-d7303976767d.png)'
+  id: totrans-212
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a37a6d40-e0fd-43a6-946e-d7303976767d.png)'
+- en: 'Here''s the same stack frame after inputting for `scanf`. Also, during `scanf`,
+    you''ll have to switch to the command prompt window to enter the password and
+    then switch back after.  Also included in the following screenshot is the stack
+    window, located in the right-hand pane:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是输入 `scanf` 后相同的栈帧。另外，在 `scanf` 期间，您需要切换到命令提示符窗口以输入密码，然后再切换回来。以下截图中还包括了栈窗口，位于右侧窗格：
+- en: '![](img/8da5bf65-1ea5-48cf-b569-0a5e1cb06ef4.png)'
+  id: totrans-214
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8da5bf65-1ea5-48cf-b569-0a5e1cb06ef4.png)'
+- en: Even while in the debugger, we can change the contents of the inputted string
+    any time, thereby forcing it to continue in the condition toward the correct password.
+    All we need to do is right-click on the byte in the Dump window and select Modify
+    Value*.* For example, in the loop that compares `65h` ("`e`") with the value stored
+    in the address pointed by register `eax`, before stepping on the `cmp` instruction,
+    we can change the value at that address.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使在调试器中，我们也可以随时更改输入字符串的内容，从而强制程序继续执行，直到正确的密码条件出现。我们所需要做的就是右键点击 Dump 窗口中的字节，并选择修改值*。*
+    例如，在比较 `65h` ("`e`") 和寄存器 `eax` 指向地址中存储的值的循环中，在执行 `cmp` 指令之前，我们可以更改该地址处的值。
+- en: 'In the following screenshot the value stored at the address `0060FF20h` (EAX),
+    which is being modifed from `35h` to `65h`:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的截图中，地址 `0060FF20h`（EAX）处存储的值正在从 `35h` 修改为 `65h`：
+- en: '![](img/1c5731fe-5dfc-421e-bed5-271800735c0f.png)'
+  id: totrans-217
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1c5731fe-5dfc-421e-bed5-271800735c0f.png)'
+- en: The same modification can be done by doing a binary edit through right-clicking
+    on byte, and then selecting *Binary*->*Edit*.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以通过右键点击字节进行二进制编辑，然后选择 *Binary*->*Edit* 来进行相同的修改。
+- en: 'And here''s where we should end up if we have a correct password:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们输入了正确的密码，这里应该是我们最终的结果：
+- en: '![](img/9afbc6dc-4f99-4647-b448-cdc9dce17759.png)'
+  id: totrans-220
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9afbc6dc-4f99-4647-b448-cdc9dce17759.png)'
+- en: Decompilers
+  id: totrans-221
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 反编译器
+- en: 'It may be easier if the pseudocode were automatically given to us. Certain
+    tools exist that may be able to help us with that. Let''s try and decompile `passcode.exe`
+    ([https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.exe](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.exe))
+    using the standalone version of Snowman ([https://derevenets.com/](https://derevenets.com/)).
+    Once the file has been opened, click on View->Inspector.  This should show a box
+    containing resolved functions from the program. Look for the function definition
+    `_main` and select it to show the equivalent pseudocode of the assembly language.
+    This highlights the assembly language line in the left-hand pane and the psuedocode
+    in the middle pane:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果伪代码能够自动提供给我们，那可能会更容易。确实存在一些工具，可能能帮助我们实现这一点。我们来尝试反编译 `passcode.exe`（[https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.exe](https://github.com/PacktPublishing/Mastering-Reverse-Engineering/blob/master/ch7/passcode.exe)）使用
+    Snowman 的独立版本（[https://derevenets.com/](https://derevenets.com/)）。打开文件后，点击 View->Inspector。这将显示一个包含程序解析函数的框。寻找函数定义
+    `_main`，选择它以显示与汇编语言等效的伪代码。此时，左侧窗格会突出显示汇编语言行，中央窗格则显示伪代码：
+- en: '![](img/3db47a1f-e2dc-4d72-b225-ca744f400a4e.png)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3db47a1f-e2dc-4d72-b225-ca744f400a4e.png)'
+- en: As of the time of writing this book, the output C source may help, but not all
+    are correctly decompiled. For instance, the loop where "`e`" was being compared
+    was not decompiled correctly. The output shows a `while` loop, but we expect that
+    the `v10` variable should have its value read from the offset calculated in the
+    password string. However, most of the code should somehow aid us in understanding
+    how the program should work. The decompiler engine for this is open source ([https://www.capstone-engine.org/](https://www.capstone-engine.org/)),
+    so not much should be expected as support won't always be there.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 截至撰写本书时，输出的 C 源代码可能有所帮助，但并非所有代码都正确反编译。例如，比较 "`e`" 的循环未能正确反编译。输出显示为一个 `while`
+    循环，但我们预期 `v10` 变量的值应该是从密码字符串中计算出的偏移量读取的。然而，大部分代码应该能够在某种程度上帮助我们理解程序的工作方式。该反编译器引擎是开源的（[https://www.capstone-engine.org/](https://www.capstone-engine.org/)），因此不应期待过多支持，因为它并非时刻可用。
+- en: The good news is that there are more powerful decompilers that exist, such as
+    HexRays. Most institutions and some individual analysts and researchers who perform
+    reverse engineering are willing to pay for these decompilers. HexRays is one bang
+    for its buck for most reverse engineers.
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好消息是，已经有更强大的反编译工具，例如HexRays。大多数机构以及一些进行逆向工程的独立分析师和研究人员愿意为这些反编译工具付费。对大多数逆向工程师来说，HexRays性价比非常高。
+- en: 'Here''s a HexRays decompiled version of `passcode.exe`:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是`passcode.exe`的HexRays反编译版本：
+- en: '![](img/af8762c3-a506-4c10-8cf1-4b77d37555e3.png)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/af8762c3-a506-4c10-8cf1-4b77d37555e3.png)'
+- en: Decompilers are continuously developed since these tools speed up analysis.
+    They do not decompile perfectly, but should be near the source.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 反编译工具在不断发展，因为这些工具可以加快分析速度。它们并不能完美地反编译，但应该接近源代码。
+- en: Summary
+  id: totrans-229
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we introduced reverse engineering, beginning with APIs, by
+    learning how these are used in a functional program. We then used static and dynamic
+    analysis tools to reverse a program.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们介绍了逆向工程，首先通过学习API在功能程序中的使用来开始。接着，我们使用静态和动态分析工具对程序进行了反向分析。
+- en: Overall, there are a lot of reversing tools for Windows available for use. This
+    also includes the vast information and research on how to use them for specific
+    reversing situations. Reverse engineering is mostly about acquiring the resources
+    from the World Wide Web, and from what you already know, we have already done
+    that.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总体来说，Windows平台上有很多可用的逆向工具。这些工具也包含了大量的关于如何在特定逆向场景中使用它们的信息和研究。逆向工程主要是通过获取来自互联网的资源，以及你已经掌握的知识，我们已经做到了这一点。
+- en: Further reading
+  id: totrans-232
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: '[https://visualstudio.microsoft.com](https://visualstudio.microsoft.com): this
+    is the download site for Visual Studio'
+  id: totrans-233
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://visualstudio.microsoft.com](https://visualstudio.microsoft.com): 这是Visual
+    Studio的下载站点'
+- en: '[https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs:](https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs)
+    site shows recommended system requirements for installing Visual Studio'
+  id: totrans-234
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs:](https://docs.microsoft.com/en-us/visualstudio/productinfo/vs2017-system-requirements-vs)
+    该网站展示了安装Visual Studio的推荐系统要求'
+- en: '[https://sourceforge.net/projects/orwelldevcpp/](https://sourceforge.net/projects/orwelldevcpp/):
+    this site contains the binary downloads of Dev C++.'
+  id: totrans-235
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://sourceforge.net/projects/orwelldevcpp/](https://sourceforge.net/projects/orwelldevcpp/):
+    该网站包含了Dev C++的二进制下载文件'
+- en: '[https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/](https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/): appliance
+    versions of pre-installed Microsoft Windows can be downloaded here'
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/](https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/):
+    可以在这里下载预装的Microsoft Windows的虚拟机版本'
+- en: '[http://mark0.net/soft-trid-e.html:](http://mark0.net/soft-trid-e.html) Download
+    site of the TrID tool and its signature database file'
+  id: totrans-237
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[http://mark0.net/soft-trid-e.html:](http://mark0.net/soft-trid-e.html) TrID工具及其签名数据库文件的下载站点'
+- en: '[http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx:](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx) documentation
+    of the Microsoft Portable E'
+  id: totrans-238
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx:](http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx)
+    Microsoft Portable E的文档'

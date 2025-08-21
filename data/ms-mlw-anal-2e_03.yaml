@@ -1,0 +1,3148 @@
+- en: '3'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '3'
+- en: Basic Static and Dynamic Analysis for x86/x64
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: x86/x64 的基本静态和动态分析
+- en: In this chapter, we are going to cover the core fundamentals that you need to
+    know to analyze 32-bit or 64-bit malware in the Windows platform. We will cover
+    the **Windows Portable Executable file header** (**PE header**) and look at how
+    it can help us to answer different incident handling and threat intelligence questions.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍分析 Windows 平台上 32 位或 64 位恶意软件所需掌握的核心基础知识。我们将介绍**Windows 可执行文件头**（**PE
+    头部**），并了解它如何帮助我们回答不同的事件响应和威胁情报问题。
+- en: We will also walk through the concepts and basics of static and dynamic analysis,
+    including processes and threads, the process creation flow, and WOW64 processes.
+    Finally, we will cover process debugging, including setting breakpoints and altering
+    the program’s execution.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还将讲解静态和动态分析的概念和基础，包括进程和线程、进程创建流程以及 WOW64 进程。最后，我们将介绍进程调试，包括设置断点和修改程序执行。
+- en: This chapter will help you to perform basic static and dynamic analyses of malware
+    samples by explaining the theory and equipping you with practical knowledge. By
+    doing this, you will learn about the tools needed for malware analysis.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将帮助你通过解释理论和提供实用知识来执行恶意软件样本的基本静态和动态分析。通过这样做，你将学习到恶意软件分析所需的工具。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Working with the PE header structure
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 PE 头部结构
+- en: Static and dynamic linking
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 静态和动态链接
+- en: Using PE header information for static analysis
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 PE 头部信息进行静态分析
+- en: PE loading and process creation
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PE 加载和进程创建
+- en: Basics of dynamic analysis using OllyDbg and x64dbg
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 OllyDbg 和 x64dbg 进行动态分析基础
+- en: Debugging malicious services
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调试恶意服务
+- en: Essentials of behavioral analysis
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 行为分析要点
+- en: Working with the PE header structure
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 PE 头部结构
+- en: When you start to perform basic static analysis on a file, your first valuable
+    source of information will be the PE header. The PE header is a structure that
+    any executable Windows file follows.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你开始对文件进行基本的静态分析时，首要的有价值的信息来源将是 PE 头部。PE 头部是任何可执行 Windows 文件遵循的结构。
+- en: It contains various information, such as supported systems, the memory layouts
+    of sections that contain code and data (such as strings, images, and so on), and
+    various metadata, helping the system load and execute a file properly.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它包含各种信息，例如支持的系统、包含代码和数据（如字符串、图像等）的段的内存布局，以及各种元数据，帮助系统正确加载和执行文件。
+- en: In this section, we will explore the PE header structure and learn how to analyze
+    a PE file and read its information.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将探讨 PE 头部结构，学习如何分析 PE 文件并读取其信息。
+- en: Why PE?
+  id: totrans-17
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 为什么选择 PE？
+- en: 'The portable executable structure was able to solve multiple issues that appeared
+    in previous structures, such as MZ for MS-DOS executables. It represents a complete
+    design for any executable file. Some of the features of the PE structure are as
+    follows:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可执行文件结构能够解决之前结构中出现的多个问题，例如用于 MS-DOS 可执行文件的 MZ 格式。它代表了任何可执行文件的完整设计。PE 结构的一些特点如下：
+- en: It separates the code and the data into sections, making it easy to manage the
+    data separately from the program and link any string back in the assembly code.
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它将代码和数据分隔到不同的段中，使得数据可以与程序分开管理，并能够在汇编代码中重新链接任何字符串。
+- en: Each section has separate memory permissions, which act as layers of security
+    over the virtual memory of each program. These aim to allow or deny reading from
+    a specific page of memory, writing to a specific page of memory, or executing
+    code on a specific page of memory. A page of memory commonly takes *0x1000* bytes,
+    which is *4,096* bytes in decimal.
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 每个部分都有独立的内存权限，作为对每个程序虚拟内存的安全层。这些权限旨在允许或拒绝对特定内存页面的读取、对特定内存页面的写入或对特定内存页面的代码执行。一页内存通常为*0x1000*字节，即十进制的*4,096*字节。
+- en: The file expands in memory (it takes less size on a hard disk), which allows
+    you to create space for uninitialized variables (variables that don’t have a specific
+    value assigned before the application uses them) and, at the same time, save space
+    on the hard disk.
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件在内存中展开（在硬盘上占用较少的空间），这使得您可以为未初始化的变量（应用程序使用前没有分配特定值的变量）创建空间，同时节省硬盘空间。
+- en: It supports dynamic linking (via export and import directories), which is a
+    very important technology that we will talk about later in this chapter.
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它支持动态链接（通过导入导出目录），这是一项非常重要的技术，我们将在本章稍后讨论。
+- en: It supports relocation, which allows the program to be loaded in a different
+    place in memory from what it was designed to be loaded in.
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它支持重定位，允许程序在内存中加载到不同的位置，而不是它设计时要加载的位置。
+- en: It supports resource sections, where it can store any additional files, such
+    as icons.
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它支持资源部分，可以存储任何额外的文件，例如图标。
+- en: It supports multiple processors, subsystems, and types of files, which allows
+    the PE structure to be used across many platforms, such as Windows CE and Windows
+    Mobile.
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它支持多个处理器、子系统和文件类型，这使得PE结构可以在许多平台上使用，例如Windows CE和Windows Mobile。
+- en: Now, let’s talk about what PE’s structure looks like.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们谈谈PE结构的样子。
+- en: Exploring PE’s structure
+  id: totrans-27
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 探索PE结构
+- en: In this section, we will dive deeper into the structure of a typical executable
+    file on a Windows operating system. This structure is used by Microsoft to represent
+    multiple files, such as applications or libraries in the Windows operating system,
+    across multiple types of devices, such as PCs, tablets, and mobile devices.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将深入探讨Windows操作系统中典型可执行文件的结构。微软使用这种结构表示Windows操作系统中的多个文件，例如应用程序或库，适用于多种设备类型，如个人电脑、平板电脑和移动设备。
+- en: MZ header
+  id: totrans-29
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: MZ头部
+- en: 'Early in the MS-DOS era, Windows and DOS co-existed, and both had executable
+    files with the same extension, `.exe`. So, each Windows application had to start
+    with a small DOS application that printed a message stating `This program cannot
+    be run in DOS mode` (or any similar message). This way, when a Windows application
+    gets executed in the DOS environment, the small DOS application at the start of
+    it will get executed and print this message to the user to run it in the Windows
+    environment. The following diagram shows the high-level structure of the PE file
+    header, with the **DOS program’s MZ Header** at the start:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在MS-DOS早期，Windows和DOS共存，并且两者都使用相同扩展名的可执行文件，`.exe`。因此，每个Windows应用程序都必须以一个小的DOS应用程序开始，该程序打印一条消息，表示`该程序无法在DOS模式下运行`（或任何类似的消息）。这样，当Windows应用程序在DOS环境中执行时，开始的这个小DOS应用程序会执行并向用户打印消息，提示在Windows环境中运行。下图展示了PE文件头的高级结构，其中**DOS程序的MZ头**位于开始部分：
+- en: '![](img/Figure_3.1_B18500.jpg)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.1_B18500.jpg)'
+- en: Figure 3.1 – Example PE structure
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.1 – 示例PE结构
+- en: This DOS header starts with the `MZ` magic value and ends with a field called
+    `e_lfanew`, which points to the start of the **portable executable** **header**,
+    or **PE header**.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该DOS头部以`MZ`魔术值开始，并以一个叫做`e_lfanew`的字段结束，该字段指向**可移植执行文件**（**PE头**）的开始。
+- en: PE header
+  id: totrans-34
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: PE头部
+- en: The PE header starts with two letters, `PE`, followed by two important headers,
+    which are the file header and the optional header. Later, all the additional structures
+    are pointed to by the data directory array.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PE头部以两个字母`PE`开始，后跟两个重要的头部，即文件头和可选头。接下来，所有附加结构都由数据目录数组指向。
+- en: File header
+  id: totrans-36
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 文件头
+- en: 'Some of the most important values from this header are as follows:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本头部的一些重要值如下：
+- en: '![](img/Figure_3.2_B18500.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.2_B18500.jpg)'
+- en: Figure 3.2 – File header explained
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.2 – 文件头解释
+- en: 'The highlighted values are as follows:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 高亮显示的值如下：
+- en: '`Machine`: This field represents the processor type – for example, 0x14c represents
+    Intel 386 or later processors.'
+  id: totrans-41
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`Machine`：此字段表示处理器类型——例如，0x14c表示Intel 386或更高版本的处理器。'
+- en: '`NumberOfSections`: This value represents the number of sections that follow
+    the headers, such as the code section, data section, or resources section (for
+    files or images).'
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`NumberOfSections`：该值表示头部之后的节的数量，例如代码节、数据节或资源节（用于文件或图像）。'
+- en: '`TimeDateStamp`: This is the exact date and time that this program was compiled.
+    It’s very useful for threat intelligence and creating a timeline of the attack.'
+  id: totrans-43
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`TimeDateStamp`：这是该程序编译的确切日期和时间。它对于威胁情报和创建攻击时间线非常有用。'
+- en: '`Characteristics`: This value represents the type of executable file and specifies
+    whether it is a program or a dynamic link library (we will cover this later in
+    this chapter).'
+  id: totrans-44
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`Characteristics`：该值表示可执行文件的类型，并指定它是程序还是动态链接库（我们将在本章后面讨论）。'
+- en: Now, let’s talk about the optional header.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来谈谈可选头部。
+- en: Optional header
+  id: totrans-46
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 可选头部
+- en: 'Following the file header, the optional header comes with much more information,
+    as shown here:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在文件头之后，可选头部带来了更多的信息，如下所示：
+- en: '![](img/Figure_3.3_B18500.jpg)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.3_B18500.jpg)'
+- en: Figure 3.3 – Optional header explained
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.3 – 可选头部解释
+- en: 'Here are some of the most important values in this header:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是该头部中的一些最重要的值：
+- en: '`Magic`: This identifies the platform the PE file supports (whether it’s x86
+    or x64).'
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`魔术值`：此值标识PE文件支持的平台（是否是x86或x64）。'
+- en: '`AddressOfEntryPoint`: This is a very important field for our analysis and
+    it points to the starting point of program execution (to the first assembly instruction
+    to be executed in the program) relative to its starting address (its base). These
+    types of addresses are called **Relative Virtual Addresses** (**RVAs**).'
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`入口点地址`：这是我们分析中非常重要的字段，它指向程序执行的起始点（程序中要执行的第一个汇编指令），相对于其起始地址（基址）。这种类型的地址被称为**相对虚拟地址**（**RVA**）。'
+- en: '`ImageBase`: This is the address where the program was designed to be loaded
+    into virtual memory. All instructions that use absolute addresses will expect
+    this as a program base. If the program has a relocation table, it can be loaded
+    to a different base address. In this case, all such instructions will be updated
+    by the Windows loader according to this table.'
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`镜像基址`：这是程序设计为加载到虚拟内存的地址。所有使用绝对地址的指令将期望该值作为程序基址。如果程序有重定位表，它可以加载到不同的基址。在这种情况下，所有这类指令将由Windows加载器根据该表进行更新。'
+- en: '`SectionAlignment`: The size of each section and all header sizes should be
+    aligned to this value when loaded into memory (generally, this value is 0x1000).'
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`节对齐`：每个节和所有头部的大小在加载到内存时应该与此值对齐（通常此值为0x1000）。'
+- en: '`FileAlignment`: The size of each section in the PE file (as well as the size
+    of all headers) must be aligned to this number (for example, for a section that’s
+    0x1164 in size and has a file alignment value of 0x200, the section size will
+    be changed to 0x1200 on the hard disk).'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`文件对齐`：PE文件中每个节的大小（以及所有头部的大小）必须与此值对齐（例如，对于一个大小为0x1164的节，如果文件对齐值为0x200，则该节的大小将变更为0x1200）。'
+- en: '`MajorSubsystemVersion`: This represents the minimum Windows version to run
+    the application on, such as Windows XP or Windows 7.'
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`主要子系统版本`：表示运行该应用程序所需的最低Windows版本，如Windows XP或Windows 7。'
+- en: '`SizeOfImage`: This is the size of the whole application in memory (usually,
+    it’s larger than the size of the file on the hard disk due to uninitialized data,
+    different alignments, and other reasons).'
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`镜像大小`：这是整个应用程序在内存中的大小（通常由于未初始化数据、不同的对齐方式以及其他原因，它大于硬盘上的文件大小）。'
+- en: '`SizeOfHeaders`: This is the size of all headers.'
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`头部大小`：这是所有头部的大小。'
+- en: '`Subsystem`: This indicates that this could be a Windows UI application, a
+    console application, or a driver, or that it could even run on other Windows subsystems,
+    such as Microsoft POSIX.'
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`子系统`：指示该程序可能是一个Windows UI应用程序、控制台应用程序或驱动程序，或者它也可能运行在其他Windows子系统上，例如Microsoft
+    POSIX。'
+- en: The optional header ends with a list of data directories.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可选头部以数据目录列表结束。
+- en: Data directories
+  id: totrans-61
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 数据目录
+- en: The data directory array points to a list of other structures that might be
+    included in the executable and are not necessarily present in every application.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据目录数组指向可能包含在可执行文件中的其他结构列表，并非每个应用程序中都必定包含这些结构。
+- en: 'It includes 16 entries that follow the following format:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它包含了以下格式的16个条目：
+- en: '`Address`: This points to the beginning of the structure in memory (from the
+    start of the file).'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`地址`：指向内存中结构的开始位置（从文件的起始部分）。'
+- en: '`Size`: This is the size of the corresponding structure.'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`大小`：这是对应结构的大小。'
+- en: 'The data directory includes many different values; not all of them are that
+    important for malware analysis. Some of the most important entries to mention
+    are as follows:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据目录包含了许多不同的值；并非所有的值对于恶意软件分析来说都非常重要。以下是一些需要提及的重要条目：
+- en: '**Import directory**: This represents the functions (or APIs) that this program
+    doesn’t include but wants to import from other executable files or libraries (DLLs).'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**导入目录**：表示程序中没有包含但希望从其他可执行文件或库（DLL）中导入的函数（或API）。'
+- en: '**Export directory**: This represents the functions (or APIs) that this program
+    includes in its code and is willing to export and allow other applications to
+    use.'
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**导出目录**：表示程序中包含在代码中的函数（或API），并希望导出以供其他应用程序使用。'
+- en: '**Resource directory**: This is always located at the start of the resource
+    section and its purpose is to represent the packages’ files within the program,
+    such as icons, images, and others.'
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**资源目录**：此目录始终位于资源部分的开始，其作用是表示程序中的包文件，例如图标、图片等。'
+- en: '**Relocation directory**: This is always located at the start of the relocation
+    section and it’s used to fix addresses in the code when the PE file is loaded
+    to another place in memory.'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**重定位目录**：它总是位于重定位节的起始位置，用于在PE文件加载到内存中的其他位置时修复代码中的地址。'
+- en: '**TLS directory**: **Thread Local Storage** (**TLS**) points to functions that
+    will be executed before the entry point. It can be used to bypass debuggers, as
+    we will see later in greater detail.'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**TLS目录**：**线程局部存储**（**TLS**）指向在入口点之前会执行的函数。它可以用来绕过调试器，稍后我们将详细讨论这一点。'
+- en: Following the data directories, there is a section table.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据目录之后，有一个节表。
+- en: Section table
+  id: totrans-73
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 节表
+- en: After the 16 entries of the data directory array, there’s the section table.
+    Each entry in the section table represents a section of the PE file. The number
+    of sections in total is the number stored in the `NumberOfSections` field in `FileHeader`.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在数据目录数组的16个条目之后，便是节表。每个节表条目代表PE文件中的一个节。节的总数是存储在`FileHeader`中的`NumberOfSections`字段中的数字。
+- en: 'Here is an example of it:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里是一个例子：
+- en: '![](img/Figure_3.4_B18500.jpg)'
+  id: totrans-76
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.4_B18500.jpg)'
+- en: Figure 3.4 – Example of a section table
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.4 – 节表示例
+- en: 'These fields are used for the following purposes:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些字段用于以下目的：
+- en: '`Name`: The name of the section (8 bytes max).'
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Name`：节的名称（最大8字节）。'
+- en: '`VirtualSize`: The size of a section (in memory).'
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualSize`：节的大小（在内存中）。'
+- en: '`VirtualAddress`: The pointer to the beginning of the section in memory (as
+    RVA).'
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`VirtualAddress`：指向内存中节的起始位置的指针（作为RVA）。'
+- en: '`SizeOfRawData`: The size of a section (on the hard disk).'
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SizeOfRawData`：节的大小（在硬盘上）。'
+- en: '`PointerToRawData`: The pointer to the beginning of the section in the file
+    on the hard disk (relative to the start of the file). These types of addresses
+    are called offsets.'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`PointerToRawData`：指向硬盘上文件中节的起始位置的指针（相对于文件的起始位置）。这种类型的地址称为偏移量。'
+- en: '`Characteristics`: Memory protection flags (mainly `EXECUTE`, `READ`, or `WRITE`).'
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Characteristics`：内存保护标志（主要有`EXECUTE`、`READ`或`WRITE`）。'
+- en: Now, let’s talk about the Rich header.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们讨论一下Rich头。
+- en: Rich header
+  id: totrans-86
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Rich头
+- en: 'This is a much lesser-known part of the MZ-PE header. It is located straight
+    after the small DOS program, which prints the `This program cannot be run in DOS
+    mode` string, and the PE header, as shown in the following screenshot:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是MZ-PE头部中一个鲜为人知的部分。它位于小DOS程序之后，该程序会打印`This program cannot be run in DOS mode`字符串，以及PE头，如下图所示：
+- en: '![](img/Figure_3.5_B18500.jpg)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.5_B18500.jpg)'
+- en: Figure 3.5 – Raw Rich header
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.5 – 原始Rich头
+- en: 'Unlike other header structures, it is supposed to be read from the end of where
+    the `Rich` magic value is located. The value following it is the custom checksum
+    that’s calculated over the DOS and Rich headers, which also serves as an XOR key,
+    with which the actual content of this header is encrypted. Once decrypted, it
+    will contain various information about the software that was used to compile the
+    program. The very first field, once decrypted, will be the `DanS` marker:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其他头部结构不同，它应该从`Rich`魔法值所在位置的末尾开始读取。其后跟随的值是根据DOS头和Rich头计算出的自定义校验和，它还作为XOR密钥，用于加密该头部的实际内容。一旦解密，它将包含关于用于编译该程序的软件的各种信息。解密后的第一个字段将是`DanS`标记：
+- en: '![](img/Figure_3.6_B18500.jpg)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.6_B18500.jpg)'
+- en: Figure 3.6 – Parsed Rich header in the PE-Bear tool
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图3.6 – 在PE-Bear工具中解析的Rich头
+- en: This information can help researchers identify software that was used to create
+    malware to choose the right tools for analysis and actor attribution.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些信息可以帮助研究人员识别用于创建恶意软件的软件，以便选择正确的分析工具和行为者归因。
+- en: As you can see, the PE structure is a treasure trove for malware analysts since
+    it provides lots of invaluable information about both the malicious functionality
+    and the attackers who created it.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，PE结构是恶意软件分析人员的宝贵资源，因为它提供了关于恶意功能和创建者的无价信息。
+- en: PE+ (x64 PE)
+  id: totrans-95
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: PE+（x64 PE）
+- en: 'At this point, you may be thinking that all x64 PE files’ fields take 8 bytes
+    compared to 4 bytes in x86 PE files. But the truth is that the PE+ header is very
+    similar to the good old PE header with very few changes, as follows:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一点上，你可能会认为所有x64 PE文件的字段相比x86 PE文件需要8字节，而不是4字节。但事实是，PE+头与经典的PE头非常相似，只有极少的变化，具体如下：
+- en: '`ImageBase`: It is 8 bytes instead of 4 bytes.'
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ImageBase`：它是8字节，而不是4字节。'
+- en: '`BaseOfData`: This was removed from the optional header.'
+  id: totrans-98
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`BaseOfData`：此字段已从可选头中删除。'
+- en: '`Magic`: This value changed from 0x10B (representing x86) to 0x20B (representing
+    x64). PE+ files stayed at the maximum 2 GB size, while all other RVA addresses,
+    including `AddressOfEntrypoint`, remained at 4 bytes.'
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Magic`：这个值从 0x10B（表示 x86）更改为 0x20B（表示 x64）。PE+ 文件的最大大小保持在 2 GB，而所有其他 RVA 地址，包括
+    `AddressOfEntrypoint`，仍然保持为 4 字节。'
+- en: Some other fields, such as `SizeOfHeapCommit`, `SizeOfHeapReserve`, `SizeOfStackReserve`,
+    and `SizeOfStackCommit`, now take 8 bytes instead of 4.
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 其他一些字段，如 `SizeOfHeapCommit`、`SizeOfHeapReserve`、`SizeOfStackReserve` 和 `SizeOfStackCommit`，现在占用
+    8 字节，而不是 4 字节。
+- en: Now that we know what the PE header is, let’s talk about various tools that
+    may help us extract and visualize this information.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了 PE 头部是什么，接下来让我们讨论一些可以帮助我们提取和可视化这些信息的工具。
+- en: PE header analysis tools
+  id: totrans-102
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: PE 头部分析工具
+- en: 'Once we become familiar with the PE format, we need to become able to parse
+    different PE files (for example, `.exe` files) and read their header values. Luckily,
+    we don’t have to do this ourselves in a hex editor; there are lots of different
+    tools that can help us read PE header information easily. The most well-known
+    free tools to do it are as follows:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们熟悉了 PE 格式，我们需要能够解析不同的 PE 文件（例如 `.exe` 文件）并读取它们的头部值。幸运的是，我们不需要在十六进制编辑器中自己完成这项工作；有许多工具可以帮助我们轻松地读取
+    PE 头部信息。以下是一些最著名的免费工具：
+- en: '**CFF Explorer**: This tool is great for parsing the PE header as it properly
+    analyzes and presents all the important information stored there:'
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CFF Explorer**：这个工具非常适合解析 PE 头部，因为它可以正确地分析并呈现所有存储在其中的重要信息：'
+- en: '![](img/Figure_3.7_B18500.jpg)'
+  id: totrans-105
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.7_B18500.jpg)'
+- en: Figure 3.7 – CFF Explorer UI
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.7 – CFF Explorer 用户界面
+- en: '**PE-bear**: The great advantage of this tool compared to CFF Explorer is that
+    it can also parse the Rich header, which, as we know, contains lots of useful
+    information about the developer tools used to create the sample.'
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**PE-bear**：与 CFF Explorer 相比，这个工具的一个巨大优势是它还可以解析 Rich 头部，正如我们所知，它包含了许多关于开发工具的有用信息，这些工具用于创建该样本。'
+- en: '**Hiew**: While the demo version shows only a small subset of the PE header’s
+    information, the full version gives researchers full visibility as well as the
+    ability to edit any field there.'
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Hiew**：虽然演示版本仅显示 PE 头部信息的一小部分，但完整版则可以让研究人员完全查看，并且可以编辑其中的任何字段。'
+- en: '**PEiD**: While it is mainly used to detect the compilers (Visual Studio, for
+    example) or the packer that is used to pack this malware using static signatures
+    stored within the application (this will be covered in greater detail in [*Chapter
+    4*](B18500_04.xhtml#_idTextAnchor238), *Unpacking, Decryption, and Deobfuscation*),
+    researchers can use the **>** buttons to get lots of information from the PE header:'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**PEiD**：虽然它主要用于检测编译器（例如 Visual Studio）或用于打包恶意软件的打包工具，它通过应用程序中存储的静态签名进行识别（这一点将在[*第
+    4 章*](B18500_04.xhtml#_idTextAnchor238)，*解包、解密与去混淆*中详细讲解），研究人员可以使用 **>** 按钮从 PE
+    头部获取大量信息：'
+- en: '![](img/Figure_3.8_B18500.jpg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.8_B18500.jpg)'
+- en: Figure 3.8 – PEiD UI
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.8 – PEiD 用户界面
+- en: In the next section, we will further our knowledge and explore the nitty-gritty
+    of static and dynamic linking.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分，我们将进一步扩展我们的知识，探索静态和动态链接的细节。
+- en: Static and dynamic linking
+  id: totrans-113
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 静态和动态链接
+- en: In this section, we will cover the code libraries that were introduced to speed
+    up the software development process, avoid code duplication, and improve the cooperation
+    between different teams within companies producing software.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将介绍为加速软件开发过程、避免代码重复以及提高公司内不同团队之间协作而引入的代码库。
+- en: These libraries are a known target for malware families as they can easily be
+    injected into the memory of different applications and impersonate them to disguise
+    their malicious activities.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些库是恶意软件家族的已知目标，因为它们可以轻松地被注入到不同应用程序的内存中，并冒充它们以掩盖其恶意活动。
+- en: First of all, let’s talk about the different ways libraries can be used.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，让我们讨论一下库的不同使用方式。
+- en: Static linking
+  id: totrans-117
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 静态链接
+- en: 'With the increasing number of applications on different operating systems,
+    developers found that there was a lot of code reuse and the same logic being rewritten
+    over and over again to support certain functionalities in their programs. Because
+    of that, the invention of code libraries came in handy. Let’s take a look at the
+    following diagram:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着不同操作系统上应用程序数量的增加，开发人员发现很多代码被重复使用，相同的逻辑被反复编写，以支持程序中的某些功能。由于这一点，代码库的发明变得非常有用。让我们来看一下下面的图示：
+- en: '![](img/Figure_3.9_B18500.jpg)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.9_B18500.jpg)'
+- en: Figure 3.9 – Static linking from compilation to loading
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.9 – 从编译到加载的静态链接
+- en: Code libraries `(.lib` files) include lots of functions to be copied to your
+    program when required, so there is no need to reinvent the wheel and rewrite these
+    functions again (for example, the code for mathematical operations such as sin
+    or cos for any application that deals with mathematical equations). This is done
+    by a program called a linker, whose job is to put all the required functions (groups
+    of instructions) together and produce a single self-contained executable file
+    as a result. This approach is called static linking.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码库 `(.lib` 文件) 包含许多功能，在需要时将其复制到程序中，因此无需重新发明轮子并重新编写这些函数（例如，任何处理数学方程的应用程序中用于数学运算（如
+    sin 或 cos）的代码）。这是通过一个名为链接器的程序来完成的，其工作是将所有所需的函数（指令组）放在一起，并生成一个单独的自包含可执行文件。这个方法被称为静态链接。
+- en: Dynamic linking
+  id: totrans-122
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态链接
+- en: Statically linked libraries lead to having the same code copied over and over
+    again inside each program that may need it, which, in turn, leads to the loss
+    of hard disk space and increases the size of the executable files.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 静态链接的库导致相同的代码在每个需要它的程序中被重复复制，这反过来导致硬盘空间浪费，并且增加了可执行文件的大小。
+- en: 'In modern operating systems such as Windows and Linux, there are hundreds of
+    libraries, and each contains thousands of functions for UIs, graphics, 3D, internet
+    communications, and more. Because of that, static linking appeared to be limited.
+    To mitigate this issue, dynamic linking emerged. The whole process is displayed
+    in the following diagram:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在像 Windows 和 Linux 这样的现代操作系统中，有数百个库，每个库包含数千个用于 UI、图形、3D、互联网通信等的函数。正因为如此，静态链接显得有限。为了解决这个问题，动态链接应运而生。整个过程在下图中展示：
+- en: '![](img/Figure_3.10_B18500.jpg)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.10_B18500.jpg)'
+- en: Figure 3.10 – Dynamic linking from compilation to loading
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.10 – 从编译到加载的动态链接
+- en: Instead of storing the code inside each executable, any needed library is loaded
+    next to each application in the same virtual memory so that this application can
+    directly call the required functions. These libraries are named **dynamic link
+    libraries** (**DLLs**), as shown in the preceding diagram. Let’s cover them in
+    greater detail.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其将代码存储在每个可执行文件中，不如将所需的库加载到每个应用程序旁边的相同虚拟内存中，这样应用程序就可以直接调用所需的函数。这些库被称为**动态链接库**（**DLLs**），如前图所示。我们接下来将详细介绍它们。
+- en: Dynamic link libraries
+  id: totrans-128
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 动态链接库
+- en: A DLL is a complete PE file that includes all the necessary headers, sections,
+    and, most importantly, the export table.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DLL 是一个完整的 PE 文件，包含所有必要的头文件、段落，最重要的是，导出表。
+- en: The export table includes all the functions that this library exports. Not all
+    library functions are exported as some of them are for internal use. However,
+    the functions that are exported can be accessed through their names or *ordinal*
+    numbers (index numbers). These are called **application programming interfaces**
+    (**APIs**).
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 导出表包括此库导出的所有函数。并非所有库函数都被导出，因为其中一些是供内部使用的。然而，被导出的函数可以通过其名称或*序号*（索引号）访问。这些被称为**应用程序编程接口**（**APIs**）。
+- en: 'Windows provides lots of libraries for developers who are creating programs
+    for Windows to access its functionality. Some of these libraries are as follows:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 为开发者提供了大量的库，供他们创建面向 Windows 的程序来访问其功能。以下是一些这样的库：
+- en: '`kernel32.dll`: This library includes the basic and core functionality for
+    all programs, including reading a file and writing a file. In recent versions
+    of Windows, the actual code of the functions moved to `KernelBase.dll`'
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`kernel32.dll`：这个库包含所有程序的基本和核心功能，包括读取文件和写入文件。在 Windows 的最新版本中，函数的实际代码已经移至 `KernelBase.dll`。'
+- en: '`ntdll.dll`: This library exports Windows native APIs; `kernel32.dll` uses
+    this library as a backend for its functionality. Some malware writers try to access
+    undocumented APIs inside this library to make it harder for reverse engineers
+    to understand the malware functionality, such as `LdrLoadDll`.'
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ntdll.dll`：这个库导出 Windows 本地 API；`kernel32.dll` 使用此库作为其功能的后端。一些恶意软件作者试图访问此库中未记录的
+    API，以使逆向工程师更难理解恶意软件的功能，例如 `LdrLoadDll`。'
+- en: '`advapi32.dll`: This library is used mainly for working with the registry and
+    cryptography.'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`advapi32.dll`：这个库主要用于操作注册表和加密。'
+- en: '`shell32.dll`: This library is responsible for shell-related operations such
+    as executing and opening files.'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`shell32.dll`：这个库负责与外壳相关的操作，例如执行和打开文件。'
+- en: '`ws2_32.dll`: This library is responsible for all the functionality related
+    to internet sockets and network communications, which is very important for understanding
+    custom network communication protocols.'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ws2_32.dll`：该库负责所有与互联网套接字和网络通信相关的功能，对于理解自定义网络通信协议非常重要。'
+- en: '`wininet.dll`: This library contains HTTP and FTP functions and more.'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wininet.dll`：该库包含HTTP和FTP功能等。'
+- en: '`urlmon.dll`: This library provides similar functionality to `wininet.dll`
+    and is used for working with URLs, web compression, downloading files, and more.'
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`urlmon.dll`：该库提供类似于`wininet.dll`的功能，用于处理URL、网页压缩、下载文件等。'
+- en: Now, it’s time to talk about what exactly APIs are.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，是时候讨论一下到底什么是API了。
+- en: Application programming interface (API)
+  id: totrans-140
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 应用程序编程接口（API）
+- en: In short, APIs export functions in libraries that any application can call or
+    interact with. In addition, APIs can be exported by executable files in the same
+    way as DLLs. This way, an executable file can be run as a program or loaded as
+    a library by other executables or libraries.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简而言之，API在库中导出函数，任何应用程序都可以调用或与之交互。此外，API也可以像DLL一样由可执行文件导出。这样，一个可执行文件可以作为程序运行，或者被其他可执行文件或库加载为库。
+- en: Each program’s import table contains the names of all the required libraries
+    and all the APIs that this program uses. And in each library, the export table
+    contains the API’s name, the API’s ordinal number, and the RVA address of this
+    API.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个程序的导入表包含该程序所需的所有库的名称，以及该程序使用的所有API。在每个库中，导出表包含API的名称、API的序号和该API的RVA地址。
+- en: Important Note
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Each API has an ordinal number, but not all APIs have a name.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个API都有一个序号，但并非所有API都有名称。
+- en: Dynamic API loading
+  id: totrans-145
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 动态API加载
+- en: In malware, it’s very common to obscure the name of the libraries and the APIs
+    that they are using to hide their functionality from static analysis using what’s
+    called dynamic API loading.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在恶意软件中，使用动态API加载隐藏库和API的名称，避免静态分析，是一种非常常见的做法。
+- en: 'Dynamic API loading is supported by Windows using two very well-known APIs:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows通过两个非常著名的API来支持动态API加载：
+- en: '`LoadLibraryA`: This API loads a dynamic link library into the virtual memory
+    of the calling program and returns its address (variations include `LoadLibraryW`,
+    `LoadLibraryExA`, and `LoadLibraryExW`).'
+  id: totrans-148
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`LoadLibraryA`：此API将一个动态链接库加载到调用程序的虚拟内存中，并返回其地址（变体包括`LoadLibraryW`、`LoadLibraryExA`和`LoadLibraryExW`）。'
+- en: '`GetProcAddress`: This API returns an address of the API specified by its name
+    or the ordinal value and the address of the library that contains this API.'
+  id: totrans-149
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`GetProcAddress`：此API返回指定名称或序号值的API的地址，以及包含该API的库的地址。'
+- en: By calling these two APIs, malware can access APIs that are not written in the
+    import table, which means they might be hidden from the eyes of the reverse engineer.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过调用这两个API，恶意软件可以访问未在导入表中列出的API，这意味着它们可能会被逆向工程师隐藏。
+- en: In some advanced malware, the malware author also hides the names of the libraries
+    and the APIs using encryption or other obfuscation techniques, which will be covered
+    in [*Chapter 4*](B18500_04.xhtml#_idTextAnchor238), *Unpacking, Decryption, and
+    Deobfuscation*.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在一些高级恶意软件中，恶意软件作者还通过加密或其他混淆技术来隐藏库和API的名称，这将在[*第4章*](B18500_04.xhtml#_idTextAnchor238)中讨论，*解包、解密和去混淆*。
+- en: These APIs are not the only APIs that can allow dynamic API loading; other techniques
+    will be explored in [*Chapter 8*](B18500_08.xhtml#_idTextAnchor811), *Handling
+    Exploits and Shellcode*.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些API并不是唯一能支持动态API加载的API；其他技术将在[*第8章*](B18500_08.xhtml#_idTextAnchor811)中探讨，*漏洞利用和Shellcode处理*。
+- en: Armed with this knowledge, let’s learn more about how to put it into practice.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 拥有这些知识之后，让我们更深入地了解如何将其付诸实践。
+- en: Using PE header information for static analysis
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用PE头信息进行静态分析
+- en: Now that we’ve covered the PE header, dynamic link libraries, and APIs, the
+    question that arises is, *How can we use this information in our static analysis?*
+    This depends on the questions that you want to answer, so that is what we will
+    cover here.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了PE头、动态链接库和API，接下来要问的问题是，*如何在静态分析中利用这些信息？* 这取决于你想要回答的问题，接下来我们将讨论这些问题。
+- en: How to use the PE header for incident handling
+  id: totrans-156
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何使用PE头进行事件处理
+- en: 'If an incident occurs, static analysis of the PE header can help you answer
+    multiple questions in your report. Here are the questions and how the PE header
+    can help you answer them:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果发生事件，PE头的静态分析可以帮助你回答报告中的多个问题。以下是问题及PE头如何帮助你解答这些问题：
+- en: '*Is this malware packed*?'
+  id: totrans-158
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*这个恶意软件是经过打包的吗？*'
+- en: The PE header can help you figure out if this malware is packed. Packers tend
+    to change section names from their familiar names (`.text`, `.data`, and `.rsrc`)
+    to something else, such as `UPX0` or `.aspack`.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PE头可以帮助你判断该恶意软件是否经过打包。打包器倾向于将常见的段名（`.text`、`.data`和`.rsrc`）更改为其他名称，例如`UPX0`或`.aspack`。
+- en: In addition, packers commonly hide most of the APIs otherwise expected to be
+    present in the import table. So, if you see that the import table contains very
+    few APIs, that could be another sign of packing being involved. We will cover
+    unpacking in detail in [*Chapter 4*](B18500_04.xhtml#_idTextAnchor238), *Unpacking,
+    Decryption, and Deobfuscation*.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，打包器通常会隐藏大部分原本应存在于导入表中的API。因此，如果你看到导入表中包含的API非常少，这可能是打包行为的另一个迹象。我们将在本书的[*第4章*](B18500_04.xhtml#_idTextAnchor238)中详细讨论解包，*解密与去混淆*。
+- en: '*Is this malware a dropper or a downloader*?'
+  id: totrans-161
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*这个恶意软件是投放器还是下载器？*'
+- en: It’s very common to see droppers that have additional PE files stored in their
+    resources. Multiple tools, such as **Resource Hacker**, can detect these embedded
+    files (or, for example, a ZIP file that contains them), and you will be able to
+    find the dropped modules.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很常见的投放器会在其资源中存储额外的PE文件。多个工具，如**Resource Hacker**，可以检测到这些嵌入的文件（或者例如，包含它们的ZIP文件），你将能够找到被投放的模块。
+- en: For downloaders, it’s common to see an API named `URLDownloadToFile` from a
+    DLL named `urlmon.dll` where you can download the file, and the `ShellExecuteA`
+    API to execute the file. Other APIs can be used to achieve the same goal, but
+    these two APIs are the most well-known and among the easiest to use for malware
+    authors.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于下载器，通常可以看到一个名为`URLDownloadToFile`的API，来自名为`urlmon.dll`的DLL文件，通过这个API可以下载文件，还有`ShellExecuteA`
+    API用来执行文件。其他API也可以实现相同的目标，但这两个API是最著名的，并且是恶意软件作者最容易使用的。
+- en: '*Does it connect to the Command & Control server(s) (C&C, or the attacker’s
+    website)? And how?*'
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*它是否连接到指挥与控制服务器（C&C，或攻击者的网站）？是如何连接的？*'
+- en: There are many APIs that can tell you that the malware uses the internet, such
+    as `socket`, `send`, and `recv`, and they can tell you if they connect to a server
+    acting as a client or if they listen to a port such as `connect` or `listen`,
+    respectively.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有许多API可以告诉你恶意软件是否使用互联网，例如`socket`、`send`和`recv`，它们可以告诉你是否连接到充当客户端的服务器，或者是否监听端口，例如`connect`或`listen`。
+- en: Some APIs can even tell you what protocol they are using, such as `HTTPSendRequestA`
+    or `FTPPutFile`, which are both from `wininet.dll`.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些API甚至可以告诉你它们使用的协议，例如`HTTPSendRequestA`或`FTPPutFile`，这两个API都来自`wininet.dll`。
+- en: '*What other functionalities does this malware have?*'
+  id: totrans-167
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*这个恶意软件还有哪些功能？*'
+- en: Some APIs are related to file searching, such as `FindFirstFileA`, which could
+    be a hint that this malware may be ransomware or an info stealer.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些API与文件搜索相关，例如`FindFirstFileA`，这可能是该恶意软件是勒索软件或信息窃取者的线索。
+- en: It could use APIs such as `Process32First`, `Process32Next`, and `CreateRemoteThread`,
+    which could mean a process injection functionality, or use `TerminateProcess`,
+    which could mean that this malware may try to terminate other applications, such
+    as antivirus programs or malware analysis tools.
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它可能会使用诸如`Process32First`、`Process32Next`和`CreateRemoteThread`等API，这可能意味着它具备进程注入的功能，或者使用`TerminateProcess`，这可能意味着该恶意软件试图终止其他应用程序，例如杀毒软件或恶意软件分析工具。
+- en: We will cover all of these in greater detail later in this book. This section
+    gave you hints and ideas to think about during your next static malware analysis
+    and helped you find what you would be searching for in a PE header.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在本书的后面更详细地介绍这些内容。本节为你提供了线索和思路，帮助你在下次进行静态恶意软件分析时思考，并帮助你找到PE头中你需要寻找的内容。
+- en: Usually, it is a good idea to focus on the main questions that you should answer
+    in your report. Perhaps performing basic static analysis based on the strings
+    and the PE header would be enough to help your case.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，专注于报告中应该回答的主要问题是一个好主意。也许基于字符串和PE头进行基本静态分析就足以帮助你处理这些问题。
+- en: How to use a PE header for threat hunting
+  id: totrans-172
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何利用PE头进行威胁狩猎
+- en: 'So far, we have covered how a PE header could help you answer questions related
+    to incident handling or a normal tactical report. Now, let’s cover the following
+    questions related to threat intelligence and how a PE header can help you answer
+    them:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经讨论了PE头如何帮助你回答与事件处理或正常战术报告相关的问题。现在，让我们讨论以下与威胁情报相关的问题，以及PE头如何帮助你回答这些问题：
+- en: '*When was this sample created?*'
+  id: totrans-174
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*这个样本是什么时候创建的？*'
+- en: Sometimes, threat researchers need to know how old the sample is. Is it an old
+    sample or a new variant, and when did the attackers start to plan their attacks
+    in the first place?
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，威胁研究人员需要知道样本的年龄。它是旧样本还是新变种，攻击者到底何时开始策划他们的攻击？
+- en: The PE header includes a value called `TimeDateStamp` in the file header. This
+    value includes the exact date and time this sample was compiled, which can help
+    answer this question and help threat researchers build their attack timeline.
+    However, it’s worth mentioning that it can also be forged. Another less-known
+    field that serves a similar purpose is the `TimeDateStamp` value of the Export
+    Directory (when available).
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PE 头部包含一个名为 `TimeDateStamp` 的值，该值位于文件头部。它包括该样本编译的准确日期和时间，这有助于回答这个问题，并帮助威胁研究人员构建攻击时间线。然而，值得提到的是，它也可以被伪造。另一个较少为人知的字段，具有类似的功能，是导出目录（如果存在）的
+    `TimeDateStamp` 值。
+- en: '*What’s the country of origin of these attackers?*'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*这些攻击者的来源国家是哪个？*'
+- en: What country do the attackers belong to? That can answer a lot about their motivations.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些攻击者属于哪个国家？这个问题能够揭示出关于他们动机的许多信息。
+- en: 'One of the ways to answer this question is, again, `TimeDateStamp`, which looks
+    at many samples and their compile times. In some cases, they fall into 9-5 jobs
+    for a particular time zone, which may help deduce the attackers’ country of origin,
+    as shown in the following graph:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回答这个问题的一种方法是再次查看 `TimeDateStamp`，它会查看多个样本及其编译时间。在某些情况下，它们符合特定时区的工作时间（9-5），这可能有助于推测攻击者的国家来源，如下图所示：
+- en: '![](img/Figure_3.11_B18500.jpg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.11_B18500.jpg)'
+- en: Figure 3.11 – Patterns in compilation timestamps
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.11 – 编译时间戳的模式
+- en: The Rich header may also be used for attribution purposes since combining different
+    versions of software that were used to compile the sample generally doesn’t change
+    very often for a particular setup.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Rich 头部也可以用于归属目的，因为用于编译样本的不同版本的组合通常在特定设置下变化不大。
+- en: '*Is malware signed with a stolen certificate? Are all these samples related?*'
+  id: totrans-183
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*恶意软件是否使用了被盗的证书？这些样本之间是否有关联？*'
+- en: One of the data directory entries is related to the certificate. Some applications
+    are signed by their manufacturer to provide additional trust for the users and
+    the operating system that this application is safe. But these certificates sometimes
+    get stolen and used by different malware actors.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据目录中的一个条目与证书有关。某些应用程序由其制造商签名，以提供额外的信任，确保用户和操作系统该应用程序是安全的。但是这些证书有时会被盗用，并被不同的恶意软件行为者使用。
+- en: For all the malicious samples that use a specific stolen certificate, it’s quite
+    likely that all of them are produced by the same actor. Even if they have a different
+    purpose or target different victims, they’re likely to be different activities
+    performed by the same attackers.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于所有使用特定被盗证书的恶意样本，所有样本很可能都是同一行为者所生产的。即使它们的目的不同，或者攻击的目标不同，仍然可能是同一攻击者执行的不同活动。
+- en: As we mentioned earlier, a PE header is an information treasure trove if you
+    look into the details hiding inside its fields. Here, we covered some of the most
+    common use cases. There is so much more to get out of it, and it’s up to you to
+    explore it further.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们之前所提到的，PE 头部如果仔细查看其字段中的细节，它是一个信息宝库。在这里，我们介绍了一些最常见的使用场景。它的潜力远不止这些，接下来由你进一步探索。
+- en: PE loading and process creation
+  id: totrans-187
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: PE 加载与进程创建
+- en: Everything that we have covered so far was related to the PE file present on
+    the hard disk. What we haven’t covered yet is how this PE file changes in memory
+    when it’s loaded, as well as the whole execution process of these files. In this
+    section, we will talk about how Windows loads a PE file, executes it, and turns
+    it into a live program.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们所讨论的内容都与硬盘上存在的 PE 文件相关。我们尚未涉及的是当 PE 文件加载到内存中时，它是如何变化的，以及这些文件的整个执行过程。在本节中，我们将讨论
+    Windows 如何加载 PE 文件、执行它，并将其转化为一个活跃的程序。
+- en: Basic terminology
+  id: totrans-189
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基本术语
+- en: To understand PE loading and process creation, we must cover some basic terminology,
+    such as process, thread, **Thread Environment Block** (**TEB**), **Process Environment
+    Block** (**PEB**), and others before we dive into the flow of loading and executing
+    an executable PE file.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要理解 PE 加载与进程创建，我们必须先了解一些基本术语，例如进程、线程、**线程环境块**（**TEB**）、**进程环境块**（**PEB**）等，然后才能深入了解加载和执行可执行
+    PE 文件的流程。
+- en: What’s a process?
+  id: totrans-191
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 什么是进程？
+- en: A process is not just a representation of a running program in memory – it is
+    also a container for all the information about the running application. This container
+    stores information about the virtual memory associated with that process, all
+    the loaded DLLs, opened files and sockets, the list of threads running as part
+    of this process (we will cover this later), the process ID, and much more.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程不仅仅是内存中正在运行的程序的表示，它还是包含所有关于正在运行的应用程序信息的容器。这个容器存储着与该进程相关的虚拟内存信息，所有加载的 DLL、打开的文件和套接字、作为该进程一部分的线程列表（我们稍后会详细介绍）、进程
+    ID 等信息。
+- en: 'A process is a structure in the kernel that holds all this information, working
+    as an entity to represent this running executable file, as shown in the following
+    diagram:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进程是内核中的一个结构，包含所有这些信息，作为一个实体表示正在运行的可执行文件，如下图所示：
+- en: '![](img/Figure_3.12_B18500.jpg)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.12_B18500.jpg)'
+- en: Figure 3.12 – Example of a 32-bit process memory layout
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.12 – 32 位进程内存布局示例
+- en: We’ll compare the various aspects of virtual memory and physical memory in the
+    next section.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在下一节中比较虚拟内存和物理内存的各个方面。
+- en: Mapping virtual memory to physical memory
+  id: totrans-197
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 虚拟内存到物理内存的映射
+- en: 'Virtual memory is like a holder for each process. Each process has its own
+    virtual memory space to store its images, related libraries, and all the auxiliary
+    memory ranges dedicated to the stack, heap, and so on. This virtual memory has
+    a mapper to the equivalent physical memory. Not all virtual memory addresses are
+    mapped to physical memory, and each one that’s been mapped has a permission (*READ|WRITE*,
+    *READ|EXECUTE*, or maybe *READ|WRITE|EXECUTE*), as shown in the following diagram:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟内存就像是为每个进程提供的一个容器。每个进程都有自己的虚拟内存空间来存储其镜像、相关库以及所有为栈、堆等分配的辅助内存区域。这个虚拟内存与相应的物理内存有映射关系。并非所有虚拟内存地址都会映射到物理内存，每个被映射的地址都有一个权限（*READ|WRITE*、*READ|EXECUTE*，或者可能是
+    *READ|WRITE|EXECUTE*），如以下图所示：
+- en: '![](img/Figure_3.13_B18500.jpg)'
+  id: totrans-199
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.13_B18500.jpg)'
+- en: Figure 3.13 – Mappings between physical and virtual memory
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.13 – 物理内存与虚拟内存之间的映射
+- en: Virtual memory allows you to create a security layer between one process and
+    another and allows the operating system to manage different processes and suspend
+    one process to give resources to another.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虚拟内存允许在不同进程之间创建一个安全层，并允许操作系统管理不同的进程，暂停一个进程并将资源分配给另一个进程。
+- en: Threads
+  id: totrans-202
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 线程
+- en: A thread is not just the entity that represents an execution path inside a process
+    (and each process can have one or more threads running simultaneously). It is
+    also a structure in the kernel that saves the whole state of that execution, including
+    the registers, stack information, and the last error.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 线程不仅仅是表示进程内部执行路径的实体（每个进程可以有一个或多个线程同时运行）。它还是内核中的一个结构，保存着该执行路径的整个状态，包括寄存器、栈信息和最后的错误。
+- en: Each thread in Windows has a little time frame to run in before it gets stopped
+    to have another thread resumed (as the number of processor cores is much smaller
+    than the number of threads running in the entire system). When Windows changes
+    the execution from one thread to another, it takes a snapshot of the whole execution
+    state (registers, stack, instruction pointer, and so on) and saves it in the thread
+    structure to be able to resume it again from where it stopped.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 中的每个线程都有一个小的时间片在执行，然后被暂停以恢复另一个线程（因为处理器核心的数量远小于整个系统中运行的线程数）。当 Windows
+    在一个线程与另一个线程之间切换时，它会对整个执行状态（寄存器、栈、指令指针等）进行快照，并将其保存到线程结构中，以便从暂停的地方恢复执行。
+- en: All threads running in one process share the same resources of that process,
+    including the virtual memory, open files, open sockets, DLLs, mutexes, and others,
+    and they synchronize with each other upon accessing these resources.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在一个进程中运行的所有线程共享该进程的相同资源，包括虚拟内存、打开的文件、打开的套接字、DLL、互斥锁等，并在访问这些资源时相互同步。
+- en: 'Each thread has a stack, instruction pointer, code functions for error handling
+    (SEH, which will be covered in [*Chapter 6*](B18500_06.xhtml#_idTextAnchor554),
+    *Bypassing Anti-Reverse Engineering Techniques*), a thread ID, and a thread information
+    structure called TEB, as shown in the following diagram:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个线程都有一个栈、指令指针、用于错误处理的代码函数（SEH，详见[*第 6 章*](B18500_06.xhtml#_idTextAnchor554)，*绕过反向工程技术*）、线程
+    ID 和一个名为 TEB 的线程信息结构，如下图所示：
+- en: '![](img/Figure_3.14_B18500.jpg)'
+  id: totrans-207
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.14_B18500.jpg)'
+- en: Figure 3.14 – Example processes with one and multiple threads
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.14 – 示例进程，包含一个线程和多个线程
+- en: Next, we will talk about the crucial data structures that are needed to understand
+    threads and processes. Let’s get started.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将讨论理解线程和进程所需的关键数据结构。让我们开始吧。
+- en: Important data structures – TIB, TEB, and PEB
+  id: totrans-210
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 重要的数据结构——TIB、TEB和PEB
+- en: The last thing that you need to understand related to processes and threads
+    are TIB, TEB, and PEB data structures. These structures are stored inside the
+    process memory, and their main function is to include all the information about
+    the process and each thread, as well as make them accessible to the code so that
+    it can easily know the process filename, the loaded DLLs, and other related information.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与进程和线程相关的最后一项内容是TIB、TEB和PEB数据结构。这些结构存储在进程内存中，其主要功能是包含有关进程和每个线程的所有信息，并使代码能够轻松访问这些信息，以便轻松获取进程文件名、已加载的DLL和其他相关信息。
+- en: 'They can all be accessed through a special segment register, either FS (32-bit)
+    or GS (64-bit), like this:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它们可以通过一个特殊的段寄存器访问，分别是FS（32位）或GS（64位），就像这样：
+- en: '[PRE0]'
+  id: totrans-213
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'These data structures have the following functions:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些数据结构具有以下功能：
+- en: '**Thread Information Block (TIB)**: This contains information about the thread,
+    including the list of functions that are used for error handling and much more.'
+  id: totrans-215
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**线程信息块（TIB）**：该结构包含有关线程的信息，包括用于错误处理的函数列表等。'
+- en: '**Thread Environment Block (TEB)**: This structure starts with the TIB, which
+    is then followed by additional thread-related fields. In many cases, the terms
+    TIB and TEB are used interchangeably.'
+  id: totrans-216
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**线程环境块（TEB）**：该结构以TIB开始，后跟其他与线程相关的字段。在许多情况下，TIB和TEB这两个术语可以互换使用。'
+- en: '**Process Environment Block (PEB)**: This includes various information about
+    the process, such as its name, ID (PID), and a list of modules (which includes
+    all the PE files that have been loaded in memory – mainly the program itself and
+    the DLLs).'
+  id: totrans-217
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程环境块（PEB）**：该结构包含有关进程的各种信息，例如其名称、ID（PID）和模块列表（包括所有已加载到内存中的PE文件——主要是程序本身和DLL文件）。'
+- en: In the next section, and throughout this entire book, we will cover the different
+    information that is stored in these structures that is used to help the malicious
+    code achieve its goals – for example, to detect debuggers.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的章节中，以及本书的整个过程中，我们将介绍这些结构中存储的不同信息，这些信息用于帮助恶意代码实现其目标——例如，检测调试器。
+- en: Process creation step by step
+  id: totrans-219
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 逐步创建进程
+- en: 'Now that we know the basic terminology, we can dive into PE loading and process
+    creation. We will investigate it sequentially, as shown in the following steps:'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了基本术语，可以深入探讨PE加载和进程创建的过程。我们将按顺序调查它，如下所示的步骤所示：
+- en: '`calc.exe`, another process called `explorer.exe` (the process of Windows Explorer)
+    calls an API, `CreateProcessA`, which gives the operating system the request to
+    create this process and start its execution.'
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`calc.exe`，另一个名为`explorer.exe`的进程（即Windows资源管理器的进程）调用一个API，`CreateProcessA`，该API向操作系统发出请求，以创建此进程并开始执行。'
+- en: '`EPROCESS`), sets a unique ID for this process (`ProcessID`), and sets the
+    `explorer.exe` file’s process ID as a parent PID for the newly created `calc.exe`
+    process.'
+  id: totrans-222
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`EPROCESS`，为该进程设置唯一的ID（`ProcessID`），并将`explorer.exe`文件的进程ID设置为新创建的`calc.exe`进程的父PID。'
+- en: '`EPROCESS` structure. Then, it creates the PEB structure with all the necessary
+    information and loads the main two DLLs that Windows applications will always
+    need: `ntdll.dll` and `kernel32.dll` (some applications run on other Windows subsystems,
+    such as POSIX, and don’t use `kernel32.dll`).'
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`EPROCESS`结构。接着，它创建PEB结构，包含所有必要的信息，并加载Windows应用程序始终需要的两个主要DLL：`ntdll.dll`和`kernel32.dll`（有些应用程序运行在其他Windows子系统上，例如POSIX，并不使用`kernel32.dll`）。'
+- en: '**Loading the PE file**: After that, Windows starts loading the PE file (which
+    we will explain next), which loads all the required third-party libraries (DLLs),
+    including all the DLLs these libraries require, and makes sure to find the required
+    APIs from these libraries and save their addresses in the import table of the
+    loaded PE file so that the code can easily access them and call them.'
+  id: totrans-224
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**加载PE文件**：然后，Windows开始加载PE文件（我们将在下一节解释），它加载所有必需的第三方库（DLL），包括这些库所需要的所有DLL，并确保从这些库中找到所需的API，并将其地址保存到已加载PE文件的导入表中，以便代码能够轻松访问并调用它们。'
+- en: '**Starting the execution**: Last but not least, Windows creates the first thread
+    in the process, which does some initialization and calls the PE file’s entry point
+    to start the execution of the program. The TLS callbacks mentioned previously,
+    if present, will be executed before the entry point.'
+  id: totrans-225
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**启动执行**：最后但同样重要的是，Windows 在进程中创建第一个线程，执行一些初始化工作，并调用 PE 文件的入口点以启动程序执行。之前提到的
+    TLS 回调（如果有的话）将在入口点之前执行。'
+- en: Now, let’s dig deeper into the PE loading part of this process.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们更深入地探讨这一过程中的 PE 加载部分。
+- en: PE file loading step by step
+  id: totrans-227
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: PE 文件加载步骤
+- en: 'The Windows PE loader follows these steps while loading an executable PE file
+    into memory (including dynamic link libraries):'
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows PE 加载器在将可执行的 PE 文件加载到内存中（包括动态链接库）时遵循以下步骤：
+- en: '`ImageBase`: To load the PE file (if possible) at this address in its virtual
+    memory.'
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`ImageBase`：将 PE 文件加载到其虚拟内存中的此地址（如果可能的话）。'
+- en: '`NumberOfSections`: To be used to load the sections.'
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`NumberOfSections`：用于加载各个节。'
+- en: '`SizeOfImage`: As this will be the final size of the whole PE file after being
+    loaded in memory, this value will be used to allocate the space initially.'
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`SizeOfImage`：因为这是整个 PE 文件在内存中加载后的最终大小，所以这个值将用于最初的空间分配。'
+- en: '`NumberOfSections` field parses all the sections in the PE file and makes sure
+    to get all the necessary information, including their addresses and sizes in memory
+    (`VirtualAddress` and `VirtualSize` respectively), as well as the offset and the
+    size of the section on the hard disk for reading its data.'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`NumberOfSections` 字段解析 PE 文件中的所有节，确保获取所有必要的信息，包括它们在内存中的地址和大小（分别是 `VirtualAddress`
+    和 `VirtualSize`），以及硬盘上节的偏移和大小，用于读取数据。'
+- en: '`SectionAlignment`, the loader copies all the headers and then moves each section
+    to a new place using its `VirtualAddress` and `VirtualSize` values (if `VirtualAddress`
+    or `VirtualSize` are not aligned with `SectionAlignment`, the loader will align
+    them first and then use them), as shown in the following diagram:'
+  id: totrans-233
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`SectionAlignment`，加载器复制所有头部信息，然后根据 `VirtualAddress` 和 `VirtualSize` 值（如果 `VirtualAddress`
+    或 `VirtualSize` 与 `SectionAlignment` 不对齐，加载器会先进行对齐，然后使用这些值）将每个节移动到新位置，如下图所示：'
+- en: '![](img/Figure_3.15_B18500.jpg)'
+  id: totrans-234
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.15_B18500.jpg)'
+- en: Figure 3.15 – Mapping sections from disk to memory
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.15 – 将节从磁盘映射到内存
+- en: '**Dealing with third-party libraries**: In this step, the loader loads all
+    the required DLLs, going through this process again and again recursively until
+    all DLLs are loaded. After that, it gets the addresses of all the imported APIs
+    and saves them in the import table of the loaded PE file.'
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**处理第三方库**：在这一步骤中，加载器加载所有需要的 DLL 文件，反复递归地执行这个过程，直到所有 DLL 文件都被加载完成。之后，它获取所有导入的
+    API 的地址，并将它们保存到已加载 PE 文件的导入表中。'
+- en: '`ImageBase`, the loader fixes all the absolute addresses in the code with the
+    new address of the program/library (with the new `ImageBase`).'
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`ImageBase`，加载器使用程序/库的新地址（新的 `ImageBase`）修复代码中的所有绝对地址。'
+- en: '**Starting the execution**: Finally, as in process creation, Windows creates
+    the first thread, which executes the program from its entry point. Some anti-reverse
+    engineering techniques can force it to start somewhere else before, which we will
+    cover in [*Chapter 6*](B18500_06.xhtml#_idTextAnchor554), *Bypassing Anti-Reverse
+    Engineering Techniques*.'
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**启动执行**：最后，就像进程创建一样，Windows 创建第一个线程，从程序的入口点开始执行程序。一些反调试技术可能会强制它从其他地方开始，我们将在
+    [*第 6 章*](B18500_06.xhtml#_idTextAnchor554) *绕过反调试技术* 中讨论这一点。'
+- en: One more thing we need to learn about is WOW64.
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还需要了解的一点是 WOW64。
+- en: WOW64 processes
+  id: totrans-240
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: WOW64 进程
+- en: At this point, you should understand how a 32-bit process gets loaded into an
+    x86 environment and how a 64-bit process gets loaded into an x64 environment.
+    So, how about running 32-bit programs in 64-bit operating systems?
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一点上，你应该了解如何将 32 位进程加载到 x86 环境中，以及如何将 64 位进程加载到 x64 环境中。那么，在 64 位操作系统中如何运行
+    32 位程序呢？
+- en: 'For this special case, Windows has created what’s called the WOW64 subsystem.
+    It is implemented mainly in the following DLLs:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这种特殊情况，Windows 创建了所谓的 WOW64 子系统。它主要通过以下 DLL 文件实现：
+- en: '`wow64.dll`'
+  id: totrans-243
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wow64.dll`'
+- en: '`wow64cpu.dll`'
+  id: totrans-244
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wow64cpu.dll`'
+- en: '`wow64win.dll`'
+  id: totrans-245
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wow64win.dll`'
+- en: These DLLs create a simulated environment for the 32-bit process, which includes
+    32-bit versions of libraries that it may need.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些 DLL 创建了一个模拟的 32 位进程环境，其中包括它可能需要的 32 位版本的库。
+- en: 'These DLLs, rather than connecting directly to the Windows kernel, call an
+    API, `X86SwitchTo64BitMode`, which then switches to x64 and calls the 64-bit `ntdll.dll`,
+    which communicates directly with the kernel, as shown in the following diagram:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些 DLL 文件并不是直接连接到 Windows 内核，而是调用一个 API，`X86SwitchTo64BitMode`，该 API 会切换到 x64
+    模式并调用 64 位的 `ntdll.dll`，然后直接与内核通信，如下图所示：
+- en: '![](img/Figure_3.16_B18500.jpg)'
+  id: totrans-248
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.16_B18500.jpg)'
+- en: Figure 3.16 – WOW64 architecture
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.16 – WOW64 架构
+- en: Also, for WOW64-based processes (x86 processes running in an x64 environment),
+    new APIs were introduced, such as IsWow64Process, which is commonly used by malware
+    to identify if it’s running as a 32-bit process in an x64 environment or an x86
+    environment.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，对于基于 WOW64 的进程（在 x64 环境中运行的 x86 进程），引入了新的 API，例如 IsWow64Process，恶意软件通常使用该
+    API 来判断它是以 32 位进程在 x64 环境中运行，还是在 x86 环境中运行。
+- en: Basics of dynamic analysis using OllyDbg and x64dbg
+  id: totrans-251
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 OllyDbg 和 x64dbg 进行动态分析的基础
+- en: Now that we’ve explained processes, threads, and the execution of the PE files,
+    it’s time to start debugging a running process and understanding its functionality
+    by tracing over its code at runtime.
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经解释了进程、线程以及 PE 文件的执行过程，接下来是时候开始调试一个正在运行的进程，并通过追踪运行时的代码来理解它的功能。
+- en: Debugging tools
+  id: totrans-253
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 调试工具
+- en: 'There are multiple debugging tools we can use. Here, we will just give three
+    examples that are quite similar to each other in terms of their UIs and functionality:'
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用多种调试工具。在这里，我们将介绍三种在界面和功能上非常相似的工具：
+- en: '**OllyDbg**: This is probably the most well-known debugger for the Windows
+    platform. The following screenshot shows its UI, which has become a standard for
+    most Windows debuggers:'
+  id: totrans-255
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**OllyDbg**：这可能是 Windows 平台上最著名的调试器。以下截图展示了它的用户界面，已经成为大多数 Windows 调试器的标准：'
+- en: '![](img/Figure_3.17_B18500.jpg)'
+  id: totrans-256
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.17_B18500.jpg)'
+- en: Figure 3.17 – OllyDbg UI
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.17 – OllyDbg 用户界面
+- en: '**Immunity Debugger**: This is a scriptable clone of OllyDbg that focuses on
+    exploitation and bug hunting:'
+  id: totrans-258
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Immunity Debugger**：这是一个可脚本化的 OllyDbg 克隆，专注于利用和漏洞挖掘：'
+- en: '![](img/Figure_3.18_B18500.jpg)'
+  id: totrans-259
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.18_B18500.jpg)'
+- en: Figure 3.18 – Immunity Debugger UI
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.18 – Immunity Debugger 用户界面
+- en: '**X64dbg**: This is a debugger for x86 and x64 executables with an interface
+    that’s very similar to OllyDbg. It’s also an open source debugger:'
+  id: totrans-261
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**X64dbg**：这是一个支持 x86 和 x64 可执行文件的调试器，界面与 OllyDbg 非常相似。它也是一个开源调试器：'
+- en: '![](img/Figure_3.19_B18500.jpg)'
+  id: totrans-262
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.19_B18500.jpg)'
+- en: Figure 3.19 – x64dbg UI
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.19 – x64dbg 用户界面
+- en: We will cover OllyDbg 1.10 (the most common version of OllyDbg) in great detail.
+    The same concepts and hotkeys can be applied to other debuggers mentioned here.
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将详细介绍 OllyDbg 1.10（OllyDbg 最常用的版本）。相同的概念和快捷键可以应用于这里提到的其他调试器。
+- en: How to analyze a sample with OllyDbg
+  id: totrans-265
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何使用 OllyDbg 分析样本
+- en: 'The OllyDbg UI interface is pretty simple and easy to learn. In this section,
+    we will cover the steps and the different windows that can help you with your
+    analysis:'
+  id: totrans-266
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OllyDbg 用户界面非常简洁，易于学习。在这一部分，我们将介绍帮助你进行分析的步骤和不同的窗口：
+- en: '**Select a sample to debug**: You can directly open the sample file by going
+    to **File** | **Open** and choosing a PE file to open (it could be a DLL file
+    as well, but make sure it’s a 32-bit sample). Alternatively, you can attach it
+    to a running process, as shown here:'
+  id: totrans-267
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**选择一个样本进行调试**：你可以直接通过 **文件** | **打开** 来打开样本文件，选择一个 PE 文件进行打开（它也可以是一个 DLL 文件，但请确保它是
+    32 位样本）。另外，你还可以将其附加到一个正在运行的进程，如下所示：'
+- en: '![](img/Figure_3.20_B18500.jpg)'
+  id: totrans-268
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.20_B18500.jpg)'
+- en: Figure 3.20 – OllyDbg attaching dialog window
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.20 – OllyDbg 附加对话框
+- en: '**CPU window**: This is your main window. This is the window that you spend
+    most of your debugging time in. This window includes the assembly code in the
+    top left-hand corner and provides the option to set breakpoints by double-clicking
+    on the address or modifying the program’s assembly code.'
+  id: totrans-270
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**CPU 窗口**：这是你的主窗口。在调试过程中，你大部分时间都会待在这个窗口。此窗口包含左上角的汇编代码，并提供通过双击地址设置断点或修改程序汇编代码的选项。'
+- en: You’ve also got the registers in the top right-hand corner. It is possible to
+    modify them at any given time (once the execution has been paused). At the bottom,
+    you have the stack and the data in hex format, which you can also modify.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在右上角，你也可以看到寄存器。只要执行被暂停，就可以随时修改它们。在底部，你可以看到堆栈和十六进制格式的数据，这些也可以修改。
+- en: 'You can simply modify any data in memory in the following two views:'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以在以下两种视图中轻松修改内存中的任何数据：
+- en: '![](img/Figure_3.21_B18500.jpg)'
+  id: totrans-273
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.21_B18500.jpg)'
+- en: Figure 3.21 – OllyDbg default window layout explained
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.21 – OllyDbg 默认窗口布局解释
+- en: '**Executable modules Window**: There are multiple windows in OllyDbg that can
+    help you with your analysis, such as the **Executable modules** window (you can
+    access it by going to **View** | **Executable modules**), as shown in the following
+    screenshot:'
+  id: totrans-275
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**可执行模块窗口**：OllyDbg中有多个窗口可以帮助你进行分析，例如**可执行模块**窗口（你可以通过进入**视图** | **可执行模块**来访问它），如下图所示：'
+- en: '![](img/Figure_3.22_B18500.jpg)'
+  id: totrans-276
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.22_B18500.jpg)'
+- en: Figure 3.22 – OllyDbg dialog window for executable modules
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.22 – OllyDbg 可执行模块对话框
+- en: This window will help you see all the loaded PE files in this process’ virtual
+    memory, including the malware sample and all the libraries or DLLs loaded with
+    it.
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个窗口将帮助你看到该进程虚拟内存中加载的所有PE文件，包括恶意样本和与之一起加载的所有库或DLL。
+- en: '**Memory map window**: Here, you can see all the allocated memory inside the
+    process’ virtual memory. Allocated memory is the memory that is represented in
+    the physical (RAM) memory or a **page file** on the hard disk to store the content
+    of the RAM when it’s not big enough. You can see what they represent and their
+    memory protection (READ, WRITE, and/or EXECUTE), as shown in the following screenshot:'
+  id: totrans-279
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**内存映射窗口**：在这里，你可以看到进程虚拟内存中的所有分配的内存。分配的内存是代表物理（RAM）内存或者**页面文件**的内存，用于在内存不足时存储RAM中的内容。你可以看到它们代表的内容及其内存保护状态（读取、写入和/或执行），如下图所示：'
+- en: '![](img/Figure_3.23_B18500.jpg)'
+  id: totrans-280
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.23_B18500.jpg)'
+- en: Figure 3.23 – OllyDbg memory map dialog window
+  id: totrans-281
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.23 – OllyDbg 内存映射对话框
+- en: '**Debugging the sample**: In the **Debug** menu, you have multiple options
+    for running the program’s assembly code, such as fully executing the sample until
+    you hit a breakpoint using **Run** or just using *F9*.'
+  id: totrans-282
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**调试示例**：在**调试**菜单中，你有多种选项来运行程序的汇编代码，例如通过**运行**完全执行示例，直到遇到断点，或者直接使用*F9*。'
+- en: 'The other option will be to just step over. **Step over** executes one line
+    of code. However, if this line of code is a call to another function, it executes
+    this function completely and stops just after the function returns. This makes
+    it different from **Step into**, which goes inside the function and stops at the
+    beginning of it, as shown in the following screenshot:'
+  id: totrans-283
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个选项是直接单步跳过。**单步跳过**执行一行代码。然而，如果这行代码是对另一个函数的调用，它会完全执行该函数，并在函数返回后停止。这使得它与**单步进入**不同，后者会进入函数内部并在函数开始时停止，如下图所示：
+- en: '![](img/Figure_3.24_B18500.jpg)'
+  id: totrans-284
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.24_B18500.jpg)'
+- en: Figure 3.24 – OllyDbg debug menu
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.24 – OllyDbg 调试菜单
+- en: It includes the option to set hardware breakpoints and view them, which we will
+    cover later in this chapter.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它包括设置硬件断点并查看它们的选项，我们将在本章后面介绍。
+- en: '**There’s much more**: OllyDbg allows you to modify the code of the program;
+    change its registers, state, and memory; dump any part of the memory; and save
+    the changes of the PE file in memory back to the hard disk for further static
+    analysis if needed.'
+  id: totrans-287
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**更多功能**：OllyDbg允许你修改程序的代码；更改其寄存器、状态和内存；转储内存中的任何部分；并将PE文件内存中的更改保存回硬盘，以便后续的静态分析（如果需要）。'
+- en: Now, let’s talk about breakpoints.
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来讨论一下断点。
+- en: Types of breakpoints
+  id: totrans-289
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 断点类型
+- en: To be able to dynamically analyze a sample and understand its behavior, you
+    need to be able to control its execution flow. You need to be able to stop the
+    execution when a condition is met, examine its memory, and alter its registers’
+    values and instructions. There are several types of breakpoints that make this
+    possible.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了能够动态分析样本并理解其行为，你需要能够控制它的执行流程。你需要能够在满足条件时停止执行，检查其内存，并修改其寄存器的值和指令。有几种类型的断点可以实现这一点。
+- en: Step into/step over breakpoints
+  id: totrans-291
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 单步进入/单步跳过断点
+- en: This breakpoint is very simple and allows the processor to execute only one
+    instruction of the program, before returning to the debugger.
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个断点非常简单，允许处理器仅执行程序的一条指令，然后返回调试器。
+- en: This breakpoint modifies a flag in a register called **EFlags**. While not common,
+    this breakpoint could be detected by malware to identify the presence of a debugger,
+    which we will cover when we look at anti-reverse engineering tricks in [*Chapter
+    6*](B18500_06.xhtml#_idTextAnchor554), *Bypassing Anti-Reverse Engineering Techniques*.
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个断点修改了寄存器中的一个标志，叫做**EFlags**。虽然不常见，但恶意软件可能会通过检测这个断点来识别调试器的存在，我们将在第[*6章*](B18500_06.xhtml#_idTextAnchor554)《绕过反向工程技巧》中讨论这一点。
+- en: Software (INT3) breakpoints
+  id: totrans-294
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 软件（INT3）断点
+- en: 'This is the most common breakpoint, and you can easily set this breakpoint
+    by double-clicking on the hex representation of an assembly line in the CPU window
+    in OllyDbg or pressing *F2*. After this, you will see a red highlight over the
+    address of this instruction, as shown in the following screenshot:'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是最常见的断点，你可以通过双击OllyDbg中CPU窗口中的汇编行的十六进制表示或按下*F2*轻松设置这个断点。之后，你会看到该指令的地址上出现红色高亮，如下图所示：
+- en: '![](img/Figure_3.25_B18500.jpg)'
+  id: totrans-296
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.25_B18500.jpg)'
+- en: Figure 3.25 – Disassembly in OllyDbg
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.25 – OllyDbg中的反汇编
+- en: Well, this is what you see through the debugger’s UI, but what you don’t see
+    is that the first byte of this instruction (0xB8, in this case) has been modified
+    to 0xCC (the INT3 instruction), which stops the execution once the processor reaches
+    it and returns control to the debugger. This 0xCC byte is not visible in the debugger
+    UI as it keeps showing us the original bytes and the instruction they represent,
+    but it can be seen if we decide to dump this memory on the disk and look at it
+    using the hex editor.
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，这就是你通过调试器的界面看到的内容，但你看不到的是该指令的第一个字节（在此例中是0xB8）已被修改为0xCC（INT3指令），这会在处理器到达时停止执行并将控制权返回给调试器。这个0xCC字节在调试器界面中是不可见的，因为它始终显示原始字节和它们所代表的指令，但如果我们决定将此内存转储到磁盘并使用十六进制编辑器查看它，则可以看到。
+- en: Once the debugger gets control of this INT3 breakpoint, it replaces 0xCC with
+    0xB8 to execute this instruction normally.
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦调试器获取了这个INT3断点的控制权，它会将0xCC替换为0xB8，以正常执行此指令。
+- en: The main problem with this breakpoint is that it modifies memory. If malware
+    tries to read or modify the bytes of this instruction, it will read the first
+    byte as 0xCC instead of 0xB8, which can break some code or detect the presence
+    of the debugger (which we will cover in [*Chapter 6*](B18500_06.xhtml#_idTextAnchor554)*,*
+    *Bypassing Anti-Reverse Engineering Techniques*). In addition, it may affect memory
+    dumping because this way, the resulting dump will be damaged by these modifications.
+    The solution to this problem is to remove all software breakpoints before dumping
+    memory.
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个断点的主要问题是它会修改内存。如果恶意软件尝试读取或修改此指令的字节，它会将第一个字节读取为0xCC，而不是0xB8，这可能会破坏一些代码或检测到调试器的存在（我们将在[*第6章*](B18500_06.xhtml#_idTextAnchor554)中讨论，*绕过反向工程技术*）。此外，它可能会影响内存转储，因为这样生成的转储会因为这些修改而损坏。解决这个问题的方法是在转储内存之前移除所有软件断点。
+- en: Memory breakpoints
+  id: totrans-301
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 内存断点
+- en: Memory breakpoints are used not to stop the execution of specific instructions,
+    but to stop when any instruction tries to read or modify a specific part of memory.
+    The way many debuggers set memory breakpoints is by adding the *PAGE_GUARD* (0x100)
+    protection flag to the page’s original protection and removing *PAGE_GUARD* once
+    the breakpoint is hit.
+  id: totrans-302
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存断点用于不是为了停止特定指令的执行，而是在任何指令尝试读取或修改特定内存区域时停止。许多调试器设置内存断点的方式是通过向页面的原始保护添加*PAGE_GUARD*（0x100）保护标志，并在断点被触发后移除*PAGE_GUARD*。
+- en: 'These can be accessed by right-clicking on **Breakpoint** | **Memory, on access**
+    or **Memory, on write**, as shown in the following screenshot:'
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些可以通过右键点击**断点** | **内存，读取时**或**内存，写入时**来访问，如下图所示：
+- en: '![](img/Figure_3.26_B18500.jpg)'
+  id: totrans-304
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.26_B18500.jpg)'
+- en: Figure 3.26 – OllyDbg breakpoint menu
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.26 – OllyDbg 断点菜单
+- en: Another important thing to note here is that memory breakpoints are less precise
+    as it is only possible to change memory protection flags for a memory page, not
+    for a single byte.
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要注意的重要事项是，内存断点的精度较低，因为只能更改内存页面的保护标志，而不能更改单个字节的保护标志。
+- en: Hardware breakpoints
+  id: totrans-307
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 硬件断点
+- en: 'Hardware breakpoints are based on six special-purpose registers: **DR0-DR3**,
+    **DR6**, and **DR7**.'
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 硬件断点基于六个特殊用途寄存器：**DR0-DR3**、**DR6**和**DR7**。
+- en: These registers allow you to set a maximum of four breakpoints that have been
+    given specific addresses to read, write, or execute 1, 2, or 4 bytes, starting
+    from the given address. They are very useful as they don’t modify the instruction
+    bytes as INT3 breakpoints do, and they are generally harder to detect. However,
+    they could still be detected and removed by the malware, which we will discuss
+    in [*Chapter 6*](B18500_06.xhtml#_idTextAnchor554), *Bypassing Anti-Reverse Engineering
+    Techniques*.
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些寄存器允许你设置最多四个断点，每个断点都有特定的地址，可以从给定地址开始读取、写入或执行1、2或4个字节。它们非常有用，因为它们不会像INT3断点那样修改指令字节，而且通常更难被检测到。然而，它们仍然可能会被恶意软件检测并移除，我们将在[*第6章*](B18500_06.xhtml#_idTextAnchor554)中讨论，*绕过反向工程技术*。
+- en: 'You can view them from the **Debug** menu by going to **Hardware breakpoints**,
+    as shown in the following screenshot:'
+  id: totrans-310
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过进入**Debug**菜单并选择**Hardware breakpoints**来查看它们，如下图所示：
+- en: '![](img/Figure_3.27_B18500.jpg)'
+  id: totrans-311
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.27_B18500.jpg)'
+- en: Figure 3.27 – OllyDbg dialog window for hardware breakpoints
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.27 – OllyDbg 硬件断点对话框
+- en: As you can see, each type of breakpoint serves a particular purpose and has
+    advantages and disadvantages, so it is important to know all of them and use them
+    according to the task at hand.
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，每种类型的断点都有其特定的用途，并且有各自的优缺点，因此了解它们并根据任务需求使用它们非常重要。
+- en: Modifying the program’s execution
+  id: totrans-314
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 修改程序的执行
+- en: To be able to bypass anti-debugging tricks, forcing the malware to communicate
+    with the C&C or even testing different branches of the malware execution, you
+    need to be able to alter the execution flow of the malware. Let’s look at the
+    different techniques we can use to alter the execution flow and the behavior of
+    any thread.
+  id: totrans-315
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了绕过反调试技巧，强制恶意软件与C&C通信，甚至测试恶意软件执行的不同分支，你需要能够改变恶意软件的执行流程。让我们来看一下可以用来改变执行流程和任何线程行为的不同技巧。
+- en: Modifying the program’s assembly instructions
+  id: totrans-316
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 修改程序的汇编指令
+- en: 'You can modify the code execution path by changing the assembly instruction.
+    For example, you can change a conditional jump instruction to the opposite condition,
+    as shown in the following screenshot, and force the execution of a specific branch
+    that wasn’t supposed to be executed:'
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过更改汇编指令来修改代码执行路径。例如，你可以将条件跳转指令更改为相反条件，如下图所示，强制执行本不该执行的特定分支：
+- en: '![](img/Figure_3.28_B18500.jpg)'
+  id: totrans-318
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.28_B18500.jpg)'
+- en: Figure 3.28 – Working with assembly in OllyDbg
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.28 – 在 OllyDbg 中使用汇编
+- en: Apart from the code, it is also possible to change the content of registers.
+  id: totrans-320
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了代码之外，还可以更改寄存器的内容。
+- en: Changing EFlags
+  id: totrans-321
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 更改EFlags
+- en: Rather than modifying the code of the conditional jump instruction, you can
+    modify the results of the comparison before it by changing the EFlags registers.
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其修改条件跳转指令的代码，你也可以通过更改EFlags寄存器来修改其比较结果。
+- en: At the top right, after the registers, you have multiple flags that you can
+    change. Each flag represents a specific result from any comparison (other instructions
+    change these flags as well). For example, ZF represents if the two values are
+    equal or if a register became zero. By changing the ZF flag, you force conditional
+    jumps, such as `jnz` and `jz`, to jump to the opposite branch and force the execution
+    path to change.
+  id: totrans-323
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在右上角的寄存器之后，你可以看到多个可以更改的标志。每个标志表示任何比较的特定结果（其他指令也会改变这些标志）。例如，ZF表示两个值是否相等，或某个寄存器是否变为零。通过更改ZF标志，你可以强制条件跳转（如`jnz`和`jz`）跳到相反的分支，从而强制改变执行路径。
+- en: Modifying the instruction pointer value
+  id: totrans-324
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 修改指令指针值
+- en: You can force the execution of a specific branch or instruction by simply modifying
+    the instruction pointer (**EIP**/**RIP**). You can do this by right-clicking on
+    the instruction of interest and choosing **New origin here**.
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过简单地修改指令指针 (**EIP**/**RIP**) 来强制执行特定的分支或指令。你可以通过右键点击感兴趣的指令并选择**New origin
+    here**来做到这一点。
+- en: Changing the program data
+  id: totrans-326
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 更改程序数据
+- en: 'Just like you can change an instruction code, you can change the data values.
+    With the bottom-left view (the hexadecimal view), you can change bytes of the
+    data by right-clicking on **Binary** | **Edit**. You can also copy/paste hexadecimal
+    values, as shown in the following screenshot:'
+  id: totrans-327
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像你可以更改指令代码一样，你也可以更改数据值。在左下角的视图（十六进制视图）中，你可以通过右键点击**Binary** | **Edit**来更改数据的字节。你还可以复制/粘贴十六进制值，如下图所示：
+- en: '![](img/Figure_3.29_B18500.jpg)'
+  id: totrans-328
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.29_B18500.jpg)'
+- en: Figure 3.29 – Data editing in OllyDbg
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.29 – 在 OllyDbg 中的数据编辑
+- en: Now, let’s talk about how to efficiently search for important pieces of information
+    to facilitate the analysis.
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来讨论如何有效地搜索重要的信息片段，以便于分析。
+- en: List strings, APIs, and cross-references
+  id: totrans-331
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 列出字符串、API和交叉引用
+- en: When performing reverse engineering, strings and APIs serve as very important
+    sources of information, so it is important to know how to navigate them efficiently.
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在进行逆向工程时，字符串和API是非常重要的信息来源，因此了解如何高效地浏览它们非常重要。
+- en: To get a list of strings in OllyDbg, right-click anywhere in the disassembly
+    section of the CPU window and choose **Search for** | **All referenced text strings**.
+    The resulting dialog box will show all candidate C-style strings, both ANSI and
+    Unicode (UTF16-LE), and the instructions that use them.
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 OllyDbg 中获取字符串列表，右键点击 CPU 窗口的反汇编部分的任意位置，选择 **搜索** | **所有引用的文本字符串**。弹出的对话框将显示所有候选的
+    C 风格字符串，包括 ANSI 和 Unicode（UTF16-LE），以及使用这些字符串的指令。
+- en: To get a list of APIs, do the same, but this time, choose **Search for** | **All
+    intermodular calls**.
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要获取 API 列表，执行相同的操作，但这次选择 **搜索** | **所有模块间调用**。
+- en: Cross-references are markers that show the researcher where this code or data
+    is being accessed. This is an extremely important piece of information that allows
+    us to efficiently connect the dots. To find them for a particular instruction,
+    right-click on it and choose the **Find references to** | **Selected command**
+    option. For data in the hex dump window, it will be just **Find references**.
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 交叉引用是标记，显示研究人员该代码或数据的访问位置。这是一个极其重要的信息，它能有效地帮助我们连接各个点。要找到特定指令的引用，右键点击它并选择 **查找引用到**
+    | **选定命令** 选项。对于十六进制转储窗口中的数据，只需选择 **查找引用**。
+- en: Setting labels and comments
+  id: totrans-336
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 设置标签和注释
+- en: When analyzing any kind of sample, it is important to keep the markup accurate
+    so that you will always have a clear picture of what the meaning of already reviewed
+    code or data is. Giving functions and references proper names is a great way to
+    make sure you won’t have to re-analyze the same code again after some time.
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在分析任何类型的样本时，保持标注准确非常重要，这样你就能始终清晰地了解已经审查过的代码或数据的含义。为函数和引用赋予恰当的名称是确保你在一段时间后不会再次分析相同代码的好方法。
+- en: 'To give the function or some data a name, right-click on its first instruction
+    and choose the **Label** option (or just press the *:* hotkey). Now, all the references
+    to them will use this label rather than an address, as shown in the following
+    screenshot:'
+  id: totrans-338
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要给函数或某些数据命名，右键点击其首个指令并选择 **标签** 选项（或者直接按 *:* 热键）。现在，所有引用它们的地方将使用这个标签，而不是地址，如下截图所示：
+- en: '![](img/Figure_3.30_B18500.jpg)'
+  id: totrans-339
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.30_B18500.jpg)'
+- en: Figure 3.30 – Using labels and comments in OllyDbg
+  id: totrans-340
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.30 – 在 OllyDbg 中使用标签和注释
+- en: To follow the address, press *Enter* while selecting the instruction using it.
+    To return, press the *-* hotkey. To leave comments, use the *;* hotkey.
+  id: totrans-341
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要跟踪地址，在选中指令后按 *Enter* 键。要返回，按 *-* 热键。要添加注释，使用 *;* 热键。
+- en: Now, let’s talk about x64dbg.
+  id: totrans-342
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来谈谈 x64dbg。
+- en: Differences between OllyDbg and x64dbg
+  id: totrans-343
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: OllyDbg 和 x64dbg 之间的差异
+- en: 'As we mentioned previously, these debuggers share multiple similarities. They
+    use the same layout and have pretty much the same interface options and hotkeys
+    – even the default color schema is quite similar. However, there is a list of
+    differences between them, some of which are worth mentioning:'
+  id: totrans-344
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们之前提到的，这些调试器有许多相似之处。它们使用相同的布局，界面选项和热键几乎相同——甚至默认的颜色方案也相似。然而，它们之间也有一些差异，其中有些值得一提：
+- en: Unlike OllyDbg, x64dbg supports both 32- and 64-bit executables.
+  id: totrans-345
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与 OllyDbg 不同，x64dbg 支持 32 位和 64 位的可执行文件。
+- en: By default, x64dbg stops at the system breakpoint (a system function that initializes
+    an application to be debugged) while OllyDbg stops at the entry point.
+  id: totrans-346
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 默认情况下，x64dbg 会在系统断点处停止（这是一个初始化待调试应用程序的系统功能），而 OllyDbg 会在入口点处停止。
+- en: x64dbg supports tabs for dialog windows, which is very convenient in many cases,
+    such as when several **Hex dump** windows must be used simultaneously.
+  id: totrans-347
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: x64dbg 支持对话窗口的标签页，这在许多情况下非常方便，例如，当必须同时使用多个 **十六进制转储** 窗口时。
+- en: x64dbg displays more registers, including the DR0-3, DR6, and DR7 debug registers.
+  id: totrans-348
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: x64dbg 显示更多的寄存器，包括 DR0-3、DR6 和 DR7 调试寄存器。
+- en: OllyDbg may display incorrect protection flags in the **Memory map** window;
+    x64dbg is generally more accurate.
+  id: totrans-349
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OllyDbg 可能在 **内存映射** 窗口中显示不正确的保护标志；而 x64dbg 通常更为准确。
+- en: x64dbg displays breakpoints of all types in a single **Breakpoints** window
+    while OllyDbg separates them into **View** | **Breakpoints** and **Debug** | **Hardware
+    breakpoints**.
+  id: totrans-350
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: x64dbg 将所有类型的断点显示在同一个 **断点** 窗口中，而 OllyDbg 将其分为 **视图** | **断点** 和 **调试** | **硬件断点**。
+- en: x64dbg doesn’t have a menu option to call the DLL’s export function; it must
+    be done manually.
+  id: totrans-351
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: x64dbg 没有调用 DLL 导出函数的菜单选项；必须手动执行此操作。
+- en: There are other minor differences here and there, so feel free to try both tools
+    and choose the one that suits you best.
+  id: totrans-352
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里和那里还有其他一些小差异，因此可以随意尝试这两款工具，并选择最适合你的那个。
+- en: Now, let’s talk about how to debug services.
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们谈谈如何调试服务。
+- en: Debugging malicious services
+  id: totrans-354
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调试恶意服务
+- en: While loading individual executables and DLLs for debugging is generally a pretty
+    straightforward task, things get a little bit more complicated when we talk about
+    debugging Windows services.
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然加载单个可执行文件和 DLL 进行调试通常是一个相当直接的任务，但当我们讨论调试 Windows 服务时，事情变得有些复杂。
+- en: What is a service?
+  id: totrans-356
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 什么是服务？
+- en: Services are tasks that are generally supposed to execute certain logic in the
+    background, similar to daemons on Linux. So, it comes as no surprise that malware
+    authors commonly use them to achieve reliable persistence.
+  id: totrans-357
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务是通常应在后台执行某些逻辑的任务，类似于 Linux 上的守护进程。因此，恶意软件作者常常利用它们来实现可靠的持久性，这一点并不令人意外。
+- en: 'Services are controlled by the `%SystemRoot%\System32\services.exe`. All services
+    have the corresponding `HKLM\SYSTEM\CurrentControlSet\services\<service_name>`
+    registry key. It contains multiple values that describe the service, including
+    the following:'
+  id: totrans-358
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务由 `%SystemRoot%\System32\services.exe` 控制。所有服务都有相应的 `HKLM\SYSTEM\CurrentControlSet\services\<service_name>`
+    注册表项。它包含描述服务的多个值，其中包括：
+- en: '`ImagePath`: A file path to the corresponding executable with optional arguments.'
+  id: totrans-359
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ImagePath`：指向相应可执行文件的文件路径，可包含可选参数。'
+- en: '`Type`: The `REG_DWORD` value specifies the type of the service. Let’s look
+    at some examples of such supported values:'
+  id: totrans-360
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Type`：`REG_DWORD` 值指定服务的类型。让我们看一些此类支持的值的示例：'
+- en: '`0x00000001` (kernel): In this case, the logic is implemented in a driver (which
+    will be covered in more detail in [*Chapter 7*](B18500_07.xhtml#_idTextAnchor669),
+    *Understanding Kernel-Mode Rootkits*, which is dedicated to kernel-mode threats).'
+  id: totrans-361
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000001` (内核)：在这种情况下，逻辑是在驱动程序中实现的（驱动程序的详细内容将在[*第7章*](B18500_07.xhtml#_idTextAnchor669)《理解内核模式根套件》一章中介绍，该章节专门讨论内核模式威胁）。'
+- en: '`0x00000010` (own): The service runs in its own process.'
+  id: totrans-362
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000010` (独立)：服务在其自己的进程中运行。'
+- en: '`0x00000020` (share): The service runs in a shared process.'
+  id: totrans-363
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000020` (共享)：服务在共享进程中运行。'
+- en: '`Start`: This is another `REG_DWORD` value that describes the way the service
+    is supposed to start. The following options are commonly used:'
+  id: totrans-364
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Start`：这是另一个 `REG_DWORD` 值，用于描述服务应如何启动。以下选项是常用的：'
+- en: '`0x00000000` (boot) and `0x00000001` (system): These values are used for drivers.
+    In this case, they will be loaded by the boot loader or during the kernel’s initialization,
+    respectively.'
+  id: totrans-365
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000000` (启动) 和 `0x00000001` (系统)：这些值用于驱动程序。在这种情况下，它们将分别由启动加载程序或内核初始化过程中加载。'
+- en: '`0x00000002` (auto): The service will automatically start each time the machine
+    restarts. This is the obvious choice for malware.'
+  id: totrans-366
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000002` (自动)：每次机器重启时，服务会自动启动。这是恶意软件的明显选择。'
+- en: '`0x00000003` (demand): This specifies a service that should be started manually.
+    This option is particularly useful for debugging.'
+  id: totrans-367
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000003` (按需)：这指定应手动启动的服务。此选项在调试时特别有用。'
+- en: '`0x00000004` (disabled): The service won’t be started.'
+  id: totrans-368
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`0x00000004` (禁用)：服务不会启动。'
+- en: 'Let’s look at several ways the services can be designed:'
+  id: totrans-369
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看服务可以设计的几种方式：
+- en: '`ImagePath` will contain its full file path.'
+  id: totrans-370
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`ImagePath` 将包含其完整的文件路径。'
+- en: '`rundll32.exe`). The full command line is stored in the `ImagePath` key, the
+    same as in the previous case.'
+  id: totrans-371
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rundll32.exe`）。完整的命令行存储在 `ImagePath` 键中，和之前的情况一样。'
+- en: '`svchost.exe` processes. To be loaded, malware generally creates a new group
+    in `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost registry key` and
+    passes this value to `svchost.exe` using the -`k` argument. The path to the DLL
+    will be specified not in the `ImagePath` value of the service registry key, as
+    in the previous case (here, it will contain the path of `svchost.exe` with the
+    service group argument), but in the `ServiceDll` value of `HKLM\SYSTEM\CurrentControlSet\services\<service_name>\Parameter
+    s registry key`. The service DLL should contain the `ServiceMain` export function
+    (if the custom name is used, it should be specified in the `ServiceMain` registry
+    value). If the `SvchostPushServiceGlobals` export is present, it will be executed
+    before `ServiceMain`.'
+  id: totrans-372
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`svchost.exe` 进程。为了加载，恶意软件通常会在 `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost`
+    注册表项中创建一个新的组，并使用 `-k` 参数将此值传递给 `svchost.exe`。DLL 的路径将不会像之前那样在服务注册表项的 `ImagePath`
+    值中指定（在这里，它将包含 `svchost.exe` 路径以及服务组参数），而是会在 `HKLM\SYSTEM\CurrentControlSet\services\<service_name>\Parameters`
+    注册表项的 `ServiceDll` 值中指定。服务 DLL 应包含 `ServiceMain` 导出函数（如果使用了自定义名称，则应在 `ServiceMain`
+    注册表值中指定）。如果存在 `SvchostPushServiceGlobals` 导出，它将在 `ServiceMain` 之前执行。'
+- en: 'A user-mode service with a dedicated executable (or a DLL with its own loader)
+    can be registered using the standard `sc` command-line tool, like this:'
+  id: totrans-373
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个带有专用可执行文件（或带有自有加载器的 DLL）的用户模式服务，可以使用标准的 `sc` 命令行工具注册，如下所示：
+- en: '[PRE1]'
+  id: totrans-374
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The process is slightly more complicated for svchost DLL-based services:'
+  id: totrans-375
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于基于 svchost DLL 的服务，过程稍微复杂一些：
+- en: '[PRE2]'
+  id: totrans-376
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Using this approach, the created service can be started on demand, when necessary,
+    such as by using the following command:'
+  id: totrans-377
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这种方法，可以在需要时按需启动已创建的服务，例如，使用以下命令：
+- en: '[PRE3]'
+  id: totrans-378
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Alternatively, you can use the following command:'
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或者，可以使用以下命令：
+- en: '[PRE4]'
+  id: totrans-380
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: Now, let’s talk about how we can attach to services.
+  id: totrans-381
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们来谈谈如何附加到服务。
+- en: Attaching to services
+  id: totrans-382
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 附加到服务
+- en: 'There are multiple ways to attach to services immediately once they start:'
+  id: totrans-383
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦服务启动后，有多种方法可以立即附加到服务：
+- en: '`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\<filename>`
+    with the corresponding `Debugger` string data value, which contains the full path
+    to the debugger to be attached to the service once the program with the specified
+    `<filename>` starts. Here, there is the issue that the window of the attached
+    debugger may not appear if the service is not interactive. It can be fixed in
+    one of the following ways:'
+  id: totrans-384
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\<filename>`，其中包含相应的
+    `Debugger` 字符串数据值，该值包含调试器的完整路径，一旦指定的 `<filename>` 程序启动，就会附加到该服务。这里的问题是，如果服务不是交互式的，附加的调试器窗口可能不会出现。可以通过以下几种方式来解决：'
+- en: Open `services.msc`, open `HKLM\SYSTEM\CurrentControlSet\services\<service_name>`
+    registry key and replacing its data with the result of a bitwise OR operation
+    with the current value and the `0x00000100` DWORD (the `SERVICE_INTERACTIVE_PROCESS`
+    flag). For example, `0x00000010` will become `0x00000110`.
+  id: totrans-385
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打开 `services.msc`，打开 `HKLM\SYSTEM\CurrentControlSet\services\<service_name>`
+    注册表键，并用与当前值进行按位或运算的结果替换其数据，运算结果为 `0x00000100` DWORD（`SERVICE_INTERACTIVE_PROCESS`
+    标志）。例如，`0x00000010` 将变为 `0x00000110`。
+- en: In addition, it can be created interactively when using the sc tool with the
+    `type= interact type= own` or `type= interact type= share` arguments. Another
+    option here is to use remote debugging.
+  id: totrans-386
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 此外，当使用 `sc` 工具并带有 `type= interact type= own` 或 `type= interact type= share`
+    参数时，它可以交互式创建。另一种选择是使用远程调试。
+- en: '**Using GFlags**: The **Global Flags Editor** (**GFlags**) tool, which is part
+    of the **Debugging Tools for Windows** (the same as **WinDbg**), provides multiple
+    options for tweaking the process of debugging the candidate application. To attach
+    the debugger, it modifies the registry key mentioned previously, so both approaches
+    can be used pretty much interchangeably in this case. To do so using its UI, you
+    must set the filename of the program of interest (not the full path) to the **Image
+    File** tab and the **Image** field, and then refresh the window using the *Tab*
+    key and set a tick against the **Debugger** field, where the full path to the
+    debugger of preference should be specified. As in the previous case, you must
+    make sure the service is interactive.'
+  id: totrans-387
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**使用 GFlags**：**全局标志编辑器**（**GFlags**）工具是 **Windows 调试工具**（与 **WinDbg** 相同）的一部分，提供了多个选项用于调整候选应用程序的调试过程。要附加调试器，它会修改之前提到的注册表键，因此在这种情况下，可以几乎交替使用这两种方法。通过其
+    UI 来操作时，必须将目标程序的文件名（不是完整路径）设置为 **Image File** 标签和 **Image** 字段，然后使用 *Tab* 键刷新窗口，并在
+    **Debugger** 字段上勾选，指定首选调试器的完整路径。与前面的情况一样，必须确保服务是交互式的。'
+- en: '`services.exe` with a debugger that supports breaks on the child process creation,
+    enable it (for example, with the `.childdbg 1` command in WinDbg), and then start
+    the service of interest.'
+  id: totrans-388
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用调试器支持子进程创建时的断点，启用它（例如，在 WinDbg 中使用 `.childdbg 1` 命令），然后启动感兴趣的服务。
+- en: '`\xEB\xFE` bytes on the entry point of the analyzed sample that represents
+    the `JMP` instruction to redirect the execution to the start of itself, which
+    creates an infinite loop. Then, it’s possible to find the corresponding process
+    (it will consume a large number of CPU resources), attach to it with a debugger,
+    restore the original bytes, and continue execution as usual while making sure
+    that the restored instructions are successfully executed.'
+  id: totrans-389
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在分析样本的入口点上，` \xEB\xFE ` 字节表示 `JMP` 指令，将执行重定向到自身的开始位置，从而形成一个无限循环。然后，可以找到相应的进程（它会消耗大量的
+    CPU 资源），用调试器附加到该进程，恢复原始字节，并继续正常执行，同时确保恢复的指令能够成功执行。
+- en: Once the debugger is attached, it is possible to place the breakpoint at the
+    entry point of the sample to stop the execution there.
+  id: totrans-390
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦调试器附加，可以在样本的入口点设置断点，以便在那里停止执行。
+- en: The common problem with debugging services is the timeout. By default, the service
+    gets killed after about 30 seconds if it didn’t signal that it was executed successfully,
+    which may complicate the debugging process. For example, WinDbg accidentally starts
+    showing a *No runnable debuggees* error when trying to execute any command. To
+    extend this time interval, you must create or update the DWORD `ServicesPipeTimeout`
+    value in the `HKLM\SYSTEM\CurrentControlSet\Control` registry key with the new
+    timeout in milliseconds and restart the machine.
+  id: totrans-391
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调试服务时常见的问题是超时。默认情况下，如果服务没有成功执行并发送信号，它将在大约 30 秒后被终止，这可能会使调试过程变得复杂。例如，WinDbg 在尝试执行任何命令时，可能会意外地显示
+    *No runnable debuggees* 错误。要延长此时间间隔，必须在 `HKLM\SYSTEM\CurrentControlSet\Control`
+    注册表键中创建或更新 DWORD 类型的 `ServicesPipeTimeout` 值，并设置新的超时时间（以毫秒为单位），然后重新启动计算机。
+- en: The service DLL’s exports, such as `ServiceMain`, can be debugged using any
+    of the previously mentioned approaches. In this case, it is possible to either
+    attach to the corresponding `svchost.exe` process immediately once it is created
+    and enable breaking on the DLL load (for example, using the `sxe ld[:<dll_name>]`
+    command in WinDbg) or patch the DLL’s entry point or any other export of interest
+    with the infinite loop instruction and attach it to `svchost.exe` at any time
+    once it’s started.
+  id: totrans-392
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务 DLL 的导出项，如 `ServiceMain`，可以使用之前提到的任何方法进行调试。在这种情况下，可以在创建对应的 `svchost.exe`
+    进程后立即附加到该进程，并启用在 DLL 加载时中断（例如，使用 WinDbg 中的 `sxe ld[:<dll_name>]` 命令），或者通过无限循环指令修补
+    DLL 的入口点或任何其他感兴趣的导出项，并在 `svchost.exe` 启动后随时附加。
+- en: Finally, let’s explain what behavioral analysis is and how it can help us understand
+    malware’s functionality.
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，让我们解释一下什么是行为分析以及它如何帮助我们理解恶意软件的功能。
+- en: Essentials of behavioral analysis
+  id: totrans-394
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 行为分析要点
+- en: 'First of all, it is worth mentioning that some resources use the terms dynamic
+    analysis and behavioral analysis interchangeably. Dynamic analysis is the process
+    of executing instructions in the debugger, while behavioral analysis involves
+    a black-box approach when malware is executed under various monitoring tools to
+    record the changes it introduces. This approach allows researchers to get a quick
+    insight into malware functionality. However, there are multiple limitations associated
+    with it, as follows:'
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，值得提到的是，有些资源将动态分析和行为分析这两个术语互换使用。动态分析是指在调试器中执行指令的过程，而行为分析则涉及一种黑箱方法，即在各种监控工具下执行恶意软件，记录它所引入的变化。这种方法可以帮助研究人员快速了解恶意软件的功能。然而，它也有多个局限性，具体如下：
+- en: Malware may execute only a part of its functionality
+  id: totrans-396
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恶意软件可能只执行其部分功能
+- en: Malware may behave differently if it notices it’s being analyzed
+  id: totrans-397
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果恶意软件发现正在被分析，它的行为可能会有所不同。
+- en: 'In most cases, behavioral analysis tools can easily be detected by various
+    characteristics: file, process or directory names, registry keys and values, mutexes,
+    window names, and so on.'
+  id: totrans-398
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大多数情况下，行为分析工具可以通过以下各种特征轻松被检测到：文件、进程或目录名称、注册表键值、互斥体、窗口名称等。
+- en: Now, let’s look at the most commonly used tools, grouping them by type.
+  id: totrans-399
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们看看最常用的工具，并按类型将它们分组。
+- en: File operations
+  id: totrans-400
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 文件操作
+- en: 'Here, the goal is to monitor all the changes that are introduced by malware
+    at the filesystem level:'
+  id: totrans-401
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的目标是监控恶意软件在文件系统级别引入的所有变化：
+- en: '**Process Monitor (Filemon)**: Part of Sysinternals Suite, Process Monitor
+    combines multiple previously standalone tools. One of them, formerly known as
+    Filemon, allows you to record all filesystem operations that are performed by
+    all processes:'
+  id: totrans-402
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Process Monitor (Filemon)**：Sysinternals 套件的一部分，Process Monitor 将多个之前独立的工具结合在一起。其中一个，前身为
+    Filemon，允许你记录所有进程执行的文件系统操作：'
+- en: '![](img/Figure_3.31_B18500.jpg)'
+  id: totrans-403
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.31_B18500.jpg)'
+- en: Figure 3.31 – Various operations recorded by Process Monitor
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.31 – 由进程监视器记录的各种操作
+- en: '**Sandboxie**: The main purpose of this tool is to not just record file operations
+    but to give the researchers access to created/modified files. This is extremely
+    useful if malware drops or downloads additional modules and deletes them afterward.'
+  id: totrans-405
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Sandboxie**：此工具的主要目的是不仅记录文件操作，还为研究人员提供访问已创建/修改文件的权限。如果恶意软件丢弃或下载其他模块并随后删除它们，这将非常有用。'
+- en: Apart from file operations, monitoring registry operations is another proven
+    by time technique that allows us to understand the purpose of malware.
+  id: totrans-406
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了文件操作，监控注册表操作是另一种经过时间验证的技术，它能够帮助我们了解恶意软件的目的。
+- en: Registry operations
+  id: totrans-407
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 注册表操作
+- en: 'In this case, we are interested in recording all the changes that have been
+    made to the Windows Registry, a hierarchical database that stores various settings
+    for both the operating systems and the applications that have been installed:'
+  id: totrans-408
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我们关注的是记录对Windows注册表所做的所有更改，Windows注册表是一个层级数据库，存储了操作系统和已安装应用程序的各种设置：
+- en: '**Process Monitor (Regmon)**: This part of Process Monitor allows the researchers
+    to record all types of actions that have been performed with the registry.'
+  id: totrans-409
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程监视器（Regmon）**：该部分进程监视器允许研究人员记录所有在注册表中执行的操作类型。'
+- en: '**Regshot**: The idea of this tool is extremely simple – the researchers can
+    create a snapshot of the registry before and after malware execution and compare
+    them to see any differences that have been introduced:'
+  id: totrans-410
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Regshot**：这个工具的概念非常简单——研究人员可以在恶意软件执行前后创建注册表快照，并比较它们，以查看引入的任何差异：'
+- en: '![](img/Figure_3.32_B18500.jpg)'
+  id: totrans-411
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.32_B18500.jpg)'
+- en: Figure 3.32 – Regshot UI
+  id: totrans-412
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.32 – Regshot 用户界面
+- en: '**Autoruns**: Another great tool from the Sysinternals Suite, it is invaluable
+    for figuring out persistence mechanisms introduced by malware. It shows the researchers
+    all the modules that will be loaded or executed once the system starts.'
+  id: totrans-413
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Autoruns**：这是Sysinternals套件中的另一个极好工具，对于找出恶意软件引入的持久性机制非常有价值。它展示了研究人员系统启动后将加载或执行的所有模块。'
+- en: Now, let’s talk about process operations.
+  id: totrans-414
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们来讨论进程操作。
+- en: Process operations
+  id: totrans-415
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 进程操作
+- en: 'Apart from monitoring registry and filesystem changes, any created or terminated
+    processes are important artifacts from the malware analysis perspective. The following
+    tools can help us keep track of them:'
+  id: totrans-416
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了监控注册表和文件系统的变化外，任何创建或终止的进程都是从恶意软件分析角度来看重要的证据。以下工具可以帮助我们追踪这些操作：
+- en: '**Process Monitor (Procmon)**: Here, the researchers can keep an eye on all
+    process-related operations – mainly their creation and termination.'
+  id: totrans-417
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程监视器（Procmon）**：在这里，研究人员可以监控所有与进程相关的操作——主要是它们的创建和终止。'
+- en: '**Process Explorer**: This tool is also distributed as part of the Sysinternals
+    Suite. In short, this is an advanced version of Task Manager that shows the process
+    hierarchy (parent-child relationships) and more.'
+  id: totrans-418
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**进程资源管理器**：该工具也作为Sysinternals套件的一部分进行分发。简而言之，这是任务管理器的高级版本，显示进程层级（父子关系）以及更多信息。'
+- en: Another way to understand the purpose of malware is to track the APIs it uses.
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解恶意软件目的的另一种方法是追踪其使用的API。
+- en: WinAPIs
+  id: totrans-420
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: WinAPIs
+- en: 'Here, instead of focusing on a particular type of activity, the researchers
+    get the option to monitor specific Windows APIs by selecting any of them while
+    grouped by functionality. To do that, the following tool can be used:'
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，研究人员可以选择特定的Windows API进行监控，通过功能分组选择任何API，而不专注于某一特定类型的活动。为了实现这一点，可以使用以下工具：
+- en: '**API Monitor**: This is a great tool that allows the researchers to select
+    either individual APIs or their groups and see which of them were called by malware
+    and in which order. Here is what its UI looks like:'
+  id: totrans-422
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**API Monitor**：这是一个非常棒的工具，允许研究人员选择单个API或其组，并查看恶意软件调用了哪些API，以及调用的顺序。以下是它的用户界面：'
+- en: '![](img/Figure_3.33_B18500.jpg)'
+  id: totrans-423
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.33_B18500.jpg)'
+- en: Figure 3.33 – API Monitor groups WinAPIs by category
+  id: totrans-424
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.33 – API Monitor 按类别分组 WinAPIs
+- en: Finally, let’s talk about network operations.
+  id: totrans-425
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，让我们来谈谈网络操作。
+- en: Network activity
+  id: totrans-426
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 网络活动
+- en: 'The following is a list of the most popular tools that allow us to get an insight
+    into the network-related functionality of malware:'
+  id: totrans-427
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是一些最受欢迎的工具，它们可以帮助我们深入了解恶意软件的网络相关功能：
+- en: '**Tcpview**: This is quite a basic tool that shows the researchers all open
+    ports, as well as established connections and their associated processes.'
+  id: totrans-428
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Tcpview**：这是一个相当基础的工具，能够显示研究人员所有打开的端口以及已建立的连接和它们相关的进程。'
+- en: '**Wireshark**: The king of network traffic analysis, this tool gives invaluable
+    insight into all sent and received packets and allows you to dissect them according
+    to the OSI model and group them into streams. Its rich filtering syntax makes
+    it an indispensable weapon for analyzing malicious network activity. The following
+    screenshot shows what it looks like:'
+  id: totrans-429
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Wireshark**：网络流量分析的王者，这个工具提供了对所有发送和接收的数据包的宝贵洞察，并允许根据OSI模型对其进行解剖，并将它们分组为流。其丰富的过滤语法使其成为分析恶意网络活动时不可或缺的工具。以下截图展示了它的界面：'
+- en: a
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: a
+- en: '![](img/Figure_3.34_B18500.jpg)'
+  id: totrans-431
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Figure_3.34_B18500.jpg)'
+- en: Figure 3.34 – Wireshark dissecting network packets
+  id: totrans-432
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.34 – Wireshark 解剖网络数据包
+- en: Instead of monitoring individual operations with separate tools manually, it
+    is also possible to use sandboxes.
+  id: totrans-433
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与手动使用单独的工具监控各个操作不同，还可以使用沙箱进行监控。
+- en: Sandboxes
+  id: totrans-434
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 沙箱
+- en: Sandboxes are machines (usually virtual) that record all actions that have been
+    performed by malware once it is executed, giving researchers a quick and detailed
+    insight into its functionality. They may support various platforms, operating
+    systems, and file types. Others may also record the generated traffic and collect
+    memory dumps.
+  id: totrans-435
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 沙箱是记录恶意软件执行后所有操作的机器（通常是虚拟机），为研究人员提供了对其功能的快速而详细的洞察。它们可能支持多种平台、操作系统和文件类型。其他沙箱还可能记录生成的流量并收集内存转储。
+- en: 'Like any behavioral analysis tool, there are multiple limitations associated
+    with them, as follows:'
+  id: totrans-436
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像任何行为分析工具一样，它们也存在多种局限性，具体如下：
+- en: Sandboxes don’t know much about the environment that’s expected by malware and
+    can’t automatically simulate, for example, the required command-line arguments.
+  id: totrans-437
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 沙箱对恶意软件预期的环境了解有限，无法自动模拟，例如，所需的命令行参数。
+- en: They can easily be detected. In this case, the malware may either immediately
+    terminate or show some fake activity.
+  id: totrans-438
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它们很容易被检测到。在这种情况下，恶意软件可能会立即终止或显示一些虚假的活动。
+- en: Their visibility is limited as they commonly show only part of the malware functionality.
+  id: totrans-439
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它们的可见性有限，因为通常只显示恶意软件功能的一部分。
+- en: 'There are two options for using sandboxes:'
+  id: totrans-440
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用沙箱有两种选择：
+- en: '**Online sandbox services**'
+  id: totrans-441
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**在线沙箱服务**'
+- en: 'There are several big players in this market, some of which are commercial-only
+    or public with subscription options. Here are some of the most well-known free
+    public sandbox-based services:'
+  id: totrans-442
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个市场上有几个大公司，其中一些仅限商业使用，或提供订阅选项的公共服务。以下是一些最著名的免费公共沙箱服务：
+- en: '[https://any.run](https://any.run)'
+  id: totrans-443
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://any.run](https://any.run)'
+- en: '[https://www.hybrid-analysis.com](https://www.hybrid-analysis.com)'
+  id: totrans-444
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://www.hybrid-analysis.com](https://www.hybrid-analysis.com)'
+- en: '[https://virustotal.com](https://virustotal.com) (the **Behavior** tab)'
+  id: totrans-445
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[https://virustotal.com](https://virustotal.com)（**行为**选项卡）'
+- en: Important Note
+  id: totrans-446
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: At the time of writing, VirusTotal supports multiple different sandboxes, so
+    try a few different ones to find a good report.
+  id: totrans-447
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在撰写本文时，VirusTotal支持多种不同的沙箱，建议尝试几种不同的沙箱，找到合适的报告。
+- en: '**Self-managed sandboxes**'
+  id: totrans-448
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**自管理沙箱**'
+- en: 'Here, the researchers will need to host, set up, and administrate the software
+    on their own, with all the corresponding pluses and minuses. Some of the most
+    well-known options are as follows:'
+  id: totrans-449
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，研究人员需要自行托管、设置和管理软件，伴随而来的是相应的优缺点。以下是一些最著名的选项：
+- en: '**Cuckoo** (Free): Probably the most famous sandbox software, it has multiple
+    forks, such as **CAPE**.'
+  id: totrans-450
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Cuckoo**（免费）：可能是最著名的沙箱软件，拥有多个分支版本，如**CAPE**。'
+- en: '**DRAKVUF Sandbox** (Free): The newer player in the sandbox market based on
+    the DRAKVUF virtualization.'
+  id: totrans-451
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**DRAKVUF 沙箱**（免费）：基于DRAKVUF虚拟化技术的较新沙箱市场参与者。'
+- en: '**VMRay** (Commercial): Unlike the previous two, this one is commercial-only
+    but provides outstanding results.'
+  id: totrans-452
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**VMRay**（商业版）：与前两个不同，这款是仅限商业使用的，但提供了卓越的结果。'
+- en: Depending on the use cases and the resources available, each option has its
+    pros and cons and should be used accordingly.
+  id: totrans-453
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据使用案例和可用资源，每种选择都有其优缺点，应该根据实际情况使用。
+- en: This brings us to the end of this chapter. Now, let’s take a quick look at what
+    we have learned and what we will cover in [*Chapter 4*](B18500_04.xhtml#_idTextAnchor238),
+    *Unpacking, Decryption, and Deobfuscation*.
+  id: totrans-454
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章到此结束。现在，让我们快速回顾一下我们所学的内容以及在[*第4章*](B18500_04.xhtml#_idTextAnchor238)中将要讨论的内容——*解包、解密与去混淆*。
+- en: Summary
+  id: totrans-455
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we covered the PE structure of Windows executable files. We
+    covered the PE header field by field and examined its importance for static analysis,
+    finishing with the main questions for incident handling and threat intelligence
+    that the PE header of this sample can help us answer.
+  id: totrans-456
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们讨论了Windows可执行文件的PE结构。我们逐字段地讲解了PE头部，并研究了它在静态分析中的重要性，最后给出了PE头部能够帮助我们回答的与事件处理和威胁情报相关的主要问题。
+- en: We also covered DLLs and how the PE files that reside together in the same virtual
+    memory can communicate and share code and functions through what are called APIs.
+    We also covered how import and export tables work.
+  id: totrans-457
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还讨论了DLL和PE文件如何通过所谓的API在同一虚拟内存中相互通信并共享代码和函数。我们还讲解了导入表和导出表是如何工作的。
+- en: Then, we covered dynamic analysis from its foundation, such as what a process
+    is and what a thread is. We provided step-by-step guidance on how Windows creates
+    a process and loads a PE file, from double-clicking on an application in Windows
+    Explorer up until the program is running in front of you.
+  id: totrans-458
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接着，我们从基础开始讲解动态分析，例如什么是进程，什么是线程。我们提供了详细的步骤指导，讲解了Windows如何创建一个进程并加载PE文件，从在Windows资源管理器中双击应用程序到程序在你面前运行的全过程。
+- en: Last but not least, we covered how to dynamically analyze malware with OllyDbg
+    by going through the most important functionalities of this tool to monitor, debug,
+    and even modify the program’s execution. We talked about the different types of
+    breakpoints, how to set them, how they work internally so that you can understand
+    how they can be detected by malware, and how to bypass their anti-reverse engineering
+    techniques. Finally, we covered Windows services and learned how they can be debugged.
+  id: totrans-459
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们讨论了如何使用OllyDbg进行恶意软件的动态分析，通过这款工具最重要的功能来监控、调试甚至修改程序的执行过程。我们讲解了不同类型的断点，如何设置断点，它们如何在内部工作，从而帮助你理解恶意软件如何检测它们以及如何绕过其反逆向工程技术。最后，我们讲解了Windows服务及其调试方法。
+- en: At this point, you should have the foundation to perform basic malware analysis,
+    including static and dynamic analysis. You should also have an understanding of
+    what questions you need to answer in each step and the process you need to follow
+    to have a full understanding of this malware’s functionality.
+  id: totrans-460
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一点上，你应该已经掌握了进行基本恶意软件分析的基础，包括静态分析和动态分析。你也应该了解在每个步骤中需要回答的问题以及你需要遵循的流程，以便全面理解这个恶意软件的功能。
+- en: In [*Chapter 4*](B18500_04.xhtml#_idTextAnchor238), *Unpacking, Decryption,
+    and Deobfuscation*, we will take our discussion and venture into unpacking, decryption,
+    and deobfuscation into the context of malware. We will explore different techniques
+    that have been introduced by malware authors to bypass detection and trick inexperienced
+    reverse engineers. We will also learn how to bypass these techniques and deal
+    with them.
+  id: totrans-461
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[*第4章*](B18500_04.xhtml#_idTextAnchor238)《解包、解密与去混淆》中，我们将把讨论拓展到恶意软件的解包、解密和去混淆。我们将探索恶意软件作者为绕过检测和欺骗经验不足的逆向工程师而采用的不同技巧。我们还将学习如何绕过这些技巧并应对它们。

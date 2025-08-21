@@ -1,0 +1,755 @@
+- en: Oh, Almost Forgot
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 哦，差点忘了
+- en: Our journey approaches its end. However, it is important to make it clear that
+    this book only covers the tip of the iceberg called Assembly programming and there
+    is much more to learn ahead of you. The main idea of this book is to show you
+    how powerful and easy it is to create software in Assembly language and how portable
+    and convenient it may be.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的旅程接近尾声。然而，需要明确的是，这本书仅仅涵盖了名为汇编语言编程的冰山一角，前方还有更多的内容等待你去学习。本书的主要目的是向你展示如何在汇编语言中创建强大而简便的软件，以及它的可移植性和便利性。
+- en: There are a few topics that we have not touched over the course of the book,
+    but which, nevertheless, deserve attention. One such topic is how we can keep
+    our code protected from sneaky eyes. We will shortly see how some of the methods
+    of protecting our code may be implemented by means of the Flat Assembler, without
+    the need for third-party software.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的过程中，我们还有一些话题没有涉及，但这些话题仍然值得关注。一个这样的主题是我们如何防止我们的代码被偷偷窥探。我们将简要介绍如何通过Flat Assembler实现一些保护代码的方法，而不需要第三方软件的支持。
+- en: Another topic, which in my eyes, is interesting and deserves some coverage,
+    is how to write code that would be executed in kernel space. We will implement
+    a small loadable kernel module for Linux.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个在我看来很有趣且值得探讨的话题是如何编写可以在内核空间中执行的代码。我们将为Linux实现一个小型可加载的内核模块。
+- en: Protecting the code
+  id: totrans-4
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 保护代码
+- en: There are numerous books, articles, and blog posts on how to better protect
+    your code. Some of them are even useful and practical; however, most of them are
+    dedicated to certain third-party tools or combinations thereof. We are not going
+    to review any of those, neither books nor tools. Instead, we are about to see
+    what we are able to do ourselves with the tools we already have.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有很多书籍、文章和博客帖子讨论如何更好地保护代码。它们中的一些确实有用且实际；然而，大多数都是专门针对某些第三方工具或它们的组合。我们不会对这些内容进行评审，无论是书籍还是工具。相反，我们将看看我们自己能利用现有工具做些什么。
+- en: First of all, we have to assimilate the fact that there is no such thing as
+    100% protection for our code. No matter what we do, the more valuable our code
+    is, the higher is the possibility that it will be reverse engineered. We may use
+    packers, protectors, and whatever other tools we may come up with, but at the
+    end, they are all well known and will be bypassed one way or another. Thus, the
+    final frontier is the code itself. To put it correctly, it is the way the code
+    appears to a potential attacker. This is where the obfuscation comes into play.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们必须接受一个事实，那就是没有任何东西能为我们的代码提供100%的保护。不管我们做什么，只要我们的代码越有价值，就越可能被逆向工程。我们可以使用打包工具、保护工具以及任何其他我们能想到的工具，但最终它们都是众所周知的，并且总有一种方法可以绕过它们。因此，最终的防线就是代码本身。更准确地说，就是代码呈现给潜在攻击者的方式。这就是混淆的作用所在。
+- en: The dictionary definition of the word *obfuscation* is the action of making
+    something obscure, unclear, or unintelligible. It may be quite a powerful technique,
+    whether in conjunction with other approaches or alone. I once had a chance to
+    reverse engineer a program that used encryption extensively. This program was
+    not protected with any third-party tool, instead there was a very nice and unclear
+    (at first glance) game of bits and I have to admit--it was much more difficult
+    to reverse engineer than it could have been if any tool like **Themida** was in
+    place.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*混淆*这个词的字典定义是使某物变得模糊、不清楚或难以理解。它可能是一种非常强大的技术，无论是与其他方法结合使用还是单独使用。我曾有机会逆向工程一个广泛使用加密的程序。这个程序没有使用任何第三方工具进行保护，而是采用了一种非常巧妙且模糊（乍一看）的比特操作，我不得不承认——这比如果使用像**Themida**这样的工具，逆向工程会更加困难。'
+- en: In this part of the chapter, we will see a primitive example of what obfuscation
+    may look like by slightly enhancing the patch we made for our Windows-based executable
+    with `gets()`. As obfuscation is not the primary topic of the book; we will not
+    dive into much detail, but show how simple and tiny changes may make it a bit
+    harder to understand the underlying logic of the code without dynamically watching
+    it in a debugger.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章的这一部分，我们将看到一个混淆的简单示例，通过稍微增强我们为Windows可执行文件使用`gets()`时做的补丁。由于混淆不是本书的主要话题；我们不会深入细节，而是展示一些简单而微小的改变是如何使理解代码的基本逻辑变得稍微困难，而不必在调试器中动态观察它。
+- en: The original code
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 原始代码
+- en: 'Let''s begin by taking a quick look at the original code of the procedure we
+    planted into the executable as part of our patch. The code is quite straightforward
+    and, knowing what we already know, is easy to read:'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们先快速浏览一下我们作为补丁一部分植入到可执行文件中的原始代码。代码非常简单，考虑到我们已经了解的内容，阅读起来很容易：
+- en: '[PRE0]'
+  id: totrans-11
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The code is rather simple and it is fairly difficult to find anything valuable
+    to protect here. Since this is the situation, we will use this example to show
+    how simply a `call` instruction may be implemented with other instructions in
+    such a way that it would neither point to the callee nor resemble a procedure
+    call at all.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码相当简单，而且很难从中找到任何有价值的保护内容。鉴于这种情况，我们将使用这个例子来展示如何简单地用其他指令实现`call`指令，使得它既不指向被调用的函数，也完全不像一个过程调用。
+- en: The call
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调用
+- en: 'There are several ways to replace the `call` instruction with a sequence of
+    instructions that would perform exactly the same action but would be treated by
+    decompilers in a different manner. For example, the following code would do exactly
+    what the `call` instruction does:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有几种方法可以用一系列指令替换`call`指令，这些指令会执行完全相同的操作，但会被反编译器以不同的方式处理。例如，以下代码将完全执行`call`指令的功能：
+- en: '[PRE1]'
+  id: totrans-15
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'We may, as well, replace the following sequence:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们也可以替换以下序列：
+- en: '[PRE2]'
+  id: totrans-17
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'with, for example:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如：
+- en: '[PRE3]'
+  id: totrans-19
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: This would still yield the same result. However, we want our obfuscation to
+    be a bit stronger; therefore, we proceed and create a macro.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这样仍然会产生相同的结果。然而，我们希望我们的混淆更强一些；因此，我们继续并创建一个宏。
+- en: The call obfuscation macro
+  id: totrans-21
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调用混淆宏
+- en: 'Prior to beginning with the obfuscation of the `call` instruction itself, we
+    will define a utility macro called `random`:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始混淆`call`指令之前，我们将定义一个名为`random`的实用宏：
+- en: '[PRE4]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: The `random` macro generates a pseudo-random integer and returns it in the parameter
+    variable. We will need this tiny portion of randomization in order to add some
+    diversity to our `call` implementation occurrences. The macro itself (let us call
+    it `f_call`) makes use of the EAX register; therefore, we would either take care
+    of preserving this register before the `f_call` invocation or only use this macro
+    with procedures returning a value in the EAX register as, otherwise, the value
+    of the register would be lost. Also, it is only suitable for direct calls due
+    to the way it handles the parameter.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`random`宏生成一个伪随机整数，并将其返回到参数变量中。我们需要这一小段随机化代码来为我们的`call`实现添加一些多样性。该宏本身（我们称之为`f_call`）使用了EAX寄存器；因此，我们要么在调用`f_call`之前保存这个寄存器，要么只在返回值存放在EAX寄存器的过程中使用该宏，因为否则寄存器中的值将会丢失。此外，由于它处理参数的方式，它仅适用于直接调用。'
+- en: 'At last, we come to the macro itself. As the best way to understand the code
+    is to look at the code, let''s peer into the macro:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们来看一下宏本身。由于理解代码的最佳方式是查看代码，让我们深入了解这个宏：
+- en: '[PRE5]'
+  id: totrans-26
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: As we may see, there are no complex computations involved in this particular
+    obfuscation attempt and, even more, the code is still readable and understandable,
+    but let's replace the line `call fgets` in our `patch_section.asm` file with `f_call
+    fgets`, recompile, and re-apply the patch to the executable.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，这个混淆尝试并没有涉及复杂的计算，甚至代码仍然是可读且易于理解的，但让我们将`patch_section.asm`文件中的`call fgets`这一行替换为`f_call
+    fgets`，重新编译并重新应用补丁到可执行文件。
+- en: 'The new patch is significantly bigger--86 bytes instead of 35 bytes:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 新的补丁明显变大了——从35字节变成了86字节：
+- en: '![](img/5f288012-fe33-4246-80c1-b705e8fb5fba.png)'
+  id: totrans-29
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5f288012-fe33-4246-80c1-b705e8fb5fba.png)'
+- en: 'Copy these bytes and paste them into the `Legacy.exe` file at the `0x8e00`
+    offset, as shown in the following screenshot:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将这些字节复制并粘贴到`Legacy.exe`文件的`0x8e00`偏移位置，如下图所示：
+- en: '![](img/f337c9e8-c655-495c-b878-c236aa271c9a.png)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f337c9e8-c655-495c-b878-c236aa271c9a.png)'
+- en: 'Running the executable, we will obtain the same result as we did in the previous
+    chapter, so no visible difference at this stage. However, let''s take a look at
+    what the code looks like in the disassembler:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 运行可执行文件后，我们将获得与上一章相同的结果，因此在这一阶段没有明显的区别。不过，让我们来看一下代码在反汇编器中的样子：
+- en: '![](img/5d016d06-8da9-44af-b2cb-f9902cdd9762.png)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5d016d06-8da9-44af-b2cb-f9902cdd9762.png)'
+- en: We can't say that the code is heavily obfuscated here, but it should give you
+    an idea of what may be done with the aid of relatively simple macros used with
+    the Flat Assembler. The preceding example may still be read with a tiny effort,
+    but the application of a few more obfuscation tricks would render it literally
+    unreadable and almost irreversible without a debugger.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们不能说这里的代码被严重混淆了，但它应该能让你了解使用相对简单的宏与 Flat Assembler 配合时可以做些什么。前面的例子仍然可以通过一点努力读取，但应用更多的混淆技巧会让它变得几乎无法阅读，且在没有调试器的情况下几乎无法还原。
+- en: A bit of kernel space
+  id: totrans-35
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 一点内核空间
+- en: Until this very moment, we were only working with user-space code, writing small
+    applications. In this part of the chapter, however, we will implement a small
+    and very simple **loadable kernel module** (**LKM**) for Linux.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 直到现在，我们一直在处理用户空间的代码，编写小型应用程序。然而，在本章的这一部分，我们将为 Linux 实现一个小而简单的**可加载内核模块**（**LKM**）。
+- en: A few years ago, I was engaged in an interesting project, where the objective
+    was to spot the data processed by certain kernel module. The project was even
+    more challenging due to the fact that, not only did I not have access to the kernel
+    sources, I had no access to the kernel itself, not to mention that it was not
+    an Intel platform. All I knew was the version of the kernel in question and the
+    name and address of the target module.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 几年前，我参与了一个有趣的项目，目标是识别由某些内核模块处理的数据。由于我不仅无法访问内核源代码，还无法访问内核本身，更不用说这不是一个 Intel 平台，这个项目变得更加具有挑战性。我所知道的只有相关内核的版本，以及目标模块的名称和地址。
+- en: I had to go a long and interesting way until I was able to build an LKM that
+    was capable of doing the work I needed it to do. At the end, I was able to build
+    an LKM written in C, but I would not have been myself if I did not try to write
+    one in Assembly. It was an unforgettable experience, I have to admit. However,
+    once the project was completed, I decided to try to implement a simple LKM on
+    my development machine. Since the first module was written for a different platform
+    and for a kernel of a different version and taking into account that I decided
+    to pretend like I had no sources for my running kernel, I had to perform almost
+    as much research and reverse engineering, even though I was writing a module for
+    my own system.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我经历了一个漫长而有趣的过程，直到我能够构建一个能够完成我需要的工作的 LKM。最终，我成功构建了一个用 C 编写的 LKM，但如果我不尝试用汇编语言编写一个，我就不会满足自己。这是一次难忘的经历，我必须承认。然而，一旦项目完成，我决定尝试在我的开发机器上实现一个简单的
+    LKM。由于第一个模块是为不同的平台编写的，且针对不同版本的内核，并且考虑到我决定假装自己没有当前内核的源代码，我不得不进行几乎同样多的研究和逆向工程，即使我编写的是我自己系统的模块。
+- en: LKM structure
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: LKM 结构
+- en: Let me save you from going the same long way of digging for information, reversing
+    the structure of other kernel modules and examining kernel sources in order to
+    see how exactly a module is loaded. Instead, let us proceed directly to the structure
+    of an LKM.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我来为你省去同样漫长的挖掘信息、逆向其他内核模块的结构和检查内核源代码的过程，以便弄清楚模块是如何加载的。相反，我们直接进入 LKM 的结构。
+- en: 'A loadable kernel module is, in fact, an ELF object file with a few additional
+    sections and some information, which we neither meet in object files nor in executables
+    created for user-space. We should point out at least five sections that we do
+    not usually have in regular files:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可加载内核模块实际上是一个 ELF 对象文件，带有一些额外的部分和一些信息，这些信息在用户空间创建的目标文件和可执行文件中通常是看不到的。我们应该指出至少五个通常在常规文件中没有的部分：
+- en: '`.init.text`: This section contains all the code required for module initialization.
+    In terms of Windows, for example, the content of this section may be compared
+    to the `DllMain()` function and all the functions that it references. In terms
+    of Linux, it may be considered a section containing constructors (Windows executables
+    may have that too).'
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.init.text`：这一部分包含模块初始化所需的所有代码。以 Windows 为例，这部分内容可以与 `DllMain()` 函数及其引用的所有函数进行比较。对于
+    Linux 来说，它可以被看作是一个包含构造函数的部分（Windows 可执行文件也可能包含该部分）。'
+- en: '`.exit.text`: This section contains all the code needed to be executed before
+    the module is unloaded.'
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.exit.text`：这一部分包含在模块卸载之前需要执行的所有代码。'
+- en: '`.modinfo`: This section contains information about the module itself, the
+    version of kernel it is written for, and so on.'
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.modinfo`：这一部分包含有关模块本身的信息、它所写的内核版本等。'
+- en: '`.gnu.linkonce.this_module`: This section contains the `this_module` structure,
+    which, in turn, contains the name of the module and pointers to module initialization
+    and de-initialization procedures. While the structure itself is a bit obscure
+    for us in this case, we are interested in certain offsets only, which, in case
+    of lack of sources, may be found with a reverse engineering tool such as IDA Pro.
+    We may, however, check for offsets of the `.init.text` and `.exit.text` pointers
+    within the structure, by running the `readelf` command in the terminal, as follows:'
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`.gnu.linkonce.this_module`：此部分包含 `this_module` 结构体，后者包含模块的名称以及指向模块初始化和去初始化过程的指针。尽管对于我们来说，这个结构体本身有点模糊，但我们只对某些特定的偏移量感兴趣，在没有源代码的情况下，可以使用逆向工程工具（如
+    IDA Pro）找到这些偏移量。不过，我们仍然可以通过在终端中运行 `readelf` 命令，查看 `.init.text` 和 `.exit.text`
+    指针在结构体中的偏移量，方法如下：'
+- en: '[PRE6]'
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Then, we see the offsets in the output:![](img/b736505f-a5ec-4439-b8dc-a5e258ad654b.png)As
+    we see, the pointer to `.init.text` is at the offset `0x150` and the pointer to
+    `.exit.text` is at the offset `0x248` into the `this_module` structure.
+  id: totrans-47
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 然后，我们看到输出中的偏移量：![](img/b736505f-a5ec-4439-b8dc-a5e258ad654b.png)如我们所见，指向 `.init.text`
+    的指针位于偏移量 `0x150`，而指向 `.exit.text` 的指针则位于 `this_module` 结构体的偏移量 `0x248` 处。
+- en: '`__versions`: This section contains the names of external symbols prepended
+    with their version numbers. This table is used by the kernel in order to verify
+    compatibility of the module in question.'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`__versions`：此部分包含外部符号的名称，并附带其版本号。内核使用该表格来验证相关模块的兼容性。'
+- en: LKM source
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: LKM 源代码
+- en: The structure of an LKM is not a secret. It may be retrieved from Linux kernel
+    sources, which are freely available and, therefore, we have no need to dig any
+    deeper into it; instead, following Occam's Razor principle, let's move on to the
+    implementation of the module.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LKM 的结构并不神秘。它可以从 Linux 内核源代码中获取，这些源代码是公开的，因此我们无需进一步探究；相反，根据奥卡姆剃刀原则，让我们继续实现模块。
+- en: 'As has been mentioned already, an LKM is an object file; therefore, we begin
+    by creating a `lkm.asm` file and entering our code like this:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，LKM 是一个目标文件；因此，我们首先创建一个 `lkm.asm` 文件，并按如下方式输入我们的代码：
+- en: '[PRE7]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Right after this, we are free to begin creating sections of an LKM.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 紧接着，我们可以开始创建 LKM 的各个部分。
+- en: .init.text
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: .init.text
+- en: 'This section contains the code required for successful initialization of an
+    LKM. In our case, as we are not adding any functionality to the module, it could
+    simply return, but as we need an indication of our LKM having loaded successfully,
+    we will implement a tiny procedure, which will print a string into the system
+    log:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本部分包含成功初始化 LKM 所需的代码。在我们的情况下，由于我们没有为模块添加任何功能，它可以直接返回，但由于我们需要表示我们的 LKM 成功加载，因此我们将实现一个小过程，向系统日志中打印一条字符串：
+- en: '[PRE8]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Rather simple, isn't it? We just print the string and return from this procedure.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 相当简单，是不是？我们只需打印字符串并从该过程返回。
+- en: .exit.text
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: .exit.text
+- en: 'The content of this section is going to be even simpler (in our specific case).
+    We simply return from the procedure:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该部分的内容将更加简单（在我们这个具体情况下）。我们只需从过程返回：
+- en: '[PRE9]'
+  id: totrans-60
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Since we did not allocate any resources nor load any modules or open any files,
+    we simply return 0.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们没有分配任何资源，也没有加载任何模块或打开任何文件，因此我们直接返回 0。
+- en: .rodata.str1.1
+  id: totrans-62
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: .rodata.str1.1
+- en: 'This is a read-only data section and the only thing we have to put in it, is
+    the string we are going to write to the system log:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个只读数据部分，唯一需要放入其中的内容是我们将写入系统日志的字符串：
+- en: '[PRE10]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: .modinfo
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: .modinfo
+- en: 'In this section, we have to put certain information about the module of ours,
+    such as license, dependencies, as well as the version of the kernel and supported
+    options:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们需要提供关于我们模块的某些信息，例如许可证、依赖项，以及内核版本和支持的选项：
+- en: '[PRE11]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'If you are unsure about what to specify as `vermagic`, you may run the `modinfo`
+    command on any of the modules found in the ``/lib/modules/`uname -r`/`` directory.
+    For example, I run the following command on my system:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你不确定应该指定什么作为 `vermagic`，你可以在 `''/lib/modules/`uname -r`/''` 目录中的任何模块上运行 `modinfo`
+    命令。例如，我在我的系统上运行以下命令：
+- en: '[PRE12]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The output will be as shown in the following screenshot:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出将如下截图所示：
+- en: '![](img/4ef6f57f-f460-49ef-9dfb-ddc8b2229480.png)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4ef6f57f-f460-49ef-9dfb-ddc8b2229480.png)'
+- en: Once you have this information, you may simply copy the `vermagic` string and
+    paste it into your code.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦你获得这些信息，你可以简单地复制 `vermagic` 字符串并将其粘贴到你的代码中。
+- en: .gnu.linkonce.this_module
+  id: totrans-73
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: .gnu.linkonce.this_module
+- en: 'There''s nothing special to say here. This section contains only one structure--`this_module`,
+    which is mostly filled with zeroes (as it is used by the LKM loader internally)
+    except three fields:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里没有什么特别要说的。此部分只包含一个结构体--`this_module`，它大部分都填充为零（因为它在LKM加载器内部使用），除了三个字段：
+- en: Name of the module
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 模块名称
+- en: A pointer to the initialization procedure--`module_init`
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 指向初始化过程的指针--`module_init`
+- en: A pointer to the de-initialization procedure--`module_cleanup`
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 指向反初始化过程的指针--`module_cleanup`
+- en: 'These fields, in the case of this kernel version and this Linux distro, are
+    located at offsets `0x18`, `0x150`, and `0x248`, respectively; therefore, the
+    code would be as follows:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个内核版本和Linux发行版中，这些字段分别位于偏移量`0x18`、`0x150`和`0x248`的位置；因此，代码将如下所示：
+- en: '[PRE13]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: This is all we had to take care of in this section.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这就是我们在这一部分需要处理的全部内容。
+- en: __versions
+  id: totrans-81
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: __versions
+- en: The information in this section describes external symbols by version numbers
+    and names thereof, and is used by the loader in order to ensure that the kernel
+    and the LKM are using symbols of the same version, so there would not be any surprises.
+    You may try to build a module without this section and it may even be loaded,
+    but it is not suggested to do so. The loader refuses to load modules with invalid
+    symbol versions, thus telling us that this information is not just for fun, but
+    is used in order to prevent failures.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本节中的信息通过版本号和名称描述外部符号，并由加载器使用，以确保内核和LKM使用相同版本的符号，从而避免出现任何意外。你可以尝试在没有此部分的情况下构建模块，甚至可能加载它，但不建议这样做。加载器会拒绝加载版本无效的模块，这告诉我们这些信息并非只是为了好玩，而是为了防止失败。
+- en: 'At the time, I could not find reliable information on where to obtain version
+    numbers for certain symbols, but it may be a good workaround, which is definitely
+    sufficient for our small LKM, to simply search for symbol names prepended with
+    the 8-byte version value (4 bytes on 32-bit systems), as shown in the following
+    screenshot:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当时，我找不到关于如何获取某些符号版本号的可靠信息，但这可能是一个不错的变通办法，这对我们的小LKM足够用，方法是简单地查找以8字节版本值（在32位系统上为4字节）为前缀的符号名，如下截图所示：
+- en: '![](img/8e2f885d-d70b-41b9-8388-10e11570fe91.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8e2f885d-d70b-41b9-8388-10e11570fe91.png)'
+- en: We only need two external symbols for our LKM, which are `module_layout` and
+    `printk`. As you see in the preceding screenshot, the version of the `module_layout`
+    symbol is `0x2AB9DBA5`. Taking the same approach for obtaining the version of
+    the `printk` symbol, we get (so it is on my system, but it may differ on yours)
+    `0x27E1A049`.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的LKM只需要两个外部符号，分别是`module_layout`和`printk`。正如你在前面的截图中看到的，`module_layout`符号的版本是`0x2AB9DBA5`。采用相同的方法获取`printk`符号的版本号，我们得到了（在我的系统上是如此，但在你的系统上可能不同）`0x27E1A049`。
+- en: 'These entries are stored as an array of structures, where each structure contains
+    two fields:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些条目作为结构体数组存储，其中每个结构体包含两个字段：
+- en: '`version number`: This is the 8-byte version identifier (4 bytes on 32-bit
+    systems)'
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`版本号`：这是8字节版本标识符（在32位系统上为4字节）'
+- en: '`symbol name`: This is the variable length string (up to 56 bytes) representing
+    the name of the symbol'
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`符号名称`：这是一个变长字符串（最多56字节），表示符号的名称'
+- en: 'Since we are talking about fixed-size fields here, it is natural to define
+    a structure; however, since we do not want to name each and every structure for
+    each and every symbol, we will use a macro:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们在讨论的是固定大小的字段，因此定义一个结构体是自然的；但是，由于我们不想为每个符号命名每一个结构体，我们将使用宏：
+- en: '[PRE14]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Having defined the `__version` macro, we are ready to conveniently implement
+    the `__versions` section:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 定义了`__version`宏后，我们准备好方便地实现`__versions`部分：
+- en: '[PRE15]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: That is it. Save the file and let's try to compile it and load.
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就这样。保存文件，试着编译并加载它。
+- en: Testing the LKM
+  id: totrans-94
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 测试LKM
+- en: 'Testing the module is much more simple than writing one. The compilation is
+    not different from the usual; we simply compile it with the Flat Assembler:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 测试模块比编写模块要简单得多。编译与通常的方式没有不同；我们只需使用Flat Assembler进行编译：
+- en: '[PRE16]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: Once our kernel module is compiled, we need to ensure that it has the executable
+    attribute set by running the `chmod +x lkm.ko` command in the Terminal.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们的内核模块被编译完成，我们需要确保它已经设置了可执行属性，可以通过在终端运行`chmod +x lkm.ko`命令来完成。
+- en: 'In order to load the LKM into the currently running kernel, we use the `insmode`
+    command in the following way:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了将LKM加载到当前运行的内核中，我们使用以下方式的`insmode`命令：
+- en: '[PRE17]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'We will not be given any error unless there is a serious problem with the format
+    of the LKM (for example, invalid symbol version(s)). If all went well, try to
+    run the `dmesg` command in the terminal, like this:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除非 LKM 的格式存在严重问题（例如，符号版本无效），否则不会出现任何错误。如果一切顺利，可以尝试在终端中运行 `dmesg` 命令，像这样：
+- en: '[PRE18]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'You should see the `"<0> Here I am, gentlemen!"` string appearing at the end
+    of the system log. If the string is not there, then, most likely, you have to
+    reboot your system, but first try to unload the module by running the `rmmod`
+    command in the Terminal, like this:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你应该能看到 `"<0> Here I am, gentlemen!"` 字符串出现在系统日志的末尾。如果该字符串没有出现，那么很可能你需要重启系统，但首先可以尝试通过在终端中运行
+    `rmmod` 命令卸载模块，像这样：
+- en: '[PRE19]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: If all went well, then we will now be able to create Linux LKMs using pure Assembly.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果一切顺利，我们现在应该能够使用纯汇编语言创建 Linux LKM（加载内核模块）。
+- en: Summary
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: We have gone a long way. Beginning with an overview of the Intel architecture,
+    we went through the implementation of different algorithms, although mostly simplified
+    for the sake of understandability, and we finished with the implementation of
+    a loadable kernel module for Linux.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经走了很长一段路。从英特尔架构的概述开始，我们经历了不同算法的实现，尽管为了便于理解，大多数算法进行了简化，最后我们实现了一个适用于 Linux
+    的可加载内核模块。
+- en: The intention behind this final chapter was to draw your interest toward a couple
+    of topics that lie outside the scope of the book and therefore could not get enough
+    attention, but are still important one way or another. Although the obfuscation
+    given in the beginning of the chapter is rather simple, it should have given you
+    the general idea of how more complicated obfuscation schemes may be brought up
+    with the basic tool provided by the Flat Assembler, the macro engine.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章最后部分的目的是引起你对一些超出本书范围的话题的兴趣，因此这些话题无法得到足够的关注，但它们仍然在某种程度上很重要。尽管本章开始时给出的混淆方法相对简单，但它应该让你对如何使用
+    Flat Assembler 提供的基本工具——宏引擎，提出更复杂的混淆方案有一个大致的了解。
+- en: We dedicated some time to kernel programming in the second part of the chapter
+    and, although the kernel module we have implemented is, perhaps, the most basic
+    one possible, we have shown that even such aspects of programming as kernel development,
+    aspects that many people consider very complicated even when viewed from a high-level
+    language perspective, include nothing to be afraid of even when viewed from the
+    top of the solid rock called Assembly language.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在本章的第二部分投入了一些时间来讲解内核编程，尽管我们实现的内核模块可能是最基础的一个，但我们已经展示了即便是内核开发这些许多人认为非常复杂的编程领域，即使从高级语言的角度来看，实际上也没有什么值得害怕的，尤其是从被称为汇编语言的坚硬岩石的巅峰来看。
+- en: By now, you should have a strong enough base to let you keep going on easily
+    and improving your Assembly programming skills and abilities, and I would like
+    to wish you good luck in doing this.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，你应该已经有了足够扎实的基础，可以轻松继续前进并提高你的汇编编程技能和能力，祝你在这个过程中好运。
+- en: Thank you!
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 谢谢！

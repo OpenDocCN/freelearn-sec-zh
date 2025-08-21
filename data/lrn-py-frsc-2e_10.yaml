@@ -1,0 +1,915 @@
+- en: Rapidly Triaging Systems
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 快速筛查系统
+- en: In today's brave new world, where incidents have a way of rapidly ballooning
+    out of control without a rapid and effective response, it is integral that DFIR
+    professionals are able to query hosts for relevant information, such as the processes
+    and services running on the system, to make informed investigative decisions to
+    quickly contain the incident. While we can often collect this information on a
+    forensic image of a machine, some of this information is volatile or it may be
+    necessary to collect quickly rather than waiting for a forensic image to be created.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在今天这个充满挑战的新时代里，事件往往会在没有快速有效响应的情况下迅速失控，因此，DFIR专业人士必须能够查询主机的相关信息，如系统上运行的进程和服务，从而做出明智的调查决策，快速遏制事件。虽然我们通常可以在机器的取证镜像上收集这些信息，但其中一些信息是易失性的，或者可能需要快速收集，而不是等待创建取证镜像。
+- en: In this chapter, we develop a single script that is compatible with modern operating
+    systems and, using various first- and third-party libraries, extract useful information
+    about the system that the script is running on. With some modification, this script
+    could be leveraged in an environment by deploying it to many hosts and collecting
+    basic system information that may be valuable for the investigation. For example,
+    in the case of an incident involving malware, if that malware, as part of its
+    successful infection of a host, creates a new process, one could use this information
+    to quickly determine the universe of hosts infected and, upon further investigation,
+    which machine was likely infected first.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将开发一个与现代操作系统兼容的单一脚本，并使用各种第一方和第三方库，提取脚本所运行系统的有用信息。通过一些修改，这个脚本可以在一个环境中使用，通过将其部署到多个主机，收集可能对调查有价值的基本系统信息。例如，在涉及恶意软件的事件中，如果恶意软件在成功感染主机时创建了一个新进程，那么可以使用这些信息快速确定被感染的主机范围，并在进一步调查时找出最早被感染的机器。
+- en: To achieve a script that is compatible across different operating systems, we
+    will rely on a third-party module called `psutil` to obtain information about
+    running processes, while more OS-specific intel, in the case of the Windows operating
+    systems, will be extracted using the **Windows Management Interface** (**WMI**).
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了实现一个跨操作系统兼容的脚本，我们将依赖一个名为`psutil`的第三方模块来获取运行中进程的信息，而对于Windows操作系统的更多操作系统特定情报，将使用**Windows管理界面**（**WMI**）进行提取。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Extracting OS-agnostic process information using `psutil`
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用`psutil`提取与操作系统无关的进程信息
+- en: Interacting with Windows systems by querying the WMI with Python and the `wmi`
+    and `pywin32` modules
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用Python及`wmi`和`pywin32`模块通过查询WMI与Windows系统交互
+- en: Creating a multi-platform triage artifact collection script
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建一个多平台的初步筛查文档收集脚本
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码是使用Python 2.7.15和Python 3.7.1开发和测试的。
+- en: Understanding the value of system information
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解系统信息的价值
+- en: Why bother with collecting system information, anyway? Not all investigations
+    revolve around the user and what actions they took on the system, but, rather,
+    what the system is like and how it is behaving. For example, in the previous section,
+    we discussed how running processes and created services can be informative based
+    on indicators of compromise for a given scenario. However, as DFIR professionals
+    well know, sources for system information can also provide insight into user activity,
+    such as what disks are currently attached to the machine or querying the event
+    log for user logins.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，为什么要收集系统信息呢？并非所有的调查都围绕用户及其在系统上采取的行动展开，而是关注系统本身以及它的行为。例如，在上一节中，我们讨论了运行中的进程和创建的服务如何根据特定场景的妥协指示符提供信息。然而，正如DFIR专业人士所知，系统信息的来源也可以为用户活动提供洞察，比如当前连接到机器的磁盘或查询事件日志中的用户登录信息。
+- en: In the first edition of this book, this chapter originally showcased a `keylogger`
+    script that we developed, whose purpose was mainly to illustrate how to use operating
+    system APIs. For the second edition, we elected to keep that focus intact, but
+    apply it in a more forensically relevant way. Let's dive in and discuss the third-party
+    libraries. We will need to develop this script starting with `psutil`.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的第一版中，本章最初展示了一个我们开发的 `keylogger` 脚本，目的主要是演示如何使用操作系统 API。对于第二版，我们决定保持这一重点不变，但以一种更具法医相关性的方式应用它。让我们深入探讨并讨论第三方库。我们将需要从
+    `psutil` 开始开发这个脚本。
+- en: Querying OS-agnostic process information with psutil
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 psutil 查询操作系统无关的进程信息
+- en: The `psutil` module (version 5.4.5) is a cross-platform library capable of gathering
+    various system information from different operating systems, for both 32-bit and
+    64-bit architectures. While we use this library to extract process information
+    from the host system running the script, be aware that this library is capable
+    of extracting more system information than just running processes.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`psutil` 模块（版本 5.4.5）是一个跨平台库，能够收集不同操作系统的各种系统信息，适用于 32 位和 64 位架构。虽然我们使用此库从运行脚本的主机系统中提取进程信息，但请注意，这个库能够提取的系统信息远不止运行中的进程。'
+- en: 'Let''s walk through a few examples, some of which we will not leverage in the
+    script; however, first install the library with `pip`:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过一些示例来了解，虽然其中一些我们在脚本中不会利用，但首先使用 `pip` 安装该库：
+- en: '[PRE0]'
+  id: totrans-15
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: We can get a list of active process IDs using the `pids()` function and then
+    use a PID to collect additional information about the process. For instance, in
+    the following code block, we select the first PID in the list of PIDs, with PID
+    62, create a process object for PID 62, and use various functions to display its
+    name, parent PID, and open files.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以使用 `pids()` 函数获取活动进程 ID 的列表，然后使用 PID 收集该进程的更多信息。例如，在以下代码块中，我们选择 PID 列表中的第一个
+    PID，PID 为 62，创建一个 PID 为 62 的进程对象，并使用各种函数来显示其名称、父 PID 和打开的文件。
+- en: 'Note that, for some of these functions, such as the `open_files()` method,
+    you need to run the commands in an elevated Command Prompt:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，对于某些函数，例如 `open_files()` 方法，您需要在提升权限的命令提示符下运行命令：
+- en: '[PRE1]'
+  id: totrans-18
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: While we use this library to print details about processes, we can use it to
+    perform other tasks as well.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然我们使用此库打印进程的详细信息，但我们也可以用它来执行其他任务。
+- en: 'For example, we can collect information about connected disks, using the `disk_partitions()`
+    function:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，我们可以使用 `disk_partitions()` 函数收集有关连接磁盘的信息：
+- en: '[PRE2]'
+  id: totrans-21
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Additionally, we could use the `users()` function to identify user profiles
+    on the system and when the user session started:'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还可以使用 `users()` 函数识别系统上的用户配置文件以及用户会话的启动时间：
+- en: '[PRE3]'
+  id: totrans-23
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: You can learn more about this library by reading the documentation page at [https://pypi.org/project/psutil/](https://pypi.org/project/psutil/).
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可以通过阅读文档页面了解更多关于此库的信息：[https://pypi.org/project/psutil/](https://pypi.org/project/psutil/)。
+- en: Using WMI
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 WMI
+- en: The `wmi` library, maintained by Tim Golden, is a wrapper for the `pywin32`
+    module, covered in the next section, that allows programmers to interact with
+    the WMI API and provides programmers with a great deal of relevant information
+    about Windows systems. You can even use this library to query other Windows systems
+    on your network.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`wmi` 库由 Tim Golden 维护，是对下一个部分中将介绍的 `pywin32` 模块的封装，允许程序员与 WMI API 进行交互，并为程序员提供大量与
+    Windows 系统相关的重要信息。您甚至可以使用此库查询网络上的其他 Windows 系统。'
+- en: 'First, install WMI using `pip` by executing the following at Command Prompt:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，在命令提示符下执行以下命令使用 `pip` 安装 WMI：
+- en: '[PRE4]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: It should go without saying that the examples that we will discuss here will
+    only work on Windows systems and therefore should be executed on a Windows system.
+    Let's first take a look at querying running services.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不言而喻，我们将在这里讨论的示例只适用于 Windows 系统，因此应在 Windows 系统上执行。让我们首先看看如何查询正在运行的服务。
+- en: 'We will need to create a WMI object and then use the `query()` method to identify
+    running services:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要创建一个 WMI 对象，然后使用 `query()` 方法来识别正在运行的服务：
+- en: '[PRE5]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: We can, for example, use this module to identify installed printers associated
+    with the system.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，我们可以使用该模块识别与系统关联的已安装打印机。
+- en: 'A portion of the output, denoted by the string `[...]`, has been sanitized
+    in the following example:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下示例中的部分输出，表示为字符串 `[...]`，已被清除：
+- en: '[PRE6]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Lastly, a very useful feature of this library, which we use in this script,
+    allows us to query Windows Event Logs.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，本文中使用的这个库的一个非常有用的功能是，它允许我们查询 Windows 事件日志。
+- en: 'In the following example, we query to the `OAlerts.evtx` file, an event log
+    that stores Microsoft Office alerts, and print out each event''s message and the
+    time the event was generated. Only one such message is shown here, in order to
+    be succinct:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的示例中，我们查询`OAlerts.evtx`文件，这是一个存储Microsoft Office警报的事件日志，并打印出每个事件的消息和事件生成的时间。为了简洁起见，这里仅展示一条这样的消息：
+- en: '[PRE7]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: We could discuss many other features of this library; however, we invite you
+    to explore and experiment with its capabilities. We will introduce a few more
+    examples of this library in this chapter's script.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以讨论这个库的许多其他功能；然而，我们邀请你探索并尝试它的功能。在本章的脚本中，我们将介绍更多这个库的示例。
+- en: This module requires the `pywin32` library, which is an incredibly powerful
+    library that gives developers access to a number of different Windows APIs and
+    is covered briefly in the next section. Understand that we are only scratching
+    the surface with these libraries and focus on the specific goals of our script.
+    Spend some time reading the documentation for these libraries and experimenting
+    with their capabilities, as you will likely find these libraries useful in any
+    script that interacts with the Windows operating system.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本模块需要`pywin32`库，它是一个非常强大的库，能够让开发者访问多个不同的Windows API，相关内容将在下一节简要介绍。需要理解的是，我们只是初步接触这些库的表面，重点是我们的脚本目标。花些时间阅读这些库的文档并尝试它们的功能，因为在任何与Windows操作系统交互的脚本中，你可能会发现这些库非常有用。
+- en: Read more about the `wmi` library and its capabilities on the documentation
+    page at [https://pypi.org/project/WMI/](https://pypi.org/project/WMI/). Sample
+    cookbook recipes using the `wmi` library can be found here:[ http://timgolden.me.uk/python/wmi/cookbook.html](http://timgolden.me.uk/python/wmi/cookbook.html).
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在文档页面[https://pypi.org/project/WMI/](https://pypi.org/project/WMI/)上了解更多关于`wmi`库及其功能的信息。使用`wmi`库的示例食谱可以在此处找到：[http://timgolden.me.uk/python/wmi/cookbook.html](http://timgolden.me.uk/python/wmi/cookbook.html)。
+- en: What does the pywin32 module do?
+  id: totrans-41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '`pywin32`模块的功能是什么？'
+- en: One of the most versatile Windows API libraries for Python is `pywin32` (version
+    224). This project is hosted on GitHub (historically on SourceForge) by Mark Hammond
+    and is an open source project that the community contributes to. There are many
+    different APIs available for Windows through this library. These features allow
+    developers to build GUIs for their applications, leverage built-in authentication methods, and
+    interact with hard drives and other external devices.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对Python来说，最通用的Windows API库之一是`pywin32`（版本224）。该项目由Mark Hammond托管在GitHub（之前托管在SourceForge）上，是一个开源项目，社区成员共同贡献。通过这个库，Windows提供了许多不同的API。这些功能允许开发者为应用程序构建GUI，利用内置的身份验证方法，并与硬盘和其他外部设备进行交互。
+- en: 'The `pywin32` module can be installed with `pip` by executing the following
+    at Command Prompt:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pywin32`模块可以通过在命令提示符中执行以下命令使用`pip`安装：'
+- en: '[PRE8]'
+  id: totrans-44
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: Windows defines a **Component Object Model** (**COM**) that allows information
+    to be shared between applications. A COM can be in the form of a **Dynamic Link
+    Library** (**DLL**) or other binary file formats. These modules are designed in
+    such a manner that any programming language can interpret the information. This
+    single set of instructions, for example, allows a C++-based and Java-based program
+    to share a single resource, rather than requiring a separate version for each
+    language. COMs are generally only found on Windows, although they could be ported
+    to a UNIX platform if desired. The `win32com` library, a part of the `pywin32`
+    library, allows us to interact with COMs in Windows and is used by the `wmi` library
+    to obtain the information we request from it.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows定义了一个**组件对象模型**（**COM**），它允许应用程序之间共享信息。COM可以是**动态链接库**（**DLL**）或其他二进制文件格式。这些模块的设计使得任何编程语言都可以解读这些信息。例如，这一套指令可以让基于C++的程序和基于Java的程序共享同一资源，而无需为每种语言提供一个单独的版本。COM通常只存在于Windows平台上，尽管如果需要，它们也可以移植到UNIX平台上。`win32com`库是`pywin32`库的一部分，允许我们在Windows中与COM交互，并由`wmi`库用于获取我们请求的信息。
+- en: The `pywin32` library can be found on GitHub at [https://github.com/mhammond/pywin32](https://github.com/mhammond/pywin32).
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`pywin32`库可以在GitHub上找到：[https://github.com/mhammond/pywin32](https://github.com/mhammond/pywin32)。'
+- en: Rapidly triaging systems – pysysinfo.py
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 快速检查系统状态 – pysysinfo.py
+- en: 'We are now ready to dive into the focus of this chapter, the `pysysinfo.py`
+    script after having already covered the importance of collecting volatile information
+    and the libraries we will use. This script is composed of a number of functions,
+    most of which have to do with the `psutil` library, but at its heart identifies
+    early on what type of system it is running on and, if that system is using the
+    Windows operating system, runs an additional function using the WMI API, discussed
+    previously. You can see in the following diagram how the various functions interact
+    with each other and make up the code discussed throughout the remainder of this
+    chapter:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们已经介绍了收集易失性信息的重要性以及我们将使用的库之后，现在我们准备深入本章的重点——`pysysinfo.py` 脚本。该脚本由多个函数组成，其中大多数与
+    `psutil` 库相关，但其核心首先识别它运行的系统类型，如果该系统使用的是 Windows 操作系统，则会运行一个额外的函数，使用之前讨论过的 WMI
+    API。您可以在下图中看到各个函数是如何相互作用并组成本章剩余部分讨论的代码：
+- en: '![](img/4e8d31ee-900c-4a28-a337-089734af5dfc.png)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4e8d31ee-900c-4a28-a337-089734af5dfc.png)'
+- en: This script was developed and tested on Python 2.7.15 and 3.7.1\. As with any
+    script we develop, we must start with the imports necessary to successfully execute
+    the code we've developed. You'll notice a number of the usual imports; however,
+    a few stand out—notably the `platform` module and `psutil` on lines 5 and 8\.
+    You may also notice that `wmi` is missing from this set of imports. You will understand
+    why this is imported later in the script in a few paragraphs. This script contains
+    seven different functions, most of which are used to process the data from the
+    `psutil` library.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该脚本是在 Python 2.7.15 和 3.7.1 上开发和测试的。和我们开发的任何脚本一样，我们必须从导入必要的库开始，才能成功执行我们编写的代码。你会注意到一些常见的导入；然而，有一些特别引人注目——尤其是第
+    5 行和第 8 行的 `platform` 模块和 `psutil`。你可能还会注意到，这组导入中缺少了 `wmi`。你将在脚本的后面几段理解为什么稍后会导入这个库。该脚本包含七个不同的函数，其中大多数用于处理来自
+    `psutil` 库的数据。
+- en: 'Note that the `return_none()` function is covered in the following code block
+    instead of in a new section, as it is a one-line function that simply returns
+    `None` to the calling code:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，`return_none()` 函数将在下一个代码块中介绍，而不是新开一个小节，因为它是一个一行的函数，简单地返回 `None` 给调用代码：
+- en: '[PRE9]'
+  id: totrans-52
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: The `platform` module, which we have not touched on previously, is part of the
+    standard library and also provides some information about the system it is running
+    on. In this case, we only use this library to determine the operating system of
+    the host system executing the script.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`platform` 模块是我们之前没有涉及的，它是标准库的一部分，也提供了一些关于运行该脚本的系统的信息。在本例中，我们仅使用此库来确定执行脚本的主机系统的操作系统。'
+- en: Learn more about the platform module by reading the documentation page at [https://docs.python.org/3/library/platform.html](https://docs.python.org/3/library/platform.html).
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过阅读文档页面了解更多关于 `platform` 模块的信息：[https://docs.python.org/3/library/platform.html](https://docs.python.org/3/library/platform.html)。
+- en: Moving on to the script setup, we have the argument parser, which is decidedly
+    bland compared to some other chapters, featuring only one positional argument,
+    `OUTPUT_DIR`, the output directory to write the processed data to.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是脚本设置，我们有参数解析器，与其他章节相比，它显得相当简单，仅包含一个位置参数 `OUTPUT_DIR`，用于指定写入处理后数据的输出目录。
+- en: 'If the desired output directory does not exist, we create it using the `os.makedirs()`
+    function on line 323:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果目标输出目录不存在，我们将在第 323 行使用 `os.makedirs()` 函数创建它：
+- en: '[PRE10]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Here''s where things differ a little from normal. On line 325, using the `platform.system()`
+    function, we check to see if the script is being executed on a Windows system.
+    If so, we try to import the `wmi` module and, if successful, call the `wmi_info()`
+    method. As alluded to earlier, we import the `wmi` library here for a reason.
+    When the `wmi` library is imported, it also loads the `pywin32` module, specifically
+    the `win32com.client` module. On a non-Windows system, where the `pywin32` library
+    won''t be installed, this can then cause an `ImportError` exception. For that
+    reason, we do not try importing `wmi` until we know the script is executing on
+    a Windows machine. It''s also not a bad idea to only import libraries once they
+    are needed:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的做法与常规稍有不同。在第 325 行，使用 `platform.system()` 函数，我们检查脚本是否在 Windows 系统上执行。如果是，我们尝试导入
+    `wmi` 模块，如果导入成功，则调用 `wmi_info()` 方法。正如之前提到的，我们在这里导入 `wmi` 库是有原因的。当导入 `wmi` 库时，它还会加载
+    `pywin32` 模块，特别是 `win32com.client` 模块。在非 Windows 系统上，由于没有安装 `pywin32` 库，这可能会导致
+    `ImportError` 异常。因此，我们只有在知道脚本在 Windows 机器上执行时才会尝试导入 `wmi`。仅在需要时导入库也是个不错的主意：
+- en: '[PRE11]'
+  id: totrans-59
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: Regardless of whether the system is Windows or not, we run the code captured
+    in the next code block. On line 336, we call the `get_process_info()` method,
+    which ultimately returns process data in the form of a dictionary. On line 337,
+    we create a list containing the desired column names and keys of our `pid_data`
+    dictionary. Lastly, on line 341, we call the `csv_writer()` method and pass in
+    the data, desired output directory, output name, the `fields` list, and a keyword
+    argument.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论系统是否为 Windows，我们都会运行下一个代码块中的代码。在第 336 行，我们调用 `get_process_info()` 方法，最终以字典的形式返回进程数据。在第
+    337 行，我们创建了一个列表，包含所需的列名和 `pid_data` 字典的键。最后，在第 341 行，我们调用 `csv_writer()` 方法，传入数据、期望的输出目录、输出名称、`fields`
+    列表以及一个关键字参数。
+- en: 'We will see what that keyword-argument does in a little bit:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 稍后我们将看到该关键字参数的作用：
+- en: '[PRE12]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: As you may have noticed, we do not have a `main()` function for this script
+    and will, instead, jump right into a review of the `get_process_info()` method.
+    We will cover the Windows-specific function, `wmi_info()`, toward the end of this
+    chapter.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能已经注意到的，我们并没有为这个脚本编写 `main()` 函数，而是直接跳入了对 `get_process_info()` 方法的回顾。我们将在本章的最后讨论特定于
+    Windows 的函数 `wmi_info()`。
+- en: Understanding the get_process_info() function
+  id: totrans-64
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 `get_process_info()` 函数
+- en: As far as functions go, the `get_process_info()` function, is relatively straightforward
+    and mainly serves to set up the rest of the code execution. On line 166, we create
+    the `pid_info` dictionary, which is ultimately returned to the calling function
+    on line 336 and contains the extracted process data. Next, using the `psutil.pids()`
+    method as an iterator, which we showed in the demonstration of this library earlier,
+    we pass each process ID to the `get_pid_details()` method and store the returned
+    data in the `pid_info` dictionary, with the PID serving as the dictionary key.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就功能而言，`get_process_info()` 函数相对简单，主要用于设置其余代码的执行。在第 166 行，我们创建了 `pid_info` 字典，最终将在第
+    336 行返回给调用函数，并包含提取的进程数据。接下来，我们使用 `psutil.pids()` 方法作为迭代器，正如我们在之前展示该库时所展示的那样，我们将每个进程
+    ID 传递给 `get_pid_details()` 方法，并将返回的数据存储在 `pid_info` 字典中，PID 作为字典的键。
+- en: 'Let''s look at the `get_pid_details()` function next:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看一下 `get_pid_details()` 函数：
+- en: '[PRE13]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Learning about the get_pid_details() function
+  id: totrans-68
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解 `get_pid_details()` 函数
+- en: 'The `get_pid_details()` method starts to gather information about each PID
+    that is passed to it. For each PID, we create a dictionary, `details`, which is
+    pre-populated with relevant keys we can expect to extract values for using the
+    `psutil` library. The dictionary keys are initialized with placeholder values,
+    mostly consisting of empty strings and lists:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`get_pid_details()` 方法开始收集每个传递给它的 PID 的信息。对于每个 PID，我们创建一个字典 `details`，该字典预先填充了我们可以使用
+    `psutil` 库提取值的相关键。字典的键被初始化为占位符值，大多数是空字符串和空列表：'
+- en: '[PRE14]'
+  id: totrans-70
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: Next, on line 118, we enter a `try` and `except` block that tries to create
+    a `Process` object for each provided PID. In this case, on lines 120 and 124,
+    we have two different exception clauses to handle situations where there is no
+    process matching the provided PID (perhaps if the process closed immediately after
+    script execution) or if there is an operating system error. In either event, should
+    such exceptions occur, the errors are appended to the `details` dictionary and
+    the dictionary is returned to the calling function.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，在第118行，我们进入一个`try`和`except`块，尝试为每个提供的PID创建一个`Process`对象。在这种情况下，第120行和第124行有两个不同的异常处理子句，分别处理没有与提供的PID匹配的进程（例如，如果进程在脚本执行后立即关闭）或操作系统错误的情况。在发生这种异常时，错误会被附加到`details`字典中，并将该字典返回给调用函数。
+- en: 'Rather than crashing or halting the script due to an issue with a given process,
+    the script continues and will provide any such errors as a column in the CSV report
+    that is generated by the script:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其因某个进程的问题导致脚本崩溃或停止，脚本会继续执行，并将在脚本生成的CSV报告中提供这些错误作为一列。
+- en: '[PRE15]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: If a `Process` object is created for the provided PID, we then iterate through
+    each key in the `details` dictionary on line 128, and if the key is anything other
+    than `pid` or `_errors`, we attempt to get the value associated with the key with
+    the `getattr()` function on line 144\. There are a few exceptions to that, however;
+    for instance, we have specific `elif` statements for the `children`, `threads`,
+    `connections`, or `files` keys. In the case of the `children` and `threads` keys,
+    we use list comprehension on lines 134 and 138 to associate the children's PIDs
+    and thread's IDs to the `children` and `threads` keys, respectively.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果为提供的PID创建了一个`Process`对象，我们接着会遍历第128行中`details`字典中的每个键，如果该键不是`pid`或`_errors`，我们会尝试使用第144行的`getattr()`函数获取与该键关联的值。不过，这里有一些例外情况；例如，我们为`children`、`threads`、`connections`或`files`这些键编写了特定的`elif`语句。在处理`children`和`threads`键时，我们在第134行和第138行使用了列表推导式，分别将子进程的PID和线程的ID与`children`和`threads`键相关联。
+- en: 'For both the `connections` and `files` keys, we have developed separate functions
+    to extract the desired information and store the returned data to the appropriate
+    key in the `details` dictionary. Lastly, on lines 145, 148, and 151, we create
+    exceptions that may occur throughout the conditional statements, including handling
+    issues where we lack sufficient privilege, for instance, if the script is running
+    from a non-elevated prompt, or if the process no longer exists, or an operating
+    system error has occurred:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于`connections`和`files`这两个键，我们开发了单独的函数来提取所需的信息，并将返回的数据存储到`details`字典中的相应键下。最后，在第145、148和151行，我们创建了可能在条件语句中出现的异常，处理例如缺少足够权限的情况（例如，如果脚本在非提升权限的提示符下运行）、进程不存在或操作系统发生错误的情况：
+- en: '[PRE16]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: As discussed, for two keys, the `connections` and `files` keys, we called separate
+    functions to handle each of them. Let's now take a look at the first of those.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，对于`connections`和`files`这两个键，我们调用了单独的函数来处理它们。现在我们来看第一个函数的实现。
+- en: Extracting process connection properties with the read_proc_connections() function
+  id: totrans-78
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`read_proc_connections()`函数提取进程连接属性
+- en: 'The `read_proc_connections()` function, defined on line 58, starts by creating
+    an empty list, `conn_details`, which will store the details of each PID connection:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`read_proc_connections()`函数定义在第58行，首先创建一个空的列表`conn_details`，该列表将存储每个PID连接的详细信息：'
+- en: '[PRE17]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: For each connection in the provided process, we create a `conn_items` dictionary,
+    and store within it, the details of each connection, including the status of the
+    connection and the local and remote IP addresses and ports. As seen before, we
+    use the `getattr()` method, querying for named attributes of the specified object
+    and storing the returned value in our dictionary. If the named object does not
+    exist, we use `None` or empty strings as default values defined as the third input
+    of the `getattr()` function.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于提供的每个连接，我们会创建一个`conn_items`字典，并在其中存储每个连接的详细信息，包括连接状态、本地和远程的IP地址和端口。如前所述，我们使用`getattr()`方法，查询指定对象的命名属性，并将返回的值存储到我们的字典中。如果命名对象不存在，我们使用`None`或空字符串作为默认值，这些默认值被定义为`getattr()`函数的第三个输入。
+- en: 'We then append the dictionary of details for each connection to the `conn_details`
+    list which, after this process has completed for each connection, is itself returned
+    to the calling function:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们将每个连接的详细信息字典追加到`conn_details`列表中，在此过程完成后，`conn_details`列表本身将被返回给调用函数：
+- en: '[PRE18]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Obtaining more process information with the read_proc_files() function
+  id: totrans-84
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用read_proc_files()函数获取更多的进程信息
+- en: The `read_proc_files()` method, defined on line 81, follows a similar pattern
+    to what was discussed in the preceding section. Essentially, on line 88, we iterate
+    through all of the open files associated with the process and, using the `getattr()`
+    method, attempt to extract information about each open file, such as its path
+    and mode.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在81行定义的`read_proc_files()`方法遵循了与前面讨论的类似模式。基本上，在88行，我们遍历与进程相关的所有打开的文件，并使用`getattr()`方法尝试提取每个打开文件的信息，如其路径和模式。
+- en: 'We return the `file_details` list after extracting all values for each open
+    file and inserting the data into the `file_details` list:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在提取每个打开文件的所有值并将数据插入到`file_details`列表后返回该列表：
+- en: '[PRE19]'
+  id: totrans-87
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: Extracting Windows system information with the wmi_info() function
+  id: totrans-88
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用wmi_info()函数提取Windows系统信息
+- en: The `wmi_info()` function, defined on line 172, starts by defining a dictionary
+    that will store the various types of information we query using the WMI API.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在172行定义的`wmi_info()`函数，首先定义了一个字典，用来存储通过WMI API查询到的各种信息类型。
+- en: 'Similarly, on line 185, we create the WMI object and assign it to the variable,
+    `conn`, which is what we will be specifically querying:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，在185行，我们创建了WMI对象并将其赋值给变量`conn`，这就是我们将要进行查询的对象：
+- en: '[PRE20]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: In some of these code blocks, you will notice that we call a specific function
+    of the `conn` object, but in others, we use the `query()` method. Note that either
+    option is viable in some cases. For instance, instead of calling `conn.Win32_UserAccount()`,
+    we could call `conn.query("SELECT * from Win32_UserAccount")`. The `query()` method
+    gives us some additional flexibility, as we can provide additional logic to our
+    query, which will be seen when we query for specific event log entries.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些代码块中，你会注意到我们调用了`conn`对象的特定方法，但在其他地方，我们使用了`query()`方法。请注意，在某些情况下，两者都是可行的。例如，我们可以调用`conn.Win32_UserAccount()`，也可以使用`conn.query("SELECT
+    * from Win32_UserAccount")`。`query()`方法为我们提供了额外的灵活性，因为我们可以为查询提供更多的逻辑，这将在查询特定事件日志条目时看到。
+- en: 'Starting with the `print` statement on line 190, we begin to collect information
+    using the `wmi` library. Iterating through each user profile on line 191, we append
+    various attributes of the user account to the `wmi_dict` users list:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从190行的`print`语句开始，我们开始使用`wmi`库收集信息。在191行通过遍历每个用户配置文件时，我们将用户帐户的各种属性追加到`wmi_dict`的`users`列表中：
+- en: '[PRE21]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: We start to use the `query()` method in the following code block to list all
+    (`*`) shares on line 205\. For each share, we append various details about it
+    to the appropriate list in the `wmi_dict` dictionary. On line 213, we again use
+    the `query()` method, this time for services, but only capture services that are
+    currently running.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在下面的代码块中开始使用`query()`方法，在205行列出所有的（`*`）共享。对于每个共享，我们将其各种详细信息追加到`wmi_dict`字典中的相应列表。在213行，我们再次使用`query()`方法，这次是针对服务，但仅捕获当前正在运行的服务。
+- en: 'Hopefully, you can appreciate the value of the `query()` method, as it provides
+    the developer with a lot of flexibility on isolating and providing data only matching
+    specified criteria, thereby cutting out a lot of junk:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望你能理解`query()`方法的价值，因为它为开发者提供了很大的灵活性，可以只返回符合指定标准的数据，从而过滤掉大量无用数据：
+- en: '[PRE22]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: On line 224, we begin to collect details on the connected drives by iterating
+    through each drive using the `conn.Win32_DiskDrive()` function. To collect all
+    of the information we want to extract, we need to also iterate through each partition
+    and the logical volume of each disk; hence, the additional `for` loops on lines
+    225 and 227.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在224行，我们开始通过使用`conn.Win32_DiskDrive()`函数迭代每个驱动器来收集已连接驱动器的详细信息。为了收集我们想提取的所有信息，我们还需要迭代每个磁盘的每个分区和逻辑卷；因此，225行和227行的额外`for`循环。
+- en: 'Once we have the `disk`, `partition`, and `logical_disk` objects, we use each
+    and append a dictionary to the appropriate list of the `wmi_dict` dictionary containing
+    the various properties of each disk, partition, and volume:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们获得了`disk`、`partition`和`logical_disk`对象，我们就使用它们，并将一个字典追加到`wmi_dict`字典中相应的列表中，字典包含每个磁盘、分区和卷的各种属性：
+- en: '[PRE23]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: Next, on line 253, we create a variable, `wmi_query`, to hold a string that
+    we will use to extract all events with event ID 4624 from the `Security` event
+    log.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，在253行，我们创建了一个变量`wmi_query`，用来存储我们将用来从`Security`事件日志中提取事件ID为4624的所有事件的字符串。
+- en: Note that it was observed in testing that the script needs to be run from an
+    elevated Command Prompt to be able to extract information from the `Security`
+    event log.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在测试中观察到，脚本需要从提升的命令提示符运行，以便能够从`Security`事件日志中提取信息。
+- en: 'Similar to the other queries, we iterate through the returned results and append
+    various attributes to the appropriate list in the `wmi_dict` dictionary:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其他查询类似，我们迭代返回的结果并将各种属性追加到`wmi_dict`字典中的相应列表中：
+- en: '[PRE24]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Lastly, after extracting all of the information and storing it in the `wmi_dict`
+    dictionary, we begin to make calls to the `csv_writer()` function to write a spreadsheet
+    for each type of data to the output directory. Most of the values being passed
+    into the `csv_writer()` are self-explanatory and include the artifact-specific
+    data (that is, User Profiles under the `Users` key), the output directory, and
+    the output filename. The last argument is an alphabetically sorted list of keys
+    from the artifact-specific data to serve as column headers for our CSV.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在提取所有信息并将其存储在`wmi_dict`字典中后，我们开始调用`csv_writer()`函数，将每种数据类型的电子表格写入输出目录。传递给`csv_writer()`的大部分值不言自明，包括特定工件的数据（即`Users`键下的用户配置文件）、输出目录和输出文件名。最后一个参数是一个按字母顺序排序的工件特定数据的键列表，作为我们CSV文件的列标题。
+- en: 'You will also notice that we have a `try` and `except` block to handle writing
+    the event log data. The reason for this, as previously discussed, is that, if
+    the script is not run from an elevated Command Prompt, it is possible that the
+    `Event Log` key will consist of an empty list:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还会注意到，我们有一个`try`和`except`块来处理写入事件日志数据。这是因为，如前所述，如果脚本没有从提升的命令提示符运行，`Event Log`键可能会包含一个空列表：
+- en: '[PRE25]'
+  id: totrans-107
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Writing our results with the csv_writer() function
+  id: totrans-108
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`csv_writer()`函数写入我们的结果
+- en: Our `csv_writer()`, defined on line 279, begins normally enough, by creating
+    a `csvfile` file object based on the version of Python being used to execute the
+    script. One thing that is different is the `**kwargs` argument listed in the definition
+    of the function. The `**` component of that argument indicates that this function
+    accepts keyword arguments. In Python, by convention, keyword arguments are referred
+    to as `kwargs`.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们定义的`csv_writer()`，在第279行正常开始，通过根据正在执行脚本的Python版本创建一个`csvfile`文件对象。不同之处在于，函数定义中列出了`**kwargs`参数。该参数的`**`部分表示这个函数接受关键字参数。在Python中，按惯例，关键字参数被称为`kwargs`。
+- en: We use keyword arguments in this function to differentiate between using the
+    regular `csv.writer()` method and the `csv.DictWriter()` method. This is necessary
+    because the CSV calls from the `wmi_info()` and the `get_process_info()` functions
+    pass in a list and dictionary, respectively.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在这个函数中使用关键字参数，以区分使用常规的`csv.writer()`方法和`csv.DictWriter()`方法。这是必要的，因为来自`wmi_info()`和`get_process_info()`函数的CSV调用分别传递了列表和字典。
+- en: 'While using additional logic in the `csv_writer()` method solves our problem,
+    we could also have solved this issue by making both the `wmi_info()` and `get_process_info()`
+    functions return similarly structured objects:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`csv_writer()`方法中使用额外的逻辑解决了我们的问题，我们也可以通过让`wmi_info()`和`get_process_info()`函数返回结构相似的对象来解决这个问题：
+- en: '[PRE26]'
+  id: totrans-112
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: As you can see on line 298, we check to see if a keyword argument called `type` was
+    passed into the function call. Given that we only do this on the call to this
+    function on line 341,we know what this signifies. We should use the `csv.DictWriter`
+    method. On line 341, you'll note that we assigned the `type` keyword argument
+    to the `DictWriter` string  However, in this case, we could have passed any arbitrary
+    string, as we do not use its value at all here. Rather, we need only know that
+    the `type` keyword argument was assigned a value.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你在第298行看到的，我们检查是否传入了名为`type`的关键字参数。由于我们只在第341行调用此函数时才这样做，因此我们知道这意味着什么。我们应该使用`csv.DictWriter`方法。在第341行，你会注意到我们将`type`关键字参数分配给了`DictWriter`字符串。然而，在这种情况下，我们本可以传递任何任意的字符串，因为我们在这里根本没有使用它的值。实际上，我们只需要知道`type`关键字参数已经被赋值即可。
+- en: 'For the dictionary from the `get_process_info()` function, we can use list
+    comprehension to write the values of each entry of the dictionary. For the `wmi_info()`
+    function, we need to first iterate through each entry in the provided list and
+    then write the value associated with each of the provided headers to the CSV file:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于`get_process_info()`函数返回的字典，我们可以使用列表推导式来写出字典中每个条目的值。对于`wmi_info()`函数，我们需要首先遍历提供的列表中的每个条目，然后将每个提供的表头相关联的值写入CSV文件：
+- en: '[PRE27]'
+  id: totrans-115
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: Executing pysysinfo.py
+  id: totrans-116
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 执行pysysinfo.py
+- en: 'In the following screenshot, you can see the output printed to the when running
+    this script on a Windows system:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的截图中，你可以看到在Windows系统上运行此脚本时输出的结果：
+- en: '**![](img/51f36ee7-799b-434e-b612-59df0f15a3f7.png)**'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**![](img/51f36ee7-799b-434e-b612-59df0f15a3f7.png)**'
+- en: 'Additionally, after executing the script on a Windows system, CSV files for
+    connected drives, shares, services, processes, users, and logon events are created
+    in the specified output directory. A screenshot of the contents of one such spreadsheet,
+    the user profile spreadsheet, is captured here:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，在Windows系统上执行脚本后，连接的驱动器、共享、服务、进程、用户和登录事件的CSV文件将被创建在指定的输出目录中。以下是其中一个电子表格——用户配置文件电子表格的内容截图：
+- en: '![](img/18e3b3b1-571f-4b09-b7c0-6a920c9afb68.png)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/18e3b3b1-571f-4b09-b7c0-6a920c9afb68.png)'
+- en: Challenges
+  id: totrans-121
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 挑战
+- en: As alluded to in the *Using the WMI* section, consider expanding the script's
+    capabilities by being able to query remote Windows hosts. Similarly, both `wmi`
+    and `psutil` offer access to additional information that is worth collecting.
+    Experiment with these two libraries and collect more information, especially focusing
+    on collecting system information for non-Windows systems, which, in the current
+    iteration of this script, is more fully supported thanks to the `wmi` library.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如*使用WMI*部分所提到的，考虑通过能够查询远程Windows主机来扩展脚本的功能。类似地，`wmi`和`psutil`都提供了可以访问的附加信息，值得收集。尝试这两个库并收集更多信息，尤其是专注于收集非Windows系统的系统信息，这在当前版本的脚本中得到了更好的支持，感谢`wmi`库。
+- en: Lastly, for a more advanced challenge, consider developing a more useful storage
+    repository to collect and query the data. It's all well and good to collect and
+    present data in the way we have for a few systems, but how well would this scale
+    when run across many hundreds of systems? Imagine a scenario where you deploy
+    and run a modified version of this script against many hosts on a network and
+    have that processed information stored in a singular centralized database for
+    storage and, more importantly, as a more efficient means of querying the collected
+    data.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，对于一个更具挑战性的任务，考虑开发一个更有用的存储库来收集和查询数据。以我们为少数几个系统收集和展示数据的方式来说，效果很好，但当在数百台系统上运行时，这种方式的扩展性如何？想象一下，在一个网络上针对多个主机部署并运行修改版的此脚本，并将处理后的信息存储在一个集中式数据库中进行存储，更重要的是，作为更高效的查询收集数据的手段。
+- en: Summary
+  id: totrans-124
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we confirmed the value of system information and how to extract
+    that information on live systems. Using the `psutil` library, we learned how to
+    extract process information in an OS-agnostic manner. We also briefly touched
+    on how to use the WMI API to obtain even more information from the Windows operating
+    system. The code for this project can be downloaded from GitHub or Packt, as described
+    in the *Preface*.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们确认了系统信息的价值以及如何在实时系统上提取这些信息。通过使用`psutil`库，我们学习了如何以操作系统无关的方式提取进程信息。我们还简要介绍了如何使用WMI
+    API从Windows操作系统获取更多信息。本项目的代码可以从GitHub或Packt下载，具体信息请参考*前言*部分。
+- en: In the next chapter, we will learn how to process an Outlook archive `.pst`
+    file with Python and create a listing of its contents.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将学习如何使用Python处理Outlook归档的`.pst`文件并创建其内容列表。

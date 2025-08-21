@@ -1,0 +1,1124 @@
+- en: '*Chapter 14*: Extending Ghidra for Advanced Reverse Engineering'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第14章*：扩展 Ghidra 以进行高级逆向工程'
+- en: In this chapter, we will discuss the next steps you can take to learn more about
+    Ghidra and fully exploit its functionally. Throughout this book, you've learned
+    how to use Ghidra for reverse engineering purposes. You've also learned how to
+    modify and extend Ghidra, as well as how to contribute to the project with your
+    own developments. Although it seems that we have already covered everything, we
+    haven't talked about how to use Ghidra for breaking state-of-the-art reverse engineering
+    challenges yet.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将讨论你可以采取的下一步，以深入了解 Ghidra 并充分利用其功能。通过本书，你已经学会了如何使用 Ghidra 进行逆向工程，还学会了如何修改和扩展
+    Ghidra，以及如何通过你自己的开发为项目做出贡献。尽管我们已经涵盖了所有内容，但我们还没有讨论如何利用 Ghidra 来攻克最前沿的逆向工程挑战。
+- en: During this chapter, you will learn about some advanced reverse engineering
+    topics that are trending at the time of writing, including static and dynamic
+    symbolic execution and **Satisfiability Modulo Theories** (**SMT**) solvers.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你将学习一些当前流行的高级逆向工程主题，包括静态和动态符号执行以及**可满足性模块理论**（**SMT**）求解器。
+- en: Static symbolic execution (or simply symbolic execution) is a systematic program
+    analysis technique that executes programs on symbolic inputs (for example, a vector
+    of 32 bits named x) instead of concrete values (for example, 5 units).
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 静态符号执行（简称符号执行）是一种系统化的程序分析技术，它使用符号输入（例如，名为 x 的 32 位向量）来执行程序，而不是使用具体值（例如，5 单位）。
+- en: As the execution of the program progresses in a static symbolic execution session,
+    the inputs go through restrictions (for example, if conditions, loop conditions,
+    and so on), giving rise to formulas. These formulas contain arithmetic but also
+    logical operations, which makes these **Satisfiability Modulo Theories** (**SMT**)
+    problems; that is, problems where we must determine whether a first-order formula
+    is satisfiable with respect to some logical theory. SMT is an extension of SAT
+    (the Boolean satisfiability problem). As the name suggests, SAT formulas involves
+    Boolean values, while SMT is a variant of SAT that has been enriched to cover
+    integers, reals, arrays, data types, bit vectors, and pointers.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着程序在静态符号执行会话中的执行进展，输入会经过各种限制（例如，if 条件、循环条件等），从而产生公式。这些公式不仅包含算术运算，还包括逻辑运算，使其成为**可满足性模块理论**（**SMT**）问题；也就是说，这是一个我们需要判断一个一阶公式是否在某种逻辑理论下是可满足的问题。SMT
+    是 SAT（布尔可满足性问题）的扩展。顾名思义，SAT 公式涉及布尔值，而 SMT 是 SAT 的一种变体，扩展了整数、实数、数组、数据类型、位向量和指针等内容。
+- en: Since both SAT and SMT are known to be hard problems (NP-Complete problems),
+    in some situations, it is necessary to reduce their formulas. This can be done
+    by partially feeding the formula with concrete values, something that is known
+    as dynamic symbolic execution or concolic execution (where the word concolic refers
+    to mixing concrete and symbolic values).
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于 SAT 和 SMT 都是已知的难题（NP 完全问题），在某些情况下，需要对其公式进行简化。这可以通过部分地用具体值填充公式来完成，这就是动态符号执行或共符号执行（其中“共符号”指的是混合具体值和符号值）。
+- en: We will start by providing an overview of the basics of some advanced reverse
+    engineering tools and techniques, before exploring the Ghidra extensions and capabilities
+    that make use of these kinds of tools to make their jobs easier.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将首先提供一些高级逆向工程工具和技术的基础概述，然后探讨 Ghidra 扩展功能和能力，利用这些工具使工作变得更加轻松。
+- en: 'In this chapter, we''re going to cover the following topics:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Learning the basics of advanced reverse engineering
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 学习高级逆向工程的基础
+- en: Using Ghidra for advanced reverse engineering
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Ghidra 进行高级逆向工程
+- en: Let's get started!
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始吧！
+- en: Technical requirements
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The technical requirements for this chapter are as follows:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的技术要求如下：
+- en: 'Microsoft Z3 theorem prover: [https://github.com/Z3Prover/z3](https://github.com/Z3Prover/z3).'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Microsoft Z3 定理证明器：[https://github.com/Z3Prover/z3](https://github.com/Z3Prover/z3)。
+- en: 'Miasm reverse engineering framework: [https://github.com/cea-sec/miasm](https://github.com/cea-sec/miasm).'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Miasm 逆向工程框架：[https://github.com/cea-sec/miasm](https://github.com/cea-sec/miasm)。
+- en: 'This book''s GitHub repository, which contains all the necessary code for this
+    chapter: [https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter14](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter14)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书的 GitHub 仓库，包含了本章节所需的所有代码：[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter14](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners/tree/master/Chapter14)
+- en: 'Check out the following link to see the Code in Action video: [https://bit.ly/2K1SmGd](https://bit.ly/2K1SmGd)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请查看以下链接，观看《代码实战》视频：[https://bit.ly/2K1SmGd](https://bit.ly/2K1SmGd)
+- en: Learning the basics of advanced reverse engineering
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 学习高级逆向工程的基础知识
+- en: In this section, we will provide an overview of the Ghidra processor module
+    skeleton. This skeleton will be a little bit different since processor modules
+    are not written in Java. Instead, the processor modules are written in SLEIGH,
+    the Ghidra processor specification language.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将提供 Ghidra 处理器模块框架的概述。这个框架会有些不同，因为处理器模块并不是用 Java 编写的，而是用 Ghidra 的处理器规范语言
+    SLEIGH 编写的。
+- en: Learning about symbolic execution
+  id: totrans-19
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 了解符号执行
+- en: 'You should already be familiar with the aspects of debugging a program. In
+    this kind of process, you explore the program using concrete values, which is
+    why this is called concrete execution. For instance, the following screenshot
+    shows an x86_64 debugging session. The `RAX` register takes a value of `0x402300`
+    while debugging the `hello_world.exe` program, which is a concrete value:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你应该已经熟悉调试程序的各个方面。在这种过程中，你使用具体的值来探索程序，这就是所谓的具体执行。例如，以下截图展示了一个 x86_64 的调试会话。在调试
+    `hello_world.exe` 程序时，`RAX` 寄存器的值为 `0x402300`，这是一个具体值：
+- en: '![Figure 14.1 – Ghidra SLEIGH Editor plugin for the Eclipse IDE'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 14.1 – Ghidra SLEIGH 编辑器插件用于 Eclipse IDE'
+- en: '](img/B16207_14_001.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_14_001.jpg)'
+- en: Figure 14.1 – Ghidra SLEIGH Editor plugin for the Eclipse IDE
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 14.1 – Ghidra SLEIGH 编辑器插件用于 Eclipse IDE
+- en: 'But there is a way of exploring a program using symbols instead of concrete
+    values. This way of exploring a program is called symbolic execution and offers
+    you the advantage of using a mathematical formula that represents all the possible
+    values instead of a single one:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，有一种方法可以使用符号而非具体值来探索程序。这种探索程序的方法被称为符号执行，它的优势在于使用一个数学公式来表示所有可能的值，而不是单一的值：
+- en: 'Symbolic: *y = x + 1*'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 符号：*y = x + 1*
+- en: 'Concrete: *y = 5 + 1 = 6*; (assuming *x = 5*)'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 具体：*y = 5 + 1 = 6*；（假设 *x = 5*）
+- en: 'Let''s analyze the same code, from the first instruction (the `0x402300` address
+    to the first jump instruction (the `0x402310`) address) using MIASM (https://github.com/cea-sec/miasm),
+    which allows symbolic execution to be performed:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用 MIASM（https://github.com/cea-sec/miasm）来分析相同的代码，从第一条指令（`0x402300` 地址）到第一条跳转指令（`0x402310`
+    地址），这允许执行符号执行：
+- en: '[PRE0]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-33
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '[PRE7]'
+  id: totrans-35
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: '[PRE9]'
+  id: totrans-37
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '[PRE10]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: '[PRE11]'
+  id: totrans-39
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: '[PRE12]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '[PRE13]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: '[PRE15]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-44
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: '[PRE17]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-46
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'This piece of code performs the following operations to symbolically execute
+    the first basic block of our `hello_world.exe` program:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码执行以下操作，符号执行我们 `hello_world.exe` 程序的第一个基本块：
+- en: This declares that this is a Python 3 script (line `00`).
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这声明这是一个 Python 3 脚本（第`00`行）。
+- en: This code starts importing some necessary MIASM components (lines `01` to `04`).
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这段代码开始导入一些必要的 MIASM 组件（第`01`到`04`行）。
+- en: This instantiates the location database, which will be required later (line
+    `07`)
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这实例化了位置数据库，稍后会用到（第`07`行）。
+- en: This opens the `hello_world.exe` file as a MIASM container (lines `08` and `09`).
+  id: totrans-52
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这会将 `hello_world.exe` 文件作为 MIASM 容器打开（第`08`和`09`行）。
+- en: This creates a machine for the architecture of our `hello_world.exe` program,
+    which is x86_64 (line `11`).
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这为我们的 `hello_world.exe` 程序创建了一个架构，架构是 x86_64（第`11`行）。
+- en: This initializes the queue disassembly engine (line `12`).
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这初始化了队列拆解引擎（第`12`行）。
+- en: This initializes the IRA machine (line `13`). IRA is the MIASM intermediate
+    representation that is analogous to PCode on Ghidra.
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这初始化了 IRA 机器（第`13`行）。IRA 是 MIASM 的中间表示，类似于 Ghidra 中的 PCode。
+- en: This retrieves the control flow graph for the assembly language (line `14`).
+  id: totrans-56
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这会获取汇编语言的控制流图（第`14`行）。
+- en: This retrieves the control flow graph for IRA intermediate representation (line
+    `15`).
+  id: totrans-57
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这会获取 IRA 中间表示的控制流图（第`15`行）。
+- en: It initializes the symbolic engine (line `16`).
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它初始化了符号引擎（第`16`行）。
+- en: This runs the basic block at the `0x402300` address using the symbolic engine
+    (line `17`).
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这使用符号引擎在 `0x402300` 地址运行基本块（第`17`行）。
+- en: This prints the state of the symbolic engine (line `18`).
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 这会打印符号引擎的状态（第`18`行）。
+- en: 'If we run the preceding code, it will produce the following results:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们运行上述代码，将产生以下结果：
+- en: '[PRE20]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: '[PRE21]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'The symbolic state of the program can be understood as follows: If the 64-bit
+    address stored in `0x404290` points to a 32-bit value equal to `0x2` (this is
+    how you must to read the left part of the interrogation, which is equivalent to
+    an `if` statement), then jump to `0x402318`; otherwise, go to `0x402312`.'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序的符号状态可以理解为：如果存储在`0x404290`中的64位地址指向的32位值等于`0x2`（这就是你必须读取查询左侧部分的方式，相当于一个`if`语句），则跳转到`0x402318`；否则，跳转到`0x402312`。
+- en: MIASM
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MIASM
+- en: 'If you want to learn more about MIASM, check out the following link: [https://github.com/cea-sec/miasm](https://github.com/cea-sec/miasm).
+    If you want to deeply understand the preceding code, check out the MIASM auto-generated
+    Doxygen documentation: [https://miasm.re/miasm_doxygen/](https://miasm.re/miasm_doxygen/).'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想了解更多关于MIASM的内容，可以查看以下链接：[https://github.com/cea-sec/miasm](https://github.com/cea-sec/miasm)。如果你想深入理解上述代码，可以查看MIASM自动生成的Doxygen文档：[https://miasm.re/miasm_doxygen/](https://miasm.re/miasm_doxygen/)。
+- en: In this section, you learned the basics of symbolic execution by writing a simple
+    example. In the next section, we will learn why this is useful for symbolic execution.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，你通过编写一个简单的示例学习了符号执行的基础知识。在下一节中，我们将学习为什么符号执行是有用的。
+- en: Learning about SMT solvers
+  id: totrans-68
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 学习SMT求解器
+- en: 'SMT solvers take a (quantifier-free) first-order logic formula, *F*, as input
+    over a background theory, *T*, and return the following:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SMT求解器将一个（无量词的）一阶逻辑公式，*F*，作为输入，基于背景理论*T*，并返回以下内容：
+- en: '`sat` (+ model): If *F* is satisfiable'
+  id: totrans-70
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sat`（+模型）：如果*F*是可满足的'
+- en: '`unsat`: If *F* is unsatisfiable'
+  id: totrans-71
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`unsat`：如果*F*是不可满足的'
+- en: 'Let''s take a look at a Python example that''s using the z3 theorem solver
+    developed by Microsoft:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看一个使用由微软开发的z3定理求解器的Python示例：
+- en: '[PRE22]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '[PRE23]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-75
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: '[PRE25]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-77
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '[PRE28]'
+  id: totrans-79
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '[PRE29]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'In the preceding code, we performed the following operations:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上述代码中，我们执行了以下操作：
+- en: Imported Microsoft `z3`.
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导入了微软的`z3`。
+- en: 'Declared two z3 integer variables of the `int` type: `x` and `y`.'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 声明了两个`int`类型的z3整数变量：`x`和`y`。
+- en: 'Instantiated the z3 solver: s.'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实例化了z3求解器：s。
+- en: Added a restriction indicating that `y` is `x` plus `5`.
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 添加了一个约束，表示`y`等于`x`加`5`。
+- en: Added another restriction indicating that `y` is less than `x`.
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 添加了另一个约束，表示`y`小于`x`。
+- en: Checked if it is possible to find a concrete value that satisfies the formula.
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查是否可以找到满足公式的具体值。
+- en: Obviously, the solver returns `unsat` because values for `y` and `x` do not
+    exist. This is because `x` exceeds `y` by `5` units while `y` is less than `x`.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显然，求解器返回`unsat`，因为`y`和`x`的值不存在。这是因为`x`比`y`大`5`个单位，而`y`小于`x`。
+- en: 'If we repeat this experiment while changing the condition so that `y` is greater
+    than `x`, the solver will return `sat`:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们重复此实验，并更改条件，使得`y`大于`x`，求解器将返回`sat`：
+- en: '[PRE30]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: '[PRE31]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: '[PRE32]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: '[PRE33]'
+  id: totrans-93
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: '[PRE34]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: '[PRE35]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-96
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: In this case, the formula can be solved, and we can also ask for the concrete
+    values that are satisfying it by calling `model()`.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，公式可以被求解，我们也可以通过调用`model()`来请求满足该公式的具体值。
+- en: SMT solvers can be combined with symbolic execution to check if a certain formula
+    returns `sat` or `unsat`; for instance, if a certain path of a call graph can
+    be reached or not.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SMT求解器可以与符号执行结合使用，以检查某个公式是否返回`sat`或`unsat`；例如，检查某个调用图的路径是否能够被达到。
+- en: 'In fact, you can easily convert from a MIASM IRA symbolic state (the `symbex_state`
+    variable on line `17` in the script shown in the previous section) using the `TranslatorZ3`
+    module of MIASM. This can be seen in the following code snippet, which extends
+    the script from the previous section:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，你可以使用MIASM的`TranslatorZ3`模块轻松地将MIASM IRA符号状态（前一节中脚本第`17`行的`symbex_state`变量）转换为z3公式。以下代码片段展示了这一点，并扩展了前一节的脚本：
+- en: '[PRE37]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: '[PRE38]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: '[PRE39]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: '[PRE40]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: '[PRE41]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: '[PRE42]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: '[PRE43]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: '[PRE44]'
+  id: totrans-107
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: '[PRE45]'
+  id: totrans-108
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: '[PRE46]'
+  id: totrans-109
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: '[PRE47]'
+  id: totrans-110
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: '[PRE48]'
+  id: totrans-111
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: '[PRE49]'
+  id: totrans-112
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: '[PRE50]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: '[PRE51]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: 'In the previous code snippet, the following operations are being performed:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前一段代码片段中，正在执行以下操作：
+- en: Import Microsoft `z3` (line `19`).
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导入微软的`z3`（第`19`行）。
+- en: Import `TranslatorZ3`, which allows us to translate from a MIASM IRA machine
+    symbolic state to a Microsoft z3 formula (line `20`).
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导入`TranslatorZ3`，它允许我们将MIASM IRA机器符号状态转换为微软的z3公式（第`20`行）。
+- en: Instantiate the `TranslatorZ3` (line `21`).
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实例化了`TranslatorZ3`（第`21`行）。
+- en: Instantiate the Microsoft z3 solver (line `22`).
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 实例化微软z3求解器（第`22`行）。
+- en: Convert the IRA symbolic state into a Microsoft `z3` formula and add a constraint
+    to it indicating that the jump instruction must go directly to the `0x402302`
+    address (line `23`).
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将IRA符号状态转换为微软的`z3`公式，并为其添加一个约束，表示跳转指令必须直接跳转到`0x402302`地址（第`23`行）。
+- en: Ask whether the solver if this formula has a solution; that is, if it is possible
+    to take the `0x402302` branch in some possible situation (line `24`).
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 询问求解器该公式是否有解；也就是说，是否在某种可能的情况下可以选择`0x402302`分支（`24`行）。
+- en: If the branch can be taken, ask the solver for a solution (lines `25` and `26`).
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果可以采取该分支，则请求求解器提供解决方案（`25`行和`26`行）。
+- en: Instantiate the solver again and repeat this process for the other branch (lines
+    `27`-`31`).
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次实例化求解器，并对另一个分支重复此过程（`27`行到`31`行）。
+- en: 'The result of executing the complete script gives us the following output:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行完整脚本的结果给出了以下输出：
+- en: '[PRE52]'
+  id: totrans-125
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: '[PRE53]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: '[PRE54]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: '[PRE55]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: '[PRE56]'
+  id: totrans-129
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: 'The preceding code prints the symbolic state of the MIASM IRA machine. Since
+    we have no further restriction conditions for this branch, it returns `sat` for
+    both paths of the branch. This means that both branches can be taken: the `0x402302`
+    branch is taken when the zero flag is set to `1`, while the `0x4022E0` branch
+    is taken when the zero flag is set to `0`.'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的代码打印了MIASM IRA机器的符号状态。由于我们对这个分支没有进一步的限制条件，因此它对该分支的两个路径都返回`sat`。这意味着两个分支都可以被选取：当零标志被设置为`1`时，选择`0x402302`分支，而当零标志设置为`0`时，选择`0x4022E0`分支。
+- en: Learning about concolic execution
+  id: totrans-131
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 了解共符执行
+- en: 'Symbolic execution (also known as static symbolic execution) is powerful since
+    you can explore a path for all possible values. You can also explore other paths
+    since it doesn''t depend on the input that it receives. However, it does face
+    some limitations:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 符号执行（也称为静态符号执行）非常强大，因为你可以探索所有可能值的路径。你还可以探索其他路径，因为它不依赖于接收到的输入。然而，它也面临一些局限性：
+- en: The SMT solver cannot handle non-linear and very complex constraints.
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SMT求解器无法处理非线性和非常复杂的约束。
+- en: Since it is a white-box technique, modeling libraries is a hard problem.
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 由于这是一个白盒技术，因此建模库是一个困难的问题。
+- en: To solve these limitations, we can feed the symbolic execution with concrete
+    values. This technique is known as concolic execution (also known as dynamic symbolic
+    execution).
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了克服这些限制，我们可以为符号执行提供具体值。这种技术被称为共符执行（也叫做动态符号执行）。
+- en: A popoular Python framework for analyzing binaries that combines both static
+    and dynamic symbolic execution is known as the Angr framework.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个流行的用于分析二进制文件的Python框架，结合了静态和动态符号执行，称为Angr框架。
+- en: Angr framework
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Angr框架
+- en: 'If you want to learn more about the Angr framework, check out the following
+    link: [https://angr.io/](https://angr.io/). If you are interested in checking
+    out some examples of Angr in action, refer to the Angr documentation: [https://docs.angr.io/](https://docs.angr.io/).'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想了解更多关于Angr框架的内容，可以查看以下链接：[https://angr.io/](https://angr.io/)。如果你有兴趣查看一些Angr的实际案例，参考Angr文档：[https://docs.angr.io/](https://docs.angr.io/)。
+- en: As you can guess, these kinds of tools and techniques can be applied to a lot
+    of challenging tasks during reverse engineering, especially during deobfuscation.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你猜测的，这些工具和技术可以应用于逆向工程中的许多挑战性任务，尤其是在去混淆时。
+- en: Using Ghidra for advanced reverse engineering
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用Ghidra进行高级逆向工程
+- en: Ghidra has an intermediate language known as PCode. It makes Ghidra powerful
+    because it is suitable for applying these kinds of techniques. As we mentioned
+    in [*Chapter 9*](B16207_09_Final_SK_ePub.xhtml#_idTextAnchor155), *Scripting Binary
+    Audits*, in the *PCode versus assembly language* section, the reason why PCode
+    is more suitable for symbolic execution is because it offers more granularity
+    than assembly. In fact, the side effects that take place in the assembly language,
+    such as flag registers being modified during the execution of an instruction,
+    doesn't happen in PCode because they are split into many instructions. This aspect
+    of intermediate representations simplifies the task of creating and maintaining
+    SMT formulas.
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra有一种中间语言，称为PCode。它使得Ghidra变得非常强大，因为它适合应用这些技术。正如我们在[*第9章*](B16207_09_Final_SK_ePub.xhtml#_idTextAnchor155)，《*脚本二进制审计*》中的*PCode与汇编语言*部分中提到的，PCode更适合符号执行的原因是它比汇编语言提供了更多的粒度。事实上，汇编语言中发生的副作用，例如在执行指令时修改的标志寄存器，在PCode中并不存在，因为它们被分割成了许多指令。中间表示的这一特性简化了创建和维护SMT公式的任务。
+- en: In the next section, you will learn how to extend Ghidra with Angr, a powerful
+    binary analysis framework for implementing symbolic execution.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，你将学习如何使用Angr扩展Ghidra，这是一个强大的二进制分析框架，用于实现符号执行。
+- en: Adding symbolic execution capabilities to Ghidra with AngryGhidra
+  id: totrans-143
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用AngryGhidra向Ghidra添加符号执行功能
+- en: 'When looking for ways to perform symbolic execution on Ghidra''s Telegram channel,
+    I found a plugin that added Angr capabilities to Ghidra:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在寻找如何在 Ghidra 的 Telegram 频道上进行符号执行时，我发现了一个插件，它为 Ghidra 增加了 Angr 功能：
+- en: '![Figure 14.2 – AngryGhidra plugin posted on the GhidaRE Telegram channel'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 14.2 – AngryGhidra 插件发布在 GhidraRE Telegram 频道'
+- en: '](img/B16207_14_002.jpg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_14_002.jpg)'
+- en: Figure 14.2 – AngryGhidra plugin posted on the GhidaRE Telegram channel
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 14.2 – AngryGhidra 插件发布在 GhidraRE Telegram 频道
+- en: 'As we mentioned in [*Chapter 13*](B16207_13_Final_SK_ePub.xhtml#_idTextAnchor228),
+    *Contributing to the Ghidra Community*, Telegram groups about Ghidra are really
+    useful. You can download the plugin for AngryGhidra from the following link: https://github.com/Nalen98/AngryGhidra.'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在 [*第13章*](B16207_13_Final_SK_ePub.xhtml#_idTextAnchor228) 中提到的，*为 Ghidra
+    社区做贡献*，Ghidra 相关的 Telegram 群组非常有用。你可以从以下链接下载 AngryGhidra 插件：https://github.com/Nalen98/AngryGhidra。
+- en: 'When using the AngryGhidra plugin, by right-clicking on an address, you can
+    specify the following:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用 AngryGhidra 插件时，通过右键点击地址，你可以指定以下内容：
+- en: Where to start the Angr analysis (**Blank State Address**).
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 开始 Angr 分析的位置（**空白状态地址**）。
+- en: Path addresses you does not want to reach (**Avoid Address**).
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你不想达到的路径地址（**避免地址**）。
+- en: The address you want to reach (**Find Address**).
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你想要到达的地址（**查找地址**）。
+- en: 'The aforementioned fields can be seen in the following screenshot:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述字段可以在以下截图中看到：
+- en: '![Figure 14.3 – AngryGhidra plugin interface'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 14.3 – AngryGhidra 插件界面'
+- en: '](img/B16207_14_003.jpg)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_14_003.jpg)'
+- en: Figure 14.3 – AngryGhidra plugin interface
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 14.3 – AngryGhidra 插件界面
+- en: 'By using these fields, you can solve challenging binary problems in a few seconds:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这些字段，你可以在几秒钟内解决具有挑战性的二进制问题：
+- en: '![Figure 14.4 – Quickly solving a challenge using AngryGhidra'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 14.4 – 使用 AngryGhidra 快速解决挑战'
+- en: '](img/B16207_14_004.jpg)'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_14_004.jpg)'
+- en: Figure 14.4 – Quickly solving a challenge using AngryGhidra
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 14.4 – 使用 AngryGhidra 快速解决挑战
+- en: In the next section, we will learn how to convert PCode into a **Low-Level Virtual
+    Machine** (**LLVM**) intermediate representation. LLVM provides a few compiler
+    and toolchain subprojects, but for this book, we are only interested in the LLVM
+    intermediate representation subproject.
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一节中，我们将学习如何将 PCode 转换为 **低级虚拟机**（**LLVM**）中间表示。LLVM 提供了若干编译器和工具链子项目，但对于本书来说，我们只关心
+    LLVM 中间表示子项目。
+- en: Converting from PCode into LLVM with pcode-to-llvm
+  id: totrans-162
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 使用 pcode-to-llvm 将 PCode 转换为 LLVM
+- en: 'There''s a conversation on Telegram asking about how it''s possible to translate
+    between two intermediate representations – specifically, translating from PCode
+    to LLVM. This is because a lot of tools are not available for PCode and Ghidra
+    is limited to Python 2 due to Jython:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Telegram 上有一个关于如何在两种中间表示之间进行转换的讨论——特别是如何从 PCode 转换为 LLVM。这是因为许多工具无法用于 PCode，且由于
+    Jython 的原因，Ghidra 仅限于 Python 2：
+- en: '![Figure 14.5 – Idea of converting from PCode into LLVM for fuzzing purposes,'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 14.5 – 为模糊测试目的将 PCode 转换为 LLVM 的概念，'
+- en: posted in the GhidraRE Telegram channel
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 发布于 GhidraRE Telegram 频道
+- en: '](img/B16207_14_005.jpg)'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_14_005.jpg)'
+- en: Figure 14.5 – Idea of converting from PCode into LLVM for fuzzing purposes,
+    posted in the GhidraRE Telegram channel
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 14.5 – 为模糊测试目的将 PCode 转换为 LLVM 的概念，发布于 GhidraRE Telegram 频道
+- en: LLVM
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LLVM
+- en: 'The LLVM project is a collection of modular and reusable compiler and toolchain
+    technologies. Its core project is also named LLVM and contains everything you
+    need to process intermediate representations and convert them into object files.
+    For more information, check out the following link: [https://llvm.org/docs/GettingStarted.html](https://llvm.org/docs/GettingStarted.html).'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: LLVM 项目是一个模块化且可重用的编译器和工具链技术集合。其核心项目也名为 LLVM，包含了你处理中间表示并将其转换为目标文件所需的一切。欲了解更多信息，请查看以下链接：[https://llvm.org/docs/GettingStarted.html](https://llvm.org/docs/GettingStarted.html)。
+- en: In this case, the person who asked this needs LLVM to use, for instance, a fuzzing
+    library named libFuzzer ([https://llvm.org/docs/LibFuzzer.html](https://llvm.org/docs/LibFuzzer.html))
+    in order to find vulnerabilities in binaries.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，提问者需要使用 LLVM，例如使用名为 libFuzzer 的模糊测试库（[https://llvm.org/docs/LibFuzzer.html](https://llvm.org/docs/LibFuzzer.html)）来查找二进制文件中的漏洞。
+- en: 'You can use Ghidra to lift a compiled binary for LLVM by using the following
+    plugin:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用 Ghidra 通过以下插件将编译后的二进制文件提升为 LLVM：
+- en: '[https://github.com/toor-de-force/Ghidra-to-LLVM](https://github.com/toor-de-force/Ghidra-to-LLVM).'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://github.com/toor-de-force/Ghidra-to-LLVM](https://github.com/toor-de-force/Ghidra-to-LLVM)。'
+- en: As you know, there are a lot of interesting topics outside the scope of this
+    book that you can investigate. I recommend that you join the Ghidra Telegram channels
+    and the Ghidra community to learn more.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所知，本书之外有很多有趣的主题可以深入研究。我建议你加入Ghidra Telegram频道和Ghidra社区，了解更多信息。
+- en: Summary
+  id: totrans-174
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned about some advanced reverse engineering topics;
+    that is, symbolic execution, SMT solvers, and concolic execution.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了几个高级逆向工程主题；即符号执行、SMT求解器和合成符号执行。
+- en: You learned how to perform symbolic execution by writing some simple code using
+    MIASM that symbolically executed a basic block of a hello world program. You also
+    learned about the z3 theorem solver by performing two simple experiments.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你通过使用MIASM编写一些简单代码，学习了如何执行符号执行，该代码通过符号执行一个基本的Hello World程序的基本块。你还通过执行两个简单实验，了解了z3定理求解器。
+- en: Finally, you learned how to incorporate symbolic and concolic execution when
+    using Ghidra by extending it with a plugin. You also learned how to convert from
+    PCode into an LLVM intermediate representation, which can be useful for performing
+    some advanced reverse engineering tasks.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，你学习了如何通过扩展Ghidra插件来结合符号执行和合成符号执行。你还学习了如何将PCode转换为LLVM中间表示，这对于执行一些高级逆向工程任务非常有用。
+- en: I hope you enjoyed reading this book. You've learned a lot, but remember to
+    put this knowledge to practice in order to develop your skills further. Binary
+    protections are becoming more and more complex, so it is necessary to master advanced
+    reverse engineering topics. Ghidra can be a good ally in this battle, so use it
+    and combine it with other powerful tools – maybe even your own.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望你喜欢阅读这本书。你已经学到了很多知识，但记住要将这些知识付诸实践，以进一步发展你的技能。二进制保护越来越复杂，因此掌握高级逆向工程主题是必要的。Ghidra可以成为这场斗争中的好盟友，所以要利用它，并将它与其他强大的工具结合使用——甚至是你自己开发的工具。
+- en: Questions
+  id: totrans-179
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: What is the difference between concrete and symbolic execution?
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 具体执行和符号执行有什么区别？
+- en: Can symbolic execution substitute concrete execution?
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 符号执行能否替代具体执行？
+- en: Can Ghidra apply symbolic or concolic execution to a binary file?
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Ghidra能否对二进制文件应用符号执行或合成符号执行？
+- en: Further reading
+  id: totrans-183
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'Please refer to the following links for more information on the topics that
+    were covered in this chapter:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考以下链接，获取有关本章所涉及主题的更多信息：
+- en: '*An abstract interpretation-based deobfuscation plugin for Ghidra*: [https://www.msreverseengineering.com/blog/2019/4/17/an-abstract-interpretation-based-deobfuscation-plugin-for-ghidra](https://www.msreverseengineering.com/blog/2019/4/17/an-abstract-interpretation-based-deobfuscation-plugin-for-ghidra)'
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*基于抽象解释的Ghidra去混淆插件*：[https://www.msreverseengineering.com/blog/2019/4/17/an-abstract-interpretation-based-deobfuscation-plugin-for-ghidra](https://www.msreverseengineering.com/blog/2019/4/17/an-abstract-interpretation-based-deobfuscation-plugin-for-ghidra)'
+- en: '*A Survey of Symbolic Execution Techniques*, *Baldoni, R., Coppa, E., Cono
+    D''Elia, D., et al.*, *October 2016*: [https://ui.adsabs.harvard.edu/abs/2016arXiv161000502B/abstract](https://ui.adsabs.harvard.edu/abs/2016arXiv161000502B/abstract)'
+  id: totrans-186
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*符号执行技术调查*，*Baldoni, R., Coppa, E., Cono D''Elia, D., 等*，*2016年10月*：[https://ui.adsabs.harvard.edu/abs/2016arXiv161000502B/abstract](https://ui.adsabs.harvard.edu/abs/2016arXiv161000502B/abstract)'
+- en: '*A Survey of Satisfiability Modulo Theory*, *David Monniaux*, *January 2017*:
+    [https://hal.archives-ouvertes.fr/hal-01332051/document](https://hal.archives-ouvertes.fr/hal-01332051/document)'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*可满足性模理论调查*，*David Monniaux*，*2017年1月*：[https://hal.archives-ouvertes.fr/hal-01332051/document](https://hal.archives-ouvertes.fr/hal-01332051/document)'

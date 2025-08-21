@@ -1,0 +1,1606 @@
+- en: Fuzzy Hashing
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 模糊哈希
+- en: Hashing is one of the most common processes run in DFIR. This process allows
+    us to summarize file content and assign a representative and repeatable signature
+    that represents the file's content. We generally employ file and content hashes
+    using algorithms such as MD5, SHA1, and SHA256\. These hash algorithms are valuable
+    as we can use them for integrity validation since a change to even one byte of
+    a file's content will completely alter the resulting hash value. These hashes
+    are also commonly used to form whitelists to exclude known or irrelevant content,
+    or alert lists that quickly identify known interesting files. In some cases, though,
+    we need to identify near matches—something that our MD5, SHA1, and SHA256 algorithms
+    can't handle on their own.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哈希是 DFIR 中最常见的处理过程之一。这个过程允许我们总结文件内容，并分配一个代表文件内容的独特且可重复的签名。我们通常使用 MD5、SHA1 和
+    SHA256 等算法对文件和内容进行哈希。这些哈希算法非常有价值，因为我们可以用它们进行完整性验证——即使文件内容只改动了一个字节，生成的哈希值也会完全改变。这些哈希也常用于形成白名单，排除已知或不相关的内容，或者用于警报列表，快速识别已知的感兴趣文件。然而，在某些情况下，我们需要识别近似匹配的文件——而这正是
+    MD5、SHA1 和 SHA256 无法独立处理的任务。
+- en: One of the most common utilities that assists with similarity analysis is ssdeep,
+    developed by Jessie Kornblum. This tool is an implementation of the spamsum algorithm,
+    developed by Dr. Andrew Tridgell, which generates a base64 signature representing
+    file content. These signatures can be used, independently of the file's content,
+    to help to determine the confidence that two files are similar. This allows for
+    a less computationally intense comparison of these two files and presents a relatively
+    short signature that can be shared or stored easily.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 协助相似性分析的最常见工具之一是 ssdeep，由 Jessie Kornblum 开发。这个工具实现了 spamsum 算法，该算法由 Andrew
+    Tridgell 博士开发，用于生成一个 base64 编码的签名，表示文件内容。无论文件内容如何，这些签名都可以用来帮助确定两个文件的相似度。这使得这两个文件的比较可以在计算上更轻便，并且生成相对较短的签名，便于共享或存储。
+- en: 'In this chapter, we''ll do the following:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中，我们将做以下内容：
+- en: Hash data using MD5, SHA1, and SHA256 algorithms with Python
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Python 对数据进行 MD5、SHA1 和 SHA256 算法哈希
+- en: Discuss how to hash streams of data, files, and directories of files
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 讨论如何对数据流、文件和文件目录进行哈希
+- en: Explore how the spamsum algorithm works and implement a version in Python
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 探索 spamsum 算法的工作原理，并在 Python 中实现一个版本
+- en: Leverage the compiled ssdeep library via Python bindings for increased performance
+    and features
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过 Python 绑定利用已编译的 ssdeep 库，提高性能和功能
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码是在 Python 2.7.15 和 Python 3.7.1 环境下开发和测试的。
+- en: Background on hashing
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 哈希背景
+- en: Hashing data is a common technique in the forensics community to `fingerprint`
+    a file. Normally, we create a hash of an entire file; however, in the script we'll
+    build later in this chapter, we'll hash segments of a file to evaluate the similarity
+    between two files. Before diving into the complexities of fuzzy hashing, let's
+    walk through how Python can generate cryptographic hashes such as MD5 and SHA1
+    values.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哈希数据是法医社区中常用的技术之一，用于为文件生成`指纹`。通常，我们会创建整个文件的哈希；然而，在本章稍后的脚本中，我们将对文件的各个片段进行哈希，以评估两个文件之间的相似性。在深入研究模糊哈希的复杂性之前，让我们先了解如何使用
+    Python 生成加密哈希值，如 MD5 和 SHA1 值。
+- en: Hashing files in Python
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在 Python 中哈希文件
+- en: As previously discussed, there are multiple algorithms commonly used by the
+    DFIR community and tools. Before generating a file hash, we must decide which
+    algorithm we would like to use. This can be a tough question, as there are multiple
+    factors to consider. The **Message Digest Algorithm 5** (**MD5**) produces a 128-bit
+    hash and is one of the most commonly used cryptographic hash algorithms across
+    forensic tools. The algorithm is relatively lightweight and the resulting hash
+    is short in length, when compared with other algorithms. Since cryptographic hashes
+    have a fixed length output, selecting an algorithm with a shorter length can help
+    in reducing the impact on system resources.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，DFIR（数字取证与事件响应）社区和工具常用多种算法。在生成文件哈希之前，我们必须决定使用哪种算法。这是一个困难的问题，因为有多个因素需要考虑。**消息摘要算法
+    5**（**MD5**）生成一个 128 位的哈希值，是法医工具中最常用的加密哈希算法之一。该算法相对轻量，生成的哈希值长度较短，相比其他算法，具有更小的系统资源占用。由于加密哈希有固定的输出长度，选择一个较短长度的算法可以帮助减少对系统资源的影响。
+- en: However, the main issue with MD5 is the probability of hash collisions. A hash
+    collision is where two different input values result in the same hash, an issue
+    that is a product of having a fixed length hash value. This is an issue in forensics,
+    as we rely on the hash algorithm to be a unique fingerprint to represent the integrity
+    of data. If the algorithm has known collisions, the hash may no longer be unique
+    and can't guarantee integrity. For this reason, MD5 isn't recommended for use
+    as the primary hash algorithm in most forensic situations.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，MD5的主要问题是哈希碰撞的概率。哈希碰撞是指两个不同的输入值产生相同的哈希值，这是因为哈希值的长度是固定的。对于法医领域来说，这是一个问题，因为我们依赖哈希算法作为表示数据完整性的唯一指纹。如果算法存在已知的碰撞问题，那么哈希值可能不再是唯一的，也不能保证数据的完整性。因此，在大多数法医情况下，不推荐将MD5作为主要的哈希算法。
+- en: In addition to MD5, there are several other common cryptographic hash algorithms
+    including the **Secure Hash Algorithm** (**SHA**) family. The SHA family consists
+    of SHA-1 (160-bit), SHA-256 (256-bit), and SHA-512 (512-bit) to name a few of
+    the more prominent algorithms used in forensics. The SHA-1 algorithm frequently
+    accompanies the MD5 hash in most forensic tools. Recently a research group discovered
+    collisions in the SHA-1 algorithm and shared their findings on their site, [https://shattered.io/](https://shattered.io/).
+    Like MD5, SHA-1 is now losing popularity in the field.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了MD5外，还有一些其他常见的加密哈希算法，包括**安全哈希算法**（**SHA**）系列。SHA系列包括SHA-1（160位）、SHA-256（256位）和SHA-512（512位），这些都是在法医领域常用的算法之一。SHA-1算法通常与MD5哈希一起出现在大多数法医工具中。最近，一个研究小组发现了SHA-1算法的碰撞问题，并在他们的网站上分享了他们的发现，[https://shattered.io/](https://shattered.io/)。像MD5一样，SHA-1在这个领域的流行度也在下降。
+- en: Leveraging one of these hash algorithms is fairly straightforward in Python.
+    In the following code block, we'll demonstrate the examples of hashing with the
+    MD5, SHA-1, and SHA-256 algorithms in the interpreter.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Python中，利用这些哈希算法非常简单。在以下代码块中，我们将在解释器中演示使用MD5、SHA-1和SHA-256算法进行哈希处理的示例。
+- en: 'To facilitate this, we''ll need to import the standard library, `hashlib`,
+    and provide data to generate a hash of. After importing `hashlib`, we create a
+    hashing object using the `md5()` method. Once defined as `m`, we can use the `.update()`
+    function to add data to the algorithm and the `hexdigest()` method to generate
+    the hexadecimal hash we''re accustomed to seeing from other tools. This process
+    can be handled by a single line as demonstrated here:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了实现这一点，我们需要导入标准库`hashlib`，并提供数据来生成哈希值。在导入`hashlib`后，我们使用`md5()`方法创建一个哈希对象。定义为`m`后，我们可以使用`.update()`函数向算法中添加数据，使用`hexdigest()`方法生成我们常见的十六进制哈希值。这个过程可以通过以下一行代码完成：
+- en: '[PRE0]'
+  id: totrans-17
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: In the preceding example, we hashed a string object. But what about files? After
+    all, that's what we're truly interested in doing.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，我们对一个字符串对象进行了哈希处理。但文件呢？毕竟，这才是我们真正感兴趣的操作。
+- en: 'To hash a file, we need to pass the contents of the file to the hash object.
+    As seen in the code block, we begin by opening and writing to a file to generate
+    some sample data that we can hash. After the setup, we close and then reopen the
+    file for reading and use the `read()` method to read the full content of the file
+    into the `buffer` variable. At this point, we provide the `buffer` value as the
+    data to hash and generate our unique hash value. See the following code:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要对文件进行哈希处理，我们需要将文件的内容传递给哈希对象。如代码块所示，我们首先打开并写入一个文件，生成一些样本数据供我们进行哈希处理。在设置完成后，我们关闭并重新打开文件以供读取，使用`read()`方法将文件的完整内容读取到`buffer`变量中。此时，我们将`buffer`的值提供为哈希数据，生成我们独特的哈希值。请参见以下代码：
+- en: '[PRE1]'
+  id: totrans-20
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: The hashing method shown here is good for small files or streams of data. We
+    need to adjust our approach some if we want to be able to more flexibly handle
+    files.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里展示的哈希方法适用于小文件或数据流。如果我们希望更灵活地处理文件，则需要调整方法。
+- en: Hashing large files – hashing_example.py
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 哈希大文件 — hashing_example.py
+- en: Our first script in this chapter is short and to the point; it'll allow us to
+    hash a provided file's content with a specified cryptographic algorithm. This
+    code will likely be more useful as a feature within a larger script, such as our
+    file listing utility; we'll demonstrate a standalone example to walk through how
+    to handle hashing files in a memory-efficient manner.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中的第一个脚本简短明了；它将允许我们使用指定的加密算法对提供的文件内容进行哈希处理。这段代码可能更适合作为一个大型脚本中的功能，例如我们的文件列出工具；我们将演示一个独立示例，以便了解如何以节省内存的方式处理文件的哈希处理。
+- en: 'To begin, we only need two imports, `argparse` and `hashlib`. Using these two
+    built-in libraries, we''ll be able to generate hashes, as shown in the prior example.
+    On line 33, we list out the supported hash algorithms. This list should only contain
+    algorithms available as a module within `hashlib`, as we''ll call (for example)
+    `md5` from the list as `hashlib.md5()`. The second constant defined, on line 34,
+    is `BUFFER_SIZE`, which is used to control how much of a file to read at a time.
+    This value should be smaller, 1 MB in this instance, to preserve the amount of
+    memory required per read, although we also want a number large enough to limit
+    the number of reads we have to perform on the file. You may find this number is
+    adjusted based on the system you choose to run it on. For this reason, you may
+    consider specifying this as an argument instead of a constant:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们只需要导入两个库，`argparse`和`hashlib`。通过这两个内置库，我们能够生成哈希，如前面的例子所示。在第33行，我们列出了支持的哈希算法。这个列表应该只包含作为模块存在于`hashlib`中的算法，因为我们将从列表中调用（例如）`md5`作为`hashlib.md5()`。第二个常量定义在第34行，是`BUFFER_SIZE`，用于控制每次读取多少文件内容。这个值应该较小，在本例中为1MB，以节省每次读取所需的内存，尽管我们也希望它足够大，以减少对文件的读取次数。你可能会发现这个数字会根据你选择的运行系统进行调整。为此，你可以考虑将其指定为参数，而不是常量：
+- en: '[PRE2]'
+  id: totrans-25
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Next, we define our arguments. This is very brief as we''re only accepting
+    a filename and an optional algorithm specification:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们定义我们的参数。这里非常简洁，因为我们只接受一个文件名和一个可选的算法规格：
+- en: '[PRE3]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'Once we know the specified arguments, we''ll translate the selected algorithm
+    from an argument into a function we can call. To do this, we use the `getattr()`
+    method as shown on line 43\. This built-in function allows us to retrieve functions
+    and properties from an object (such as a method from a library, as shown in the
+    following code). We end the line with `()` as we want to call the specified algorithm''s
+    initialization method and create an instance of the object as `alg` that we can
+    use to generate the hash. This one-liner is the equivalent of calling `alg = hashlib.md5()` (for
+    example), but performed in an argument-friendly fashion:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们知道了指定的参数，我们将把选定的算法从参数转换为一个可以调用的函数。为此，我们使用第43行中显示的`getattr()`方法。这个内置函数允许我们从对象中检索函数和属性（例如，来自库的方法，如下面的代码所示）。我们在行尾加上`()`，因为我们希望调用指定算法的初始化方法，并创建一个可以用于生成哈希的`alg`对象实例。这一行代码等价于调用`alg
+    = hashlib.md5()`（例如），但是以适应参数的方式执行：
+- en: '[PRE4]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'On line 45, we open the file for reading, which we start on line 47 by reading
+    the first buffer length into our `buffer_data` variable. We then enter a `while`
+    loop where we update our hash algorithm object on line 49 before getting the next
+    buffer of data on line 50\. Luckily for us, Python will read all of the data from
+    `input_file`, even if `BUFFER_SIZE` is greater than what remains in the file.
+    Additionally, Python will exit the loop once we reach the end of the file and
+    close it for us when exiting the `with` context. Lastly, on line 52, we print
+    the `.hexdigest()` of the hash we calculated:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第45行，我们打开文件进行读取，从第47行开始将第一个缓冲区长度读取到`buffer_data`变量中。然后我们进入一个`while`循环，在第49行更新我们的哈希算法对象，然后在第50行获取下一个数据缓冲区。幸运的是，Python会从`input_file`读取所有数据，即使`BUFFER_SIZE`大于文件中剩余的内容。此外，Python在读取到文件末尾时会退出循环，并在退出`with`上下文时为我们关闭文件。最后，在第52行，我们打印我们计算的哈希值的`.hexdigest()`：
+- en: '[PRE5]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Creating fuzzy hashes
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建模糊哈希
+- en: Now that we've mastered how to generate cryptographic hashes, let's work on
+    generating fuzzy hashes. We'll discuss a few techniques we could employ for similarity
+    analysis, and walk through a basic example of how ssdeep and spamsum employ rolling
+    hashing to help generate more resilient signatures.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经掌握了如何生成加密哈希，让我们开始生成模糊哈希。我们将讨论一些可以用于相似性分析的技术，并通过一个简单的例子展示ssdeep和spamsum如何使用滚动哈希来帮助生成更强健的签名。
+- en: It may go without saying that our most accurate approach to similarity analysis
+    is to compare the byte content of two files, side by side, and look for differences.
+    While we may be able to accomplish this using command-line tools or a difference
+    analysis tool (such as kdiff3), this only really works at a small scale. Once
+    we move from comparing two small files to comparing many small files, or a few
+    medium-sized files, we need a more efficient approach. This is where signature
+    generation comes into play.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不言而喻，我们进行相似性分析的最准确方法是将两个文件的字节内容并排比较，查看差异。虽然我们可以使用命令行工具或差异分析工具（如 kdiff3）来完成这一工作，但这仅适用于小规模的比较。当我们从比较两个小文件转向比较多个小文件，或者几个中等大小的文件时，我们需要一种更高效的方法。此时，签名生成就派上了用场。
+- en: 'To generate a signature, we must have a few things figured out:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要生成签名，我们必须弄清楚以下几点：
+- en: What alphabet we want to use for our signature
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们希望为签名使用哪个字母表
+- en: How we want to segment the file into summarizable blocks
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们希望如何将文件分割成可总结的块
+- en: The technique for converting our block summary into a character from our alphabet
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将我们的块摘要转换为字母表中字符的技术
+- en: While the alphabet is an optional component, it allows us humans to better review
+    and understand the data. We can always store it as integers and save a tiny bit
+    of computational resources. Base64 is a common choice for the alphabet and is
+    used by both spamsum and ssdeep.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然字母表是一个可选组件，但它使我们人类能够更好地回顾和理解数据。我们始终可以将其存储为整数，并节省一些计算资源。Base64 是字母表的常见选择，并被
+    spamsum 和 ssdeep 使用。
+- en: 'For the aforementioned second and third items, let''s discuss a few techniques
+    for slicing up our file and generating our hash value. For this example (and to
+    keep things simple), let''s use the following character sequence as our file content:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于上述的第二和第三项，让我们讨论一些技术，如何将我们的文件切割并生成哈希值。在这个示例中（为了保持简单），我们将以下字符序列作为文件内容：
+- en: '[PRE6]'
+  id: totrans-41
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Our first approach is to slice the file into equal sized blocks. The first
+    row in the following example is our file content, and the second is the numeric
+    ASCII value for each character in our first row. For this example, we''ve decided
+    to split our file into 4-byte blocks with the vertical bars and color-coded numeric
+    ASCII values:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的第一种方法是将文件切割成相等大小的块。以下示例中的第一行是我们的文件内容，第二行是每个字符的数字 ASCII 值。为了这个示例，我们决定将文件切割为
+    4 字节块，并使用竖线和颜色编码的数字 ASCII 值：
+- en: '![](img/bcd0cb6e-f1ee-49c5-a62b-9917512558d6.png)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bcd0cb6e-f1ee-49c5-a62b-9917512558d6.png)'
+- en: We then summarize each of these 4-byte blocks by summing the ASCII value of
+    the four characters, as shown in the third row of the table. We then convert this
+    summarization of our file content into our base64 representation by taking 394
+    modulo 64 (*394 % 64*) which is 10, or K in the base64 alphabet. This base64 value,
+    as you may have guessed, is on the fourth row.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们通过将四个字符的 ASCII 值相加来总结这些 4 字节的块，如表格的第三行所示。接着，我们通过将 394 对 64 取模（*394 % 64*），得到
+    10，或者说是 Base64 字母表中的 K。这个 Base64 值，正如你可能猜到的，在第四行显示。
+- en: The letter K becomes our summarization of the first block, a for the second,
+    and it continues until we have our complete file signature of Kaq6KaU.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 字母 K 成为我们第一个块的总结，字母 a 代表第二个，依此类推，直到我们得到完整的文件签名 Kaq6KaU。
+- en: 'In the next diagram, there''s a slightly modified version of our original file.
+    As seen below, someone replaced jklmn with hello. We can now run our hashing algorithm
+    against this file to get a sense of how much has changed between the two versions:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，有一个略微修改过的版本的原始文件。如图所示，有人将 jklmn 替换为 hello。现在我们可以对这个文件运行我们的哈希算法，看看两个版本之间发生了多少变化：
+- en: '![](img/89201581-e5a0-496f-89e5-cd5cd7d50b39.png)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/89201581-e5a0-496f-89e5-cd5cd7d50b39.png)'
+- en: Using the same technique, we calculate the new hash value of Kai6KaU. If we
+    wanted to compare the similarity of our two files, we should be able to use our
+    signatures to facilitate our comparison, right? So in this case, we have one letter
+    difference between our signatures, meaning our two file streams are largely similar!
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用相同的技术，我们计算 Kai6KaU 的新哈希值。如果我们想要比较两个文件的相似性，我们应该能够利用我们的签名来促进比较，对吗？所以在这个例子中，我们的签名之间有一个字母的差异，这意味着我们的两个文件流大致相似！
+- en: 'As you may have spotted, there''s an issue here: we''ve found a hash collision
+    when using our algorithm. In the prior example, the fourth block of each file
+    is different; the first is mnop and the second is loop. Since we''re summing our
+    file content to determine our signature value, we''re bound to get an unhealthy
+    amount of collisions. These collisions may cause us to think files are more similar
+    when they aren''t, and unfortunately are a product of summarizing file content
+    without the use of a cryptographic hash algorithm. For this reason, we have to
+    find a better balance between summarizing file content and encountering hash collisions.'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能已经注意到的，这里存在一个问题：我们在使用算法时发现了哈希冲突。在之前的示例中，每个文件的第四个块不同；第一个是 mnop，第二个是 loop。由于我们正在汇总文件内容来确定签名值，我们注定会得到不健康的哈希冲突。这些冲突可能会让我们误以为文件是相似的，实际上并非如此，而这种情况不幸的是由于在没有使用加密哈希算法的情况下总结文件内容所导致的。因此，我们必须在总结文件内容和遇到哈希冲突之间找到更好的平衡。
+- en: 'Our next example demonstrates what happens when insertion occurs. As you can
+    see in the following diagram, the letter h was inserted after mn, adding one byte
+    to the file and causing the entire content to shift right by one. In this instance,
+    our last block will just contain the number 1, though some implementations may
+    handle this differently:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的下一个示例演示了插入发生时会发生什么。正如您在下面的图表中看到的，字母 h 被插入到 mn 后面，文件增加了一个字节，并且整个内容向右移动了一个位置。在这个例子中，我们的最后一个块只包含数字
+    1，尽管一些实现可能会有不同的处理方式：
+- en: '![](img/4e15eba7-e435-418c-ad0a-649fbaff8669.png)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4e15eba7-e435-418c-ad0a-649fbaff8669.png)'
+- en: Using our same formula, we calculate a hash of KaqyGUbx. This hash is largely
+    different than Kaq6KaU. In fact, once we reach the block containing the change,
+    the hash is completely different even though we have similar content in the latter
+    half of the file.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用相同的公式，我们计算了 KaqyGUbx 的哈希。这个哈希与 Kaq6KaU 完全不同。事实上，一旦我们到达包含变化的块，哈希值完全不同，即使文件后半部分的内容是相似的。
+- en: This is one of the main reasons that using a fixed block size isn't the best
+    approach for similarity analysis. Any shift in content moves data across the boundaries
+    and will cause us to calculate completely different hashes for similar content.
+    To address that, we need to be able to set these boundaries in another way.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这也是为什么使用固定块大小不是进行相似性分析的最佳方法的主要原因之一。任何内容的移动都会使数据跨越边界，导致我们为相似内容计算完全不同的哈希值。为了解决这个问题，我们需要以另一种方式设置这些边界。
+- en: Context Triggered Piecewise Hashing (CTPH)
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 上下文触发的分段哈希（CTPH）
+- en: As you probably guessed, this is where CTPH comes into play. Essentially, we're
+    aiming to calculate reset points with this technique. Reset points, in this case,
+    are boundaries similar to the 4-byte boundaries we used in the prior example,
+    as we use these reset points to determine the amount of a file we want to summarize.
+    The notable exception is that we pick the boundaries based on file content (our
+    context triggering) versus fixed windows. What this means is we use a rolling
+    hash, as employed by ssdeep and spamsum, to calculate values throughout the file;
+    when this specific value is found, a boundary line is drawn and the content since
+    the prior boundary is summarized (the piecewise hash). In the following example,
+    we're using a simplified calculation to determine whether we've reached a reset
+    point.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能猜到的，这就是 CTPH 的作用所在。本质上，我们的目标是使用这种技术来计算重置点。在这种情况下，重置点是类似于我们在先前示例中使用的 4 字节边界，因为我们使用这些重置点来确定我们想要总结的文件部分。一个显著的例外是，我们根据文件内容（即我们的上下文触发）而不是固定窗口来选择边界。这意味着我们使用滚动哈希（由
+    ssdeep 和 spamsum 使用）来计算文件中的值；当找到这个特定值时，会画出边界线，并总结自上一个边界以来的内容（分段哈希）。在以下示例中，我们使用简化的计算来确定是否达到了重置点。
+- en: While both spamsum and ssdeep calculate the reset point number for each file,
+    for our example, we'll use *7* to keep things simple. This means whenever our
+    rolling hash has a value of *7*, we'll summarize the content between this boundary
+    and the previous. As an additional note, this technique is meant for files with
+    more than 28 bytes, so our hashes here will be really short and, therefore, less
+    useful outside of our illustrative purposes.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 spamsum 和 ssdeep 都会为每个文件计算重置点数字，但在我们的示例中，我们将使用 *7* 来简化问题。这意味着每当我们的滚动哈希值为
+    *7* 时，我们将总结此边界和之前之间的内容。额外说明一下，这种技术适用于超过 28 字节的文件，因此我们的哈希值在这里会非常短，因此在我们的示例之外用途不大。
+- en: 'Before jumping into the example, let''s talk through what a rolling hash is.
+    Once again, we''ll use the same example file content we used previously. We then
+    use what''s known as a rolling hash to calculate our value for each byte of the
+    file. A rolling hash works by calculating a hash value for all of the characters
+    within a certain window of the file. In our case, we''ll have a window size of
+    three. The window movement in our file would look like this across the first four
+    iterations:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在进入示例之前，让我们先讨论一下什么是滚动哈希。我们将再次使用之前相同的示例文件内容。然后，我们使用所谓的滚动哈希来计算文件中每个字节的值。滚动哈希的工作原理是：在文件的某个窗口内计算所有字符的哈希值。在我们的例子中，窗口的大小为3。我们文件中的窗口移动如下所示，经过前四次迭代：
+- en: '`[''a'', '''', ''''] = [97, 0, 0]`'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[''a'', '''', ''''] = [97, 0, 0]`'
+- en: '`[''a'', ''b'', ''''] = [97, 98, 0]`'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[''a'', ''b'', ''''] = [97, 98, 0]`'
+- en: '`[''a'', ''b'', ''c''] = [97, 98, 99]`'
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[''a'', ''b'', ''c''] = [97, 98, 99]`'
+- en: '`[''b'', ''c'', ''d''] = [98, 99, 100]`'
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`[''b'', ''c'', ''d''] = [98, 99, 100]`'
+- en: As you can see, this rolling window would continue through the file, adding
+    a new byte each iteration and removing the oldest byte, in FIFO style. To generate
+    a hash of this window, we would then perform a series of further calculation against
+    the values in the window.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，滚动窗口会继续遍历文件，每次迭代添加一个新的字节，并以FIFO的方式删除最旧的字节。为了生成该窗口的哈希值，我们需要对窗口中的值执行一系列进一步的计算。
+- en: For this example, as you likely guessed, we'll sum the ASCII values to keep
+    things simple. This sum is shown in the first row of the following example. To
+    keep the numbers smaller though, we'll then take our summed ASCII values (*S*)
+    modulo 8 (*S % 8*) and use this integer to look for our boundaries in the file
+    content. This number is found in the second row of the following screenshot. If
+    *S % 8 == 7*, we've reached a reset point and can create a summarization of the
+    prior block.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这个例子，如你可能猜到的那样，我们将对ASCII值求和以保持简单。这个求和结果显示在下一个示例的第一行。为了使数字更小，我们将对求和后的ASCII值（*S*）进行模8运算（*S
+    % 8*），并使用这个整数来寻找文件内容中的边界。这个数字可以在下图的第二行找到。如果*S % 8 == 7*，我们已经达到了重置点，可以创建之前块的汇总。
+- en: The ssdeep and spamsum algorithms handle this rolling window calculation differently,
+    though the product of the calculation is used in the same manner. We have simplified
+    the calculation to make this process easier to discuss.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ssdeep和spamsum算法在处理滚动窗口计算时有所不同，尽管计算的结果在使用方式上是相同的。我们简化了计算过程，以便更容易讨论这个过程。
+- en: Since our reset point is 7, as previously selected, we'll define a chunk of
+    a file any time our rolling hash calculation returns a seven. This is represented
+    in the following screenshot with horizontal lines showing the blocks we've set
+    within the file.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们的重置点是7，如前所述，我们将在每次滚动哈希计算返回7时，定义文件的一个块。下图通过水平线显示了我们在文件中设置的块。
+- en: 'For each block, we''ll calculate our signature in the same way as before: summing
+    up the ASCII integer values of the content within the entire block (as shown in
+    the fourth row) and applying modulo 64 to get the character for the signature
+    (as seen in the last row). Please remember that the only relationship between
+    rows 2 and 4 in this example is that row 2 tells us when to set the reset point
+    and calculate the number shown in row 4\. These two hashes are algorithmically
+    independent of one another by design. Row 4 is still the summation of the ASCII
+    values for *a + b + c + d + e + f* and not the summation of our rolling hash output:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于每个块，我们将以与之前相同的方式计算签名：将整个块内的ASCII整数值求和（如第四行所示），然后应用模64运算得到签名的字符（如最后一行所见）。请记住，在这个例子中，第2行和第4行之间的唯一关系是，第2行告诉我们何时设置重置点并计算第4行中显示的数字。这两个哈希在算法上是独立的。第4行仍然是对*a
+    + b + c + d + e + f*的ASCII值求和，而不是滚动哈希输出的和：
+- en: '![](img/ee120ac7-f0a4-4081-9c02-a9fc71583a47.png)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ee120ac7-f0a4-4081-9c02-a9fc71583a47.png)'
+- en: This produces the signature VUUD. While much shorter, we now have context triggered
+    hashes. As previously described, we've accomplished this by using the rolling
+    hash to define our boundaries (the context triggering), and the summation of our
+    block (piecewise hashing) to identify common chunks of the file that we can compare
+    to files with similar reset point sizes (or other files with a reset point of
+    7).
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这生成了签名VUUD。尽管短得多，但我们现在得到了上下文触发的哈希。如前所述，我们通过使用滚动哈希来定义边界（即上下文触发），并通过对块的求和（逐块哈希）来识别文件中的共同块，从而将其与具有相似重置点大小的文件进行比较（或者其他重置点为7的文件）。
+- en: 'For our final example, let''s revisit what happens when we perform the same
+    insertion of the letter h. Using our rolling hash to calculate our context-based
+    blocks (as shown in the first row), we can calculate the summarization of blocks
+    using the same algorithm and generate the signature VUH1D:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的最终示例中，让我们回顾一下当我们插入字母 h 时发生了什么。使用我们的滚动哈希来计算基于上下文的块（如第一行所示），我们可以使用相同的算法计算块的摘要，并生成签名
+    VUH1D：
+- en: '![](img/bf27cd4e-684f-4f06-a801-7bcf23102561.png)'
+  id: totrans-70
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bf27cd4e-684f-4f06-a801-7bcf23102561.png)'
+- en: As you can see, this technique is more resilient to insertions and allows us
+    to more accurately compare differences in files than using the fixed blocks. In
+    this case, our signatures are showing that the two files are more different than
+    they are, though this technique is more accurate than our fixed block calculation
+    as it understands that the tail of our file is the same between our two versions.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，这项技术对插入更具韧性，允许我们比使用固定块更准确地比较文件之间的差异。在这种情况下，我们的签名显示两个文件的差异比实际差异更大，尽管这种技术比我们的固定块计算更准确，因为它理解文件的尾部在我们两个版本之间是相同的。
+- en: Obviously, this technique requires files larger than 28 bytes in order to produce
+    accurate results, though hopefully this simplification can help depict how these
+    fuzzy hashes are formed. With this understanding, let's start working on our script.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显然，这项技术需要大于 28 字节的文件才能产生准确的结果，尽管希望这个简化过程能够帮助说明这些模糊哈希是如何生成的。理解这一点后，让我们开始编写我们的脚本。
+- en: Implementing fuzzy_hasher.py
+  id: totrans-73
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 实现 fuzzy_hasher.py
+- en: This script was tested with both Python versions 2.7.15 and 3.7.1 and doesn't
+    leverage any third-party libraries.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该脚本已在 Python 版本 2.7.15 和 3.7.1 上进行了测试，并且没有使用任何第三方库。
+- en: 'While we''ll get to the internals of the fuzzy hashing algorithm, let''s start
+    our script as we have the others. We begin with our imports, all standard libraries
+    that we''ve used before as shown in the following. We also define a set of constants
+    on lines 36 through 47\. Lines 37 and 38 define our signature alphabet, in this
+    case all of the base64 characters. The next set of constants are used in the spamsum
+    algorithm to generate the hash. `CONTEXT_WINDOW` defines the amount of the file
+    we''ll read for our rolling hash. `FNV_PRIME` is used to calculate the hash while
+    `HASH_INIT` sets a starting value for our hash. We then have `SIGNATURE_LEN`,
+    which defines how long our fuzzy hash signature should be. Lastly, the `OUTPUT_OPTS`
+    list is used with our argument parsing to show supported output formats—more on
+    that later:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们深入了解模糊哈希算法之前，让我们像之前一样开始脚本。我们从导入开始，所有这些都是我们之前使用过的标准库，接下来会展示在代码中。我们还定义了一组常量，从第
+    36 行到第 47 行。第 37 行和第 38 行定义了我们的签名字母表，在这个例子中是所有 base64 字符。下一组常量用于 spamsum 算法生成哈希。`CONTEXT_WINDOW`
+    定义了我们将读取多少文件内容用于滚动哈希。`FNV_PRIME` 用于计算哈希，而 `HASH_INIT` 为我们的哈希设置初始值。接下来是 `SIGNATURE_LEN`，它定义了我们的模糊哈希签名应该有多长。最后，`OUTPUT_OPTS`
+    列表用于与我们的参数解析一起显示支持的输出格式——更多内容稍后介绍：
+- en: '[PRE7]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'This script has three functions: `main()`, `fuzz_file()`, and `output()`. The
+    `main()` function acts as our primary controller, handling the processing of directories
+    versus single files and calling the `output()` function to display the result
+    of the hashing. The `fuzz_file()` function accepts a file path and generates a
+    spamsum hash value. The `output()` function then takes the hash and filename and
+    displays the values in the specified format:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本有三个功能：`main()`、`fuzz_file()` 和 `output()`。`main()` 函数作为我们的主要控制器，处理目录和单个文件的处理，并调用
+    `output()` 函数来显示哈希结果。`fuzz_file()` 函数接受文件路径并生成一个 spamsum 哈希值。然后，`output()` 函数接受哈希值和文件名，并以指定的格式显示这些值：
+- en: '[PRE8]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'The structure of our script is fairly straightforward, as emphasized by the
+    following diagram. As illustrated by the dashed line, the `fuzz_file()` function
+    is the only function that returns a value. This is true as our `output()` function
+    displays content on the console instead of returning it to `main()`:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们脚本的结构相当直接，正如下图所示。由虚线所示，`fuzz_file()` 函数是唯一返回值的函数。这是因为我们的 `output()` 函数将内容显示在控制台上，而不是返回给
+    `main()`：
+- en: '![](img/ec8fd59d-9b8c-4fbf-ad5c-8ae4d19a960b.png)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ec8fd59d-9b8c-4fbf-ad5c-8ae4d19a960b.png)'
+- en: 'Finally, our script ends with argument handling and log initiation. For command-line
+    arguments, we''re accepting a path to a file or folder to process and the format
+    of our output. Our output will be written to the console, with current options
+    for text, CSV, and JSON output types. Our logging parameter is standard and looks
+    very similar to our other implementations, with the notable difference that we''re
+    writing the log messages to `sys.stderr` instead so that the user can still interact
+    with the output generated by `sys.stdout`:'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们的脚本以参数处理和日志初始化结束。对于命令行参数，我们接受一个文件或文件夹的路径以及输出格式。我们的输出将写入控制台，当前支持文本、CSV和JSON输出类型。我们的日志参数是标准的，与我们其他实现非常相似，唯一不同的是我们将日志消息写入`sys.stderr`，以便用户仍然可以与通过`sys.stdout`生成的输出进行交互：
+- en: '[PRE9]'
+  id: totrans-82
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: With this framework, let's explore how our `main()` function is implemented.
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有了这个框架，让我们来探讨一下`main()`函数是如何实现的。
+- en: Starting with the main() function
+  id: totrans-84
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从`main()`函数开始
+- en: 'Our main function accepts two parameters: the file path and output type. We
+    first check the output type to ensure it''s in the `OUTPUT_OPTS` list, just in
+    case the function was called from other code that did not validate. If it is an
+    unknown output format, we''ll raise an error and exit the script:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的主函数接受两个参数：文件路径和输出类型。我们首先检查输出类型，确保它在`OUTPUT_OPTS`列表中，以防函数是从没有验证的其他代码中调用的。如果是一个未知的输出格式，我们将抛出错误并退出脚本：
+- en: '[PRE10]'
+  id: totrans-86
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'We then start working with the file path, getting its absolute file path on
+    line 67, and checking whether it''s a directory on line 69\. If so, we begin to
+    iterate over the directory and subdirectories to find and process all files within.
+    The code on lines 71 through 73 should look familiar from [Chapter 5](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml),
+    *Databases in Python*. On line 74, we call the `fuzz_file()` function to generate
+    our hash value, `sigval`. This `sigval` value is then provided, along with the
+    filename and output format, to our `output()` function:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们开始处理文件路径，在第67行获取其绝对路径，在第69行检查它是否是一个目录。如果是，我们就开始遍历目录和子目录，查找并处理其中的所有文件。第71到第73行的代码应该在[第5章](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml)，*Python中的数据库*中见过。第74行，我们调用`fuzz_file()`函数生成我们的哈希值`sigval`。然后，这个`sigval`值连同文件名和输出格式一起传递给我们的`output()`函数：
+- en: '[PRE11]'
+  id: totrans-88
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'The remainder of our `main()` function handles single file processing and error
+    handling for invalid paths. If, as seen on lines 76 through 79, the path is a
+    file, we''ll process it the same as we did before, generating the hash with `fuzz_file()`
+    and passing the values to our `output()` function. Lastly, on lines 80 through
+    84, we handle errors with accessing the specified file or folder path:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的`main()`函数的其余部分处理单个文件的处理和无效路径的错误处理。如第76行到第79行所示，如果路径是一个文件，我们将按照之前的方式处理它，通过`fuzz_file()`生成哈希值，并将值传递给`output()`函数。最后，在第80行到第84行，我们处理访问指定文件或文件夹路径时的错误：
+- en: '[PRE12]'
+  id: totrans-90
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Creating our fuzzy hashes
+  id: totrans-91
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建我们的模糊哈希
+- en: 'Before we dive into the code for our `fuzz_file()` function, let''s talk briefly
+    about the moving parts here:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们深入讨论`fuzz_file()`函数的代码之前，让我们简要讨论一下其中的工作部分：
+- en: A rolling hash
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个滚动哈希
+- en: A calculated reset point that is derived from the file's size
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个从文件大小得出的计算重置点
+- en: Two traditional hashes, in this case leveraging the FNV algorithm
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 两个传统的哈希，在本例中利用了FNV算法
+- en: The rolling hash is similar to our earlier example in that it's used to identify
+    the boundaries that we'll summarize using our traditional hashes. In the case
+    of ssdeep and spamsum, the reset point that the rolling hash is compared to (set
+    to `7` in our prior example) is calculated based on the file's size. We'll show
+    the exact function for determining this value in a bit, though we wanted to highlight
+    that this means only files with the same block size can be compared. While there
+    is more to talk about conceptually, let's start working through the code and applying
+    these concepts.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 滚动哈希与我们之前的示例相似，用于识别我们将使用传统哈希进行总结的边界。对于ssdeep和spamsum，滚动哈希比较的重置点（在我们之前的示例中设置为`7`）是基于文件的大小来计算的。我们稍后会展示用于确定这个值的确切函数，不过我们想强调的是，这意味着只有具有相同块大小的文件才能进行比较。虽然在概念上还有更多要讨论的，但让我们开始通过代码来实践这些概念。
+- en: 'We now move to the fun function: `fuzz_file()`. This function accepts a file
+    path and uses the constants found at the beginning of the file to handle the calculation
+    of the signature:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们进入有趣的部分：`fuzz_file()`函数。这个函数接受一个文件路径，并使用文件开头找到的常量来处理签名的计算：
+- en: '[PRE13]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Generating our rolling hash
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 生成我们的滚动哈希
+- en: The following code block is our rolling hash function. Now, it may seem odd
+    to have a function within a function, though this design has a few advantages.
+    First, it's useful for organization. This rolling hash code block is only used
+    by our `fuzz_file()` function and, by nesting it inside this function, we can
+    inform the next person who reads our code that this is the case. Secondly, by
+    placing this function within `fuzz_file()`, we can assure anyone who imports our
+    code as a module doesn't misuse the rolling hash function. And while there are
+    multiple other efficiencies and management reasons for selecting this design,
+    we wanted to incorporate this feature into this script to introduce you to the
+    concept. As you see in our other scripts, this isn't always used for specialized
+    functions but is a tool that you can employ in your scripts to refine their design.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码块是我们的滚动哈希函数。现在，函数内部再嵌套一个函数可能看起来有些奇怪，但这种设计有一些优点。首先，它有助于组织代码。这个滚动哈希代码块仅由我们的
+    `fuzz_file()` 函数使用，通过将其嵌套在这个函数内部，我们可以告知下一个阅读我们代码的人情况就是如此。其次，通过将这个函数放置在 `fuzz_file()`
+    内部，我们可以确保任何导入我们代码作为模块的人不会误用滚动哈希函数。虽然选择这种设计还有其他多个效率和管理方面的理由，但我们希望在这个脚本中引入这一特性，让你了解这一概念。正如你在我们的其他脚本中看到的，这并不总是用于特殊功能，但它是你可以在脚本中使用的工具，以优化其设计。
+- en: 'This nested function takes two arguments, shortened to `nb` for `new_byte`
+    and `rh` for our rolling hash tracking dictionary. In our prior example, to calculate
+    the rolling hash, we added the ASCII values of the entire window together. In
+    this function, we''ll perform a series of calculations to help us generate a rolling
+    hash of a larger 7-byte window:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个嵌套函数接受两个参数，分别缩写为 `nb`（代表 `new_byte`）和 `rh`（代表我们的滚动哈希追踪字典）。在我们之前的示例中，为了计算滚动哈希，我们将整个窗口的ASCII值相加。在这个函数中，我们将执行一系列计算，帮助我们生成一个更大的7字节窗口的滚动哈希：
+- en: '[PRE14]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: The `rh` rolling hash tracking dictionary is used to keep an eye on the moving
+    parts within this rolling hash. There are three numbers that are stored as `r1`,
+    `r2`, and `r3`. These numbers face additional calculations, as shown in the following
+    code block, and the sum of the three are returned as the integer representing
+    the rolling hash for that frame of the file.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`rh` 滚动哈希追踪字典用于监控此滚动哈希中的移动部分。这里存储了三个数字，分别是 `r1`、`r2` 和 `r3`。这些数字需要进行额外的计算，如下方代码块所示，三者的和作为整数返回，代表该文件帧的滚动哈希。'
+- en: 'The other two elements tracked by the dictionary are `rn` and `rw`. The `rn`
+    key holds the offset the rolling hash is at within the file and is used to determine
+    what character in the window is replaced by the `nb`, `new_byte`, value. This
+    window, as you may have guessed, is stored in `rw`. Unlike our prior example where
+    each character in the window was shifted left for each calculation of the rolling
+    hash, this implementation just replaces the oldest character in the array. This
+    improves efficiency as it results in one operation instead of eight:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 字典追踪的其他两个元素是 `rn` 和 `rw`。`rn` 键保存滚动哈希在文件中的偏移位置，用于确定窗口中哪个字符被 `nb`、`new_byte`
+    值替换。这个窗口，正如你猜到的那样，存储在 `rw` 中。与我们之前的示例不同，在那里每次计算滚动哈希时，窗口中的每个字符都向左移动，这个实现只会替换数组中的最旧字符。这提高了效率，因为它只需进行一次操作，而不是八次：
+- en: '[PRE15]'
+  id: totrans-105
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: This logic is computationally the same as that used by ssdeep and spamsum. To
+    start, we compute the `r2` value by subtracting `r1` and adding the product of
+    `CONTEXT_WINDOW` and `new_byte`. We then update the `r1` value by adding `new_byte`
+    and subtracting the oldest byte within the window. This means that `r1` stores
+    the sum of the entire window, similarly to our entire rolling hash algorithm in
+    the earlier example.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个逻辑在计算上与 ssdeep 和 spamsum 使用的逻辑相同。首先，我们通过减去 `r1` 并加上 `CONTEXT_WINDOW` 与 `new_byte`
+    的乘积来计算 `r2` 值。然后，我们通过加上 `new_byte` 并减去窗口中最旧的字节来更新 `r1` 值。这意味着 `r1` 存储整个窗口的总和，类似于我们在前一个示例中的整个滚动哈希算法。
+- en: On line 111, we start updating our window, replacing the oldest byte with our
+    `new_byte` character. After this, we increment the `rn` value so that it accurately
+    tracks the offset within the file.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第111行，我们开始更新窗口，用 `new_byte` 字符替换最旧的字节。之后，我们递增 `rn` 值，以准确追踪文件中的偏移量。
+- en: Finally, we calculate our `r3` value, which uses some operations we haven't
+    introduced at this point. The `<<` operator is a bitwise operator that shifts
+    our value to the left, in this case by five places. This is effectively the same
+    as us multiplying our value by 2**5\. The second new bitwise operator on line
+    115 is `&`,which in Python is a bitwise `AND` statement. This operator evaluates
+    each bit for the values on either side of the operation, position by position,
+    and if they're both equal to `1`, they're enabled in that position of the output;
+    otherwise, they're disabled. As a note, two `0` values in the same position do
+    not result in `1` when using a bitwise `AND` statement. The third new bitwise
+    operator is on line 116 and is `^`, or the exclusive `OR` operator, also called
+    an XOR operation. This works mostly as the opposite of our bitwise `AND` statement,
+    where if the bits between the two values, position by position, are different,
+    `1` is returned for that position and if they're the same, `0` is returned.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们计算`r3`值，它使用了一些我们尚未介绍的操作符。`<<`运算符是一个按位运算符，它将我们的值向左移动，在这个例子中是移动五位。这等同于我们将值乘以2**5。第115行的第二个新的按位运算符是`&`，它在Python中是按位的`AND`运算符。这个运算符逐位比较两边的值，如果两个值在某一位上都是`1`，则该位置在输出中为`1`，否则为`0`。需要注意的是，在按位`AND`运算中，两边在同一位置上都是`0`时，结果不会是`1`。第116行的第三个新按位运算符是`^`，即排它的`OR`运算符，也称为XOR操作。它的工作原理大致与按位`AND`相反，即如果两个值在同一位置的比特不同，则该位置返回`1`；如果相同，则返回`0`。
+- en: More information on bitwise operations in Python is available at [https://wiki.python.org/moin/BitwiseOperators](https://wiki.python.org/moin/BitwiseOperators).
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关Python中按位运算符的更多信息，请访问[https://wiki.python.org/moin/BitwiseOperators](https://wiki.python.org/moin/BitwiseOperators)。
+- en: With our bitwise operations out of the way, we return the sum of `r1`, `r2`,
+    and `r3` for further use in our fuzzy hash calculation.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 处理完按位运算后，我们返回`r1`、`r2`和`r3`的总和，用于进一步的模糊哈希计算。
+- en: Preparing signature generation
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备签名生成
+- en: 'Moving back into our `fuzz_file()` function, we evaluate the provided file
+    to see whether it has any content, and if so, open the file. We store this file
+    size for later use:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回到我们的`fuzz_file()`函数，我们评估提供的文件，看看它是否包含内容，如果有，则打开文件。我们将该文件的大小存储起来，以供后续使用：
+- en: '[PRE16]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'We now start with our first factor in the hashing algorithm, the **reset point**.
+    This value is noted as the first value in a signature, as it''s used to determine
+    what hashes can be compared. To calculate this number, we start with `3`, as selected
+    in the spamsum algorithm as a minimum reset point. We then double the reset point,
+    as shown on line 130, until it''s larger than the `filesize / 64`:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在开始哈希算法中的第一个因素——**重置点**。这个值被标记为签名中的第一个值，因为它用于确定可以进行比较的哈希值。为了计算这个数字，我们从`3`开始，这个值在spamsum算法中被选为最小的重置点。然后我们将重置点加倍，如第130行所示，直到它大于`filesize
+    / 64`：
+- en: '[PRE17]'
+  id: totrans-115
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'Once we have our initial reset point, we read our file into memory as `bytearray`
+    since we want to read each character as a byte that we can interpret. We then
+    set up our `while` loop, which we''ll use to adjust the `reset_point` size if
+    we need to—more on that later on:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们有了初始的重置点，我们将文件读入内存作为`bytearray`，因为我们希望将每个字符作为字节读取，这样我们可以进行解释。然后我们设置`while`循环，如果需要调整`reset_point`的大小，就在这里进行——稍后会详细讨论：
+- en: '[PRE18]'
+  id: totrans-117
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: Once within our `while` loop, we'll initiate our hashing objects. The first
+    object is `rolling_hash`, a dictionary with five keys. The `r1`, `r2`, and `r3`
+    keys are used to compute the hash; the `rn` key tracks the position of the cursor
+    in the file; the `rw` key holds a list the size of the `CONTEXT_WINDOW` constant.
+    This is the dictionary that's referenced heavily in our `update_rolling_hash()`
+    function. It may be helpful to re-read that section now that you've seen what
+    the `rolling_hash` dictionary looks like.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦进入我们的`while`循环，我们将初始化哈希对象。第一个对象是`rolling_hash`，这是一个包含五个键的字典。`r1`、`r2`和`r3`键用于计算哈希值；`rn`键跟踪文件中光标的位置；`rw`键保存一个大小为`CONTEXT_WINDOW`常量的列表。这个字典在我们的`update_rolling_hash()`函数中被大量引用。现在你已经看过`rolling_hash`字典的结构，重新阅读这一部分可能会有所帮助。
+- en: 'Following this dictionary, we have `trad_hash1` and `trad_hash2` initialized
+    with the `HASH_INIT` constant. Lastly, we initialize the two signatures, `sig1`
+    and `sig2`. The variable `trad_hash1` is used to populate the `sig1` value, and
+    similarly, `trad_hash2` is used to populate the `sig2` value. We''ll show how
+    we calculate these traditional hashes and update our signatures shortly:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 紧接着这个字典，我们初始化了`trad_hash1`和`trad_hash2`，并赋予它们`HASH_INIT`常量的值。最后，我们初始化了两个签名：`sig1`和`sig2`。变量`trad_hash1`用于填充`sig1`的值，类似地，`trad_hash2`用于填充`sig2`的值。稍后我们将展示如何计算这些传统哈希并更新签名：
+- en: '[PRE19]'
+  id: totrans-120
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Once we''ve initialized our hash values, we can start iterating through the
+    file as seen on line 151\. On line 153, we calculate the rolling hash using the
+    latest byte from the file and the `rolling_hash` dictionary. Remember that dictionaries
+    can be passed into a function and updated, and can retain their updated values
+    outside of the function without needing to be returned. This allows a simpler
+    interface with our rolling hash function. This function simply returns the calculated
+    rolling hash, which is in the form of an integer as previously discussed. This
+    rolling hash allows us to hash a moving (or rolling) window of data through a
+    byte stream and is used to identify when in our file we should add a character
+    to our signature:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们初始化了哈希值，就可以开始按行遍历文件，如第151行所示。在第153行，我们使用文件中的最新字节和`rolling_hash`字典来计算滚动哈希。记住，字典可以作为参数传递给函数并进行更新，而且更新后的值可以在函数外部保留，而无需返回。这使得与滚动哈希函数的接口更简洁。该函数仅返回计算出的滚动哈希值，之前已经讨论过，它的形式是一个整数。这个滚动哈希使我们能够通过字节流对数据的移动（或滚动）窗口进行哈希，并用于确定在文件中何时应向签名中添加字符：
+- en: '[PRE20]'
+  id: totrans-122
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'After calculating the rolling hash value, we need to update our traditional
+    hashes. These hashes use the **Fowler–Noll–Vo** (**FNV**) hash, where we multiply
+    the former value of the hash against the fixed prime, defined as one of our constants,
+    before being XOR''d (`^` as previously discussed) against the new byte of data.
+    Unlike the rolling hash, these hash values continue to increment with each new
+    byte and grow in size until we reach one of our boundaries:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计算滚动哈希值后，我们需要更新传统哈希。这些哈希使用**Fowler–Noll–Vo**（**FNV**）哈希算法，其中我们将哈希的前一个值与固定的素数相乘，这个素数是我们常量之一，然后与新的数据字节进行异或运算（之前讨论过的`^`）。与滚动哈希不同，这些哈希值会随着每个新字节的加入而不断增加，直到我们到达某个边界。
+- en: '[PRE21]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: These boundaries are evaluated by two conditionals, one for each of our hash/signature
+    pairs. Lines 161 through 164 are functionally equivalent to lines 165 through
+    168, with the exception of which traditional hash and signature is in use. For
+    simplicity, we'll walk through the first.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些边界通过两个条件语句进行评估，每个哈希/签名对一个条件。第161行到164行的功能等同于第165行到168行，唯一不同的是使用了不同的传统哈希和签名。为了简化，我们先来分析第一个。
+- en: On lines 161 and 162 (due to line wrapping), we have our first conditional statement,
+    which evaluates whether the product of our rolling hash modulo `reset_point`,
+    is equal to `reset_point - 1`. We also ensure that our overall signature length
+    is less than the maximum signature length minus 1\. If these conditions are met,
+    we've reached a boundary and will convert our traditional hash into a character
+    of our signature, as shown on line 163\. After adding a character to our signature,
+    we then reset our traditional hash back to the initial value, meaning the next
+    block of data will have a hash value starting from the same point as the prior
+    block.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第161行和162行（由于换行），我们有第一个条件语句，它判断我们的滚动哈希与`reset_point`的乘积对`reset_point`取模后，是否等于`reset_point
+    - 1`。我们还确保整体签名长度小于最大签名长度减去1。如果这些条件满足，就表示我们已到达边界，并会将传统哈希值转换为签名字符，如第163行所示。在向签名中添加字符后，我们会将传统哈希值重置为初始值，这意味着下一个数据块的哈希值将从与前一个数据块相同的位置开始。
+- en: 'As mentioned, this is repeated for the second signature, with the notable exception
+    that the second signature is modifying `reset_point` (by multiplying it by two)
+    and the maximum signature length (by dividing it by two). This second reset point
+    was added to address the desire for the spamsum signature to be short—64 characters
+    by default. This means that the primary signature may be cut off and the tail
+    of the file may represent one character of the signature. To combat this, spamsum
+    added the second signature to generate a value that represents more, if not all,
+    of the file. This second signature effectively has a `reset_point` twice as large
+    as the first signature:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，这对于第二个签名是重复的，显著的例外是第二个签名正在修改`reset_point`（将其乘以2）和最大签名长度（将其除以2）。第二个重置点的添加是为了满足spamsum签名较短的需求——默认64个字符。这意味着主签名可能被截断，文件的尾部可能只代表签名的一个字符。为了应对这个问题，spamsum添加了第二个签名来生成一个代表更多（如果不是全部）文件的值。第二个签名实际上有一个`reset_point`，其值是第一个签名的两倍：
+- en: '[PRE22]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'This is the end of our for loop; this logic will repeat until we''ve reached
+    the end of the file, though the signatures will only grow to 63 and 31 characters
+    in length, respectively. After our `for` loop exists, we evaluate whether we should
+    start the `while` loop (beginning on line 136) over again. We would want to do
+    this if our first signature was less than 32 characters and our `reset_point`
+    wasn''t the default value of `3`. If we have too short a signature, we halve our
+    `reset_point` value and re-run our entire calculation again. This means that we
+    need every efficiency possible within this `while` loop, as we could be re-processing
+    content over and over:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是我们`for`循环的结束；该逻辑将重复，直到我们到达文件末尾，尽管签名的长度将分别只增长到63和31个字符。在我们的`for`循环退出后，我们会评估是否应该重新开始`while`循环（从第136行开始）。如果我们的第一个签名少于32个字符，且我们的`reset_point`不是默认值3，我们希望这样做。如果签名过短，我们将`reset_point`值减半并重新运行整个计算。这意味着我们在`while`循环中需要每一分效率，因为我们可能会反复处理内容：
+- en: '[PRE23]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'If our signature length is greater than 32 characters, we exit our `while`
+    loop and generate the last character for our signature. If the product of our
+    rolling hash isn''t equal to zero, we add the last character to each signature,
+    as shown on lines 180 and 181:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们的签名长度大于32个字符，我们退出`while`循环并生成签名的最后一个字符。如果我们的滚动哈希值的乘积不等于零，我们会将最后一个字符添加到每个签名中，如第180行和第181行所示：
+- en: '[PRE24]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'At this point, we can close the file and return our full spamsum/ssdeep signature.
+    This signature has three, hopefully recognizable, parts:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到此为止，我们可以关闭文件并返回完整的spamsum/ssdeep签名。这个签名有三个， hopefully 可识别的部分：
+- en: Our `reset_point` value
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们的`reset_point`值
+- en: The primary signature
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 主要签名
+- en: The secondary signature
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 次要签名
+- en: Providing the output
+  id: totrans-137
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 提供输出
+- en: 'Our last function, luckily, is a whole lot simpler than the previous one. This
+    function provides output of the signature and filename in one of the supported
+    formats. In the past, we''ve written separate functions to handle separate formats,
+    though in this case we''ve opted to place them all in the same function. This
+    design decision is because we want to provide results in near-real time, especially
+    if the user is processing a number of files. Since our logs are redirected to
+    `STDERR`, we can use the `print()` function to provide results on `STDOUT`. This
+    allows flexibility to our users, who can pipe the output into another program
+    (such as grep) and perform additional processing on the results:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，我们的最后一个函数比前一个要简单得多。这个函数提供了以一种支持的格式输出签名和文件名。在过去，我们编写了单独的函数来处理不同的格式，然而在这个情况下，我们选择将它们都放在同一个函数中。这个设计决策的原因是我们希望能够接近实时地提供结果，特别是当用户正在处理多个文件时。由于我们的日志被重定向到`STDERR`，我们可以使用`print()`函数将结果提供到`STDOUT`。这样可以为用户提供灵活性，用户可以将输出通过管道传送到另一个程序（例如grep），并对结果进行额外处理：
+- en: '[PRE25]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Running fuzzy_hasher.py
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行fuzzy_hasher.py
+- en: 'The following screenshot shows us how we can generate our fuzzy hashing on
+    a set of files within a directory and perform post-processing on the output. In
+    this case, we''re hiding the log messages by sending `STDERR` to `/dev/null`.
+    Then, we pipe our output into `jq`, a utility that formats and queries JSON data,
+    to present our output in a nicely formatted manner:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了我们如何在目录中的一组文件上生成模糊哈希并对输出进行后处理。在这种情况下，我们通过将`STDERR`发送到`/dev/null`来隐藏日志消息。然后，我们将输出通过管道传输到`jq`，一个格式化和查询JSON数据的工具，来以漂亮的格式呈现输出：
+- en: '![](img/4e98a7a3-2022-44aa-a1f5-95ca7c1e6af6.png)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4e98a7a3-2022-44aa-a1f5-95ca7c1e6af6.png)'
+- en: There are a few things you may have identified in this output. The first we'll
+    highlight is that the files aren't in alphabetical order. This is because our
+    `os.walk` function doesn't preserve alphabetical order by default when it iterates
+    through a path. The second thing is, even though all of these files are identical
+    in size, they vary in block size. What this means is that some of these files
+    (containing random content) didn't have enough blocks and therefore the signatures
+    were too short. This means we needed to halve the block size and try again, so
+    when we move to the comparison component, we can compare files with enough similar
+    blocks. On the other hand, the second signature in the files with the 3,072 blocks
+    (`file_2` and `file_4`) can be compared in part to the first signature of the
+    other files with block sizes of 6,144.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个输出中，你可能会注意到一些事情。首先，我们要强调的是文件没有按照字母顺序排列。这是因为我们的`os.walk`函数在遍历路径时默认不会保持字母顺序。第二个问题是，尽管这些文件的大小相同，但它们的块大小不同。这意味着一些文件（包含随机内容）没有足够的块，因此签名太短。这意味着我们需要将块大小减半并重新尝试，这样当我们进入比较部分时，就能比较具有足够相似块的文件。另一方面，具有3,072个块的文件（`file_2`和`file_4`）的第二个签名可以部分与其他块大小为6,144的文件的第一个签名进行比较。
+- en: We've provided these test files for your use and comparison to confirm our implementation
+    matches yours and the output of the next script.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们提供了这些测试文件供你使用和比较，以确认我们的实现与你的实现相符，并且与下一个脚本的输出一致。
+- en: Using ssdeep in Python – ssdeep_python.py
+  id: totrans-145
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在Python中使用ssdeep – ssdeep_python.py
+- en: This script was tested with both Python 2.7.15 and 3.7.1, and requires the ssdeep
+    version 3.3 third-party library.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本已经在Python 2.7.15和3.7.1版本中进行了测试，并且需要ssdeep版本3.3的第三方库。
+- en: As you may have noticed, the prior implementation is almost prohibitively slow.
+    In situations like this, it's best to leverage a language, such as C, that can
+    perform this operation much faster. Luckily for us, spamsum was originally written
+    in C, then further expanded by the ssdeep project, also in C. One of the expansions
+    the ssdeep project provides us with is Python bindings. These bindings allow us
+    to still have our familiar Python function calls while offloading the heavy calculations
+    to our compiled C code. Our next script covers the implementation of the ssdeep
+    library in a Python module to produce the same signatures and handle comparison
+    operations.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你可能已经注意到的，之前的实现几乎慢得不可忍受。在这种情况下，最好利用像C语言这样的语言，它能够更快速地执行这个操作。幸运的是，spamsum最初是用C语言编写的，后来通过ssdeep项目进一步扩展，依然是C语言实现的。ssdeep项目提供的扩展之一是Python绑定。这些绑定允许我们仍然使用熟悉的Python函数调用，同时将繁重的计算任务卸载到已编译的C代码中。我们的下一个脚本涵盖了在Python模块中实现ssdeep库，以产生相同的签名并处理比较操作。
+- en: In this second example of fuzzy hashing, we're going to implement a similar
+    script using the ssdeep Python library. This allows us to leverage the ssdeep
+    tool and the spamsum algorithm, which has been widely used and accepted in the
+    fields of digital forensics and information security. This code will be the preferred
+    method for fuzzy hashing in most scenarios as it's more efficient with resources
+    and produces more accurate results. This tool has seen wide support in the community,
+    and many ssdeep signatures are available online. For example, the VirusShare and
+    VirusTotal websites host hashes from ssdeep on their sites. This public information
+    can be used to check for known malicious files that match or are similar to executable
+    files on a host machine, without the need to download the malicious files.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个模糊哈希的第二个示例中，我们将使用ssdeep Python库实现一个类似的脚本。这使我们能够利用ssdeep工具和spamsum算法，后者在数字取证和信息安全领域得到了广泛的应用和接受。这段代码将是大多数场景下模糊哈希的首选方法，因为它在资源使用上更高效，且能产生更准确的结果。这个工具在社区中得到了广泛的支持，许多ssdeep签名可以在线获取。例如，VirusShare和VirusTotal网站上托管了来自ssdeep的哈希值。这些公开的信息可以用来检查已知的恶意文件，它们可能与主机机器上的可执行文件匹配或相似，而无需下载恶意文件。
+- en: One weakness of ssdeep is that it doesn't provide information beyond the matching
+    percentage and can't compare files with significantly different block sizes. This
+    can be an issue as ssdeep automatically generates the block size based on the
+    size of the input file. The process allows ssdeep to run more efficiently and
+    accommodates scaling much better than our script; however, it doesn't provide
+    a manual solution to specify a block size. We could take our prior script and
+    hardcode our block size, though that introduces other (previously discussed) issues.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ssdeep 的一个弱点是它仅提供匹配百分比的信息，并且无法比较具有显著不同块大小的文件。这可能是一个问题，因为 ssdeep 会根据输入文件的大小自动生成块大小。这个过程使得
+    ssdeep 比我们的脚本运行更高效，并且在扩展性方面表现得更好；然而，它并没有提供手动指定块大小的解决方案。我们可以拿之前的脚本并硬编码块大小，尽管这会引入其他（之前讨论过的）问题。
+- en: 'This script starts the same as the other, with the addition of the new import
+    of the ssdeep library. To install this library, run `pip install ssdeep==3.3`,
+    or if that fails, you can run `BUILD_LIB=1 pip install ssdeep==3.3` as per the
+    documentation at [https://pypi.python.org/pypi/ssdeep](https://pypi.python.org/pypi/ssdeep).
+    This library wasn''t built by the developer of ssdeep, but another member of the
+    community who created the bindings Python needs to communicate with the C-based
+    library. Once installed, it can be imported as seen on line 7:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本与另一个脚本相同，唯一的不同是新增了 ssdeep 库的导入。要安装此库，请运行 `pip install ssdeep==3.3`，如果失败，可以按照
+    [https://pypi.python.org/pypi/ssdeep](https://pypi.python.org/pypi/ssdeep) 上的文档运行
+    `BUILD_LIB=1 pip install ssdeep==3.3`。这个库并不是 ssdeep 的开发者创建的，而是社区的另一位成员创建的，提供了
+    Python 与 C 基于的库之间需要的绑定。安装完成后，可以像第 7 行所示那样导入：
+- en: '[PRE26]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'This iteration has a similar structure to our previous one, though we hand
+    off all of our calculations to the `ssdeep` library. Though we may be missing
+    our hashing and comparison functions, we''re still using our main and output functions
+    in a very similar manner:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个版本的结构与我们之前的版本相似，尽管我们将所有计算工作交给了 `ssdeep` 库。虽然我们可能缺少了哈希和比较函数，但我们仍然以非常相似的方式使用我们的
+    `main` 和 `output` 函数：
+- en: '[PRE27]'
+  id: totrans-153
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Our program flow has also remained similar to our prior iteration, though it''s
+    missing the internal hashing function we developed in our prior iteration. As
+    seen in the flow diagram, we still make calls to the `output()` function in the
+    `main()` function:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的程序流程与之前的迭代相似，尽管它缺少了我们在上一次迭代中开发的内部哈希函数。如流程图所示，我们仍然在 `main()` 函数中调用 `output()`
+    函数：
+- en: '![](img/54931c15-04a4-4b6a-b142-6f5b246441e5.png)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/54931c15-04a4-4b6a-b142-6f5b246441e5.png)'
+- en: 'Our argument parsing and logging configurations are nearly identical to the
+    prior script. The major difference is that we''ve introduced one new file path
+    argument and renamed our argument that accepted files or folders. On line 134,
+    we once more create the `argparse` object to handle our two positional arguments
+    and two optional output format and logging flags. The remainder of this code block
+    is consistent with the prior script, with the exception of renaming our log files:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的参数解析和日志配置几乎与之前的脚本相同。主要的区别是我们引入了一个新的文件路径参数，并重命名了接受文件或文件夹的参数。在第 134 行，我们再次创建了
+    `argparse` 对象来处理我们的两个位置参数和两个可选的输出格式及日志标志。该代码块的其余部分与之前的脚本一致，唯一的区别是我们重命名了日志文件：
+- en: '[PRE28]'
+  id: totrans-157
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Revisiting the main() function
+  id: totrans-158
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 重访 `main()` 函数
+- en: 'This `main()` function is very similar to the prior script, though it has a
+    few additional lines of code as we''ve added some functionality. This script starts
+    the same with checking that the output type is a valid format, as shown on lines
+    56 through 62\. We then add another conditional on line 63 that allows us to print
+    the CSV header row since this output is more complicated than the last iteration:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个 `main()` 函数与之前的脚本非常相似，虽然它添加了一些额外的代码行，因为我们增加了一些功能。该脚本从检查输出类型是否为有效格式开始，如第 56
+    行到第 62 行所示。然后，我们在第 63 行添加了另一个条件，使我们能够打印 CSV 表头行，因为这个输出比上一个版本更复杂：
+- en: '[PRE29]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'Now that we''ve handled the output format validation, let''s pivot to our files
+    for comparison. To start, we''ll get the absolute path for both our known file
+    and comparison path for consistency to our prior script. Then, on line 73, we
+    check to ensure our known file exists. If it does, we then calculate the ssdeep
+    hash on line 78\. This calculation is completely handled by ssdeep; all we need
+    to do is provide a valid file path to the `hash_from_file()` method. This method
+    returns a string value containing our ssdeep hash, the same product as our `fuzz_file()`
+    function in our prior script. The big difference here is speed improvements through
+    the use of efficient C code running in the `ssdeep` module:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经处理了输出格式的验证，让我们转向文件比较部分。首先，我们会获取已知文件和比较路径的绝对路径，以便与之前的脚本保持一致。然后，在第73行，我们检查已知文件是否存在。如果存在，我们会在第78行计算ssdeep哈希值。这个计算完全由ssdeep处理；我们需要做的只是提供一个有效的文件路径给`hash_from_file()`方法。此方法返回一个包含ssdeep哈希值的字符串，结果与我们在之前脚本中的`fuzz_file()`函数相同。这里的主要区别是通过使用高效的C代码在`ssdeep`模块中运行，从而提升了速度：
+- en: '[PRE30]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Now that we have our known hash value, we can evaluate our comparison path.
+    In case this path is a directory, as shown on line 81, we''ll walk through the
+    folder and it''s subfolders looking for files to process. On line 86, we generate
+    a hash of this comparison file as we had for the known file. The next line introduces
+    the `compare()` method, allowing us to provide two hashes for evaluation. This
+    compare method returns an integer between (and including) 0 and 100, representing
+    the confidence that these two files have similar content. We then take all of
+    our parts, including the filenames, hashes, and resulting similarity, and provide
+    them to our output function along with our formatting specification. This logic
+    continues until we''ve recursively processed all of our files:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们有了已知的哈希值，可以评估比较路径。如果该路径是一个目录，如第81行所示，我们将遍历该文件夹及其子文件夹，寻找要处理的文件。在第86行，我们生成这个比较文件的哈希值，方法与已知文件相同。下一行引入了`compare()`方法，允许我们提供两个哈希值进行评估。该比较方法返回一个介于0到100（包括0和100）之间的整数，表示这两个文件内容相似的可信度。然后，我们将所有部分（包括文件名、哈希值和结果相似度）提供给我们的输出函数，并附上我们的格式化规范。这段逻辑会一直进行，直到我们递归处理完所有文件：
+- en: '[PRE31]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Our next conditional handles the same operations, but for a single file. As
+    you can see, it uses the same `hash_from_file()` and `compare()` functions as
+    in the directory operation. Once all of our values are assigned, we pass them
+    in the same manner to our `output()` function. Our final conditional handles the
+    case where an error on input is found, notifying the user and exiting:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的下一个条件处理相同的操作，但只针对一个文件。如你所见，它使用与目录操作相同的`hash_from_file()`和`compare()`函数。一旦所有的值都被分配，我们会以相同的方式将它们传递给我们的`output()`函数。我们的最终条件处理输入错误的情况，通知用户并退出：
+- en: '[PRE32]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: Redesigning our output() function
+  id: totrans-167
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 重新设计我们的`output()`函数
+- en: 'Our last function is `output()`; this function takes our many values and presents
+    them cleanly to the user. Just like our prior script, we''ll support TXT, CSV,
+    and JSON output formats. To show a different design for this type of function,
+    we''ll use our format specific conditionals to build out a template. This template
+    will then be used to print our contents in a formatted manner. This technique
+    is useful if we plan on changing our output function (in this case `print()`)
+    to another output function down the road:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的最后一个函数是`output()`；这个函数接收多个值，并将它们整齐地呈现给用户。就像我们之前的脚本一样，我们将支持TXT、CSV和JSON输出格式。为了展示这种类型的函数的不同设计，我们将使用特定格式的条件来构建一个模板。然后，使用这个模板以格式化的方式打印内容。如果将来我们打算将输出函数（在本例中是`print()`）更换为其他输出函数，这种方法就会非常有用。
+- en: '[PRE33]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: To begin, we need to convert our one integer value, `comp_val`, into a string
+    for compatibility with our templates. With this complete on line 112, we'll build
+    our template for the text format. The text format gives us the freedom to display
+    the data in a way that we find useful for visual review. The following is one
+    option, though feel free to make modifications.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要将我们的整数值`comp_val`转换为字符串，以便与模板兼容。在第112行完成此操作后，我们将构建文本格式的模板。文本格式让我们能够自由地以适合视觉审查的方式展示数据。以下是一个选项，但你可以根据需要进行修改。
+- en: 'On lines 113 and 114, we''re able to build our template with named placeholders
+    by using the curly braces surrounding our placeholder identifier. Skipping ahead
+    to lines 127 to 132, you can see that when we call `msg.format()`, we provide
+    our values as arguments using the same names as our placeholders. This tells the
+    `format()` method which placeholder to fill with which value. The main advantage
+    of naming our placeholders is that we can arrange the values however we want when
+    we call the `format()` method, and even have the elements in different positions
+    between our template formats:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 113 和第 114 行，我们通过使用大括号包围占位符标识符来构建带有命名占位符的模板。跳到第 127 到第 132 行，你可以看到当我们调用 `msg.format()`
+    时，我们通过与占位符相同的名称提供我们的值作为参数。这告诉 `format()` 方法应该用哪个值填充哪个占位符。命名占位符的主要优势在于，我们在调用 `format()`
+    方法时，可以按任何顺序安排值，甚至可以让模板格式中的元素在不同位置：
+- en: '[PRE34]'
+  id: totrans-172
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: 'Next is our JSON formatting. The `json.dumps()` method is the preferred way
+    to output dictionaries as JSON content, though in this case we''ll explore how
+    you can accomplish a similar goal. Using our same templating method, we build
+    out a dictionary where the keys are fixed strings and the values are the placeholders.
+    Since the templating syntax uses a single curly brace to indicate a placeholder,
+    we must escape the single curly brace with a second curly brace. This means our
+    entire JSON object it wrapped in an extra curly brace—don''t fear, only one of
+    the two curly braces will display on print:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是我们的 JSON 格式化。`json.dumps()` 方法是输出字典为 JSON 内容的首选方式，尽管在这个例子中我们将探讨如何通过其他方式实现类似的目标。通过使用相同的模板方法，我们构建了一个字典，其中键是固定的字符串，值是占位符。由于模板语法使用单个大括号来表示占位符，我们必须使用第二个大括号来转义单个大括号。这意味着我们的整个
+    JSON 对象被额外的大括号包裹——别担心，只有两个大括号中的一个会在打印时显示：
+- en: '[PRE35]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Lastly, we have our CSV output, which uses the named placeholder templating
+    again. As you may have noticed, we wrapped each value in double quotes to ensure
+    that any commas within the values don''t cause formatting issues down the line:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们有了我们的 CSV 输出，再次使用了命名占位符模板。正如你可能注意到的，我们将每个值都用双引号包围，以确保值中的任何逗号不会导致格式问题：
+- en: '[PRE36]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: 'The only reason we have our `msg` variable on multiple lines here is for word
+    wrapping. There''s nothing else stopping you from having one long string as a
+    format template. Lastly, we have our `else` conditional, which will catch any
+    unsupported output type:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的 `msg` 变量在此处出现在多行的唯一原因是为了换行。除此之外，没有任何东西阻止你将整个格式模板放在一行。最后，我们有了 `else` 条件，它会捕捉到任何不支持的输出类型：
+- en: '[PRE37]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'After our conditional, we print out the template with the applied values in
+    place of the placeholders. If we wanted to support a new or alternate format,
+    we could add a new conditional above and create the desired template without needing
+    to re-implement this `print()` function:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在条件语句后，我们打印出已应用值的模板，以替代占位符。如果我们想支持一种新的或替代的格式，我们可以在上方添加新的条件，并创建所需的模板，而无需重新实现这个
+    `print()` 函数：
+- en: '[PRE38]'
+  id: totrans-180
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: Running ssdeep_python.py
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 运行 ssdeep_python.py
+- en: 'We can now run our script, providing, for example, `test_data/file_3` as our
+    known file and the whole `test_data/` folder as our comparison set. Using the
+    JSON output again, we can see the result of our templating in the two following
+    screenshots:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以运行脚本，例如，提供 `test_data/file_3` 作为已知文件，并将整个 `test_data/` 文件夹作为比较集。再次使用 JSON
+    输出，我们可以在接下来的两个截图中看到我们模板化的结果：
+- en: '![](img/34112c19-7d80-433e-a0c4-c0140a7d8d8a.png)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/34112c19-7d80-433e-a0c4-c0140a7d8d8a.png)'
+- en: 'The following is our continued output:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是我们继续的输出：
+- en: '![](img/125e09b2-8cf2-414b-bdef-fb5f225d80f0.png)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/125e09b2-8cf2-414b-bdef-fb5f225d80f0.png)'
+- en: 'You''ll also notice that this script, using the `ssdeep` library, produces
+    the same signatures as our prior implementation! One thing to notice is the speed
+    difference between these two scripts. Using the tool time, we ran our two scripts
+    against the same folder of these six files. As seen in the following screenshot,
+    there''s a significant performance boost in using our `ssdeep` imported module:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还会注意到，使用 `ssdeep` 库的这个脚本，产生了与我们之前实现相同的签名！需要注意的一点是这两个脚本之间的速度差异。通过使用工具时间，我们运行了两个脚本，对相同文件夹中的这六个文件进行了处理。正如接下来的截图所示，使用我们导入的
+    `ssdeep` 模块，性能有了显著提升：
+- en: '![](img/25a60288-e966-45e6-b4ea-4e190365c2b0.png)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/25a60288-e966-45e6-b4ea-4e190365c2b0.png)'
+- en: Additional challenges
+  id: totrans-188
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 额外的挑战
+- en: You've created a script that implements the spamsum algorithm to generate ssdeep
+    compatible hashes! With this, there are a few additional challenges to pursue.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你已经创建了一个实现spamsum算法的脚本，用来生成与ssdeep兼容的哈希值！接下来，还有一些额外的挑战等着你。
+- en: 'First, we''re providing six sample files, found in the previously mentioned
+    `test_data/` directory. These files are available to confirm you''re getting the
+    same hashes as those printed and to allow you to perform some additional testing.
+    The `file_1`, `file_2`, and `file_3` files are our originals, whereas the instances
+    with an appended `a` are a modified version of the original. The accompanying
+    `README.md` file contains a description of the alterations we performed, though
+    in short, we have the following:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们提供了六个示例文件，这些文件位于前面提到的`test_data/`目录中。这些文件可用于确认你是否获得了与打印的哈希值相同的值，并且可以让你进行一些额外的测试。`file_1`、`file_2`和`file_3`文件是我们的原始文件，而附加了`a`的文件是原始文件的修改版本。随附的`README.md`文件包含了我们所做的修改说明，简而言之，我们进行了以下操作：
+- en: '`file_1` with a relocation of some file content to a later portion of the file'
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`file_1` 将部分文件内容移至文件的后半部分'
+- en: '`file_2` with an insertion in the early portion of the file'
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`file_2` 在文件的前半部分插入内容'
+- en: '`file_3` with a removal of the start of the file'
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`file_3` 移除文件的开头部分'
+- en: We encourage you to perform additional testing to learn about how ssdeep responds
+    to different types of alterations. Feel free to further alter the original files
+    and share your findings with the community!
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们鼓励你进行额外的测试，了解ssdeep如何应对不同类型的修改。随意修改原始文件并与社区分享你的发现！
+- en: Another challenge is to study the ssdeep or spamsum code and learn how it handles
+    the comparison component with the goal of adding it into the first script.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个挑战是研究ssdeep或spamsum代码，了解它如何处理比较组件，目标是将其加入到第一个脚本中。
+- en: We can also explore developing code to expose the content of, for example, word
+    documents and generate ssdeep hashes of the document's content instead of the
+    binary file. This can be applied to other file types and doesn't have to be limited
+    to text content. For example, if we discover that an executable is packed, we
+    may also want to generate a fuzzy hash of the unpacked byte content.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以开发代码来展示，例如，Word文档的内容，并生成该文档内容的ssdeep哈希，而不是二进制文件的哈希。这可以应用于其他类型的文件，不仅限于文本内容。例如，如果我们发现某个可执行文件被打包了，我们可能还想生成解包后字节内容的模糊哈希。
+- en: Lastly, there are other similarity analysis utilities out there. To name one,
+    the `sdhash` utility takes a different approach to identifying similarities between
+    two files. We recommend you spend some time with this utility, running it against
+    your and our provided test data to see how it performs with different types of
+    modifications and alterations. More information on `sdhash` is available on the
+    website: [http://roussev.net/sdhash/sdhash.html](http://roussev.net/sdhash/sdhash.html).
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，市面上还有其他相似度分析工具。举例来说，`sdhash`工具采用了一种不同的方法来识别两个文件之间的相似性。我们建议你花些时间使用这个工具，将其应用于你和我们提供的测试数据，看看它如何应对不同类型的修改和变化。有关`sdhash`的更多信息，请访问网站：[http://roussev.net/sdhash/sdhash.html](http://roussev.net/sdhash/sdhash.html)。
+- en: References
+  id: totrans-198
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 参考文献
+- en: Kornblum, J. (2006). *Identifying Almost Identical Files Using Context Triggered
+    Piecewise Hashing*, Digital Investigation, 91-97\. Retrieved October 31, 2015,
+    from [http://dfrws.org/2006/proceedings/12-Kornblum.pdf](http://dfrws.org/2006/proceedings/12-Kornblum.pdf)
+  id: totrans-199
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Kornblum, J. (2006). *使用上下文触发分段哈希识别几乎相同的文件*，数字调查，91-97\. 2015年10月31日检索自[http://dfrws.org/2006/proceedings/12-Kornblum.pdf](http://dfrws.org/2006/proceedings/12-Kornblum.pdf)
+- en: 'Stevens, M. Karpmanm P. Peyrin, T. (2015), *RESEARCHERS URGE: INDUSTRY STANDARD
+    SHA-1 SHOULD BE RETRACTED SOONER*, retrieved October 31, 2015, from [https://ee788fc4-a-62cb3a1a-s-sites.googlegroups.com/site/itstheshappening/shappening_PR.pdf](https://ee788fc4-a-62cb3a1a-s-sites.googlegroups.com/site/itstheshappening/shappening_PR.pdf)'
+  id: totrans-200
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Stevens, M. Karpmanm P. Peyrin, T. (2015)，*研究人员呼吁：行业标准SHA-1应尽快撤回*，2015年10月31日检索自[https://ee788fc4-a-62cb3a1a-s-sites.googlegroups.com/site/itstheshappening/shappening_PR.pdf](https://ee788fc4-a-62cb3a1a-s-sites.googlegroups.com/site/itstheshappening/shappening_PR.pdf)
+- en: Summary
+  id: totrans-201
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 概述
+- en: Hashing is a critical component of the DFIR workflow. While most use cases of
+    hashing are focused on integrity checking, the use of similarity analysis allows
+    us to learn more about near matches and file relations. This process can provide
+    insight for malware detection, identification of restricted documents in unauthorized
+    locations, and discovery of closely related items based on content only. Through
+    the use of third-party libraries, we're able to lean on the power behind the C
+    languages with the flexibility of the Python interpreter and build powerful tools
+    that are user and developer friendly. The code for this project can be downloaded
+    from GitHub or Packt, as described in the *Preface*.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哈希是DFIR工作流程中的一个关键组成部分。虽然大多数哈希的应用场景集中在完整性检查上，但相似性分析的使用使我们能够了解更多关于近似匹配和文件关系的信息。这个过程可以为恶意软件检测、识别未授权位置的受限文档以及仅基于内容发现紧密相关的项目提供深入的见解。通过使用第三方库，我们能够利用C语言背后的强大功能，同时享受Python解释器的灵活性，构建出既适合用户又适合开发者的强大工具。这个项目的代码可以从GitHub或Packt下载，具体信息见*前言*。
+- en: A fuzzy hash is a form of metadata, or data about data. Metadata also includes
+    embedded attributes such as document editing time, image geolocation information,
+    and source application. In the next chapter, you'll learn how to extract embedded
+    metadata from various files including images, audio files, and office documents.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 模糊哈希是一种元数据的形式，或者说是关于数据的数据。元数据还包括嵌入的属性，如文档编辑时间、图像地理位置信息和源应用程序。在下一章中，您将学习如何从各种文件中提取嵌入的元数据，包括图像、音频文件和办公文档。

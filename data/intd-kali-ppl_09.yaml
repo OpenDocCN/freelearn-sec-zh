@@ -1,0 +1,2232 @@
+- en: '6'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '6'
+- en: Traffic and Log Analysis
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 流量与日志分析
+- en: Now that we’ve established a bare-bones SIEM solution and learned how to direct
+    traffic to that solution, it’s time to see how Kali Purple can help us understand
+    the traffic that we’re sending. Otherwise, it wouldn’t do much good to send the
+    traffic if we couldn’t make much sense of it, right? Kali Purple provides some
+    well-known solutions that each approach traffic analysis in different ways. The
+    two we will highlight are **Arkime**, formerly known as Moloch, and **Malcolm**,
+    previously known as Bro.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们已经建立了一个基础的SIEM解决方案，并了解了如何将流量导向该解决方案，是时候看看Kali Purple如何帮助我们理解我们发送的流量了。否则，如果我们无法理解这些流量，发送它们又有什么意义呢？Kali
+    Purple提供了一些著名的解决方案，每种方法都以不同的方式处理流量分析。我们将重点介绍**Arkime**，前身为Moloch，以及**Malcolm**，前身为Bro。
+- en: Additionally, we are going to peek at how bad actors will sometimes intentionally
+    manipulate this traffic to fool cyberdefense systems and personnel. Even the most
+    experienced and knowledgeable personnel and systems can be slowed down by making
+    the traffic hard to understand through a concept known as obfuscation. Well-trained
+    bad actors know that obfuscation won’t fool properly trained and/or experienced
+    defense analysts but they will still employ such methods because they know it
+    will, at the very least, annoy and slow down the cyber defenders. That would then
+    potentially buy attackers more time to do their dirty deeds. It’s also worth the
+    effort in their eyes to gamble on the cyber defenders being untrained, poorly
+    trained, or entirely new to the profession, which might sometimes provide them
+    with a lucky strike.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还将了解恶意攻击者如何有时故意操控这些流量，以欺骗网络防御系统和人员。即使是最有经验、知识最丰富的人员和系统，也能通过一种叫做混淆的概念来拖慢它们的处理速度。训练有素的恶意攻击者知道混淆无法欺骗经过适当训练和/或经验丰富的防御分析人员，但他们仍会采用这种方法，因为他们知道，至少可以让网络防御人员感到烦恼并拖慢反应速度。这可能会为攻击者赢得更多的时间来完成他们的恶意行为。攻击者认为，训练不足、训练差或完全新手的网络防御人员，也可能为他们提供一次幸运的机会。
+- en: Many tools are designed to address obfuscation but anybody who’s been in the
+    cybersecurity profession for a length of time will tell you that there’s one that
+    reigns supreme over the others. It’s called **CyberChef**, and it too is included
+    in the Kali Purple distribution.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多工具被设计用来解决混淆问题，但任何在网络安全行业有一定经验的人都会告诉你，有一个工具在所有工具中占据主导地位。它叫做**CyberChef**，它也包含在Kali
+    Purple发行版中。
+- en: 'In this chapter, we will examine network traffic, packet analysis, and obfuscation
+    by highlighting the features of the following topics:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中，我们将通过以下主题的特点，探讨网络流量、数据包分析和混淆：
+- en: Understanding packets
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解数据包
+- en: Malcolm
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Malcolm
+- en: Arkime
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Arkime
+- en: CyberChef and obfuscation
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: CyberChef与混淆
+- en: Technical requirements
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The requirements for this chapters are as follows:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的要求如下：
+- en: '**Minimum requirements**: A computing device with either the *amd64 (x86_64/64-bit)*
+    or *i386 (x86/32-bit)* architecture. It should contain at least *8 GB* of RAM.'
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**最低要求**：一台计算设备，架构为*amd64 (x86_64/64-bit)* 或 *i386 (x86/32-bit)*，并至少包含 *8 GB*
+    的内存。'
+- en: '**Recommended requirements**: Based on feedback from cybersecurity field practitioners,
+    aim for the *amd64 (x86_64/64-bit)* architecture with *16 GB* of RAM – more is
+    better – and up to *64 GB* of additional disk space.'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**推荐要求**：根据网络安全领域从业人员的反馈，推荐使用 *amd64 (x86_64/64-bit)* 架构，并配备 *16 GB* 内存——内存越大越好——以及最多
+    *64 GB* 的额外磁盘空间。'
+- en: You’ll also require a successfully installed and running Elasticsearch instance
+    for the Arkime backend.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还需要成功安装并运行的Elasticsearch实例，用于Arkime后台。
+- en: Understanding packets
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解数据包
+- en: Those of you with at least a basic knowledge of network transmission know that
+    the information exists as the result of data being broken down into very small
+    measurable chunks, called **packets**, for easier transmission over the internet.
+    That way, if there is a hiccup of some sort on the internet, only that tiny portion
+    of the total data stream needs to be re-sent, and only if it’s sent with the **Transmission
+    Control Protocol** (**TCP**), which is a protocol that requires the recipient
+    to attempt to reassemble the data in order.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那些至少有基础网络传输知识的人知道，信息是通过将数据分解成非常小的可度量的块，称为**数据包**，以便更容易地通过互联网传输。这样，如果互联网上出现某种小故障，只有那一小部分数据流需要重新发送，且仅当它通过**传输控制协议**（**TCP**）发送时，接收方才需要尝试按顺序重新组装数据。
+- en: The **User Datagram Protocol** (**UDP**) – the default protocol for live streaming
+    – does not require the data to be reassembled in order so that the data can reach
+    its destination in as close to real time from the sender as possible. That’s why
+    sometimes, you’ll see a brief glitch when watching a video. That glitch is from
+    the UDP simply dropping and forgetting the packets with the idea that it’s too
+    late, the show must go on. This information is sent and received through physical
+    portals on endpoint devices. These portals are known as **network interface**
+    **cards** (**NICs**).
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**用户数据报协议** (**UDP**)——用于直播流的默认协议——不要求将数据重组，以便数据能够尽可能实时地从发送者传输到接收方。这就是为什么你有时会在观看视频时看到短暂的卡顿。这个卡顿是由于
+    UDP 丢弃并忽略数据包，认为已经太晚了，节目必须继续。此信息通过终端设备上的物理接口进行发送和接收。这些接口被称为 **网络接口卡** (**NICs**)。'
+- en: If you currently use a physical cable for your internet connection, you’re probably
+    already familiar with an NIC. It is a term that was originally used to describe
+    the physical portal that’s internal to your computer with an external face that
+    has the physical port in which you plug your cable – called an Ethernet cable
+    – into your device. As time has passed, more and more folks have migrated to wireless
+    internet connections. A wireless NIC is similar in that it has the same function
+    of sending and receiving data. In some cases, this can be a noticeable device
+    with an antenna. As technology improves, wireless NICs, especially in laptop devices,
+    aren’t even noticeable anymore.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你目前使用物理电缆进行互联网连接，你可能已经对 NIC 有所了解。这个术语最初用来描述计算机内部的物理接口，它的外部面板有一个物理端口，你可以将以太网电缆插入其中以连接到设备。随着时间的推移，越来越多的人转向无线互联网连接。无线
+    NIC 与之类似，它也有发送和接收数据的功能。在某些情况下，这可能是一个带有天线的显著设备。随着技术的进步，尤其是在笔记本电脑设备中，无线 NIC 甚至变得不再显眼。
+- en: One interesting thing about NICs is that they are the only element of an information
+    system with a network address that is physically stamped onto the device itself.
+    This is called a **Media Access Control** (**MAC**) address. It is important to
+    understand packets, NICs, and MAC addresses because it is these bits of information
+    that are collected at these locations by network security and other cyber-defense
+    systems and software for analysis and action. Collecting data packets in this
+    manner is aptly known as packet capturing. One of the most famous packet-capturing
+    utilities is known as **Wireshark** but that’s a tool that hails from the red
+    team side of the Kali Purple family. We will discuss Wireshark in [*Chapter 10*](B21223_10.xhtml#_idTextAnchor161).
+    For now, we’re going to stick with the utilities that were uniquely added with
+    Kali Purple.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于 NIC，有一个有趣的事情是，它们是信息系统中唯一一个网络地址物理上印刻在设备上的元素。这被称为 **媒体访问控制** (**MAC**) 地址。理解数据包、NIC
+    和 MAC 地址非常重要，因为正是这些信息被网络安全及其他网络防御系统和软件在这些位置收集并进行分析和处理。以这种方式收集数据包被称为数据包捕获。最著名的数据包捕获工具之一就是
+    **Wireshark**，它来自 Kali Purple 家族的红队工具。我们将在 [*第10章*](B21223_10.xhtml#_idTextAnchor161)中讨论
+    Wireshark。现在，我们将专注于 Kali Purple 独有的工具。
+- en: Malcolm
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Malcolm
+- en: Malcolm is a free open source tool that focuses on data collection and analysis.
+    It is the result of a collaboration between the **Idaho National Laboratory**
+    and the United States **Department of Homeland Security** (**DHS**). More specifically,
+    the contributions come from the somewhat infamous **Cybersecurity Infrastructure
+    Security Agency** (**CISA**), which is an agency within DHS. In this vein, you
+    might be interested to learn that Malcolm is not technically a single piece of
+    software but a collection of many open source tools, including the rest of the
+    tools in both this and the next chapter! If you think about it, that’s what Kali
+    Purple is, right? So, we have a collection of tools within another collection
+    of tools. That should give you an idea of the overall depth of Kali Purple.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Malcolm 是一个免费的开源工具，专注于数据收集和分析。它是 **爱达荷国家实验室** 与美国 **国土安全部** (**DHS**) 合作的成果。更具体地说，贡献来自有点臭名昭著的
+    **网络基础设施安全局** (**CISA**)，这是 DHS 下面的一个机构。从这个角度看，你可能会感兴趣地了解到，Malcolm 实际上并不是一款单独的软件，而是许多开源工具的集合，包括本章和下一章中的其余工具！如果你仔细想想，这不正是
+    Kali Purple 吗？所以，我们有一个工具集合，包含在另一个工具集合中。这应该能给你一个关于 Kali Purple 深度的整体概念。
+- en: The idea of Malcolm being a collection of tools can sometimes confuse people
+    because some of these tools are well-known. Two such tools will be covered later
+    in this chapter – Arkime and CyberChef. Two more will be covered in [*Chapter
+    7*](B21223_07.xhtml#_idTextAnchor108) – Suricata and Zeek. Zeek is more associated
+    with an IDS type of system and is formerly named Bro, which sometimes causes people
+    to declare that Malcolm used to be Bro. That isn’t true. It is only because it
+    is one of Malcolm’s core utilities. The other tool – Suricata – is also covered
+    in the next chapter. It’s another IDS system that is extremely popular in the
+    open source cyber-defense community.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Malcolm作为一组工具的概念有时会让人感到困惑，因为其中一些工具是众所周知的。两款工具将在本章后面介绍——Arkime和CyberChef。还有两款将在[*第7章*](B21223_07.xhtml#_idTextAnchor108)中介绍——Suricata和Zeek。Zeek更多与IDS系统相关，之前叫Bro，这有时会让人误以为Malcolm曾经是Bro。其实并非如此。只是因为它是Malcolm的核心工具之一。另一款工具——Suricata——也将在下一章介绍。这是一个在开源网络防御社区中非常受欢迎的IDS系统。
+- en: One thing you will discover as we learn about many of the tools within the Kali
+    Purple distribution is that a good majority of them are interoperable or can otherwise
+    integrate with each other, and almost all of them can integrate with the ELK stack
+    – which is why we covered those tools first and in greater detail than the rest.
+    On that note, you will notice that, within the Malcolm distribution, there are
+    some alternatives to Elastic’s Elasticsearch and Kibana. Malcolm offers OpenSearch,
+    which serves as a simultaneous alternative to both ELK stack utilities.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们学习Kali Purple发行版中的许多工具时，你会发现其中大多数是互操作的，或者可以与其他工具集成，几乎所有工具都可以与ELK堆栈集成——这也是我们首先更详细地介绍这些工具的原因。提到这一点，你会注意到，在Malcolm发行版中，有一些Elastic的Elasticsearch和Kibana的替代方案。Malcolm提供了OpenSearch，它是ELK堆栈工具的同时替代品。
+- en: Grabbing Malcolm is a little bit different than what we’ve done thus far but
+    it still follows similar concepts. Just remember to research the customization
+    options Malcom offers before you run any configuration scripts.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取Malcolm的方式与我们之前的操作有所不同，但它仍然遵循类似的概念。只要记得在运行任何配置脚本之前，先研究一下Malcolm提供的自定义选项。
+- en: 'We’re going to use a containerization program called Docker, which we will
+    talk about in-depth in [*Chapter 8*](B21223_08.xhtml#_idTextAnchor134). For now,
+    we’ll give you the answer key and you can just follow along:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用一个叫做Docker的容器化程序，稍后我们将在[*第8章*](B21223_08.xhtml#_idTextAnchor134)中详细讨论它。现在，我们会给你答案钥匙，你可以跟着操作：
+- en: Start your Kali Purple VM and log in to your Purple instance.
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动你的Kali Purple虚拟机并登录到你的Purple实例。
+- en: Open a terminal window.
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开终端窗口。
+- en: Type **sudo apt update && sudo** **apt upgrade**.
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo apt update && sudo** **apt upgrade**。
+- en: Type **sudo apt install apt-transport-https ca-certificates curl** **gnupg lsb-release**.
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo apt install apt-transport-https ca-certificates curl** **gnupg lsb-release**。
+- en: Type **sudo apt update && sudo apt install -****y docker.io**.
+  id: totrans-30
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo apt update && sudo apt install -****y docker.io**。
+- en: If you get an error, type **sudo apt install -****y docker**.
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果出现错误，输入**sudo apt install -****y docker**。
+- en: If you continue to get errors, type **sudo** **systemctl daemon-reload**.
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果仍然出现错误，输入**sudo** **systemctl daemon-reload**。
+- en: As a last resort, reboot your system after executing each preceding step.
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 作为最后的手段，在执行每个前面的步骤后重新启动系统。
+- en: Type **sudo systemctl enable docker** and then reboot your system again.
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo systemctl enable docker**，然后重新启动系统。
+- en: Type **sudo git** **clone** [https://github.com/idaholab/Malcolm](https://github.com/idaholab/Malcolm).
+  id: totrans-35
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo git** **clone** [https://github.com/idaholab/Malcolm](https://github.com/idaholab/Malcolm)。
+- en: From the root directory, type **sudo chmod -R** **777 /home/<the_name_you_gave_your_system>/Malcolm/config/dashboards.env**.
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从根目录输入**sudo chmod -R** **777 /home/<the_name_you_gave_your_system>/Malcolm/config/dashboards.env**。
+- en: Type **cd Malcolm** and then type **sudo chmod -R** **777 docker-compose.yml**.
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**cd Malcolm**，然后输入**sudo chmod -R** **777 docker-compose.yml**。
+- en: Type **cd scripts** and then type **sudo ./****configure -d**.
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**cd scripts**，然后输入**sudo ./****configure -d**。
+- en: Carefully, observe any errors. If it says an operation is not permitted, this
+    means you need to use **sudo chmod <value>** to change file permissions. We’ve
+    been cheating by using **sudo chmod -R 777** throughout this book because we’re
+    showing you how to create a quick proof-of-concept. In a production environment,
+    however, you will not want to give more permissions than are necessary.
+  id: totrans-39
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 仔细观察任何错误。如果提示某个操作不被允许，这意味着你需要使用**sudo chmod <value>**来更改文件权限。在本书中，我们一直在使用**sudo
+    chmod -R 777**进行“取巧”，因为我们是在展示如何创建一个快速的概念验证。在生产环境中，你可不想给予超出必要权限的设置。
+- en: When doing **chmod** for a file, make sure you include the entire file path.
+    Otherwise, you might have correct permissions on the end file but the directories
+    leading to it – if lesser permissions – will still prevent Kali Linux and/or Malcolm
+    from successfully performing the task.
+  id: totrans-40
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在对文件使用**chmod**时，确保包含完整的文件路径。否则，你可能会在文件本身上拥有正确的权限，但指向该文件的目录如果权限较低，依然会阻止 Kali
+    Linux 和/或 Malcolm 成功执行任务。
+- en: If it says an operation is not permitted, you can usually consider that to be
+    a missing **sudo** command. For example, skipping **sudo** with the preceding
+    **./configure** command could put you through the entire Malcolm configuration
+    process should you also leave **-d** off the end of the command. That would result
+    in a series of configuration questions you’ll need to answer; only after you’re
+    done will it give you the error that the operation is not permitted. When things
+    like that happen, you need to think backward – you must trace your steps and find
+    the first command that you did not place a **sudo** command in front of.
+  id: totrans-41
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果提示某个操作不被允许，你通常可以认为这是缺少了**sudo**命令。例如，跳过在前面的**./configure**命令中使用**sudo**，如果你还漏掉了命令末尾的**-d**，你可能会经历整个
+    Malcolm 配置过程，最终才会收到操作不被允许的错误信息。发生这种情况时，你需要从后往前思考——追溯你的步骤，找到第一个你没有加上**sudo**的命令。
+- en: Type **./auth_setup** (this time, it’s best not to use **sudo**) and record
+    the user credentials that you create – you will need them to log in to Malcolm
+    for the first time.
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**./auth_setup**（这次最好不要使用**sudo**），并记录你创建的用户凭证——首次登录 Malcolm 时你需要用到它们。
+- en: 'Whenever you work through a setup from the Kali command line for Malcolm, the
+    options will be presented along with hints as to the recommended setting by capitalizing
+    Y or N in a yes or no setting or placing the recommendation in parenthesis at
+    the end of the line, as shown in *Figure 6**.1*:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当你通过 Kali 命令行进行 Malcolm 设置时，选项会同时展示，并且通过大写字母 Y 或 N 在是/否选项中提供推荐设置，或者将推荐值放在括号中，位于行末，如*图
+    6.1*所示：
+- en: '![Figure 6.1 – Malcolm ./auth_setup](image/B21223_06_1.jpg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.1 – Malcolm ./auth_setup](image/B21223_06_1.jpg)'
+- en: Figure 6.1 – Malcolm ./auth_setup
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.1 – Malcolm ./auth_setup
+- en: 'At this point, you have installed Docker and the core Malcolm engines. Now,
+    it’s time to grab the suite of tools that we will use, as well as allow Malcolm
+    to automatically set up a Docker Compose wrapper for the suite:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，你已经安装了 Docker 和核心的 Malcolm 引擎。现在，是时候获取我们将要使用的工具集，并允许 Malcolm 自动为这个工具集设置
+    Docker Compose 包装器了：
+- en: 'To grab the files you need, type **docker-compose --profile malcolm pull**.
+    You should see the various containers begin to download, as shown in *Figure 6**.2*:'
+  id: totrans-47
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要获取所需的文件，请输入**docker-compose --profile malcolm pull**。你应该能看到各个容器开始下载，如*图 6.2*所示：
+- en: '![Figure 6.2 – Docker Compose downloading containers for Malcolm](image/B21223_06_2.jpg)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.2 – Docker Compose 为 Malcolm 下载容器](image/B21223_06_2.jpg)'
+- en: Figure 6.2 – Docker Compose downloading containers for Malcolm
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.2 – Docker Compose 为 Malcolm 下载容器
+- en: You should be prompted to install the **docker-compose** command. Select *Y*
+    to install it.
+  id: totrans-50
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你应该会被提示安装**docker-compose**命令。选择*Y*来安装它。
+- en: Type **docker images** to get a confirmed listing of the images that have been
+    pulled into **docker-compose**.
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**docker images**，确认拉取到的**docker-compose**镜像列表。
+- en: Now, all that’s left is to fire it up and start using it! To start Malcolm,
+    you need to remain in the **scripts** directory and type **./start** without using
+    **sudo**. If you like, you can type **ls** to see all of the different options
+    available to you. You can type **./stop** to stop, **./wipe** to wipe the database,
+    or **./restart** to restart. Go ahead and start Malcolm.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，剩下的就是启动它并开始使用！要启动 Malcolm，你需要保持在**scripts**目录下并输入**./start**，无需使用**sudo**。如果愿意，你可以输入**ls**查看所有可用的选项。你可以输入**./stop**停止，**./wipe**清除数据库，或者**./restart**重启。快去启动
+    Malcolm 吧。
+- en: 'Make sure you have port **443** forwarded in your VM settings if you’d like
+    to use your host machine to access the interface. Otherwise, you’ll need to operate
+    through the web browser within your VM. Either way, open a web browser and navigate
+    to [https://localhost](https://localhost) – there’s no need to append a port number
+    to the end of the URL because the *s* in *https* tells the browser to use port
+    **443**. The default Malcolm page should load, as seen in *Figure 6**.3*:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你希望通过主机访问接口，请确保在虚拟机设置中转发**443**端口。否则，你将需要通过虚拟机内的浏览器操作。无论哪种方式，打开一个网页浏览器并导航至[https://localhost](https://localhost)——无需在URL末尾附加端口号，因为*https*中的*s*会告诉浏览器使用**443**端口。默认的Malcolm页面应该会加载，如*图6.3*所示：
+- en: '![Figure 6.3 – The Malcolm home page after successful setup](image/B21223_06_3.jpg)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图6.3 – Malcolm主页在成功设置后的状态](image/B21223_06_3.jpg)'
+- en: Figure 6.3 – The Malcolm home page after successful setup
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.3 – Malcolm主页在成功设置后的状态
+- en: Take note of the tiles on the front page for Arkime and CyberChef, both of which
+    will round out this chapter.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意主页上关于Arkime和CyberChef的模块，它们将在本章中详细讨论。
+- en: 'The key features of Malcolm are as follows:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Malcolm的主要特点如下：
+- en: '**Packet capture and storage**: Malcolm is designed to capture, store, and
+    analyze network traffic. It relies on tools such as tcpdump and Wireshark – discussed
+    later in this book – to grab the traffic by capturing the packets as they pass
+    through defined network interfaces, as we discussed at the beginning of this chapter.
+    Whatever medium is used to capture the data, it stores the data on disk while
+    providing options for the administrator to configure storage locations, set compression
+    levels for optimization and performance, and even set retention policies for the
+    data. Like nearly every commercially available packet-capturing tool out there,
+    Malcolm utilizes the **Packet Capture** (**PCAP**) file format. These types of
+    files will contain metadata and payload data so that analysts can reconstruct
+    the data where needed and gain a detailed analysis. Like Arkime, Malcolm can extract
+    metadata from the packets, reconstruct sessions, index the data, and search it.
+    You can then provide your full analysis of the data by using any of the tools
+    we’ve already covered, such as Elasticsearch and Kibana, CyberChef (we’ll cover
+    this in the next section), the two IDS systems we’ll be looking at in [*Chapter
+    7*](B21223_07.xhtml#_idTextAnchor108), and **Snort IDS**. Snort is not part of
+    Kali Purple and is technically no longer a part of Kali Linux at all at the time
+    of writing. This is a crime in some professionals’ opinion but experienced folks
+    would likely be able to still it and make it work. Also of value will be threat
+    feed and information-sharing platforms such as the **Malware Information Sharing**
+    **Platform** (**MISP**).'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据包捕获和存储**：Malcolm设计用于捕获、存储和分析网络流量。它依赖于诸如tcpdump和Wireshark等工具——稍后在本书中将讨论——通过捕获数据包的方式，抓取经过定义网络接口的流量，正如我们在本章开始时讨论的那样。无论使用什么介质来捕获数据，它都会将数据存储到磁盘上，同时提供管理员配置存储位置、设置优化和性能的压缩级别，甚至为数据设置保留策略的选项。像几乎所有市面上可用的数据包捕获工具一样，Malcolm使用**数据包捕获**（**PCAP**）文件格式。这些类型的文件将包含元数据和有效载荷数据，以便分析人员在需要时重建数据并进行详细分析。像Arkime一样，Malcolm可以从数据包中提取元数据，重建会话，建立数据索引并进行搜索。然后，你可以利用我们已经覆盖的任何工具（例如Elasticsearch和Kibana，CyberChef（我们将在下一节讨论），以及我们将在[*第7章*](B21223_07.xhtml#_idTextAnchor108)中查看的两种IDS系统）来提供完整的数据分析，另有**Snort
+    IDS**。Snort不是Kali Purple的一部分，在本文撰写时，技术上也不再是Kali Linux的一部分。这在一些专业人士看来是一个罪过，但经验丰富的人员可能依然能将其使用并让它正常工作。另外，像**恶意软件信息共享平台**（**MISP**）这样的威胁信息共享平台也将具有重要价值。'
+- en: '**Post-event analysis**: Unlike Arkime, there is no inherent support for real-time
+    analysis. Instead, Malcolm’s strength is built around a plethora of tools that
+    are designed to work together to analyze traffic after events occur. You might
+    have already started to piece this together when we talked about the depth of
+    storage and recovery options for PCAP files. Malcolm utilizes metadata extraction
+    and information gathered through IDS systems, which it enriches with data gathered
+    from threat streams if possible. The greatest benefit of Malcom’s post-event analysis,
+    however, is its embedded collaborative analysis design. Through this method, entire
+    security teams can work together by sharing their results through the platform.'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**事件后分析**：与 Arkime 不同，Malcolm 并不固有支持实时分析。相反，Malcolm 的优势在于围绕着大量设计为协同工作的工具来分析事件发生后的流量。你可能已经在我们讨论
+    PCAP 文件的存储与恢复选项的深度时，开始拼凑出这一点。Malcolm 利用元数据提取和通过 IDS 系统收集的信息，如果可能的话，它还会通过威胁流收集的数据显示进行补充。然而，Malcolm
+    事件后分析的最大优势在于其嵌入式的协作分析设计。通过这种方法，整个安全团队可以通过平台共享结果，共同工作。'
+- en: '**Protocol analysis and parsing**: You might be sensing a theme here. Protocol
+    analysis and parsing is a key feature of Malcolm that it accomplishes through
+    its integrations with specialized analysis tools. By that, we mean the tools we’ve
+    been talking about all along, such as IDS/IPS systems. There is support for custom
+    protocol analysis, which has become an unspoken requirement in today’s world of
+    data analysis product development. Occasionally, protocol analysis might also
+    require the benefits of CyberChef and decoding. However, you are more likely to
+    utilize that tool with the data payload itself.'
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**协议分析与解析**：你可能已经感受到一个主题。协议分析与解析是 Malcolm 的关键功能，它通过与专门的分析工具集成来实现。所谓工具，就是我们一直在谈论的那些工具，如
+    IDS/IPS 系统。Malcolm 支持自定义协议分析，这已经成为当今数据分析产品开发中不言而喻的需求。偶尔，协议分析还可能需要 CyberChef 和解码的帮助。不过，你更有可能将该工具与数据负载本身一起使用。'
+- en: '**Metadata extraction and indexing**: The platform can extract very rich metadata
+    from the PCAP files that have been captured. It grabs data such as protocol-specific
+    details, payload information, source and destination IP addresses, timestamps,
+    and any other stdout data, depending on the size and type of packet where the
+    extraction is occurring. Grabbing this data gives you a foundation for the post-event
+    analysis we recently covered. It provides insight into network communication patterns
+    and other security types of events.'
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**元数据提取与索引**：该平台可以从已捕获的 PCAP 文件中提取丰富的元数据。它提取的数据包括协议特定的细节、负载信息、源与目标 IP 地址、时间戳以及任何其他标准输出数据，具体取决于提取发生的包的大小和类型。提取这些数据为我们刚刚讨论过的事件后分析提供了基础。它为网络通信模式和其他安全类型的事件提供了洞察。'
+- en: '**Threat detection and analysis**: As it relates to threat detection and analysis,
+    Malcolm takes a multi-faceted approach. The various toolsets are used to proactively
+    identify and respond to security threats within network environments. The following
+    methods are the primary means of accomplishing this task:'
+  id: totrans-62
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**威胁检测与分析**：关于威胁检测与分析，Malcolm 采用了多方面的方法。各种工具集被用来主动识别并应对网络环境中的安全威胁。以下方法是完成此任务的主要手段：'
+- en: Rule-based detection
+  id: totrans-63
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 基于规则的检测
+- en: Pattern matching
+  id: totrans-64
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 模式匹配
+- en: Anomaly detection
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 异常检测
+- en: Integration with threat feeds – discussed in a moment
+  id: totrans-66
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与威胁情报源的集成——稍后讨论
+- en: Session reconstruction and metadata analysis
+  id: totrans-67
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 会话重建和元数据分析
+- en: Custom rule creation and tuning
+  id: totrans-68
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自定义规则创建与调优
+- en: Integration with visualization tools
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与可视化工具的集成
+- en: Some of these methods will be discussed shortly. Most of them will have a level
+    of overlap with the features of Arkime. For example, we’ve previously discussed
+    rule-based detection. Here, when a set of pre-defined standards is matched, a
+    detection is triggered. These are standards that are usually custom-created by
+    the administrators to look for very specific rules covering very specific potential
+    threats to the organization.
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 其中一些方法将在稍后讨论。它们大多与 Arkime 的功能有所重叠。例如，我们之前讨论过基于规则的检测。在这里，当一组预定义标准匹配时，就会触发检测。这些标准通常是由管理员自定义创建的，用于寻找针对组织的特定潜在威胁的特定规则。
+- en: '**Pattern matching** is similar to rule-based detection in that it seeks to
+    match patterns of data with rules. The difference is that these are rules that
+    can be a little more generic or else provided by the threat detection engines
+    – the IDS systems we’ve been talking about.'
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '**模式匹配**与基于规则的检测类似，因为它寻求将数据模式与规则进行匹配。不同之处在于，这些规则可能更具通用性，或者由威胁检测引擎提供——我们一直在讨论的IDS系统。'
+- en: '**Anomaly detection** is something that occurs after a threat detection engine
+    first grabs a baseline of network behavior to determine what is normal for that
+    environment. Then, when the behavior of network traffic deviates from the established
+    norm, it is considered anomalous and worthy of deeper investigation.'
+  id: totrans-72
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '**异常检测**是在威胁检测引擎首先抓取网络行为基准并确定该环境的正常行为后发生的。当网络流量的行为偏离已建立的正常值时，便认为它是异常的，并值得进一步调查。'
+- en: '**Custom rule creation** is not the same as rule-based detection. That is the
+    result of custom rule creation in a literal sense. However, in practice – and
+    this can seem a little perverse and hurt your brain, so don’t feel bad if you
+    need to re-read this section to get a handle on it – it’s a term that’s usually
+    used to extend rule-based detection. Yes, that sounds a lot like the egg laying
+    a chicken. We can’t always control the evolution of terms and tools in practical
+    application. More directly, custom rule creation is a feature that some threat
+    detection engines provide that allows the analyst to take a pre-existing rule,
+    either provided by the engine or a rule-based detection created by the administrator
+    of the environment they are working in, and then make analyst-level customizations
+    to further refine the rule for analysis.'
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '**自定义规则创建**与基于规则的检测不同。那是自定义规则创建的字面结果。然而，实际上——虽然这可能听起来有些颠倒，并且让你有点困惑，所以如果你需要重读这一部分以理解它，不要觉得不好意思——它通常用于扩展基于规则的检测。是的，这听起来有点像“鸡下蛋”。我们不能总是控制术语和工具在实际应用中的演变。更直接地说，自定义规则创建是一些威胁检测引擎提供的一个功能，允许分析人员对预先存在的规则进行自定义，这些规则要么由引擎提供，要么是由分析人员在他们所在的环境中由管理员创建的基于规则的检测，然后进行分析人员级别的自定义，以进一步细化规则用于分析。'
+- en: If you’ve ever worked with the completely harmless **Kusto Query Language**
+    (**KQL**), you’ll likely understand this. KQL can be used to manipulate which
+    data is displayed and how it is displayed for deeper analysis without actually
+    changing the storage or values of the data itself. It’s not exactly what custom
+    rule creation is but it’s similar.
+  id: totrans-74
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果你曾经使用过完全无害的**Kusto查询语言**（**KQL**），你可能会理解这一点。KQL可用于操控显示哪些数据以及如何显示，以便进行更深入的分析，而不实际改变数据本身的存储或值。这不完全等同于自定义规则创建，但有些相似之处。
+- en: '**Session reconstruction and flow analysis**: Malcolm is very effective at
+    managing session reconstruction and flow analysis. You’ve already gained a solid
+    foundation of the components and methods that are used, so we don’t delve any
+    further. The components can be broken down as follows:'
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**会话重建和流量分析**：Malcolm在管理会话重建和流量分析方面非常有效。你已经掌握了使用的组件和方法的基础，因此我们不再深入讨论。组件可以按如下方式分解：'
+- en: Session reconstruction
+  id: totrans-76
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 会话重建
+- en: Metadata extraction
+  id: totrans-77
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 元数据提取
+- en: Protocol-specific parsing
+  id: totrans-78
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 协议特定解析
+- en: Flow analysis and data transfer
+  id: totrans-79
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 流量分析与数据传输
+- en: Integration with analysis tools
+  id: totrans-80
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与分析工具的集成
+- en: Custom session analysis plugins
+  id: totrans-81
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自定义会话分析插件
+- en: By all means, take the time to look back at preceding discussions in this chapter
+    with either Malcolm and/or Arkime if you wish to get some reinforcement knowledge
+    of these topics.
+  id: totrans-82
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 如果你希望强化对这些主题的理解，完全可以花时间回顾本章前面的讨论，无论是与Malcolm还是与Arkime。
+- en: '**Data visualization and reporting**: Using the ELK stack, Malcolm provides
+    a robust selection of data visualization and reporting abilities that you can
+    use to facilitate a fully comprehensive analysis and depict network security insights.
+    Kibana integrates with Malcolm and as you already know, you can display data by
+    using charts, graphs, timelines, maps, and countless other methods. Malcolm provides
+    data to Kibana that assists with packet flow visualization. That will assist you,
+    as an analyst, to get a graphical representation of data transfer behaviors, transactional
+    patterns, and network session activities, thus making any irregularities or anomalous
+    behaviors much easier to spot.'
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据可视化和报告**：使用ELK堆栈，Malcolm提供了强大的数据可视化和报告功能，您可以使用它来促进全面的分析并描绘网络安全见解。Kibana与Malcolm集成，正如您已经知道的那样，您可以使用图表、图形、时间轴、地图和无数其他方法来显示数据。Malcolm为Kibana提供数据，帮助进行数据流可视化。这将帮助您作为分析师，获取数据传输行为、交易模式和网络会话活动的图形表示，从而更容易发现任何异常行为或异常行为。'
+- en: Analysts will also have the ability to generate reports based on the data they
+    are working with using metadata attributes and **indicators of compromise** (**IoCs**),
+    among numerous other options. Generating reports can save analysts enormous amounts
+    of time in organizing and providing documentation for **After Action Reviews**
+    (**AARs**), communication with stakeholders, and compliance record-keeping and
+    reporting.
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 分析人员还可以根据他们处理的数据使用元数据属性和**威胁指标** (**IoCs**) 等多种选项生成报告。生成报告可以节省分析人员大量的时间，用于组织和提供**事后审查**
+    (**AARs**) 的文档、与利益相关者的沟通以及合规记录和报告。
+- en: '**Customization and extensibility**: Another key feature of Malcolm is its
+    customization and extensibility. This feature is identical to Arkime’s offerings
+    and is the result of everything we’ve discussed thus far. Feel free to refer to
+    the previous section if you want a deeper explanation. In summary, these offerings
+    are as follows:'
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**定制和可扩展性**：Malcolm的另一个关键功能是其定制和可扩展性。这一功能与Arkime的提供完全相同，是我们迄今为止讨论的所有内容的结果。如果需要更深入的解释，请随时参考前一部分。总之，这些功能包括：'
+- en: The ability to create capture plugins
+  id: totrans-86
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 能够创建捕获插件
+- en: Integration with third-party tools
+  id: totrans-87
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与第三方工具集成
+- en: Custom dashboards and/or other visualization options
+  id: totrans-88
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自定义仪表板和/或其他可视化选项
+- en: Rule-based detection and custom rules
+  id: totrans-89
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 基于规则的检测和自定义规则
+- en: Packet analysis and enrichment
+  id: totrans-90
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据包分析和增强
+- en: '**User access control** (**UAC**) **and collaboration**: UAC and collaboration
+    are supported by the same methods as Arkime. An important concept to pay attention
+    to is **role-based access control** (**RBAC**). It’s easy to mistake a role-based
+    something for a rule-based something. Something that is rule-based, as we covered
+    previously, is something that is based on a set of pre-defined rules. Something
+    that is role-based, however, is when something is based on pre-determined permissions
+    or groups of permissions.'
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户访问控制** (**UAC**) **和协作**：UAC和协作与Arkime采用相同的方法支持。需要注意的重要概念是**基于角色的访问控制**
+    (**RBAC**)。很容易把基于角色的某事物误认为基于规则的某事物。如前所述，基于规则的某事物是基于一组预定义规则的某事物。然而，基于角色的某事物是基于预定权限或权限组的某事物。'
+- en: In the tech world, these groups of pre-determined permissions are called roles.
+    Roles are often set up in advance based on unknown users. Once the role has been
+    set up, users can be added to the group that covers those roles. This means that
+    administrators don’t need to set the permissions for each user individually as
+    they onboard or gain the rights to certain roles. Admins will simply assign that
+    user to the pre-defined group and then all of the privileges and rights are automatically
+    available for that user. Of course, admins can certainly work a user’s rights
+    at an individual level for a finer level of granularity for the user. Collaborative
+    workspaces, data sharing, audit trails, and activity, logs along with user management
+    and provisioning, are all part of Malcom’s UAC and collaboration feature.
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在技术世界中，这些预定权限组称为角色。角色通常是事先根据未知用户设置的。角色设置完成后，可以将用户添加到涵盖这些角色的组中。这意味着管理员在用户入职或获得特定角色的权限时不需要为每个用户单独设置权限。管理员只需将该用户分配到预定义组中，那么所有权限和权利就会自动为该用户提供。当然，管理员可以在个别用户的权利方面进行精细的工作，以获得更细粒度的控制。Malcom的UAC和协作功能包括协作工作区、数据共享、审计跟踪、活动日志以及用户管理和配置。
+- en: '**Integration with security tools**: In addition to the ELK stack and IDS/IPS
+    tools we’ve covered, Malcolm also integrates seamlessly with a neat network traffic
+    and analysis tool called **Threat Organized Response with Quantitative and Unified
+    Extensibility** (**TORQUE**). TORQUE is set apart from other network traffic and
+    analysis tools because of several key differentiators and unique or limited supply
+    characteristics.'
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**与安全工具的集成**：除了我们已经提到的 ELK 堆栈和 IDS/IPS 工具外，Malcolm 还与一款叫做**量化统一扩展威胁响应**（**TORQUE**）的网络流量分析工具无缝集成。TORQUE
+    与其他网络流量分析工具的不同之处在于几个关键特征和独特的或有限供应的特性。'
+- en: Real-time analysis has gained in popularity and isn’t unique anymore, but it’s
+    worth mentioning that TORQUE was one of the earliest traffic analysis tools to
+    offer results in real time. As you’ve already discovered, real-time analysis means
+    that analysts can examine and respond to network activities as they are actively
+    occurring.
+  id: totrans-94
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 实时分析已经变得越来越流行，并且不再是独特的，但值得一提的是，TORQUE 是最早提供实时分析结果的流量分析工具之一。正如你已经发现的那样，实时分析意味着分析人员可以在网络活动发生时立即进行检查和响应。
+- en: TORQUE offers quantitative analysis features. This enables organizations to
+    perform in-depth quantitative assessments of network traffic patterns, data trends,
+    and communication behaviors. Quantitative analysis is a systematic and structured
+    examination of data using statistics and advanced mathematics to derive insights,
+    identify patterns, and achieve actionable conclusions on data analysis. It can
+    involve calculating and deeply evaluating statistical metrics such as averages,
+    standard deviations, and frequencies, as well as the distribution patterns of
+    network traffic data. It can also involve studying historical trends and behaviors
+    and comparing them with current trends to identify patterns as well as changes
+    in behavior. This assists with anomaly detection.
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: TORQUE 提供量化分析功能。这使得组织可以对网络流量模式、数据趋势和通信行为进行深入的量化评估。量化分析是一种使用统计学和高等数学对数据进行系统性和结构化检查的方法，以从中提取洞察、识别模式，并得出可操作的结论。它可以涉及计算和深入评估统计指标，如平均值、标准差和频率，以及网络流量数据的分布模式。它还可以研究历史趋势和行为，并与当前趋势进行比较，以识别模式和行为变化。这有助于异常检测。
+- en: Risk assessment and capacity planning are important features of TORQUE. Using
+    mathematics, administrators can calculate probabilities along with the potential
+    impact of certain threats by applying the formulas to traffic volume, bandwidth,
+    and resource usage/requirements. That, in turn, can provide the byproduct of performance
+    evaluation, which can help administrators and engineers identify focus areas to
+    address and/or improve.
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 风险评估和容量规划是 TORQUE 的重要功能。通过数学方法，管理员可以计算某些威胁的概率和潜在影响，应用公式于流量量、带宽和资源使用/需求。这反过来可以提供性能评估的副产品，帮助管理员和工程师识别需要解决和/或改进的重点领域。
+- en: '**Alerting and notifications**: One of the most desired features of any cybersecurity
+    defensive product is the ability to receive notifications and alerts. We can develop
+    alerts with the usual suspects of rule-based and anomaly detection alerting. However,
+    Malcolm allows for some additional types of alerting.'
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**警报和通知**：任何网络安全防御产品最受欢迎的功能之一就是能够接收通知和警报。我们可以使用基于规则和异常检测的警报来开发警报。然而，Malcolm
+    还支持一些额外类型的警报。'
+- en: There is threshold alerting, which is when there’s a predefined threshold for
+    a particular metric or behavior within the network traffic data that can be assigned
+    to trigger an alert once the admin or user-defined metric is exceeded. Your network
+    engineers (or yourself) might find this type of alerting handy when you want to
+    monitor and respond to deviations from normal traffic patterns such as sudden
+    spikes in traffic volume or endpoint CPU/RAM usage.
+  id: totrans-98
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 有阈值警报功能，当网络流量数据中的某个特定指标或行为超过预设阈值时，系统会触发警报。网络工程师（或你自己）可能会发现这种类型的警报非常实用，尤其是在你希望监控和响应网络流量模式异常时，比如流量量的突然激增或终端的
+    CPU/RAM 使用情况。
+- en: You will able to be able to create customized alerts to check for different
+    manners of delivering alert notifications, such as email, SMS, or integration
+    with one of the other tools or SIEM/SOAR solutions within your SOC. It can also
+    be used to target specific stakeholders to receive specific notifications but
+    perhaps not all of them. This can be useful in high-volume alerting situations
+    where there are many people with different specialties working within the SOC
+    environment. So, you would set up alert notifications to be delivered in a specific
+    manner based on the recipient’s roles and responsibilities. This also supports
+    escalation workflows when called for.
+  id: totrans-99
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 你将能够创建自定义警报，检查不同方式的警报通知传递方式，例如电子邮件、短信，或与其他工具或 SIEM/SOAR 解决方案的集成。这也可以用于针对特定利益相关者发送特定通知，而不是所有通知。这在高警报量的情况下非常有用，因为在
+    SOC 环境中，可能有很多具有不同专业技能的人在一起工作。因此，你可以根据收件人的角色和职责，以特定方式设置警报通知的传递。这也支持在需要时的升级工作流。
+- en: Malcolm alerting can integrate with popular communication tools such as Microsoft
+    Teams, Slack, and other incident response types of platforms. As with all of Malcolm’s
+    tools, alerting and notifying can also be sent to Kibana or other visualization
+    platforms to help users get a graphical representation of the data they’re looking
+    at.
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Malcolm 警报功能可以与流行的通讯工具，如 Microsoft Teams、Slack 以及其他事件响应平台进行集成。与 Malcolm 的所有工具一样，警报和通知也可以发送到
+    Kibana 或其他可视化平台，帮助用户获取他们正在查看的数据的图形化表示。
+- en: Now that we’ve installed the mama and papa system in Malcolm (though we can’t
+    say we’ve ever met a mama named Malcolm, but hey, there’s a first time for everything!),
+    it’s time to drill down into some of the amazing tools contained within the suite.
+    We’re going to start by reviewing a packet capturing and indexing utility called
+    Arkime in the next section.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经在 Malcolm 中安装了 mama 和 papa 系统（尽管我们不能说我们曾遇见过一位叫 Malcolm 的 mama，但嘿，一切皆有可能！），是时候深入了解一下套件中包含的一些惊人工具了。我们将在下一部分开始介绍一款名为
+    Arkime 的数据包捕获和索引工具。
+- en: Arkime
+  id: totrans-102
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Arkime
+- en: Arkime is a tool that falls into the category of packet capturing and indexing.
+    Like all the tools we’re covering from Kali Purple, it is free, open source software.
+    Arkime is designed to efficiently work with very large-scale deployments. That,
+    however, comes at the cost of resources, such as storage and RAM capacities. The
+    bigger you want your deployment to be, the more resources you will need. Fortunately,
+    the organization offers a resource calculator on their website to help you prepare.
+    We’ll toss that link in the *Further reading* section for those of you with big
+    aspirations who might be reading this.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Arkime 是一款属于数据包捕获和索引类别的工具。像我们从 Kali Purple 覆盖的所有工具一样，它是免费且开源的软件。Arkime 设计时考虑了与大规模部署的高效兼容性。然而，这也带来了资源上的消耗，例如存储和
+    RAM 容量。你希望部署规模越大，所需的资源也就越多。幸运的是，该组织在其官网提供了一个资源计算器，帮助你做准备。对于那些有宏大目标、可能正在阅读本书的人，我们会在
+    *进一步阅读* 部分提供该链接。
+- en: Like the ELK stack, Arkime has enough features and customizations that an entire
+    book could be written on just this one product alone. For that reason, we will
+    only highlight the features of this product. As a cybersecurity professional,
+    you already know just from reading this book alone that independent research will
+    always be a part of your lifestyle, just as it is for surgeons, lawyers, and all
+    other levels of white-collar professions. Welcome to the club of well-researched
+    and intellectually elite folks.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 ELK 堆栈一样，Arkime 拥有足够多的功能和自定义选项，足以让一本书只讲述这一款产品。因此，我们仅会重点介绍该产品的功能。作为一名网络安全专业人士，仅凭阅读本书，你已经知道独立研究将始终是你生活的一部分，就像外科医生、律师以及所有其他白领职业一样。欢迎加入这一群体——那些深入研究并
+    intellectually elite 的人们。
+- en: The Arkime organization prides itself on a style of packet capture called **full
+    packet capture** (capturing every packet) versus **filtered packet capture** (only
+    capturing packets that meet predefined criteria). There are many brands of packet-capturing
+    products out there. Arkime is free, open source software; this is something you
+    might have realized is the theme of the Kali Purple distribution. Don’t kid yourself,
+    though. Just because it’s free doesn’t mean it’s cheap. Arkime is a beast! It
+    is very robust and operates just as powerfully – even more so – than any commercially
+    available product.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Arkime组织以其一种称为**全包捕获**（捕获每一个数据包）的数据包捕获方式而自豪，而不是**过滤数据包捕获**（只捕获符合预定标准的数据包）。市面上有许多数据包捕获产品品牌。Arkime是免费的开源软件；这也是你可能已经意识到的Kali
+    Purple发行版的主题。别自欺欺人，虽然它是免费的，但并不意味着它是便宜的。Arkime是一个强大的工具！它非常稳健，且运行效果非常强大——甚至比任何商业产品更强大。
+- en: If you’ve been immersed in this aspect of networking and/or network security
+    before, you’ll already be familiar with Arkime under its former name, Moloch.
+    The developers have done something a whole bunch of us probably wish more modern
+    tech businesses would do with their product. They have provided their intended
+    pronunciation of the word Arkime! According to their website, it is to be said
+    Arkime (/ɑːrkɪˈmi/) or (R Kim Me). They mentioned that the name change was due
+    to feedback suggesting folks could use the term Moloch in an undesirable manner.
+    Arkime was chosen as the new identity after the mythical wizard Merlin’s owl Archimedes
+    and a well-known mathematician from historical Greece who went by the same name.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你之前有接触过这一网络或网络安全领域，你可能已经知道Arkime的前身是Moloch。开发人员做了一件我们很多人可能希望更多现代技术公司能做的事情。他们提供了Arkime一词的发音！根据他们的网站，它应该读作Arkime
+    (/ɑːrkɪˈmi/) 或（R Kim Me）。他们提到更名是因为反馈表示Moloch这个词可能被用在不太合适的场合。Arkime这个新名字的灵感来源于传说中的巫师梅林的猫头鹰阿基米德，以及古希腊著名数学家同名的人物。
+- en: Before we talk about Arkime’s offerings, you probably want to grab a copy of
+    the product for yourself. However, note that it’s not necessary in this chapter
+    to have any of the software we are talking about up and running while you’re reading.
+    The majority of this content is a high-level overview since each component of
+    Kali Purple we are discussing here is robust enough to warrant its own autonomous
+    publication. However, it still provides value to acquire and run if you like to
+    immerse yourself in your projects while you completely lose track of the time
+    until your wife threatens to leave you unless you acknowledge her existence. Wait,
+    that might be the software engineer’s manual…
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们谈论Arkime的功能之前，你可能需要先获取一份该产品。然而，请注意，在本章中，你无需让我们讨论的任何软件在你阅读时正常运行。这里的内容大部分是高层次的概述，因为我们所讨论的每个Kali
+    Purple组件都足够强大，值得它们各自的独立出版物。然而，如果你喜欢在项目中全身心投入，直到完全忘记时间，甚至你的妻子威胁说如果你不承认她的存在就会离开你，那么获得和运行它依然是有价值的。等等，这是不是软件工程师手册…
+- en: Make peace with your spouse. Then, we can get started. It’s time to take off
+    the training wheels here and give you some independent fun installing Arkime,
+    should you choose to do so. Before you walk the traditional route, it might be
+    worth your while to do an internet search or two to see which updates to Arkime
+    might have occurred since this publication. You might also find alternative repositories.
+    Just make sure you keep your eyes peeled for authentic repositories and the availability
+    of file hashes if you’re going outside of the APT terminal method we use inside
+    Linux.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 和你的配偶达成和解。然后我们就可以开始了。是时候放下辅助轮，给你一些独立的乐趣来安装Arkime了，当然前提是你决定这么做。在你走传统路线之前，或许做几次互联网搜索，看看Arkime自本书出版以来是否有更新，或者是否有其他的仓库可用。记得留心查看是否为真实仓库以及文件哈希的可用性，尤其是当你使用的不是我们在Linux中使用的APT终端方法时。
+- en: 'Otherwise, if you’re looking to harness your inner budding Linux guru, then
+    you know the drill:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 否则，如果你想要发挥你内在的Linux高手潜力，那么你知道该怎么做：
+- en: Start the Kali Purple VM and log in to your Purple instance.
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动Kali Purple虚拟机并登录到你的Purple实例。
+- en: Open a terminal window.
+  id: totrans-111
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开一个终端窗口。
+- en: Type **sudo apt update && sudo** **apt upgrade**.
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**sudo apt update && sudo** **apt upgrade**。
+- en: Type **cd Malcolm/scripts**.
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**cd Malcolm/scripts**。
+- en: Type **./ start** without using **sudo**.
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**./ start**，不要使用**sudo**。
+- en: 'Type **docker ps** to verify that Arkime is up and running, as shown in *Figure
+    6**.4*:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入**docker ps**，以验证Arkime是否正在运行，如*图6.4*所示：
+- en: '![Figure 6.4 – Using the docker ps command to confirm that Arkime is running](image/B21223_06_4.jpg)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.4 – 使用 docker ps 命令确认 Arkime 正在运行](image/B21223_06_4.jpg)'
+- en: Figure 6.4 – Using the docker ps command to confirm that Arkime is running
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.4 – 使用 docker ps 命令确认 Arkime 正在运行
+- en: Now, we can open a web browser and navigate to [https://localhost](https://localhost).
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们可以打开一个网页浏览器并访问 [https://localhost](https://localhost)。
+- en: Remember, there’s no need to append a port number to the end of the URL because
+    the *s* in *https* tells the browser to use port **443**.
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 记住，URL 后无需附加端口号，因为 *https* 中的 *s* 告诉浏览器使用端口 **443**。
+- en: 'To access Arkime, simply click the **Arkime** tile on Malcolm’s home page,
+    as highlighted in *Figure 6**.5*:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要访问 Arkime，只需点击 Malcolm 首页上的 **Arkime** 瓦片，如 *图 6.5* 中突出显示的那样：
+- en: '![Figure 6.5 – The Arkime tile on Malcolm’s home page](image/B21223_06_5.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.5 – Malcolm 首页上的 Arkime 瓦片](image/B21223_06_5.jpg)'
+- en: Figure 6.5 – The Arkime tile on Malcolm’s home page
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.5 – Malcolm 首页上的 Arkime 瓦片
+- en: 'When you load Arkime, the most important portion of the home page you’ll want
+    to pay attention to is the owl at the top left. Go ahead and click on it to see
+    all of the options presented to you. Also, notice the main navigation across the
+    top ribbon. Those two items will provide all of the rather self-explanatory links
+    you’ll need to use the product, as seen in *Figure 6**.6*:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加载 Arkime 后，最重要的部分就是主页左上角的猫头鹰。点击它查看所有提供的选项。此外，注意顶部横幅上的主导航。这两项将提供你使用产品所需的所有直观链接，如
+    *图 6.6* 所示：
+- en: '![Figure 6.6 – Arkime’s default view home page](image/B21223_06_6.jpg)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.6 – Arkime 的默认视图主页](image/B21223_06_6.jpg)'
+- en: Figure 6.6 – Arkime’s default view home page
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.6 – Arkime 的默认视图主页
+- en: Note
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: As you continue to negotiate the Kali Purple tools outside of the ELK stack,
+    it is of paramount importance that you retain a certain level of patience. Some
+    of these tools are updated very frequently and with each update, the manner of
+    acquiring, installing, and running has the potential to be changed – either by
+    design or unintended consequence. This is where your analyst mindset comes in
+    handy. While developing the content for this book, several items were updated
+    by their creators mid-writing and in the course of doing so, the manner of acquiring
+    and/or installing or otherwise configuring the applications was changed. It is
+    for that reason that we have chosen to focus on using Docker for any multi-application
+    setups or applications with independently developed dependencies.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在你继续与 ELK 堆栈之外的 Kali Purple 工具进行交互时，保持一定的耐心至关重要。这些工具中的一些会非常频繁地更新，每次更新时，获取、安装和运行的方式都有可能发生变化——无论是有意为之还是无意的结果。这时，你的分析师思维就派上用场了。在本书内容开发过程中，多个项目在写作过程中被其创作者更新，而在此过程中，获取和/或安装或配置应用程序的方式发生了变化。正因为如此，我们选择了使用
+    Docker 来处理任何多应用程序设置或具有独立开发依赖项的应用程序。
+- en: 'Here’s the Arkime **About** page:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是 Arkime 的 **关于** 页面：
+- en: '![Figure 6.7 – Arkime’s owl navigation and FAQ access](image/B21223_06_7.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.7 – Arkime 的猫头鹰导航和 FAQ 访问](image/B21223_06_7.jpg)'
+- en: Figure 6.7 – Arkime’s owl navigation and FAQ access
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.7 – Arkime 的猫头鹰导航和 FAQ 访问
+- en: 'Let’s look at the key features of Arkime:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看 Arkime 的关键功能：
+- en: '**Packet capture and storage**: Arkime captures network packets by using an
+    NIC, as we touched on in the first section. It does this in what is known as **promiscuous
+    mode**. That mode is where packet capture applications will collect every bit
+    of data that passes through the portion of the network it is assigned to monitor.
+    This means it may collect data that is not intended for the device to be the final
+    destination. It may be passing through the device on its journey to another device
+    in the network. Conversely, **non-promiscuous mode** only captures packets that
+    are addressed to the MAC address of the specific device that is being monitored
+    by the packet-capturing application. In this case, that’s Arkime.'
+  id: totrans-132
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据包捕获与存储**：Arkime 通过使用网络接口卡（NIC）来捕获网络数据包，正如我们在第一部分中提到的那样。它通过所谓的 **混杂模式**
+    来实现。混杂模式下，数据包捕获应用程序会收集通过其所监控的网络部分的所有数据。这意味着它可能会收集并非专门为该设备而发送的数据，这些数据可能会经过该设备，继续传输到网络中其他设备。相反，**非混杂模式**
+    只捕获被发送到特定设备 MAC 地址的数据包，这个设备即为 Arkime 所监控的设备。'
+- en: '**Real-time traffic analysis**: As the name implies, real-time traffic analysis
+    is where Arkime will capture the packets from the NIC and immediately send the
+    data to Elasticsearch for indexing and storage. It does this in one fell swoop,
+    as the activity occurs. Arkime’s design allows it to monitor live network sessions
+    so that it can track the behavior of network connections and observe user behaviors
+    as they occur. By employing this method, Arkime and the tools integrated with
+    it can identify anomalous and potentially threatening data flow quickly so that
+    analysts can respond and stop bad actors in their tracks.'
+  id: totrans-133
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**实时流量分析**：顾名思义，实时流量分析是指 Arkime 会从网络接口卡（NIC）捕获数据包，并立即将数据发送到 Elasticsearch 进行索引和存储。它在活动发生时一次性完成这一过程。Arkime
+    的设计使其能够监控实时网络会话，从而跟踪网络连接的行为，并观察用户行为的发生。通过采用这种方法，Arkime 及其集成的工具能够快速识别异常和潜在的威胁数据流，以便分析人员能迅速做出反应，阻止不法分子的行为。'
+- en: '**Scalability and performance**: Scalability and performance are Arkime’s greatest
+    advantage over similarly competing network monitoring software. The application
+    is designed to support distributed architecture. That means it can take the packet
+    capture, query and index it, and split it up to send to different interconnected
+    nodes that include different physical computing devices to be processed in unison.
+    As you might have guessed, this not only allows for the workload to be negotiated
+    efficiently but also for fault tolerance and easily upgrading and improving equipment.'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**可扩展性和性能**：可扩展性和性能是 Arkime 相比于类似的竞争性网络监控软件的最大优势。该应用程序被设计为支持分布式架构。这意味着它可以捕获数据包、查询并对其进行索引，然后将其拆分并发送到不同的互联节点，这些节点包括不同的物理计算设备，以便统一处理。正如你可能已经猜到的，这不仅使得工作负载能够高效地分配，而且还支持故障容错，并可以轻松地升级和改善设备。'
+- en: Fault tolerance would be if a device or node were to go down, the programming
+    is in place to direct the other nodes to pick up the slack while the down node
+    is addressed by technicians. Sometimes, a node will need to be taken offline intentionally.
+    This could be for standard maintenance, upgrading, or replacement. This also means
+    additional nodes can be added on the fly without needing to stop or intervene
+    with the active setup in any manner. The technicians simply add the new nodes
+    and then adjust the rules of Arkime to also recognize and utilize the added nodes
+    in addition to the pre-existing nodes.
+  id: totrans-135
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 故障容错指的是当某个设备或节点出现故障时，系统可以引导其他节点接管工作，直到技术人员修复故障节点。有时，节点需要有意地下线。这可能是为了进行常规维护、升级或更换。这也意味着可以动态添加新的节点，而无需停止或干预正在进行的活动配置。技术人员只需添加新节点，然后调整
+    Arkime 的规则，以使其识别并利用新增的节点，除了已经存在的节点外。
+- en: '**Metadata generation and indexing**: When Arkime captures packet data, it
+    collects the entirety of the packet. That includes the payload, which is the data
+    that was instructed by the sending device to be sent, and the header, which is
+    additional information that’s added to the original dataset to assist network
+    and routing devices in sending the payload to the proper location in the proper
+    manner, as well as other important information about the total packet. Within
+    these packets are pieces of data that stand out from the rest as they are critical
+    to the successful transmission of data. These special standout pieces of data
+    are called **metadata**. Examples of metadata might include source and destination
+    IP addresses, timestamps, the byte size of the payload or total packet, and a
+    plethora of other possibilities.'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**元数据生成和索引**：当 Arkime 捕获数据包时，它会收集整个数据包。这包括有效负载，即发送设备指示发送的数据，以及头部信息，这是为了帮助网络和路由设备将有效负载以正确的方式发送到正确位置的附加信息，以及关于整个数据包的其他重要信息。在这些数据包中，有一些数据片段显得尤为突出，因为它们对数据成功传输至关重要。这些特别突出的数据片段被称为**元数据**。元数据的例子可能包括源和目标
+    IP 地址、时间戳、有效负载或总数据包的字节大小，以及其他各种可能性。'
+- en: 'One of the primary forms of metadata that’s utilized includes transport protocols:'
+  id: totrans-137
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 用于传输协议的元数据形式之一包括：
+- en: '**Transport Control Protocol** (**TCP**): This is used for transporting data
+    once a communication has been established between the sending and receiving devices'
+  id: totrans-138
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**传输控制协议**（**TCP**）：用于在发送设备和接收设备之间建立通信后传输数据'
+- en: '**User Datagram Protocol** (**UDP**): This is used for transporting data without
+    first requiring a connection'
+  id: totrans-139
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户数据报协议**（**UDP**）：用于在无需先建立连接的情况下传输数据'
+- en: '**Hyper Text Transfer Protocol** (**HTTP**): This is used to transport data
+    between web servers and clients (that is, the user’s browser)'
+  id: totrans-140
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**超文本传输协议**（**HTTP**）：用于在 web 服务器与客户端（即用户的浏览器）之间传输数据'
+- en: '**Hyper Text Transfer Protocol Secure** (**HTTPS**): This is the same as HTTP
+    except it uses encryption for authentication and transferring data'
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**超文本传输安全协议**（**HTTPS**）：这与 HTTP 相同，不同之处在于它使用加密进行身份验证和数据传输'
+- en: '**File Transfer Protocol** (**FTP**): This is used to transfer entire file
+    sets from a file server to the user’s device'
+  id: totrans-142
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件传输协议**（**FTP**）：用于将整个文件集从文件服务器传输到用户的设备'
+- en: Arkime was generous enough to publicly post screenshots of their product that
+    depict these different aspects of the product, giving us more time and space to
+    talk about the product. A link leading to Arkime’s screenshots with explanations
+    has been provided in the *Further reading* section if you would like to get a
+    visual depiction of these items in action.
+  id: totrans-143
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Arkime 足够慷慨，公开发布了其产品的截图，展示了产品的不同方面，给了我们更多时间和空间来讨论该产品。如果您想获取这些功能的视觉展示，可以在 *进一步阅读*
+    部分找到指向 Arkime 截图和解释的链接。
+- en: Upon capturing these packets and extracting the metadata, Arkime will also utilize
+    the robust power of Elasticsearch to index, store, and retrieve the data. Arkime
+    allows its administrators to define custom indexing and mapping for the metadata
+    fields. This is important for enterprise installations of the tool because the
+    data that’s being extracted and stored can be organized in a manner that is most
+    useful to the organization’s specific needs. Arkime allows its data that has been
+    indexed with Elasticsearch’s support to be easily searchable and retrieved from
+    the Arkime interface.
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 捕获这些数据包并提取元数据后，Arkime 还将利用 Elasticsearch 强大的功能对数据进行索引、存储和检索。Arkime 允许管理员为元数据字段定义自定义索引和映射。这对企业级部署工具尤为重要，因为提取和存储的数据可以以对组织特定需求最有用的方式进行组织。Arkime
+    允许借助 Elasticsearch 支持的已索引数据轻松进行搜索和从 Arkime 界面中检索。
+- en: '**Search and query capabilities**: Through Arkime’s user interface, users can
+    perform granular searches – that is, detailed, specific searches – with surgical
+    precision while being able to perform queries that pinpoint details within captured
+    network traffic data. It’s a type of search that allows the user to target specific
+    fields or attributes within packets.'
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**搜索和查询功能**：通过 Arkime 的用户界面，用户可以执行细粒度的搜索——即详细、特定的搜索——并且能够执行精确查询，定位捕获的网络流量数据中的细节。这是一种允许用户在数据包中定位特定字段或属性的搜索方式。'
+- en: 'Arkime supports a broad array of search styles:'
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Arkime 支持多种搜索方式：
+- en: By logical and mathematical operators
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过逻辑和数学运算符
+- en: By metadata fields
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过元数据字段
+- en: With full-text searching – entire words, phrases, and patterns
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 支持全文搜索——包括整个单词、短语和模式
+- en: By regular expressions and complex patterns
+  id: totrans-150
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过正则表达式和复杂模式
+- en: Through saved search templates – these can be created by users for frequently
+    utilized searches
+  id: totrans-151
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过保存的搜索模板——用户可以为常用搜索创建这些模板
+- en: Arkime can integrate with visualization tools to present the information it
+    gathers from any of these search methods in graphical formats such as timelines,
+    histograms, and charts. Arkime also allows users to share search results with
+    colleagues for team-based analysis. Users can export the search results so that
+    they can be used with external systems or records.
+  id: totrans-152
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Arkime 可以与可视化工具集成，将其通过任何这些搜索方法收集的信息以图形格式（如时间线、直方图和图表）呈现。Arkime 还允许用户与同事共享搜索结果，进行团队分析。用户可以导出搜索结果，以便与外部系统或记录一起使用。
+- en: '**Packet reassembly and session reconstruction**: Arkime has the amazing ability
+    to reassemble packets and reconstruct sessions, which gives it strong capabilities
+    that can be used to piece together and analyze network traffic data directly at
+    the packet and session levels of data transfer. This ability is used during the
+    initial packet capture process. The software identifies fragmented or segmented
+    packets and intelligently examines them to piece them back together into the original
+    single packet so that a full and accurate analysis can be performed on the data
+    that was captured. This allows analysts to view the full picture of any scenario,
+    which also can help in root cause analysis for any issues.'
+  id: totrans-153
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据包重组和会话重建**：Arkime具有令人惊叹的能力，可以重组数据包并重建会话，这赋予了它强大的能力，能够直接在数据传输的包和会话层面上拼接和分析网络流量数据。这一能力在初始的数据包捕获过程中被使用。软件会识别碎片化或分段的数据包，并智能地对其进行检查，将它们拼接回原始的单一数据包，从而对捕获的数据进行完整和准确的分析。这使分析师能够查看任何场景的完整图景，这也有助于进行根本原因分析。'
+- en: Taken to the next level, Arkime can also reconstruct sessions by analyzing packets
+    and logically grouping them if they are related and part of the same flow of data.
+    Doing this allows analysts to view the entire exchange of a session, providing
+    a grander context of the scenario. Analysts can then take a more holistic approach
+    to data analysis by viewing the entirety of a data exchange between the two endpoints
+    involved in the session.
+  id: totrans-154
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 进一步提升，Arkime还可以通过分析数据包并逻辑地将相关数据包归为一组来重建会话，如果它们是相关的并且属于同一数据流。这种做法使分析师能够查看会话的完整交换，从而提供更宏观的场景背景。分析师可以通过查看两个端点之间的数据交换的全貌，采取更加整体的数据分析方法。
+- en: '**Threat detection and analysis**: Everything we’ve discussed thus far is part
+    of Arkime’s threat detection and analysis plus more! The following are also part
+    of this key feature:'
+  id: totrans-155
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**威胁检测与分析**：到目前为止我们讨论的所有内容都是Arkime的威胁检测与分析的一部分，此外还有更多！以下也是这一关键功能的一部分：'
+- en: Metadata enrichment
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 元数据增强
+- en: Rule-based detection
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 基于规则的检测
+- en: Protocol analysis and anomaly detection
+  id: totrans-158
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 协议分析和异常检测
+- en: Integration with threat intelligence feeds
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与威胁情报源的集成
+- en: Metadata enrichment is the same as typical data enrichment, where the data that’s
+    harvested is compared with related tables of pre-existing data to help parse the
+    information into clearer categories. Rule-based detection is just as it sounds.
+    The administrator can create custom rules to look for precise threats, patterns
+    of behavior, and IoCs.
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 元数据增强与典型的数据增强相同，收集到的数据会与预先存在的相关数据表进行比较，以帮助将信息解析为更清晰的类别。基于规则的检测就是字面意思。管理员可以创建自定义规则来寻找精确的威胁、行为模式和IoC（入侵迹象）。
+- en: Protocol analysis and anomaly detection are the process of examining and interpreting
+    the communication protocols that are used in network traffic to evaluate uncommon,
+    abnormal, or anomalous behavior. It involves dissecting the headers, structure,
+    and payloads of the communication packets. Then, it takes that information and
+    compares/contrasts it with the protocols that are used, such as TCP, UDP, HTTP,
+    HTTPS, DNS, and others. Administrators will look for communication pattern changes
+    such as volume and handshake failures. Handshakes are part of the sending and
+    receiving devices authenticating with each other and is the process of establishing
+    a connection between the two.
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 协议分析和异常检测是检查和解读网络流量中使用的通信协议的过程，目的是评估不常见、异常或异常的行为。它涉及对通信数据包的头部、结构和有效载荷进行解剖。然后，将这些信息与使用的协议（如TCP、UDP、HTTP、HTTPS、DNS等）进行比较和对比。管理员将寻找通信模式的变化，例如流量量和握手失败。握手是发送和接收设备之间进行身份验证的过程，也是建立两个设备之间连接的过程。
+- en: Integration with threat intelligence feeds is where Arkime subscribes to or
+    otherwise draws information that has already been assembled by a third party such
+    as **AlienVault OTX** (now known as **LevelBlue Labs**), **FBI InfraGuard**, **Spamhaus**,
+    or **Proofpoint** and brings that information into its own environment to help
+    with analyzing data. This is a form of data enrichment. Examples of third-party
+    information include reputable blacklists, known threat indicators such as cataloged
+    malicious IP addresses, and other threat intelligence information. Subscribing
+    to such feeds can significantly reduce the workload for any organization because
+    you’re grabbing the results of work that has already been done by others and is
+    being shared.
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 与威胁情报源的集成是 Arkime 通过订阅或其他方式获取第三方已经汇总的信息的过程，第三方如**AlienVault OTX**（现名为**LevelBlue
+    Labs**）、**FBI InfraGuard**、**Spamhaus**或**Proofpoint**等，并将这些信息导入其自身环境，帮助分析数据。这是一种数据丰富化的形式。第三方信息的例子包括受信任的黑名单、已知的威胁指示符，如目录化的恶意
+    IP 地址，及其他威胁情报信息。订阅这些情报源可以大大减轻任何组织的工作量，因为你可以获取其他人已经完成并共享的工作成果。
+- en: '**Extensibility and integration**: Similar to threat feed integration, Arkime
+    allows extensibility of itself to allow for a wider range of integrations through
+    capture plugins, protocol parsers, and decoders. Capture plugins are customized
+    code modules that allow Arkime to grab network packet information from specialized
+    or atypical sources. An example of this might be grabbing information from an
+    **industrial control system** (**ICS**), a system that’s used in manufacturing
+    and critical infrastructure such as city water and sewer plants or nuclear power
+    plants. These plugins *extend* the base practical use of Arkime, creating extensibility
+    of the product itself. Extensibility can be further created by the capture plugins
+    providing resources and support to decode and parse the data that it pulls from
+    non-standard sources.'
+  id: totrans-163
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**可扩展性和集成**：与威胁情报源集成类似，Arkime 允许通过捕获插件、协议解析器和解码器对自身进行扩展，从而支持更广泛的集成。捕获插件是定制的代码模块，允许
+    Arkime 从专门或非典型的源中获取网络数据包信息。例如，从**工业控制系统**（**ICS**）获取信息，工业控制系统广泛应用于制造业和关键基础设施，如城市水务和排污厂或核电厂。这些插件*扩展*了
+    Arkime 的基本实用功能，创造了产品本身的可扩展性。通过捕获插件提供资源和支持，用以解码和解析从非标准源获取的数据，可以进一步增强可扩展性。'
+- en: Arkime also offers support for viewer plugins, which are plugins that extend
+    the product’s ability to display the data through custom visualizations with user
+    interface enhancements. That allows organizations to create displays that will
+    only provide the data that is most relevant to their mission. This, in turn, helps
+    create more efficient analysis and detailed reports.
+  id: totrans-164
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Arkime 还支持查看插件，这些插件通过用户界面增强功能，扩展了产品显示数据的能力。它允许组织创建仅展示与其任务最相关的数据的显示界面。这反过来有助于提高分析效率和生成更详细的报告。
+- en: Protocol parsers operate in the same capacity as capture and viewer plugins,
+    whereby they extend the functionality of the product by offering customized features.
+    In this case, it is code that’s meant to decode, parse, and analyze specialized
+    and rarely seen protocols and then enrich the protocol data with previously indexed
+    metadata.
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 协议解析器与捕获插件和查看插件的功能类似，它们通过提供定制化的功能来扩展产品的能力。在这种情况下，它是用于解码、解析和分析专用的、罕见的协议，并将协议数据与先前索引的元数据相结合，进行丰富化处理的代码。
+- en: '**User access control and permissions**: Through its authentication and authorization
+    mechanisms, Arkime can provide high-quality user access control and permissions
+    management. Sure, Arkime will support the basic username/password authentication
+    method. However, it also offers **single sign-on** (**SSO**) integration with
+    identity providers as well as authentication through **Lightweight Directory Access
+    Protocol** (**LDAP**) or **Active Directory** (**AD**). By offering these integrations,
+    organizations with existing identity management infrastructure can authenticate
+    their users who are trying to access the Arkime platform.'
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户访问控制和权限**：通过其身份验证和授权机制，Arkime 可以提供高质量的用户访问控制和权限管理。虽然 Arkime 支持基本的用户名/密码身份验证方法，但它还提供与身份提供者的**单点登录**（**SSO**）集成，以及通过**轻量级目录访问协议**（**LDAP**）或**活动目录**（**AD**）的身份验证。通过提供这些集成，拥有现有身份管理基础设施的组织可以认证其尝试访问
+    Arkime 平台的用户。'
+- en: Also included is RBAC. You experienced a small dose of what this is when you
+    set up Filebeat in [*Chapter 5*](B21223_05.xhtml#_idTextAnchor085). It allows
+    administrators to define roles with a pre-determined set of permissions and then
+    assign users to this role afterward. This manner of user privileges allows a finer-tuned,
+    granular, control over defining which users may have access to specific features,
+    data, and other administrative abilities within the platform.
+  id: totrans-167
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 还包括了 RBAC。你在设置 [*第5章*](B21223_05.xhtml#_idTextAnchor085) 中的 Filebeat 时体验过这一小部分功能。它允许管理员定义具有预设权限集的角色，然后将用户分配到该角色中。这种用户权限管理方式可以提供更精细、颗粒化的控制，定义哪些用户可以访问平台内的特定功能、数据和其他管理权限。
+- en: Arkime also maintains very detailed audit trails of user activities. This serves
+    the dual purpose of providing proper visibility into user actions and changes
+    while also giving an avenue to preserve efforts administratively in the interest
+    of creating audit trails to meet any regulatory requirements.
+  id: totrans-168
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: Arkime 还维护了非常详细的用户活动审计记录。这不仅有助于提供对用户操作和变更的适当可视化，还为在管理层面保留努力提供了一条途径，从而创建审计记录以满足任何合规性要求。
+- en: '**Rich data visualization**: Arkime approached rich data visualization through
+    a combination of customizable dashboards, graphical representations, and interactive
+    visualizations. Like most dashboard-based platforms, users can customize their
+    dashboards through the use of widgets. In this case, widgets can be used to emphasize
+    real-time or historical data through topics such as traffic volume, protocol distribution,
+    threat alerts, packet capture statistics, and top talkers. Users can aggregate
+    and display key metrics, trends, and analysis results. It can leverage graphical
+    representation with charts, graphs, timelines, heatmaps, network traffic patterns,
+    anomalies, communication relationships, and performance metrics to name a few.
+    Interactive visualizations can happen when users explore and interact with the
+    data dynamically, such as by zooming in/out, applying filters, panning across
+    timeframes, and drilling down into more specific data elements if they wish to
+    obtain a more detailed insight or gain a greater context of a scenario.'
+  id: totrans-169
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**丰富的数据可视化**：Arkime 通过结合可定制的仪表盘、图形化表示和交互式可视化来实现丰富的数据可视化。像大多数基于仪表盘的平台一样，用户可以通过小部件自定义他们的仪表盘。在这种情况下，小部件可以通过诸如流量量、协议分布、威胁警报、数据包捕获统计信息和主要通信者等主题来强调实时或历史数据。用户可以汇总并显示关键指标、趋势和分析结果。它可以利用图表、图形、时间轴、热力图、网络流量模式、异常情况、通信关系和性能指标等图形表示形式。交互式可视化可以发生在用户动态探索和与数据互动时，例如通过缩放、应用筛选器、在时间范围内平移以及深入挖掘更具体的数据元素，从而获得更详细的洞察或更大的情境理解。'
+- en: While Arkime is meant for overall traffic analysis, there is another tool that
+    can be used to further refine such analysis when the traffic is encoded or obfuscated
+    in some manner. That tool can also be accessed from the Malcolm GUI and it is
+    known as CyberChef.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然 Arkime 主要用于整体流量分析，但当流量以某种方式被编码或混淆时，还有另一种工具可以进一步优化这种分析。该工具也可以通过 Malcolm 图形用户界面访问，它被称为
+    CyberChef。
+- en: CyberChef and obfuscation
+  id: totrans-171
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: CyberChef 与混淆
+- en: You’ve seen a few references to American government contributions to the cybersecurity
+    landscape. Now, let’s take a look at a British contribution. CyberChef is one
+    of the most critical tools that every single person working in a cybersecurity
+    profession should have in their quick-access toolbox. It was created by the **Government
+    Communications Headquarters** (**GCHQ**) of the United Kingdom. The organization
+    is considered one of three intelligence and security organizations responsible
+    for providing **Signals Intelligence** (**SIGINT**) and information assurance
+    to the UK government and armed forces. (The other two are MI5 and the famed MI6
+    from the James Bond and Mission Impossible pop culture – yes, the organizations
+    are real.)
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你已经看到了一些关于美国政府对网络安全领域贡献的介绍。现在，让我们来看看英国的贡献。CyberChef 是每一个从事网络安全工作的人应该拥有的最重要工具之一。它由英国的**政府通信总部**（**GCHQ**）创建。该组织被认为是三大情报和安全机构之一，负责为英国政府和武装部队提供**信号情报**（**SIGINT**）和信息保障。（另外两个是
+    MI5 和著名的 MI6，来自詹姆斯·邦德和《碟中谍》流行文化——没错，这些组织是真实存在的。）
+- en: GCHQ developed CyberChef to function as an open source web application for a
+    variety of data processing, transformation, and analysis tasks. It was always
+    intended to cater to the needs of cybersecurity professionals, digital forensics
+    experts, and data analysts. It comes with a user-friendly interface and since
+    it is released as open source, organizations can take it, adjust it, and integrate
+    it within their tools. This is because having the tool online still leaves the
+    data communication between its users and the product itself susceptible to interception,
+    which is a security risk in itself. When used as a desktop tool or integrated
+    into an organization’s SIEM solution, the data being worked with can be contained
+    to where it is being utilized. One such solution is the Devo SIEM/SOAR solution,
+    which is considered a next-gen cloud SIEM. Devo has a version of CyberChef embedded
+    within its toolbox for authorized analysts and users within an organization to
+    utilize so that the customer’s data never needs to be traversed outside of the
+    cyber defenses that are collecting the data in the first place. Devo is not part
+    of Kali Purple, but we’ve provided a link in the *Further reading* section to
+    satisfy your curiosity anyway.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: GCHQ 开发了 CyberChef，旨在作为一个开源 Web 应用程序，处理各种数据处理、转换和分析任务。它一直旨在满足网络安全专业人士、数字取证专家和数据分析师的需求。它配有一个用户友好的界面，并且由于它是作为开源发布的，组织可以拿它来进行调整并集成到他们的工具中。这是因为将工具在线使用仍然会使其用户与产品之间的数据通信易受到拦截，这本身就是一个安全风险。当作为桌面工具使用或集成到组织的
+    SIEM 解决方案中时，处理的数据可以被限定在使用它的地方。一个这样的解决方案是 Devo SIEM/SOAR 解决方案，它被认为是下一代云 SIEM。Devo
+    在其工具箱中嵌入了一个 CyberChef 版本，授权的分析师和组织内的用户可以使用，以便客户的数据不必穿越其初始收集数据的网络防御。Devo 不是 Kali
+    Purple 的一部分，但我们仍然在*进一步阅读*部分提供了一个链接，以满足你的好奇心。
+- en: You’re probably sitting there wondering, “*Okay, so what’s all this hype about
+    CyberChef?*” Let’s get into it. While using the tools we’ve covered in this chapter,
+    an analyst will frequently encounter encrypted or obfuscated data. There may even
+    be times when you might like to take data that is not encoded in either of those
+    manners and add some form of encryption or encoding to it. All of this can be
+    accomplished by CyberChef. CyberChef is a very powerful web application that can
+    be integrated with other cybersecurity tools. As we just discussed, it can also
+    be downloaded as a desktop utility or integrated into pre-existing tools. It specializes
+    in raw data analysis to include encryption/decryption, encoding/decoding, and
+    a sub-form of encoding known as obfuscation. It is designed to handle a great
+    variety of data transformation tasks in a flexible yet user-friendly manner. CyberChef
+    has been designated as the *Cyber Swiss Army Knife* by its creator, GCHQ.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能正在想，“*好吧，那 CyberChef 到底有什么大不了的？*”让我们来探讨一下。使用本章中我们讨论的工具时，分析师常常会遇到加密或混淆过的数据。甚至有时候，你可能希望对那些没有加密或编码的数据进行某种形式的加密或编码。所有这些都可以通过
+    CyberChef 来实现。CyberChef 是一个非常强大的 Web 应用程序，可以与其他网络安全工具集成。正如我们刚刚讨论的，它也可以作为桌面工具下载，或集成到现有工具中。它专门处理原始数据分析，包括加密/解密、编码/解码以及一种称为混淆的编码子形式。它旨在以灵活而用户友好的方式处理各种数据转换任务。CyberChef
+    被它的创造者 GCHQ 称为*网络瑞士军刀*。
+- en: To acquire CyberChef, you have a plethora of options. If you’re the cheating
+    spoiler type, you can skip ahead to the end of this chapter, where you’ll find
+    a quick link in the *Further reading* section. That is the quickest way to get
+    this application… that is unless you already have Malcolm installed and, along
+    with your Kali Purple VM up and running. *<<insert evil laugh here>>* However,
+    since we are working with Kali Purple, we will explain how to acquire CyberChef
+    from within the Purple environment.
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取 CyberChef 你有很多选择。如果你是那种喜欢走捷径的类型，你可以跳到本章的最后，在*进一步阅读*部分找到一个快速链接。那是获得这个应用程序的最快方式……除非你已经安装了
+    Malcolm，并且你的 Kali Purple 虚拟机已经运行。*<<在这里插入邪恶笑声>>* 但是，由于我们正在使用 Kali Purple，我们将解释如何在
+    Purple 环境中获取 CyberChef。
+- en: 'It’s also pretty simple. First, make sure your VM with Kali Purple installed
+    has been launched and is up and running. Then log in to your Purple instance,
+    open a terminal window, and go through the intense sacrificial motions we’ve been
+    brainwashing you with since [*Chapter 3*](B21223_03.xhtml#_idTextAnchor052). We
+    can summarize these as follows:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这也非常简单。首先，确保你安装了 Kali Purple 的虚拟机已经启动并正在运行。然后登录到你的 Purple 实例，打开一个终端窗口，并按照我们从
+    [*第 3 章*](B21223_03.xhtml#_idTextAnchor052)开始灌输给你的密集牺牲式操作进行。我们可以总结如下：
+- en: Start your Kali Purple VM and log in to your Purple instance.
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动你的 Kali Purple 虚拟机并登录到你的 Purple 实例。
+- en: Open a terminal window.
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开一个终端窗口。
+- en: Type **sudo apt update && sudo** **apt upgrade**.
+  id: totrans-179
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **sudo apt update && sudo** **apt upgrade**。
+- en: Type **cd Malcolm/scripts**.
+  id: totrans-180
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **cd Malcolm/scripts**。
+- en: Type **./ start** without using **sudo**.
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **./ start**，不要使用 **sudo**。
+- en: 'Type **docker ps** to verify that Malcolm is up and running, as shown in *Figure
+    6**.8*:'
+  id: totrans-182
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **docker ps** 来验证 Malcolm 是否启动并正在运行，如 *图 6.8* 所示：
+- en: '![Figure 6.8 – The Malcolm pre-packaged Docker suite is up and running](image/B21223_06_8.jpg)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.8 – Malcolm 预包装的 Docker 套件已启动并正在运行](image/B21223_06_8.jpg)'
+- en: Figure 6.8 – The Malcolm pre-packaged Docker suite is up and running
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.8 – Malcolm 预包装的 Docker 套件已启动并正在运行
+- en: Now, we can open a web browser and navigate to [https://localhost](https://localhost).
+  id: totrans-185
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们可以打开一个浏览器并访问 [https://localhost](https://localhost)。
+- en: Again, there’s no need to append a port number to the end of the URL because
+    the *s* in *https* tells the browser to use port **443**.
+  id: totrans-186
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 再次提醒，无需在 URL 末尾附加端口号，因为 *https* 中的 *s* 会告诉浏览器使用端口 **443**。
+- en: 'To access Arkime, simply select and click the **Arkime** tile on Malcolm’s
+    home page, as highlighted in *Figure 6**.9*:'
+  id: totrans-187
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要访问 Arkime，只需在 Malcolm 的主页上选择并点击 **Arkime** 磁贴，如 *图 6.9* 所示：
+- en: '![Figure 6.9 – The Malcolm pre-packaged Docker suite is up and running](image/B21223_06_9.jpg)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.9 – Malcolm 预包装的 Docker 套件已启动并正在运行](image/B21223_06_9.jpg)'
+- en: Figure 6.9 – The Malcolm pre-packaged Docker suite is up and running
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.9 – Malcolm 预包装的 Docker 套件已启动并正在运行
+- en: 'Go ahead and select and click that tile. It will load the CyberChef utility
+    for you. In the top-left corner, you’ll notice that you can download this utility
+    to your local device. Let’s put it to the test! Copy and paste the following code
+    into the top-right window, known as the **Input** window, as identified in *Figure
+    6**.10*:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 继续选择并点击那个磁贴。它会为你加载 CyberChef 工具。在左上角，你会注意到可以将此工具下载到你的本地设备。让我们来测试一下！将以下代码复制并粘贴到右上角的
+    **Input** 窗口，如 *图 6.10* 所示：
+- en: '[PRE0]'
+  id: totrans-191
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Experience will teach you how to recognize what different manners of encoding
+    look like. Two of the most common you’ll come across as a cyber defender are **Base64**
+    and **URL encoding**. This code sample we provided is **Base64 encoding**. Select
+    the top tile in the left column labeled **Favorites**. When you do that, the section
+    will expand and within it, you’ll see one called **From Base64**. Click and hold
+    that one, drag it to the middle window labeled **Recipe**, and release your click
+    for it to drop there, as shown in *Figure 6**.10*.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 经验将教会你如何识别不同编码方式的样子。作为网络防御者，你最常遇到的两种编码方式是 **Base64** 和 **URL 编码**。我们提供的这段代码示例是
+    **Base64 编码**。选择左栏中顶部标记为 **Favorites** 的磁贴。当你这样做时，区域会展开，在其中你会看到一个叫做 **From Base64**
+    的选项。点击并按住它，拖动到中间标为 **Recipe** 的窗口，松开鼠标让它掉在那里，如 *图 6.10* 所示。
+- en: You’ll notice that there is also an option called **To Base64**. That’s right
+    – CyberChef can be used to encode things in addition to decoding them. Go ahead
+    and click through all of the areas within the left column and check out the expanded
+    lists. You’ll see options to decode everything imaginable, including **Morse Code**!
+    How cool is that?
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你会注意到，还有一个叫做 **To Base64** 的选项。没错 – CyberChef 除了能解码，还能用于编码。继续点击左栏中的所有区域，查看展开的列表。你将看到解码各种信息的选项，包括
+    **摩尔斯电码**！这有多酷？
+- en: The one thing you will not see, however, is a *bad grammar decoder*. With that
+    in mind, click the **Bake** button at the bottom of the middle column. If you
+    already had the **Auto Bake** box checked, look at the results in the lower right
+    window called **Output** window. Curious. What was the **Base64** **decoded**
+    message?
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，你不会看到的是 *错误语法解码器*。考虑到这一点，点击中间列底部的 **Bake** 按钮。如果你已经勾选了 **Auto Bake** 框，查看右下方名为
+    **Output** 窗口中的结果。奇怪，**Base64** **解码** 后的消息是什么？
+- en: '![Figure 6.10 – CyberChef demonstration](image/B21223_06_10.jpg)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.10 – CyberChef 演示](image/B21223_06_10.jpg)'
+- en: Figure 6.10 – CyberChef demonstration
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.10 – CyberChef 演示
+- en: 'The key features of CyberChef are as follows:'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: CyberChef 的关键特性如下：
+- en: '**Data transformation**: CyberChef users can select and combine data manipulation
+    options from the comprehensive list of built-in operations to create what it likes
+    to call custom data transformation recipes. The list includes options that address
+    encoding/decoding, compression, encryption/decryption, hashing, regular expressions,
+    and much more. Users can select options from the left column of CyberChef’s display
+    and then drag and drop them into the middle window. CyberChef will process the
+    instructions from the top down. So, it will perform the calculations from the
+    first option you drag into the window first, use the next instruction you dropped,
+    apply it to the results of the first calculation, and so on. This allows for batch
+    processing. Users can save any repetitively used tasks for easier future reuse.'
+  id: totrans-198
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据转换**：CyberChef 用户可以从内置的操作列表中选择并组合数据操作选项，创建其所称的自定义数据转换配方。该列表包含了处理编码/解码、压缩、加密/解密、哈希、正则表达式等的选项。用户可以从
+    CyberChef 界面左侧栏选择选项，然后将其拖放到中间窗口。CyberChef 会从上到下处理这些指令。因此，它会首先执行你拖入窗口的第一个选项的计算，接着使用你拖入的下一个指令，将其应用于第一个计算的结果，依此类推。这支持批处理操作。用户可以保存任何重复使用的任务，以便将来方便重用。'
+- en: '**Encryption and decryption**: With the cryptography aspect of CyberChef, you
+    can work with both symmetric and asymmetric encryption algorithms, which will
+    prove useful for those of you who might be responsible for working with securing
+    data as one of your job/career roles. There are many built-in encryption operations
+    you can access from the left column, including but not limited to AES, DES, RSA,
+    Triple DES, Blowfish, and XOR. You can also utilize CyberChef to encode/decode
+    hexadecimal, URL, and Base64 encoding among others. With all of these options,
+    you might well guess that this tool can be used for key management and hashing
+    operations (MD5, SHA-256, and many others). If cryptography is where you live,
+    then you’ll be happy to know that you can use CyberChef to create customized encryption
+    parameters such as key size, block size, padding modes, and chaining modes.'
+  id: totrans-199
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**加密与解密**：通过 CyberChef 的加密功能，你可以使用对称和非对称加密算法，这对于那些可能负责数据安全工作的你来说非常有用。你可以从左侧栏访问许多内置的加密操作，包括但不限于
+    AES、DES、RSA、Triple DES、Blowfish 和 XOR。你还可以利用 CyberChef 对十六进制、URL 和 Base64 编码进行编码/解码等操作。考虑到这些选项，你可能猜到该工具可以用于密钥管理和哈希操作（如
+    MD5、SHA-256 等）。如果你从事加密学相关工作，那么你会高兴地知道，CyberChef 还可以帮助你创建自定义的加密参数，如密钥大小、块大小、填充模式和链式模式。'
+- en: '**File processing**: With CyberChef, you can read entire file inputs and you
+    can output your results to an entire file. To grab a file as input, go to the
+    top-right corner of the **Input** window and select the folder with an arrow pointing
+    into it to grab a file as input, as shown in *Figure 6**.11*. The supported file
+    types include JSON, XML, binary, and text:![Figure 6.11 – CyberChef – getting
+    a file as input](image/B21223_06_11.jpg)'
+  id: totrans-200
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件处理**：使用 CyberChef，你可以读取整个文件输入，并将结果输出到整个文件。要获取文件作为输入，请前往**输入**窗口的右上角，选择带有箭头指向文件夹的图标以获取文件输入，如*图
+    6.11*所示。支持的文件类型包括 JSON、XML、二进制和文本：![图 6.11 – CyberChef – 获取文件作为输入](image/B21223_06_11.jpg)'
+- en: Figure 6.11 – CyberChef – getting a file as input
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.11 – CyberChef – 获取文件作为输入
+- en: You can also perform byte-level operations on binary files using bitwise logic.
+    Additionally, CyberChef offers hexdump visualization for analyzing such binary
+    data and file contents. Advanced CyberChef users can learn to parse and extract
+    structured data from files using operations that have been tailored for specific
+    file formats such as JSON, XML, and CSV, among others. They can also perform line-based
+    processing, metadata extraction, and batch processing, as well as develop custom
+    workflows to support their specific file manipulation requirements.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还可以使用位运算对二进制文件进行字节级操作。此外，CyberChef 提供了十六进制转储可视化功能，帮助分析这些二进制数据和文件内容。高级用户可以学习如何使用专门针对
+    JSON、XML、CSV 等特定文件格式定制的操作解析并提取结构化数据。他们还可以执行基于行的处理、元数据提取和批处理操作，以及开发自定义工作流来支持特定的文件操作需求。
+- en: '**Regular expressions**: The CyberChef tool provides straightforward and dedicated
+    operations for applying regular expressions to input data. The left-hand column,
+    sometimes referred to as the operations column in CyberChef, offers your regex
+    operations. With it, users can define, configure, and apply regular expressions
+    to their data inputs. You can specify a regex pattern to be used for searching
+    and comparing against the input data if you like. Regex operations can be used
+    to match patterns in this way and by doing that, it can also be used to transform
+    and/or replace data, extract data that matches the regex, or it can be mixed with
+    other operations such as encoding/decoding or other tasks defined by an analyst
+    for quick pattern recognition and data extraction. CyberChef’s user-friendly interface
+    helps add an element of visualization to the work, making the readability of the
+    somewhat obscure regex patterns more easily interpreted.'
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**正则表达式**：CyberChef 工具提供了简单且专门的操作，用于将正则表达式应用于输入数据。左侧列，有时被称为 CyberChef 的操作列，提供了你的正则表达式操作。用户可以使用它来定义、配置并将正则表达式应用于数据输入。如果你愿意，还可以指定一个正则表达式模式，用于在输入数据中进行搜索和比较。正则表达式操作可以用于匹配模式，并通过这种方式，还可以用来转换和/或替换数据，提取与正则表达式匹配的数据，或者与其他操作（如编码/解码或分析师定义的其他任务）混合使用，以实现快速的模式识别和数据提取。CyberChef
+    直观的界面帮助为工作增加了可视化元素，使得那些略显晦涩的正则表达式模式更易于解读。'
+- en: '**Networking and encoding**: As it relates to the networking encoding aspect
+    of information, in its operations column, CyberChef offers options for working
+    with IP addresses, including the ability to convert between decimal and binary
+    representations, extracting IP addresses from text, and also the ability to perform
+    IP address manipulations such as subnetting and IP address validation. You’ll
+    also see options for dissecting and analyzing network packet data, decoding packet
+    headers and protocol-specific analysis, URL / URI handling, and Base64 encoding
+    and decoding, which is commonly found in networking information. If you followed
+    our previous recommendations to explore the left column, you’ll see hexadecimal
+    operations, encoding conversions such as URL encoding and HTML entity encoding,
+    along with Unicode representation. Here’s a couple of fun operations for you.
+    If you select the **Data** format sub-heading under operations, you’ll see you
+    can convert to and from Braille; if you go just one subheading further down the
+    list and select **Encryption/Encoding**, that’s where you’ll find the **Morse
+    Code** conversation we spoke of earlier.'
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网络和编码**：在与信息的网络编码相关的操作方面，CyberChef 的操作列提供了处理 IP 地址的选项，包括在十进制和二进制表示之间转换、从文本中提取
+    IP 地址，以及执行 IP 地址操作，如子网划分和 IP 地址验证。你还会看到一些用于剖析和分析网络数据包、解码数据包头和协议特定分析、URL/URI 处理以及
+    Base64 编码和解码的选项，这些常见于网络信息中。如果你按照我们之前的建议，去探索左侧列，你会看到十六进制操作、编码转换，如 URL 编码和 HTML
+    实体编码，以及 Unicode 表示。这里有一些有趣的操作供你参考。如果你选择操作中的**数据**格式子标题，你会看到你可以进行盲文转换；如果你继续往下，选择**加密/编码**，你就会找到我们之前提到的**摩尔斯电码**转换。'
+- en: '**Custom operations**: Something very nice about every tool we’ve discussed
+    in this chapter is how they each offer a plethora of opportunities for customization.
+    CyberChef is no exception. You can develop custom operations through the use of
+    JavaScript code within the interface. That is one of the beautiful parts of this
+    product’s extensibility. If you have a coding or software engineering background,
+    you are likely already familiar with JavaScript; if you don’t, we’ve provided
+    a link in the *Further reading* for your perusal. As a cybersecurity professional,
+    it’s recommended that you upskill your Python first and foremost, but any additional
+    programming language skills are always going to be useful.'
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**自定义操作**：我们在本章讨论的每一个工具都有一个非常棒的特点，那就是它们都提供了大量的自定义机会。CyberChef 也不例外。你可以通过在界面中使用
+    JavaScript 代码开发自定义操作。这是该产品可扩展性的美妙之处。如果你有编码或软件工程背景，你可能已经熟悉 JavaScript；如果没有，我们在*进一步阅读*部分提供了一个链接供你参考。作为一名网络安全专业人员，建议你首先提升
+    Python 技能，但任何额外的编程语言技能始终是有用的。'
+- en: '**Data analysis**: The explanations that have been provided thus far have undoubtedly
+    shown you how data analysis is a key feature of CyberChef. Please review any of
+    the previous topics if you’re uncertain of CyberChef’s contributions to any of
+    the following data analysis features:'
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**数据分析**：到目前为止提供的解释无疑向您展示了数据分析是CyberChef的一个关键功能。如果您不确定CyberChef在以下数据分析功能中的贡献，请回顾之前的任何主题：'
+- en: Data transformation
+  id: totrans-207
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 数据转换
+- en: Encryption and decryption
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加密与解密
+- en: Regular expressions
+  id: totrans-209
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 正则表达式
+- en: File processing
+  id: totrans-210
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件处理
+- en: Networking operations
+  id: totrans-211
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络操作
+- en: Customized options
+  id: totrans-212
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自定义选项
+- en: Virtualization
+  id: totrans-213
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 虚拟化
+- en: Integration with other tools
+  id: totrans-214
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 与其他工具的集成
+- en: 'Whenever you’re dealing with traffic analysis – which is what the defensive
+    aspect of cybersecurity is entirely about – you’re going to encounter attempts
+    to evade defenses through trickery such as encoding and encrypting data. That
+    makes CyberChef one of the most critical tools in your entire defensive toolset.
+    We promised you a quick and easy manner of accessing CyberChef outside of Kali
+    Purple and outside of Malcolm. Are you ready? Drum roll, please… Simply paste
+    the following URL into any web browser and use it directly from the source: [https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/).
+    The downside is that there are things such as data privacy and data privacy laws
+    that will make using CyberChef remotely a risky option because whatever becomes
+    decoded could be highly protected data. It’s best and safest to download a local
+    copy or use it integrated with your toolset, as we did inside of Malcolm.'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当您处理流量分析时——这正是网络安全防御方面的核心内容——您将遇到通过编码和加密数据等伎俩来规避防御的尝试。这使得CyberChef成为您整个防御工具集中最为关键的工具之一。我们承诺，您可以在Kali
+    Purple之外、在Malcolm之外快速轻松地访问CyberChef。准备好了吗？请听鼓声……只需将以下网址粘贴到任何浏览器中，并直接从源站使用：[https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/)。缺点是，数据隐私和数据隐私法等问题使得远程使用CyberChef成为一种有风险的选择，因为任何被解码的数据可能是高度受保护的。最安全的做法是下载本地副本或将其集成到您的工具集中，正如我们在Malcolm中所做的那样。
+- en: Summary
+  id: totrans-216
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we provided a high-level overview of the traffic that will
+    be running through our network and therefore our cyber defense solution. We examined
+    several tools provided by Kali Purple that we can deploy and integrate with other
+    tools to analyze this data, as well as manipulate it if necessary. These solutions
+    are well known and some of them, such as Arkime, are created by private sector
+    organizations, whereas others were created and/or assembled by government organizations.
+    Even more fun, some government organizations will include the private sector creations
+    within their compilations, such as Malcolm and Arkime.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一章节中，我们提供了对将流经我们网络的流量的高层次概述，因此也涵盖了我们的网络防御解决方案。我们考察了Kali Purple提供的几款工具，这些工具可以部署并与其他工具集成，以分析这些数据，并在必要时对其进行处理。这些解决方案都广为人知，其中一些，如Arkime，是由私营部门组织创建的，而其他一些则是由政府组织创建和/或汇编的。更有趣的是，一些政府组织会将私营部门的工具包含在他们的汇编中，例如Malcolm和Arkime。
+- en: We’ve learned that Arkime is a robust network data analysis tool that is designed
+    for large organizations and organizations that are expected to experience quick
+    and large growth. Arkime’s greatest strength is scalability. We also explored
+    a suite of tools that was put together as a collaborative effort between American
+    government agencies from the State of Idaho and federally from the Department
+    of Homeland Security.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们了解到，Arkime是一个强大的网络数据分析工具，专为大规模组织及预计会快速增长的组织设计。Arkime的最大优势是其可扩展性。我们还探讨了一套由美国政府机构（来自爱达荷州和联邦的国土安全部）合作开发的工具。
+- en: Finally, we covered the world-famous CyberChef, which is a must-have for any
+    cybersecurity professional. We learned that it was created and released by the
+    British intelligence agency GCHQ. We explored the power of CyberChef as it relates
+    to data manipulation and various elements of cryptography. We also learned that
+    it can be used online, downloaded as a desktop product, or integrated into our
+    independent software solutions.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们介绍了世界著名的CyberChef，它是每个网络安全专业人士必备的工具。我们了解到，它是由英国情报机构GCHQ创建和发布的。我们探讨了CyberChef在数据处理和各种加密学元素方面的强大功能。我们还了解到，它可以在线使用，作为桌面产品下载，或集成到我们的独立软件解决方案中。
+- en: Before delving into all of these tools, we briefly explored data packets so
+    that we could understand how most of these tools integrate with tools that work
+    on a data packet level. In the course of doing so, we learned about IPS and DPS,
+    both of which we will explore in more depth in [*Chapter 7*](B21223_07.xhtml#_idTextAnchor108).
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在深入研究所有这些工具之前，我们简要探索了数据包，以便理解这些工具如何与工作在数据包级别的工具集成。在这个过程中，我们了解了IPS和DPS，这两者将在[*第7章*](B21223_07.xhtml#_idTextAnchor108)中进行更深入的探讨。
+- en: Questions
+  id: totrans-221
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions to test your knowledge of this chapter:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请回答以下问题，测试你对本章内容的掌握：
+- en: Arkime is a network traffic capture and analyzer that used to be known as what?
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Arkime是一个网络流量捕获和分析工具，曾被称为什么？
+- en: Malcolm
+  id: totrans-224
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Malcolm
+- en: Molotov Cocktail
+  id: totrans-225
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 莫洛托夫鸡尾酒
+- en: Moloch
+  id: totrans-226
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Moloch
+- en: What does it mean when an NIC operates in promiscuous mode?
+  id: totrans-227
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当NIC以混杂模式操作时，这意味着什么？
+- en: The NIC captures all traffic passing through it, regardless of the final destination
+  id: totrans-228
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: NIC捕获通过它的所有流量，无论最终目的地是什么
+- en: The NIC is extra friendly with the data that passes through it
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: NIC（网络接口卡）对其通过的数据非常友好
+- en: The NIC only captures data passing through where the device itself is the final
+    destination
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: NIC仅捕获设备本身是最终目的地的数据
+- en: What is real-time traffic analysis?
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 什么是实时流量分析？
+- en: Sitting on an overpass to study the different makes and models of automobiles
+    as they pass by
+  id: totrans-232
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 坐在立交桥上，研究经过的不同品牌和型号的汽车
+- en: Analyzing network traffic that is time-stamped in Zulu time on a Gregorian calendar
+    format
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 分析按格里历时间格式标记为Zulu时间的网络流量
+- en: The ability to analyze network traffic as it is actively occurring
+  id: totrans-234
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 分析网络流量的能力，实时发生时进行分析
+- en: Examining any traffic that has occurred within the previous 20 minutes
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查过去20分钟内发生的任何流量
+- en: CyberChef is also known as what by its creator?
+  id: totrans-236
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: CyberChef的创始人还将其称为什么？
+- en: The Cyber Swiss Army Knife
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 网络安全瑞士军刀
+- en: The British Top Chef
+  id: totrans-238
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 英国顶级厨师
+- en: The Irish Army Universal Utility
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 爱尔兰军队通用工具
+- en: The Royal Marine Entrenching Tool
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 皇家海军工兵铲
+- en: What type of threat detection occurs after the administrator captures a baseline
+    and compares future traffic for deviations from this baseline?
+  id: totrans-241
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在管理员捕获基线并比较未来流量与基线的偏差后，发生了什么类型的威胁检测？
+- en: Irregular expression detection
+  id: totrans-242
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正则表达式检测
+- en: Abnormal detection
+  id: totrans-243
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 异常检测
+- en: Pattern matching
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 模式匹配
+- en: Anomaly detection
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 异常检测
+- en: Further reading
+  id: totrans-246
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'To learn more about the topics that were covered in this chapter, take a look
+    at the following resources:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 若要深入了解本章涉及的主题，请查看以下资源：
+- en: '**Arkime home page and** **documentation**: [https://arkime.com/index#home](https://arkime.com/index#home)'
+  id: totrans-248
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Arkime主页和** **文档**: [https://arkime.com/index#home](https://arkime.com/index#home)'
+- en: '**Arkime navigation** **resource**: [https://arkime.com/index#screenshots](https://arkime.com/index#screenshots)'
+  id: totrans-249
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Arkime导航** **资源**: [https://arkime.com/index#screenshots](https://arkime.com/index#screenshots)'
+- en: '**Malcolm Network Traffic Analysis** **documentation**: [https://inl.gov/content/uploads/2023/07/Network-Traffic-Analysis-with-Malcolm.pdf](https://inl.gov/content/uploads/2023/07/Network-Traffic-Analysis-with-Malcolm.pdf)'
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Malcolm网络流量分析** **文档**: [https://inl.gov/content/uploads/2023/07/Network-Traffic-Analysis-with-Malcolm.pdf](https://inl.gov/content/uploads/2023/07/Network-Traffic-Analysis-with-Malcolm.pdf)'
+- en: '**CyberChef across-the-net remote access** **version**: [https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/)'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CyberChef跨网远程访问** **版本**: [https://gchq.github.io/CyberChef/](https://gchq.github.io/CyberChef/)'
+- en: '**Devo SIEM/SOAR** **solution**: [https://www.devo.com/experiences/devo-siem-walkthrough/?utm_campaign=2023_next-gen_siem&utm_term=devo%20siem&utm_source=google&utm_medium=cpc&utm_content=644484296347&hsa_src=g&hsa_ver=3&hsa_cam=1423896132&hsa_kw=devo%20siem&hsa_ad=644484296347&hsa_tgt=kwd-652171837431&hsa_mt=b&hsa_acc=4869300310&hsa_grp=59041274115&hsa_net=adwords&gad_source=1&gclid=EAIaIQobChMIkqqlxcrCgwMVw3d_AB0RpgP7EAAYAiAAEgLv2_D_BwE](https://www.devo.com/experiences/devo-siem-walkthrough/?utm_campaign=2023_next-gen_siem&utm_term=devo%20siem&utm_source=google&utm_medium=cpc&utm_content=644484296347&hsa_src=g&hsa_ver=3&hsa_cam=1423896132&hsa_kw=devo%20siem&hsa_ad=644484296347&hsa_tgt=kw)'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Devo SIEM/SOAR** **解决方案**: [https://www.devo.com/experiences/devo-siem-walkthrough/?utm_campaign=2023_next-gen_siem&utm_term=devo%20siem&utm_source=google&utm_medium=cpc&utm_content=644484296347&hsa_src=g&hsa_ver=3&hsa_cam=1423896132&hsa_kw=devo%20siem&hsa_ad=644484296347&hsa_tgt=kwd-652171837431&hsa_mt=b&hsa_acc=4869300310&hsa_grp=59041274115&hsa_net=adwords&gad_source=1&gclid=EAIaIQobChMIkqqlxcrCgwMVw3d_AB0RpgP7EAAYAiAAEgLv2_D_BwE](https://www.devo.com/experiences/devo-siem-walkthrough/?utm_campaign=2023_next-gen_siem&utm_term=devo%20siem&utm_source=google&utm_medium=cpc&utm_content=644484296347&hsa_src=g&hsa_ver=3&hsa_cam=1423896132&hsa_kw=devo%20siem&hsa_ad=644484296347&hsa_tgt=kw)'
+- en: '**Learn** **JavaScript**:  [https://www.w3schools.com/js/default.asp](https://www.w3schools.com/js/default.asp)'
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**学习** **JavaScript**: [https://www.w3schools.com/js/default.asp](https://www.w3schools.com/js/default.asp)'
+- en: '**Learn** **Python**: [https://www.w3schools.com/python/default.asp](https://www.w3schools.com/python/default.asp)'
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**学习** **Python**: [https://www.w3schools.com/python/default.asp](https://www.w3schools.com/python/default.asp)'

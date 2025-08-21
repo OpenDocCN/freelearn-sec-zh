@@ -1,0 +1,1285 @@
+- en: Understanding Data Storage on Android Devices
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解安卓设备的数据存储
+- en: 'The primary motive of forensic analysis is to extract necessary data from a
+    device. Hence, for effective forensic analysis, it''s imperative to know what
+    kind of data is stored on the device, where it is stored, how it is stored, and
+    details of the filesystems on which the data is stored. This knowledge is very
+    important for a forensic analyst to make an informed decision about where to look
+    for data and techniques that can be used to extract it. In this chapter, we are
+    going to learn about the following topics:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医分析的主要目的是从设备中提取必要的数据。因此，为了有效的法医分析，必须知道设备上存储了什么类型的数据，数据存储的位置，存储的方式，以及数据存储的文件系统的详细信息。对于法医分析员来说，这些知识非常重要，可以帮助他们做出明智的决定，了解在哪些位置寻找数据，并且可以使用哪些技术来提取数据。本章我们将学习以下内容：
+- en: Android partition layout
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安卓分区布局
+- en: Android file hierarchy
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安卓文件层次结构
+- en: Application data storage on the device
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 设备上的应用数据存储
+- en: Android filesystems overview
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安卓文件系统概述
+- en: Android partition layout
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 安卓分区布局
+- en: Partitions are logical storage units made inside the device's persistent storage
+    memory. Partitioning allows you to logically divide the available space into sections
+    that can be accessed independently of one another.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分区是设备持久存储内存中创建的逻辑存储单元。分区允许你将可用空间逻辑地划分为多个可以独立访问的部分。
+- en: Common partitions in Android
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 安卓中常见的分区
+- en: 'The partition layout varies between vendors and versions, but a few partitions
+    are present in all Android devices. The following are some of the common partitions
+    found in most Android devices:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分区布局在不同厂商和版本之间有所不同，但所有安卓设备都存在一些共同的分区。以下是大多数安卓设备中常见的一些分区：
+- en: '`BOOT`:As the name suggests, this partition has the information and files required
+    for the phone to boot. It contains the kernel and the RAMDisk and so, without
+    this partition, the phone can''t start its processes.'
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`BOOT`：顾名思义，此分区包含了手机启动所需的信息和文件。它包含内核和 RAMDisk，因此没有这个分区，手机无法启动其进程。'
+- en: '`CACHE`: This partition is used to store frequently accessed data and various
+    other files such as recovery logs and update packages downloaded over-the-air.'
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CACHE`：此分区用于存储经常访问的数据以及其他各种文件，如恢复日志和通过空中下载的更新包。'
+- en: '`RECOVERY`: Recovery partition allows the device to boot into the recovery
+    console through which activities such as phone updates and other maintenance operations
+    are performed. For this purpose, a minimal Android boot image is stored, which
+    serves as a failsafe.'
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`RECOVERY`：恢复分区允许设备启动到恢复控制台，通过该控制台可以执行如手机更新及其他维护操作。为此，存储了一个最小的安卓启动镜像，作为故障安全保护。'
+- en: '`SYSTEM`:All of the major components other than the kernel and RAMDisk are
+    present here. The Android system image here contains the Android framework, libraries,
+    system binaries, and pre-installed applications. Without this partition, the device
+    cannot boot into normal mode.'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`SYSTEM`：此分区包含除内核和 RAMDisk 以外的所有主要组件。此处的安卓系统镜像包含安卓框架、库、系统二进制文件和预安装应用程序。如果没有这个分区，设备无法正常启动。'
+- en: '`USERDATA`:This partition is usually called the data partition and is the device''s
+    internal storage for application data. A bulk of userdata is stored here and this
+    is where most of our forensic evidence will reside. It stores all app data and
+    standard communications as well.'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`USERDATA`：此分区通常称为数据分区，是设备的内部存储，用于存储应用程序数据。大量的用户数据存储在此，并且这是我们大多数法医证据所在的位置。它存储了所有的应用数据和标准通讯记录。'
+- en: Identifying partition layout
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别分区布局
+- en: For a given Android device (Samsung Galaxy J7), the partition layout can be
+    determined in a number of ways. The partitions file under `/proc` would give us
+    details about all of the partitions available on the device.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于给定的安卓设备（如三星 Galaxy J7），可以通过多种方式确定分区布局。`/proc`下的分区文件将提供关于设备上所有可用分区的详细信息。
+- en: 'The following screenshot shows the content of the partitions file:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了分区文件的内容：
+- en: '![](img/5f748e36-1006-4f27-8727-bfddf0cb4a9b.png)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5f748e36-1006-4f27-8727-bfddf0cb4a9b.png)'
+- en: Partitions file in Android
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安卓中的分区文件
+- en: 'The preceding entries show only the block names. To get a mapping of these
+    blocks to their logical functions, check the contents of the directory by name
+    present under `/dev/block/platform/13540000.dwmmc0`. The following screenshot
+    shows the content of this directory:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的条目仅显示了分区名称。要获取这些分区与其逻辑功能的映射，请查看位于`/dev/block/platform/13540000.dwmmc0`目录下的目录内容。以下截图显示了该目录的内容：
+- en: '![](img/1682c75e-6e40-471e-86b1-72f700347529.png)'
+  id: totrans-21
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1682c75e-6e40-471e-86b1-72f700347529.png)'
+- en: Mapping of blocks to their logical functions
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 块与其逻辑功能的映射
+- en: As you can see in the preceding output, various partitions such as `SYSTEM` and `USERDATA`,
+    are present in the partition layout.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前面的输出所示，`SYSTEM`和`USERDATA`等多个分区出现在分区布局中。
+- en: Android file hierarchy
+  id: totrans-24
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 安卓文件层次结构
+- en: In order to perform forensic analysis on any system (desktop or mobile), it's
+    important to understand the underlying file hierarchy. Basic understanding of
+    how Android organizes its data in files and folders helps a forensic analyst to
+    narrow down his/her research to specific locations. If you are familiar with Unix-like
+    systems, you'll understand the file hierarchy in Android very well. In Linux,
+    the file hierarchy is a single tree with the top of the tree being denoted as
+    `/`, called the *root*. This is different from the concept of organizing files
+    in drives (as with Windows).
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要对任何系统（桌面或移动设备）进行取证分析，理解底层的文件层次结构非常重要。基本理解安卓如何在文件和文件夹中组织数据，有助于取证分析师将研究范围缩小到特定位置。如果你熟悉类Unix系统，你会非常了解安卓的文件层次结构。在Linux中，文件层次结构是一个单一的树形结构，树的顶端表示为`/`，称为*根目录*。这与Windows中按驱动器组织文件的概念不同。
+- en: 'Whether the filesystem is local or remote, it will be present under the *root*.
+    Android file hierarchy is a customized version of this existing Linux hierarchy.
+    Based on the device manufacturer and the underlying Linux version, the structure
+    of this hierarchy, may have a few insignificant changes. To see the complete file
+    hierarchy you need root access. The following screenshot shows the file hierarchy
+    on an Android device:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论文件系统是本地的还是远程的，它都将位于*根目录*下。安卓的文件层次结构是现有Linux层次结构的定制版本。根据设备制造商和底层的Linux版本，该层次结构可能会有一些不太显著的变化。要查看完整的文件层次结构，您需要root权限。以下截图显示了安卓设备上的文件层次结构：
+- en: '![](img/e18fcb98-8316-4ae3-9e89-f90f3591671c.png)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e18fcb98-8316-4ae3-9e89-f90f3591671c.png)'
+- en: Folders present under / (root) in Android
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安卓根目录下的文件夹
+- en: Overview of directories
+  id: totrans-29
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 目录概览
+- en: The following sections provide an overview of the directories present in the
+    file hierarchy of an Android device.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下各节概述了安卓设备文件层次结构中的目录。
+- en: The acct directory
+  id: totrans-31
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: acct目录
+- en: This is the mount point for the acct control group (`cgroup`), which provides
+    for user accounting.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是`acct`控制组（`cgroup`）的挂载点，它提供了用户计费功能。
+- en: The cache directory
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: cache目录
+- en: This is the directory (`/cache`) where Android stores frequently accessed data
+    and app components. Wiping the cache doesn't affect your personal data but simply
+    deletes the existing data there. There is also another directory in this folder
+    called `lost+found` that holds recovered files (if any) as a result of filesystem
+    corruption, such as that caused by incorrectly removing the SD card without unmounting
+    it. The cache may contain forensically relevant artifacts such as images, browsing
+    history, and other app data.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是Android存储经常访问的数据和应用组件的目录(`/cache`)。清除缓存不会影响你的个人数据，只是删除了其中现有的数据。此文件夹中还有另一个名为`lost+found`的目录，用于存储因文件系统损坏（如未卸载直接移除SD卡）而恢复的文件（如果有的话）。缓存中可能包含与取证相关的文件，如图像、浏览历史记录和其他应用数据。
+- en: The config directory
+  id: totrans-35
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: config目录
+- en: This directory contains configuration files for the SDCardFS (an in-kernel FAT32
+    emulation layer) and USB gadget.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该目录包含SDCardFS（内核中的FAT32仿真层）和USB小工具的配置文件。
+- en: The data directory
+  id: totrans-37
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据目录
+- en: 'The `/data/data` partition contains the private data of all of the applications.
+    Most of the data belonging to the user is stored in this folder. This folder has
+    significant importance from a forensic point of view as it holds valuable data.
+    This partition is covered in detail in the *Internal storage *section. The following
+    screenshot shows the content of data partition:'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/data/data`分区包含所有应用程序的私有数据。大多数属于用户的数据存储在此文件夹中。该文件夹从取证角度来看具有重要意义，因为它保存了有价值的数据。此分区在*内部存储*部分中有详细介绍。以下截图显示了数据分区的内容：'
+- en: '![](img/a9652134-be49-4f9a-bce1-9b7c99e818b2.png)'
+  id: totrans-39
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a9652134-be49-4f9a-bce1-9b7c99e818b2.png)'
+- en: Content of data partition of an Android device
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安卓设备的数据分区内容
+- en: The dev directory
+  id: totrans-41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: dev目录
+- en: This directory contains special device files for all devices. This is the mount
+    point for the `tempfs` filesystem, which defines the devices available to the
+    applications.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该目录包含所有设备的特殊设备文件。这是`tempfs`文件系统的挂载点，该文件系统定义了应用程序可用的设备。
+- en: The mnt directory
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: mnt目录
+- en: 'This directory serves as a mount point for all of the filesystems, internal
+    and external SD cards, and so on. The following screenshot shows the mount points
+    present in this directory:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该目录作为所有文件系统（包括内外部 SD 卡等）的挂载点。以下截图显示了该目录中存在的挂载点：
+- en: '![](img/9d4cf7b3-1c7b-428f-b7ef-811bc9b8a567.png)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9d4cf7b3-1c7b-428f-b7ef-811bc9b8a567.png)'
+- en: The proc directory
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: proc 目录
+- en: 'This is the mount point for the `procfs` filesystem, which provides access
+    to the kernel data structures. Several programs use `/proc` as the source for
+    their information. It contains files that have useful information about the processes.
+    For instance, as shown in the following screenshot, `meminfo`, present under `/proc`,
+    gives information about the memory:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是 `procfs` 文件系统的挂载点，它提供对内核数据结构的访问。多个程序使用 `/proc` 作为信息来源。它包含有关进程的有用信息。例如，以下截图所示，`/proc`
+    下的 `meminfo` 文件提供有关内存的信息：
+- en: '![](img/75a8d911-494a-4939-a775-b36e4bd62438.png)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/75a8d911-494a-4939-a775-b36e4bd62438.png)'
+- en: The meminfo file under the proc folder in Android
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 中 proc 文件夹下的 meminfo 文件
+- en: The sbin directory
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: sbin 目录
+- en: This contains binaries for several important daemons. It is not of much significance
+    from a forensic perspective.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该目录包含多个重要守护进程的二进制文件。从取证角度来看，它并不特别重要。
+- en: The storage directory
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 存储目录
+- en: 'Here you can find SD card contents. Please note that this SD card can be either
+    removable storage or non-removable storage. Any app on your phone with the `WRITE_EXTERNAL_STORAGE`
+    permission may create files or folders in this location. There are some default
+    folders such as `Android`, `DCIM`, and `Downloads` present in most mobiles. The
+    following screenshot shows the contents of the `/storage/self/primary` location:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，你可以找到 SD 卡的内容。请注意，这张 SD 卡可以是可拆卸存储或不可拆卸存储。任何具有 `WRITE_EXTERNAL_STORAGE` 权限的应用程序都可能在此位置创建文件或文件夹。大多数手机中都存在一些默认文件夹，如
+    `Android`、`DCIM` 和 `Downloads`。以下截图显示了 `/storage/self/primary` 位置的内容：
+- en: '![](img/c41838d0-c907-44cc-965a-1f386cd149bb.png)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c41838d0-c907-44cc-965a-1f386cd149bb.png)'
+- en: The content of /storage/self/primary (/sdcard is a symlink)
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: /storage/self/primary 的内容（/sdcard 是一个符号链接）
+- en: '**Digital Camera Images** (**DCIM**) is the default directory structure for
+    digital cameras, smartphones, tablets, and related solid state devices. Some tablets
+    have a `Photos` folder that points to the same location. Within DCIM, you will
+    find photos you have taken, videos, and thumbnails (cache files). Photos are stored
+    in `/DCIM/Camera`.'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**数码相机图像**（**DCIM**）是数码相机、智能手机、平板电脑及相关固态设备的默认目录结构。一些平板电脑有一个 `Photos` 文件夹，指向相同的存储位置。在
+    DCIM 文件夹内，你会找到你拍摄的照片、视频和缩略图（缓存文件）。照片存储在 `/DCIM/Camera` 中。'
+- en: 'Android developer''s reference explains that there are certain public storage
+    directories that are not tied to a specific program. The following is a quick
+    overview of those folders:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 开发者参考资料中解释了有一些公共存储目录，这些目录并不绑定到特定的程序。以下是这些文件夹的快速概览：
+- en: '`Music`: Media scanner classifies all media found here as user music'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Music`：媒体扫描器将此位置下的所有媒体分类为用户音乐'
+- en: '`Podcasts`: Media scanner classifies all media found here as podcasts'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Podcasts`：媒体扫描器将此位置下的所有媒体分类为播客'
+- en: '`Ringtones`: Media files present here are classified as ringtones'
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Ringtones`：此处的媒体文件被归类为铃声'
+- en: '`Alarms`: Media files present here are classified as alarms'
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Alarms`：此处的媒体文件被分类为闹钟'
+- en: '`Notifications`: Media files under this location are used for notification
+    sounds'
+  id: totrans-62
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Notifications`：该位置下的媒体文件用于通知声音'
+- en: '`Pictures`: All photos except the ones taken with the camera are stored in
+    this folder'
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Pictures`：所有照片，除了用相机拍摄的，都会存储在此文件夹中'
+- en: '`Movies`: All movies except the ones taken with the camera are stored in this
+    folder'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Movies`：所有电影，除了用相机拍摄的，都会存储在此文件夹中'
+- en: '`Download`: Miscellaneous downloads'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Download`：杂项下载'
+- en: The system directory
+  id: totrans-66
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 系统目录
+- en: 'This directory contains libraries, system binaries, and other system-related
+    files. The pre-installed applications that come along with the phone are also
+    present in this partition. The following screenshot shows the files present in
+    the system partition on an Android device:'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该目录包含库、系统二进制文件和其他与系统相关的文件。与手机一起预安装的应用程序也存储在此分区中。以下截图显示了 Android 设备上系统分区中的文件：
+- en: '![](img/0f1e4a09-5574-4129-9c3e-60dba86f615f.png)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0f1e4a09-5574-4129-9c3e-60dba86f615f.png)'
+- en: Contents of system partition of an Android device
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 设备系统分区的内容
+- en: Application data storage on the device
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设备上的应用数据存储
+- en: 'Android devices store lots of sensitive data through the use of apps. Although
+    we have earlier categorized apps as system and user-installed apps, here is a
+    more detailed split:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 设备通过应用存储大量敏感数据。虽然我们之前将应用分为系统应用和用户安装的应用，但这里有一个更详细的划分：
+- en: Apps that come along with Android
+  id: totrans-72
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 随 Android 附带的应用
+- en: Apps installed by the manufacturer
+  id: totrans-73
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 制造商预装的应用
+- en: Apps installed by the wireless carrier
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无线运营商预装的应用
+- en: Apps installed by the user
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用户安装的应用
+- en: 'All of these store different types of data on the device. Application data
+    often contains a wealth of information that is relevant to the investigation.
+    Here is a sample list of possible data that can be found on an Android device:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有这些都在设备上存储不同类型的数据。应用数据通常包含大量与调查相关的信息。以下是 Android 设备上可能找到的一些数据的示例：
+- en: SMS
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 短信
+- en: MMS
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 彩信
+- en: Chat messages
+  id: totrans-79
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 聊天信息
+- en: Backups
+  id: totrans-80
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 备份
+- en: Emails
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 电子邮件
+- en: Call logs
+  id: totrans-82
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通话记录
+- en: Contacts
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 联系人
+- en: Pictures
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 图片
+- en: Videos
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 视频
+- en: Browser history
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 浏览器历史
+- en: GPS data
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GPS 数据
+- en: Files or documents downloaded
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下载的文件或文档
+- en: Data that belongs to installed apps (Facebook, Twitter, and other social media
+    apps)
+  id: totrans-89
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 属于已安装应用的数据（如 Facebook、Twitter 和其他社交媒体应用）
+- en: Calendar appointments
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 日历预约
+- en: Data belonging to different applications can be stored either internally or
+    externally. In the case of external storage (SD card), data can be stored in any
+    location. But in the case of internal storage, the location is predefined. To
+    be specific, the internal data of all apps present on the device (either system
+    apps or user-installed apps) is automatically saved in a subdirectory of `/data/data`
+    named after the package name. For example, the default Android email app has a
+    package name of `com.android.email` and the internal data is stored in `/data/data/com.android.email`.
+    We are going to discuss this in detail in the coming sections but, for now, this
+    knowledge is sufficient to understand the following details.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不同应用的数据可以存储在内部或外部。在外部存储（SD 卡）的情况下，数据可以存储在任何位置。但在内部存储的情况下，位置是预定义的。具体来说，设备上所有应用的内部数据（无论是系统应用还是用户安装的应用）会自动保存在
+    `/data/data` 的一个以包名命名的子目录中。例如，默认的 Android 邮件应用的包名为`com.android.email`，其内部数据存储在`/data/data/com.android.email`。我们将在后续章节中详细讨论这一点，但目前这些知识足以理解以下细节。
+- en: 'Android provides developers with certain options to store data to the device.
+    The option that can be used depends on the underlying data that is to be stored.
+    Data that belongs to applications can be stored in one of the following locations:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 为开发者提供了一些选项来将数据存储到设备上。可以使用的选项取决于要存储的底层数据。属于应用的数据可以存储在以下位置之一：
+- en: Shared preferences
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 共享首选项
+- en: Internal storage
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 内部存储
+- en: External storage
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 外部存储
+- en: SQLite database
+  id: totrans-96
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: SQLite 数据库
+- en: Network
+  id: totrans-97
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络
+- en: The following sections provide clear explanations regarding each of these options.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下各节提供了有关这些选项的详细说明。
+- en: Shared preferences
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 共享首选项
+- en: 'Shared preferences provide a framework to store key-value pairs of primitive
+    data types in XML format. Primitive data types includes Boolean, float, int, long,
+    and string. Strings are stored in the **Unicode Transformation Format** (**UTF**)
+    format. These files are typically stored in an application''s `/data/data/shared_pref`
+    path. For instance, the `shared_pref` folder for Android email app contains the
+    following three XML files:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 共享首选项提供了一个框架，用于以 XML 格式存储原始数据类型的键值对。原始数据类型包括布尔值、浮动、整数、长整型和字符串。字符串以**Unicode
+    转换格式**（**UTF**）存储。这些文件通常存储在应用的`/data/data/shared_pref`路径下。例如，Android 邮件应用的`shared_pref`文件夹包含以下三个
+    XML 文件：
+- en: '![](img/a08196e3-8892-4a87-bf90-f803346e4918.png)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a08196e3-8892-4a87-bf90-f803346e4918.png)'
+- en: Contents of the shared_prefs folder of the Android email app
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 邮件应用的 shared_prefs 文件夹内容
+- en: 'As explained in [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml), *Setting
+    up Android Forensic Environment*, the content of these files can be viewed using
+    the `cat` command. The following screenshot shows the contents of the `UnifiedEmail.xml`
+    file:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如[第二章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)《设置 Android 法医环境》中所解释的，可以使用`cat`命令查看这些文件的内容。以下截图显示了`UnifiedEmail.xml`文件的内容：
+- en: '![](img/b275c2cf-04e4-4bca-9b95-78449e915b3e.png)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b275c2cf-04e4-4bca-9b95-78449e915b3e.png)'
+- en: The Android email app's shared preferences file content
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 邮件应用的共享首选项文件内容
+- en: Different XML files may contain different pieces of information that can be
+    very helpful during forensic examinations, for example, account names or even
+    passwords.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不同的 XML 文件可能包含不同的有用信息，例如帐户名甚至密码，这对法医检查非常有帮助。
+- en: Internal storage
+  id: totrans-107
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内部存储
+- en: The files here are stored in the internal storage. These are located typically
+    in the application's `/data/data` subdirectory. Data stored here is private and
+    cannot be accessed by other applications. Even the device owner is prevented from
+    viewing the files (unless they have root access).
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里存储的文件位于内部存储中。它们通常位于应用的 `/data/data` 子目录中。存储在这里的数据是私有的，其他应用无法访问。即使是设备所有者也无法查看这些文件（除非他们具有
+    root 权限）。
+- en: 'However, based on the requirement, the developer can allow other processes
+    to modify and update these files. The following screenshot shows the details of
+    the apps stored with their package name under the `/data/data` directory:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，根据需求，开发者可以允许其他进程修改和更新这些文件。以下截图展示了应用在 `/data/data` 目录下以包名存储的详细信息：
+- en: '![](img/d1a636a9-5cca-4f81-a597-d68eec777f9e.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d1a636a9-5cca-4f81-a597-d68eec777f9e.png)'
+- en: Contents of the /data/data folder in Android
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 中的 /data/data 文件夹内容
+- en: 'The internal data of each app is stored in their respective folders. For instance,
+    the following screenshot shows internal storage that belongs to the YouTube app
+    on an Android device:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个应用的内部数据存储在各自的文件夹中。例如，下面的截图展示了 Android 设备上属于 YouTube 应用的内部存储：
+- en: '![](img/550bd5a7-3f3c-4073-ad51-9b412f1b51f4.png)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/550bd5a7-3f3c-4073-ad51-9b412f1b51f4.png)'
+- en: Internal storage of the Android YouTube app
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android YouTube 应用的内部存储
+- en: 'Usually the `databases`, `lib`, `shared_pref`, `cache` folders are created
+    for most of the applications. The following table provides a brief description
+    of these folders:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，`databases`、`lib`、`shared_pref`、`cache` 文件夹会为大多数应用创建。以下表格简要描述了这些文件夹：
+- en: '| **Sub directory** | **Description** |'
+  id: totrans-116
+  prefs: []
+  type: TYPE_TB
+  zh: '| **子目录** | **描述** |'
+- en: '| `shared_prefs` | XML file of shared preferences |'
+  id: totrans-117
+  prefs: []
+  type: TYPE_TB
+  zh: '| `shared_prefs` | 共享偏好设置的 XML 文件 |'
+- en: '| `lib` | Custom library files required by an app |'
+  id: totrans-118
+  prefs: []
+  type: TYPE_TB
+  zh: '| `lib` | 应用所需的自定义库文件 |'
+- en: '| `files` | Developer saved files |'
+  id: totrans-119
+  prefs: []
+  type: TYPE_TB
+  zh: '| `files` | 开发者保存的文件 |'
+- en: '| `cache` | Files cached by app |'
+  id: totrans-120
+  prefs: []
+  type: TYPE_TB
+  zh: '| `cache` | 应用缓存的文件 |'
+- en: '| `databases` | SQLite and journal files |'
+  id: totrans-121
+  prefs: []
+  type: TYPE_TB
+  zh: '| `databases` | SQLite 和日志文件 |'
+- en: 'Folders other than these are custom folders created by the app developer. The
+    `databases` folder is the one that contains crucial data that helps in forensic
+    investigations. As shown in the following screenshot, data in this folder is stored
+    in SQLite files:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除这些文件夹外，其他文件夹是应用开发者创建的自定义文件夹。`databases` 文件夹包含对司法调查至关重要的数据。如以下截图所示，这个文件夹中的数据以
+    SQLite 文件形式存储：
+- en: '![](img/3f3d3443-c9b5-4182-b188-87c1b5d27ea3.png)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3f3d3443-c9b5-4182-b188-87c1b5d27ea3.png)'
+- en: SQLite files present under the databases folder of the Android browser app
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 浏览器应用中 `databases` 文件夹下的 SQLite 文件
+- en: This data can be viewed using tools such as DB Browser for SQLite. More details
+    about how to extract data is covered in detail under [Chapter 4](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml),
+    *Extracting Data Logically from Android Devices*.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用如 DB Browser for SQLite 等工具查看这些数据。关于如何提取数据的更多细节，请参考[第4章](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml)，*从
+    Android 设备中逻辑地提取数据*。
+- en: External storage
+  id: totrans-126
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 外部存储
+- en: Files can also be stored by the apps in external storage. External storage can
+    be a removable media such as a SD card or non-removable storage that comes with
+    the phone. In the case of a removable SD card, data could be used on other devices
+    just by removing the SD card and inserting in any other device. SD cards are usually
+    formatted with the FAT32 filesystem but other filesystems such as EXT3 and EXT4
+    are also being increasingly used. Unlike internal storage, external storage does
+    not have strict security enforcements. In other words, data stored here is public
+    and can be accessed by other applications provided the requesting apps have the
+    necessary permissions.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用也可以将文件存储在外部存储中。外部存储可以是可移动的媒体，如 SD 卡，或者是手机自带的不可移动存储。在可移动 SD 卡的情况下，只需移除 SD 卡并插入其他设备，数据就可以在其他设备上使用。SD
+    卡通常采用 FAT32 文件系统格式，但越来越多的使用 EXT3 和 EXT4 文件系统。与内部存储不同，外部存储没有严格的安全措施。换句话说，存储在这里的数据是公开的，其他应用可以访问，只要请求应用具有必要的权限。
+- en: SQLite database
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SQLite 数据库
+- en: SQLite is a popular database format present in many mobile systems and is used
+    for structured data storage. SQLite is open source and, unlike many other databases,
+    it is compact and offers a lot of functionality. Android supports SQLite through
+    dedicated APIs and hence developers can take advantage of it. SQLite databases
+    are a rich source of forensic data. The SQLite files used by apps are generally
+    stored under `/data/data/<ApplicationPackageName>/databases`. For example, in
+    the case of the Android email app, the following screenshot shows the SQLite files
+    present in its databases folder. We will examine these details more in the next
+    sections. From a forensic point of view, they are highly valuable since they often
+    store lot of important data handled by the application.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SQLite 是一种流行的数据库格式，广泛应用于许多移动系统中，用于结构化数据存储。SQLite 是开源的，并且与许多其他数据库不同，它具有紧凑性并提供丰富的功能。Android
+    通过专用的 API 支持 SQLite，因此开发者可以利用这一特性。SQLite 数据库是法医数据的重要来源。应用程序使用的 SQLite 文件通常存储在
+    `/data/data/<ApplicationPackageName>/databases` 路径下。例如，在 Android 邮件应用中，以下截图展示了其数据库文件夹中的
+    SQLite 文件。我们将在接下来的章节中进一步探讨这些细节。从法医的角度来看，这些文件非常有价值，因为它们通常存储了应用程序处理的大量重要数据。
+- en: Network
+  id: totrans-130
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络
+- en: You can use the network to store and retrieve data on your own web-based services.
+    To do network operations, the classes in the `java.net.*` and `android.net.*`
+    packages can be used. These packages provide developers with low level APIs necessary
+    to interact with the network, web servers, and so on.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用网络存储和检索你自己基于 Web 的服务中的数据。要进行网络操作，可以使用 `java.net.*` 和 `android.net.*` 包中的类。这些包为开发者提供了与网络、Web
+    服务器等交互所需的低级 API。
+- en: Android filesystem overview
+  id: totrans-132
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Android 文件系统概述
+- en: Understanding the filesystem is very important in Android forensics, as it helps
+    us to gain knowledge on how data is stored and retrieved. This knowledge about
+    properties and the structure of a filesystem proves to be useful during forensic
+    analysis. Filesystem refers to the way data is stored, organized, and retrieved
+    from a volume. A basic installation may be based on one volume split into several
+    partitions; here, each partition can be managed by a different filesystem. Microsoft
+    Windows users are familiar with FAT32 or NTFS filesystems, whereas Linux users
+    are more familiar with EXT2 or EXT4 filesystems. As is true in Linux, Android
+    utilizes mount points and not drives (that is, `C:` or `E:`). Each filesystem
+    defines its own rules for managing the files on the volume. Depending on these
+    rules, each filesystem offers a different speed for file retrieval, security,
+    size, and so on. Linux uses several filesystems, and so does Android. From a forensic
+    point of view, it's important to understand what filesystems are used by Android
+    and to identify the filesystems that are of significance to the investigation.
+    For example, the filesystem that stores the user's data is of primary concern
+    to us, as opposed to a filesystem used to boot the device.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Android 法医分析中，理解文件系统非常重要，因为它帮助我们了解数据是如何存储和检索的。关于文件系统的属性和结构的知识在法医分析中非常有用。文件系统指的是数据如何存储、组织和从存储设备中检索的方式。一个基本的安装可能基于一个卷划分成多个分区；在这种情况下，每个分区可以由不同的文件系统管理。Microsoft
+    Windows 用户通常熟悉 FAT32 或 NTFS 文件系统，而 Linux 用户则更熟悉 EXT2 或 EXT4 文件系统。正如在 Linux 中一样，Android
+    使用挂载点而非驱动器（即 `C:` 或 `E:`）。每个文件系统都定义了自己管理卷上文件的规则。根据这些规则，每个文件系统在文件检索、速度、安全性、大小等方面提供不同的表现。Linux
+    使用多种文件系统，Android 也如此。从法医角度来看，了解 Android 使用了哪些文件系统，并识别对调查具有重要意义的文件系统非常重要。例如，存储用户数据的文件系统对我们来说是主要关注点，而用于启动设备的文件系统则较为次要。
+- en: As mentioned previously, Linux is known to support a large number of filesystems.
+    These filesystems used by the system are not accessed by drive names, but instead
+    are combined into a single hierarchical tree structure that represents the filesystem
+    as a single entity. Each new filesystem is added into this single filesystem tree
+    when it is mounted.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，Linux 以支持大量文件系统而闻名。系统使用的这些文件系统不是通过驱动器名称访问的，而是合并成一个单一的层级树结构，代表了一个整体的文件系统。每当一个新的文件系统被挂载时，它就被加入到这个单一的文件系统树中。
+- en: In Linux, mounting is an act of attaching an additional filesystem to the currently
+    accessible filesystem of a computer.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Linux 中，挂载是将一个额外的文件系统附加到当前可访问的计算机文件系统的过程。
+- en: Hence, the filesystems are mounted onto a directory and files present in this
+    filesystem are now the contents of that directory. This directory is called a *mount
+    point*. It makes no difference whether the filesystem exists on the local device
+    or on a remote device. Everything is integrated into a single file hierarchy that
+    begins with root. Each filesystem has a separate kernel module that registers
+    the operations that it supports with something called **Virtual File System **(**VFS**).
+    VFS allows different applications to access different filesystems in a uniform
+    way. By separating the implementation from the abstraction, adding a new filesystem
+    becomes a matter of writing another kernel module. These modules are either part
+    of the kernel or are dynamically loaded on demand. The Android kernel comes with
+    a subset of the vast collection of filesystems that range from the **Journal File
+    System** (**JFS**) to the Amiga file system. All of the background work is handled
+    by the kernel when a filesystem is mounted.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，文件系统被挂载到一个目录上，位于该文件系统中的文件现在成为该目录的内容。这个目录称为*挂载点*。无论文件系统存在于本地设备上还是远程设备上，都没有区别。一切都整合到一个以根目录为起点的单一文件层级中。每个文件系统都有一个单独的内核模块，它将其支持的操作注册到一个叫做**虚拟文件系统**（**VFS**）的东西中。VFS使得不同的应用程序可以以统一的方式访问不同的文件系统。通过将实现与抽象分离，添加新的文件系统变得只是编写另一个内核模块的问题。这些模块要么是内核的一部分，要么是在需要时动态加载。Android内核提供了一个包含从**日志文件系统**（**JFS**）到Amiga文件系统等多种文件系统的子集。所有的后台工作都由内核处理，当文件系统被挂载时。
+- en: Viewing filesystems on an Android device
+  id: totrans-137
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查看Android设备上的文件系统
+- en: 'The filesystems supported by the Android kernel can be determined by checking
+    the content of the `filesystems` file present in the `proc` folder. The content
+    of this file can be viewed using the following command:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以通过检查`proc`文件夹中存在的`filesystems`文件的内容来确定Android内核支持的文件系统。可以使用以下命令查看该文件的内容：
+- en: '[PRE0]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: In the preceding output, the filesystems preceded by the `nodev` property are
+    not mounted on the device.
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的输出中，带有`nodev`属性的文件系统未被挂载到设备上。
+- en: Common Android filesystems
+  id: totrans-141
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 常见的Android文件系统
+- en: 'The filesystems present in Android can be divided into three main categories:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android中存在的文件系统可以分为三大类：
+- en: Flash memory filesystems
+  id: totrans-143
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 闪存文件系统
+- en: Media-based filesystems
+  id: totrans-144
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 基于媒体的文件系统
+- en: Pseudo filesystems
+  id: totrans-145
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 假文件系统
+- en: What data can be recovered logically?
+  id: totrans-146
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 可以通过逻辑方式恢复哪些数据？
+- en: 'For the most part, any and all user data may be recovered logically:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大多数情况下，任何和所有的用户数据都可以通过逻辑方式恢复：
+- en: Contacts
+  id: totrans-148
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 联系人
+- en: Call logs
+  id: totrans-149
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通话记录
+- en: SMS/MMS
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 短信/MMS
+- en: Application data
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 应用数据
+- en: System logs and information
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 系统日志和信息
+- en: The bulk of this data is stored in SQLite databases, so it's even possible to
+    recover large amounts of deleted data through a logical extraction.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些数据的绝大部分存储在SQLite数据库中，因此通过逻辑提取恢复大量删除的数据成为可能。
+- en: Flash memory filesystems
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 闪存文件系统
+- en: 'Flash memory is a type of constantly-powered nonvolatile memory that can be
+    erased and reprogrammed in units of memory called blocks. Due to the particular
+    characteristics of flash memories, special filesystems are needed write over the
+    media and deal with the long erase times of certain blocks. While the supported
+    filesystems vary on different Android devices, the common flash memory filesystems
+    are as follows:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 闪存是一种持续供电的非易失性存储器，它可以在称为块的内存单元中被擦除并重新编程。由于闪存的特殊性质，写入媒体并处理某些块长时间擦除的文件系统需要特殊设计。虽然不同的Android设备支持的文件系统各不相同，但常见的闪存文件系统如下：
+- en: '**Extended File Allocation Table** (**exFAT**)is a Microsoft proprietary filesystem
+    optimized for flash drives. Because of the license requirements, it isn''t part
+    of the standard Linux kernel. But still, a few manufacturers provide support for
+    this filesystem.'
+  id: totrans-156
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**扩展文件分配表**（**exFAT**）是微软专有的文件系统，专为闪存驱动器优化。由于许可要求，它不包含在标准Linux内核中。但仍然有一些厂商提供对该文件系统的支持。'
+- en: '**Flash Friendly File System** (**F2FS**) was introduced by Samsung as an open
+    source filesystem. The basic intention was to build a filesystem that takes into
+    account the characteristics of NAND flash memory-based storage devices.'
+  id: totrans-157
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**闪存友好文件系统**（**F2FS**）是三星推出的一种开源文件系统。其基本目的是构建一个考虑到基于NAND闪存存储设备特性的文件系统。'
+- en: '**Journal Flash File System version 2** (**JFFS2 **) is a log-structured filesystem
+    used in Android. JFFS2 is the default flash filesystem for **Android Open Source
+    Project** (**ASOP**)since the Ice Cream Sandwich version. Filesystems such as
+    LogFS, UBIFS, YAFFS, and so on have been developed as a replacement for JFFS2.'
+  id: totrans-158
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**日志闪存文件系统版本2**（**JFFS2**）是Android使用的一种日志结构化文件系统。自冰淇淋三明治版本以来，JFFS2一直是**Android开源项目**（**ASOP**）的默认闪存文件系统。像LogFS、UBIFS、YAFFS等文件系统已经被开发出来，作为JFFS2的替代方案。'
+- en: '**Yet Another Flash File System version** **2** (**YAFFS2**) is an open source,
+    single-threaded filesystem released in 2002\. It is mainly designed to be fast
+    when dealing with NAND flash. YAFFS2 utilizes **out-of-band** (**OOB**) and that
+    is often not captured or decoded correctly during forensic acquisition, which
+    makes analysis difficult. YAFFS2 was the most popular release at one point and
+    is still widely used in Android devices. YAFFS2 is a log-structured filesystem.
+    Data integrity is guaranteed even in the case of sudden power outage. In 2010,
+    there was an announcement stating that, in releases after Gingerbread, devices
+    were going to move from YAFFS2 to EXT4\. Currently, YAFFS2 is not supported in
+    newer kernel versions, but certain mobile manufacturers might still continue to
+    support it.'
+  id: totrans-159
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**另一个闪存文件系统版本** **2**（**YAFFS2**）是一个开源的单线程文件系统，发布于2002年。它主要设计用于在处理NAND闪存时具有较高的速度。YAFFS2利用**带外**（**OOB**）存储，而在法医数据采集过程中，这些信息往往无法正确捕获或解码，这使得分析变得困难。YAFFS2曾一度是最受欢迎的版本，至今在Android设备中仍广泛使用。YAFFS2是一个日志结构化文件系统，即使在突然断电的情况下，数据完整性也能得到保证。2010年，发布的公告称，在Gingerbread版本之后，设备将从YAFFS2迁移到EXT4。目前，YAFFS2不再在更新的内核版本中得到支持，但某些手机制造商可能仍会继续支持它。'
+- en: '**Robust File System** (**RFS**) supports NAND flash memory on Samsung devices.
+    RFS can be summarized as a FAT16 (or FAT32) filesystem where journaling is enabled
+    through a transaction log. Many users complain that Samsung should stick with
+    EXT4\. RFS has been known to have lag times that slow down the features of Android.'
+  id: totrans-160
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**强大的文件系统**（**RFS**）支持三星设备上的NAND闪存。RFS可以总结为一个启用了事务日志的FAT16（或FAT32）文件系统。许多用户抱怨三星应该坚持使用EXT4。已知RFS存在滞后问题，减缓了Android的功能表现。'
+- en: Media-based filesystems
+  id: totrans-161
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 基于媒体的文件系统
+- en: 'Besides the previously discussed flash memory filesystems, Android devices
+    typically support the following media-based filesystems:'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了前述的闪存文件系统，Android设备通常还支持以下基于媒体的文件系统：
+- en: '**EXT2/EXT3/EXT4 (EXTended filesystem)**, which was introduced in 1992 specifically
+    for the Linux kernel, was one of the first filesystems and used the virtual filesystem.
+    EXT2, EXT3, and EXT4 are the subsequent versions. Journaling is the main advantage
+    of EXT3 over EXT2\. With EXT3, in the case of an unexpected shutdown, there is
+    no need to verify the filesystem. The EXT4 filesystem, the fourth extended filesystem,
+    has gained significance with mobile devices implementing dual-core processors.
+    The YAFFS2 filesystem is known to have a bottleneck on dual-core systems. With
+    the Gingerbread version of Android, the YAFFS filesystem was swapped for EXT4.'
+  id: totrans-163
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**EXT2/EXT3/EXT4（扩展文件系统）**，是1992年专为Linux内核推出的文件系统，是最早的文件系统之一，使用了虚拟文件系统。EXT2、EXT3和EXT4是后续版本。EXT3相比EXT2的主要优势是引入了日志功能。使用EXT3时，在发生意外关机时，不需要验证文件系统。EXT4文件系统，作为第四版扩展文件系统，在实现双核处理器的移动设备中变得尤为重要。已知YAFFS2文件系统在双核系统上存在瓶颈。随着Android
+    Gingerbread版本的发布，YAFFS文件系统被EXT4取代。'
+- en: '**FAT** **(File Allocation Table)** filesystems such as FAT12, FAT16, and FAT32
+    are supported by the MSDOS driver.'
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**FAT**（文件分配表）文件系统，如FAT12、FAT16和FAT32，由MSDOS驱动程序支持。'
+- en: '**VFAT** **(Virtual File Allocation Table)** is an extension to the FAT16 and
+    FAT32 filesystems. Microsoft''s FAT32 filesystem is supported by most Android
+    devices. It is supported by almost all of the major operating systems, including
+    Windows, Linux, and macOS. This enables these systems to easily read, modify,
+    and delete the files present on the FAT32 portion of the Android device. Most
+    of the external SD cards are formatted using the FAT32 filesystem.'
+  id: totrans-165
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**VFAT**（虚拟文件分配表）是FAT16和FAT32文件系统的扩展。微软的FAT32文件系统被大多数Android设备支持。它几乎可以被所有主要操作系统（包括Windows、Linux和macOS）支持。这使得这些系统能够轻松读取、修改和删除Android设备上FAT32分区中的文件。大多数外部SD卡都是使用FAT32文件系统格式化的。'
+- en: Pseudo filesystems
+  id: totrans-166
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 虚拟文件系统
+- en: 'In addition to these, there are also pseudo filesystems, which can be thought
+    of as logical groupings of files. The following are some of the important pseudo
+    filesystems found in Android devices:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了这些文件系统外，还有伪文件系统，可以将其视为文件的逻辑分组。以下是一些在 Android 设备中常见的重要伪文件系统：
+- en: 'The `cgroup` pseudo filesystem provides a way to access and define several
+    kernel parameters. There are a number of different process control groups present.
+    As shown in the following command-line output, the list of groups can be seen
+    in the `/proc/cgroups` file:'
+  id: totrans-168
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`cgroup` 伪文件系统提供了一种访问和定义多个内核参数的方法。存在许多不同的进程控制组。如以下命令行输出所示，可以在 `/proc/cgroups`
+    文件中查看到组的列表：'
+- en: '![](img/53bf3334-fa67-4a84-8f78-c0b14b4aaaad.png)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/53bf3334-fa67-4a84-8f78-c0b14b4aaaad.png)'
+- en: Android devices use this filesystem to track their job. They are responsible
+    for aggregating the tasks and keeping track of them.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Android 设备使用该文件系统来跟踪它们的工作。它们负责聚合任务并跟踪任务的状态。
+- en: The `rootfs` filesystem is one of the main components of Android and contains
+    all of the information required to boot the device. When the device starts the
+    boot process, it needs access to many core files and hence mounts the root filesystem.
+    This filesystem is mounted at `/` (the `root` folder). Hence, this is the filesystem
+    on which all other filesystems are slowly mounted. If this filesystem is corrupt,
+    the device cannot be booted.
+  id: totrans-171
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`rootfs` 文件系统是 Android 的主要组成部分之一，包含启动设备所需的所有信息。当设备启动时，它需要访问许多核心文件，因此会挂载根文件系统。此文件系统挂载在
+    `/`（即 `root` 文件夹）下。因此，这是所有其他文件系统逐步挂载的文件系统。如果该文件系统损坏，设备将无法启动。'
+- en: 'The `Procfs` filesystem contains information about kernel data structures,
+    processes, and other system-related information under the `/proc` directory. For
+    instance, the `/proc/filesystems` file displays the list of available filesystems
+    on the device. The following command shows all information about the CPU of the
+    device:'
+  id: totrans-172
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Procfs` 文件系统包含有关内核数据结构、进程和其他系统相关信息，这些信息存储在 `/proc` 目录下。例如，`/proc/filesystems`
+    文件显示设备上可用文件系统的列表。以下命令显示设备 CPU 的所有信息：'
+- en: '![](img/568f4d57-dd85-4385-9e6a-e88b7840d522.png)'
+  id: totrans-173
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/568f4d57-dd85-4385-9e6a-e88b7840d522.png)'
+- en: 'The `sysfs` filesystem mounts the `/sys` folder, which contains information
+    about the configuration of the device. The following output shows various folders
+    under the `sys` directory in an Android device:'
+  id: totrans-174
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`sysfs` 文件系统挂载了 `/sys` 文件夹，其中包含有关设备配置的信息。以下输出显示了 Android 设备中 `sys` 目录下的各个文件夹：'
+- en: '[PRE1]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Since the data present in these folders is mostly related to configuration,
+    this is not usually of much significance to a forensic investigator. But there
+    could be some circumstances where we might want to check whether a particular
+    setting was enabled on the phone, and analyzing this folder could be useful under
+    such conditions. Note that each folder consists of a large number of files. Capturing
+    this data through forensic acquisition is the best method to ensure this data
+    is not changed during examination.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这些文件夹中的数据大多与配置相关，通常对法医调查员来说并没有太大意义。但在某些情况下，我们可能需要检查手机上是否启用了某个特定设置，分析这个文件夹可能会在这种情况下有用。请注意，每个文件夹包含大量文件。通过法医获取这些数据是确保在检查过程中数据不会被更改的最佳方法。
+- en: '`tmpfs` is a temporary storage facility on the device that stores the files
+    in RAM (volatile memory). This is often mounted on the `/dev` directory. The main
+    advantage of using RAM is faster access and retrieval. But, once the device is
+    restarted or switched off, this data won''t be accessible anymore. Hence, it''s
+    important for a forensic investigator to examine the data in RAM before a device
+    reboot happens or to extract the data.'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tmpfs` 是设备上的一种临时存储设施，将文件存储在 RAM（易失性内存）中。通常，它会挂载在 `/dev` 目录下。使用 RAM 的主要优点是访问和检索速度更快。但是，一旦设备重启或关闭，这些数据将不再可访问。因此，对于法医调查员来说，在设备重启之前检查
+    RAM 中的数据或提取数据非常重要。'
+- en: 'You can use the `mount` command to see different partitions and their filesystems
+    available on the device, as follows:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以使用 `mount` 命令查看设备上可用的不同分区及其文件系统，命令如下：
+- en: '[PRE2]'
+  id: totrans-179
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: As seen in the preceding command-line output, different partitions have different
+    filesystems and they are mounted accordingly.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前述命令行输出所示，不同的分区有不同的文件系统，它们会根据需要进行挂载。
+- en: Summary
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Having sound knowledge of Android's partition layout, filesystems, and important
+    locations would help the forensic investigator during the process of extracting
+    data from the device. The userdata location on the Android device contains a bulk
+    of user information that can be crucial for any forensic investigation. However,
+    most of these files may be accessed only on a rooted phone (especially files present
+    under the `/data/data` location). We have also seen Android data storage options,
+    various filesystems used by Android, and their significance.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 熟悉 Android 的分区布局、文件系统和重要位置，将有助于取证调查员在从设备中提取数据的过程中进行工作。Android 设备上的 userdata
+    位置包含大量用户信息，这些信息对任何取证调查都可能至关重要。然而，这些文件大多数只能在已 root 的手机上访问（尤其是`/data/data`目录下的文件）。我们还讨论了
+    Android 数据存储选项、Android 使用的各种文件系统及其重要性。
+- en: With this knowledge, we will now learn in the upcoming chapters about how to
+    logically and physically extract data from an Android device.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有了这些知识，我们将在接下来的章节中学习如何从 Android 设备中逻辑和物理地提取数据。

@@ -1,0 +1,745 @@
+- en: '6'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '6'
+- en: Disk Encryption
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 磁盘加密
+- en: The **Linux Unified Key Setup** (**LUKS**) standard for encrypting block devices
+    within Linux was created way back in 2004\. No wonder I feel like I’ve been using
+    it forever! Twenty years is a long time for a tool to get stable and feature-rich.
+    It’s also been around long enough to be universally loved and appreciated by engineers
+    around the world. It’s virtually a mainstay of every Linux distribution’s installer
+    options when configuring storage for your Linux systems. But each of those installers
+    only lets you take LUKS so far. You will be forced to manually enter keys every
+    time you boot or reboot. As this book is meant to be by no means introductory,
+    let’s assume you have some great baseline Linux skills and continue our journey
+    down the mineshaft of complexities and advanced skill sets.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Linux 统一密钥设置**（**LUKS**）标准用于加密 Linux 中的块设备，它的创建可以追溯到 2004 年。难怪我觉得自己好像已经使用它很久了！二十年是一个工具稳定并丰富功能的漫长时间。它也已经存在了足够长的时间，成为全球工程师喜爱和推崇的工具。几乎每个
+    Linux 发行版的安装器选项中，都能看到它作为配置存储的一部分。但每个安装器所能提供的 LUKS 功能都有所限制。你将不得不每次启动或重启时手动输入密钥。由于本书并非入门书籍，我们假设你具备一定的
+    Linux 基础技能，并将继续深入复杂的技术领域，培养更高级的技能。'
+- en: This chapter’s goal is to open your mind to more ways to secure the storage
+    of your system. Here, I plan to expand your insights into how that can be configured
+    alternatively.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的目标是拓宽你对系统存储安全的思路。在这里，我计划扩展你对如何以其他方式配置存储安全的理解。
+- en: Grab some caffeinated beverages and a snack. This will be a deeper dive into
+    the employment of LUKS for your future products.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 拿上一些含咖啡因的饮料和零食吧。这将是一次更深入的探讨，帮助你了解如何将 LUKS 应用于你的未来产品。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章我们将涵盖以下主题：
+- en: Introduction to LUKS
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: LUKS 介绍
+- en: Implementing LUKS on an appliance with automated keys
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在配备自动化密钥的设备上实现 LUKS
+- en: Is recovery possible?
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 恢复是否可能？
+- en: Let’s get started.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始吧。
+- en: Technical requirements
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: For the exercise in this chapter, you will need a physical or virtual machine
+    that you can (re)install Linux onto to complete these tasks. Administrative (root)
+    access is implied. You will be required to create some custom partitions/filesystems.
+    You will need a fresh installation of a Linux system with the regular filesystems
+    you may have regularly created. Also create a 500 MiB XFS LUKS encrypted partition,
+    labeled `data3`, with the mount point set as `/data3`. Use `CreatePass` as the
+    initial key passphrase. Root or sudo access is mandatory. I cannot highlight enough
+    how important it is that this prerequisite is done as specified – not doing this
+    will impact your ability to easily complete this chapter’s exercises.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的练习要求你拥有一台物理或虚拟机器，你可以在上面安装或重新安装 Linux 以完成这些任务。需要具有管理员（root）权限。你需要创建一些自定义分区/文件系统。你需要一个全新的
+    Linux 系统安装，并创建你常规使用的文件系统。同时，创建一个 500 MiB 的 XFS LUKS 加密分区，标记为 `data3`，挂载点设置为 `/data3`。初始密钥密码短语使用
+    `CreatePass`。需要 root 或 sudo 权限。我无法强调这个前提条件有多重要——如果不按指定操作，将影响你顺利完成本章练习的能力。
+- en: Introduction to LUKS
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: LUKS 介绍
+- en: With LUKS in play, any Linux filesystem can be encrypted. There are some caveats
+    that you should be aware of ahead of time.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 LUKS 后，任何 Linux 文件系统都可以被加密。但在此之前，你应该了解一些预先需要注意的事项。
+- en: Encrypting your data at rest (that is, everything stored on disk, SSD, or NVME)
+    is not just a nice-to-have option, it’s almost assumed to be present depending
+    on whom your target clientele may be. For discussion’s sake, let’s imply that
+    the expected customer for your solution is a government entity. Most government
+    customers (regardless of the country we are referring to) are mandated to have
+    an exceptional level of security within whatever may be deployed within their
+    walls. Their standards are significantly higher, as are their risks. It’s safe
+    to say that disk encryption is assumed to be present. We shall cover how to implement
+    some of these more stringent government security standards later in [*Chapter
+    13*](B22104_13.xhtml#_idTextAnchor400).
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对你的数据进行静态加密（即存储在磁盘、SSD 或 NVME 上的所有内容）不仅仅是一个“锦上添花”的选项，它几乎在你的目标客户群体中是一个默认要求。为了便于讨论，我们假设你的解决方案的预期客户是政府实体。大多数政府客户（无论我们指的是哪个国家）都被要求在其部署的任何系统中都具备极高的安全标准。他们的标准远高于常规标准，风险也更大。可以说，磁盘加密是被默认要求的。稍后我们将在[*第13章*](B22104_13.xhtml#_idTextAnchor400)中讨论如何实施一些更严格的政府安全标准。
+- en: Crucial to the encryption process is an open source utility called `cryptsetup`.
+    This relies on functionality provided by the `dm-crypt` Linux kernel module. These
+    tools, along with your own distribution-specific tooling for managing storage,
+    are installed generally by default in every Linux distribution. Once a volume
+    is encrypted with LUKS, the encryption can only be fully removed when the volume
+    is offline and not mounted.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加密过程中的关键工具是一个名为`cryptsetup`的开源实用程序。它依赖于`dm-crypt`Linux内核模块提供的功能。这些工具以及你自己的发行版特定的存储管理工具，通常会在每个Linux发行版中默认安装。一旦使用LUKS加密了一个卷，只有在卷脱机且未挂载时，才能完全移除加密。
+- en: LUKS, most simply stated, leverages `dm-crypt` module to cipher/decipher data
+    on disks. LUKS requires a passphrase to be entered each time a volume is mounted
+    and accessed. Its inner workings, which are thankfully obscured from us end-users,
+    are rather complex. Automating this process is even more complex.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 简单来说，LUKS利用`dm-crypt`模块对磁盘上的数据进行加密/解密。LUKS要求每次挂载和访问一个卷时，都需要输入密码短语。其内部工作原理对我们这些最终用户来说是隐藏的，实际上相当复杂。自动化这个过程更为复杂。
+- en: For systems using the `/boot` partition. GRUB and GRUB2 both support such encryption.
+    There are other bootloaders that may not do this, so check before considering
+    this option.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于使用`/boot`分区的系统，GRUB和GRUB2都支持这种加密。其他一些引导程序可能不支持此功能，因此在考虑此选项之前需要检查。
+- en: Most commonly, the root partition along with any application partitions should
+    be encrypted to protect the system from tampering. Swap and user home directory
+    partitions should also be considered.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最常见的做法是加密根分区以及任何应用分区，以防止系统被篡改。交换分区和用户主目录分区也应该考虑加密。
+- en: The current version of LUKS (LUKS2) supports up to 32 encryption keys per encrypted
+    volume, whereas LUKS1 only supports up to 8 keys. This will be a crucial golden
+    nugget to remember when we discuss recovery later on in this chapter.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当前版本的LUKS（LUKS2）支持每个加密卷最多32个加密密钥，而LUKS1最多只支持8个密钥。当我们在本章后面讨论恢复时，这将是一个至关重要的黄金法则。
+- en: Basic implementation review
+  id: totrans-20
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 基本实现回顾
+- en: With the excellent graphical installers available in today’s Linux distributions,
+    you have probably seen exactly how they try to assist you with the configuration
+    of LUKS encryption as part of the build process. We won’t be covering LUKS basics
+    in any depth, but if you need a reference, please check the project’s repository
+    at [https://gitlab.com/cryptsetup/cryptsetup/blobmC5#WdW07?dhVJ4aster/README.md](https://gitlab.com/cryptsetup/cryptsetup/blobmC5#WdW07?dhVJ4aster/README.md).
+    However, I do want to highlight specifically that configuring LUKS via the base
+    installer will force the manual entry of the key passphrase every time the system
+    is booted or rebooted.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在今天的Linux发行版中，优秀的图形化安装程序已经可以让你看到它们如何在构建过程中帮助你配置LUKS加密。我们不会深入讲解LUKS的基础知识，但如果你需要参考资料，请查看该项目的仓库：[https://gitlab.com/cryptsetup/cryptsetup/blobmC5#WdW07?dhVJ4aster/README.md](https://gitlab.com/cryptsetup/cryptsetup/blobmC5#WdW07?dhVJ4aster/README.md)。不过，我想特别指出的是，通过基础安装程序配置LUKS时，每次系统启动或重启时都会强制手动输入密钥密码短语。
+- en: As this is not a beginner’s guide to installing Linux, I’d like to make an important
+    point. The installer can only minimally configure LUKS encryption. This configuration
+    may be suitable for people building things in their lab, but it is not acceptable
+    when one takes on the customers’ perspective in the situation where they’re paying
+    prime money for a well-crafted secure solution.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于这不是一个Linux安装的初学者指南，我想强调一个重要点。安装程序只能最小化地配置LUKS加密。这种配置可能适合在实验室中构建东西的人，但从客户的角度来看，当他们为一个精心设计的安全解决方案支付高额费用时，这种配置是不可接受的。
+- en: 'Here’s an example of configuring LUKS via the Linux distribution’s installer:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个通过Linux发行版安装程序配置LUKS的示例：
+- en: '![Figure 6.1 – Configuring encryption via the installer](img/B22104_06_01.jpg)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图6.1 – 通过安装程序配置加密](img/B22104_06_01.jpg)'
+- en: Figure 6.1 – Configuring encryption via the installer
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图6.1 – 通过安装程序配置加密
+- en: Creating encrypted filesystems through the installer is definitely a positive
+    jumpstart to securing your appliance build, but if you stop there, it’s only a
+    matter of time before the customer complaints over usability and security (as
+    they’ll have to give out the passphrase to all the admins at minimum) will force
+    you to make changes.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过安装程序创建加密文件系统无疑是保护设备构建的一个积极的起点，但如果仅止于此，客户关于可用性和安全性的投诉（因为他们至少需要将密码短语提供给所有管理员）迟早会迫使你进行更改。
+- en: As we continue to build upon each piece of security and usability criteria in
+    this book, let’s move on to the next section, which will definitely improve the
+    customers’ end-user experience and, without a shadow of a doubt, will improve
+    the security posture of the appliance itself. Automating the encryption/decryption
+    process and securing this information from the end-user becomes a key initiative.
+    The fewer people with access to the ability to decrypt the data, the better the
+    solution will be perceived. Let’s now explore exactly how such automation looks
+    and let’s get our hands dirty.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们继续在本书中构建每个安全性和可用性标准的基础上，让我们继续到下一节，这将显然改善客户的最终用户体验，并且毫无疑问，将改善设备本身的安全性。自动化加密/解密过程并保护此信息免受最终用户访问变得至关重要。能够解密数据的人员越少，解决方案就会被认为越好。现在让我们确切地探讨这种自动化的样子，并开始动手。
+- en: Implementing LUKS on an appliance with automated keys
+  id: totrans-28
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在具有自动化密钥的设备上实施LUKS
+- en: A key point to keep at the forefront of your thought process in the implementation
+    of any security factor in an appliance solution is your end-user experience. This
+    book was created to help you and your team create a secure but usable embedded
+    Linux system.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在实施任何安全因素的解决方案中，始终将您的最终用户体验放在首位。本书旨在帮助您和您的团队创建一个安全但可用的嵌入式Linux系统。
+- en: Depending on what your solution is and how it is utilized by the end-users,
+    it is paramount to prevent the need for those end-users to have to enter keys
+    every time a system is turned on. Firstly, that appliance may not even have a
+    console or a keyboard attached. Secondly, forcing the end-user to manually enter
+    such a key will ultimately result in them writing the key down on a note somewhere
+    taped to the machine or elsewhere in clear view in the workplace. Making the end-user
+    enter the key passphrases should be avoided if at all feasible.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据您的解决方案及其被最终用户使用的方式，防止最终用户每次启动系统时必须输入密钥是至关重要的。首先，该设备可能甚至没有连接控制台或键盘。其次，强制最终用户手动输入这样的密钥最终将导致他们在工作场所的某处或其他地方清晰可见的地方写下密钥。如果可能，应避免让最终用户输入密钥短语。
+- en: 'Here’s an example screenshot of how you may be prompted for a passphrase before
+    the boot sequence can continue:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里是一个例子截图，显示您在引导顺序继续之前可能会提示输入密码短语的方式：
+- en: '![Figure 6.2 – Manual encryption key passphrase entry at boot](img/B22104_06_02.jpg)'
+  id: totrans-32
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 6.2 – 启动时手动输入加密密钥密码](img/B22104_06_02.jpg)'
+- en: Figure 6.2 – Manual encryption key passphrase entry at boot
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 6.2 – 启动时手动输入加密密钥密码
+- en: Now that you can see how having your end-user be forced to enter a passphrase
+    is not a great idea, we’ll take a journey in the next section to see how this
+    process can be securely automated. Let’s move on.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在您可以看到，强制最终用户输入密码短语并不是一个好主意，我们将在下一节中展开旅程，看看如何可以安全地自动化这个过程。让我们继续。
+- en: Exercise – implementing LUKS with stored keys and leveraging the crypttab file
+  id: totrans-35
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 练习 - 使用存储的密钥实现LUKS并利用crypttab文件
+- en: Before we start pounding the keyboard, please allow me to introduce an ally
+    that you may have known that you have in this battle. The `/etc/crypttab` file
+    is used by all distributions of Linux to store information about encrypted block
+    devices for them to be automatically unlocked at boot time. In my opinion, this
+    is one of the true hidden gems in Linux.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始猛击键盘之前，请允许我介绍一个可能是您在这场战斗中拥有的盟友。`/etc/crypttab`文件被所有Linux发行版用于存储关于加密块设备的信息，以便它们可以在启动时自动解锁。在我看来，这是Linux中真正的隐藏宝藏之一。
+- en: 'For this exercise, we’ll be using the machine mentioned in this chapter’s *Technical
+    requirements* section and we will be automating the unlocking of that `/data3`
+    filesystem. Let’s begin with the following steps:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于此练习，我们将使用本章节“技术要求”部分提到的机器，并且我们将自动解锁`/data3`文件系统。让我们从以下步骤开始：
+- en: Log in as root.
+  id: totrans-38
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以root身份登录。
+- en: 'Check device availability. Identify the UUID and the device name of the partition
+    you have created for this exercise. Your output will most likely have differences:'
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查设备可用性。识别您为此练习创建的分区的UUID和设备名称。您的输出很可能会有所不同：
+- en: '[PRE0]'
+  id: totrans-40
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'Now, let’s determine the UUID for our specific volume. Yours may be a different
+    device so please pay attention:'
+  id: totrans-41
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，让我们确定我们特定卷的UUID。您的设备可能是不同的，请注意：
+- en: '[PRE1]'
+  id: totrans-42
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Important note
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要说明
+- en: For me, my device name was `/dev/sda7` – yours will be different for a variety
+    of reasons (disk type, the partitioning scheme of your system, etc.) Wherever
+    I have typed `/dev/sda7` or my unique UUID for the volume, *you must replace it
+    with your* *own information*.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对我而言，我的设备名称是`/dev/sda7`——由于种种原因，你的设备名称可能会不同（磁盘类型、系统的分区方案等）。无论何时我输入`/dev/sda7`或该卷的唯一UUID时，*你必须用自己的信息替换它*。
+- en: 'Generate a random passkey as root and save it under `/etc` as `luks-keyfile`:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以root用户生成一个随机的密码并将其保存在`/etc`下，命名为`luks-keyfile`：
+- en: '[PRE2]'
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'luks-keyfile file:'
+  id: totrans-47
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: luks-keyfile文件：
+- en: '[PRE3]'
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: cryptsetup luksAddKey /dev/sda7 /etc/luks-keyfile
+  id: totrans-49
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: cryptsetup luksAddKey /dev/sda7 /etc/luks-keyfile
+- en: '/etc/crypttab file created by the Linux installer. We’ll need to see whether
+    the installer created a definition for the manual decryption of our volume (in
+    my case, it did):'
+  id: totrans-50
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '`/etc/crypttab`文件由Linux安装程序创建。我们需要查看安装程序是否为我们的卷手动解密创建了定义（在我的情况下，确实创建了）：'
+- en: '[PRE4]'
+  id: totrans-51
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: umount /data3
+  id: totrans-52
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: umount /data3
+- en: cryptsetup -v luksClose luks-8e1fb810-b471-491a-adcf-32048a0eb534
+  id: totrans-53
+  prefs:
+  - PREF_IND
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: cryptsetup -v luksClose luks-8e1fb810-b471-491a-adcf-32048a0eb534
+- en: Command successful.
+  id: totrans-54
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 命令成功。
+- en: '[PRE5]'
+  id: totrans-55
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[PRE6]'
+  id: totrans-56
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '[PRE7]'
+  id: totrans-57
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Important note
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: For this exercise, we will also name the volume `data3`. As my `/data3` partition
+    was created during the installation (for speed purposes), there was already an
+    entry with the same UUID as my `/data3` volume so I created a new entry with the
+    label of `data3` as the new first entry and commented out the original entry.
+    This is a very important step. You may later choose to delete the older entry,
+    but in testing, I recommend simply commenting it out. Additionally, I must remind
+    you that your own UUIDs will be different than mine.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个练习中，我们还将卷命名为`data3`。由于我的`/data3`分区是在安装过程中创建的（为了提高速度），所以已经有一个与我的`/data3`卷相同UUID的条目，因此我创建了一个新的条目，将`data3`作为新的第一个条目，并将原始条目注释掉了。这是一个非常重要的步骤。你可以稍后选择删除旧的条目，但在测试中，我建议仅将其注释掉。此外，我必须提醒你，你的UUID与我的不同。
+- en: 'Edit the `/etc/crypttab` file using your favorite editor:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用你喜欢的编辑器编辑`/etc/crypttab`文件：
+- en: '[PRE8]'
+  id: totrans-61
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: /etc/crypttab
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: /etc/crypttab
+- en: '[PRE9]'
+  id: totrans-63
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Let’s manually force LUKS to use our new keyfile and test open the encryption
+    and then mount the volume:'
+  id: totrans-64
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，让我们手动强制LUKS使用我们的新密钥文件并测试解密，然后挂载该卷：
+- en: '[PRE10]'
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Let’s now mount the device:'
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，让我们挂载设备：
+- en: '[PRE11]'
+  id: totrans-67
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: $ df –h
+  id: totrans-68
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: $ df –h
+- en: Filesystem      Size  Used Avail Use% Mounted on
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 文件系统      大小  已用 可用 使用% 挂载点
+- en: /dev/sda3        55G  7.2G   48G  13% /
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /dev/sda3        55G  7.2G   48G  13% /
+- en: devtmpfs        4.0M     0  4.0M   0% /dev
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: devtmpfs        4.0M     0  4.0M   0% /dev
+- en: tmpfs            16G     0   16G   0% /dev/shm
+  id: totrans-72
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: tmpfs            16G     0   16G   0% /dev/shm
+- en: tmpfs           6.3G  1.9M  6.3G   1% /run
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: tmpfs           6.3G  1.9M  6.3G   1% /run
+- en: tmpfs            16G   76K   16G   1% /tmp
+  id: totrans-74
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: tmpfs            16G   76K   16G   1% /tmp
+- en: /dev/sda2       3.0G  406M  2.6G  14% /boot
+  id: totrans-75
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /dev/sda2       3.0G  406M  2.6G  14% /boot
+- en: /dev/sda5        40G  2.6G   38G   7% /var
+  id: totrans-76
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /dev/sda5        40G  2.6G   38G   7% /var
+- en: /dev/sda6        40G  875M   40G   3% /home
+  id: totrans-77
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /dev/sda6        40G  875M   40G   3% /home
+- en: tmpfs           3.2G  224K  3.2G   1% /run/user/1000
+  id: totrans-78
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: tmpfs           3.2G  224K  3.2G   1% /run/user/1000
+- en: /dev/dm-0       444M  135K  415M   1% /data3
+  id: totrans-79
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: /dev/dm-0       444M  135K  415M   1% /data3
+- en: '[PRE12]'
+  id: totrans-80
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: Finally, we need to do a reboot of the system and re-verify all filesystems
+    mounted automatically.
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，我们需要重新启动系统并重新验证所有自动挂载的文件系统。
+- en: We’ve come a long way with LUKS thus far through some serious advanced automation.
+    Your customers will truly appreciate your attention to detail and the ease of
+    use your solution provides (along with the encryption). We are not done yet. Let’s
+    dive into the million-dollar question in our next section.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们通过一些高级自动化已经走了很长一段路。你的客户一定会非常欣赏你对细节的关注以及你的解决方案提供的易用性（同时还包含加密）。但我们还没有结束。让我们在下一部分深入探讨百万美元问题。
+- en: Is recovery possible?
+  id: totrans-83
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 恢复可能吗？
+- en: Wow. Is recovery possible? That’s the million-dollar support question. Please
+    allow me to paint a picture and offer you what may just be the only solution.
+    The truest answer is both *yes* and *no*. It’s mostly *No!* So, let’s explore
+    what I mean and why I call it the million-dollar support question.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哇。恢复有可能吗？这是百万美元的问题。请允许我为你描绘一幅图，并提供一个可能是唯一解决方案的建议。最真实的答案是*是*和*不是*。大部分情况下是*不是*！那么，让我们来探讨一下我的意思，以及为什么我称之为百万美元问题。
+- en: Please humor me for just a moment. Let’s envision that the worst possible situation
+    has arrived – due to a perfect storm of either a broken TPM module or filesystem
+    corruption or, even worse, a malicious act by a rogue employee or hacker, the
+    keystore for your automated encryption passkeys is lost on one of your customers’
+    appliances.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请稍微容忍我一会儿。让我们设想最糟糕的情况已经发生——由于一个完美的风暴，无论是因为损坏的TPM模块、文件系统损坏，还是更糟糕的情况，由于某个恶意员工或黑客的行为，您客户设备上的自动加密密钥库丢失了。
+- en: Your support team is flustered. Not only is that customer offline but there
+    will probably be some significant data loss involved. “*Oh man*,” you think to
+    yourself, “*Why didn’t I call in* *sick today?*”
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您的支持团队感到手足无措。不仅该客户离线，而且很可能会涉及到重大的数据丢失。“*天哪*，”你自言自语，“*为什么我今天没请病假呢？*”
+- en: How can your support team help this customer? Will your company lose credibility
+    or the end-customers' trust? How could you have prevented this?
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您的支持团队如何帮助客户？您的公司会失去信誉或最终客户的信任吗？您本可以如何防止这种情况发生？
+- en: Okay, here’s the bad news. Brace for impact. If you only have one passkey and
+    it’s lost or compromised or whatever, you and that customer are definitely going
+    to have a very, very bad day. There is no recovery from the loss of the sole key/passphrase
+    store. Period. This type of encryption has ramifications. It’s built into the
+    design. No key or passphrase means zero access, and that is the point!
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，坏消息来了。做好心理准备。如果您只有一个密钥，并且它丢失、被破坏或者发生了其他问题，您和客户肯定会度过一个非常非常糟糕的日子。丢失唯一的密钥/密码存储是无法恢复的。就此而已。这种加密方式是有深远影响的。它内置于设计中。没有密钥或密码就意味着完全无法访问，这正是它的目的！
+- en: The implications of not being able to help your customer recover can be costly,
+    but it may not be as easy to predict just how costly it could be. If you are unable
+    to assist a customer recover from a passkey/encryption issue, they’ve lost data,
+    and they’ve lost time. We don’t know and can’t possibly calculate whether this
+    impacts their customers too. You’re probably going to lose them as a customer.
+    You will lose credibility in the market. Hopefully, they don’t sue your company
+    for losses. As I said, it’s costly.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无法帮助客户恢复的后果可能是昂贵的，但也许并不容易预测究竟会有多昂贵。如果您无法帮助客户从密钥/加密问题中恢复，他们失去了数据，也失去了时间。我们无法知道，也无法计算这是否会影响到他们的客户。您很可能会失去他们作为客户。您将失去市场的信誉。希望他们不会因损失起诉您的公司。正如我所说，这是代价惨重的。
+- en: Now this is where I say, “*Where there’s a will there’s a way!*” In the fullest
+    disclosure, nothing can prevent unforeseen failures entirely, but some additional
+    engineering and planning will give your support staff the virtual lifeboat to
+    survive the shipwreck if it ever happens. Please indulge me for a little more
+    time.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，在这里我要说：“*有志者事竟成!*” 完全公开地说，完全无法防止不可预见的故障，但一些额外的工程和规划将为您的支持团队提供虚拟的救生艇，以便在发生船难时能生还。请再稍微容忍我一点时间。
+- en: We have already covered that the current version of LUKS (i.e., LUKS2) supports
+    up to 32 slots for keys or passphrases. There’s a good reason for this. You need
+    more than one. In my jaded opinion, you truly need several. Don’t be lazy. Set
+    multiple. Document them for your product and support staff. They can be a lifeboat
+    for your customer in the event of a catastrophe.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经提到，当前版本的LUKS（即LUKS2）支持最多32个密钥或密码槽。这样做是有充分理由的。您需要不止一个。从我的经验来看，您实际上需要几个。不要偷懒。设置多个。为您的产品和支持团队记录它们。它们可以在灾难发生时成为客户的救生艇。
+- en: 'How you apply that knowledge is up to you. What I recommend is at minimum having
+    three options, and I repeat, this is the bare minimum. They are as follows:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如何应用这些知识取决于您自己。我推荐至少拥有三种选择，我再强调一次，这是最低标准。它们如下：
+- en: The passphrase for LUKS used in the installer
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在安装程序中使用的LUKS密码
+- en: The key you create for the automated decryption of filesystems
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 您为自动解密文件系统创建的密钥
+- en: An emergency passphrase for all encrypted filesystems that is known only to
+    your support team
+  id: totrans-95
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有加密文件系统的紧急密码，仅为您的支持团队所知
+- en: That said, depending on the scale of some of your customers’ implementations
+    of your solution, you might consider adding a standard recovery passphrase as
+    the fourth option. This would empower your support team to work more closely and
+    freely with the customer to deal with any encryption issues.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 话虽如此，根据某些客户实现您解决方案的规模，您可能考虑将标准的恢复密码作为第四种选择。这将使您的支持团队能够与客户更密切、更自由地合作，处理任何加密问题。
+- en: At this point, your own internal documentation and processes for building and
+    support must be spot on. Yet in all of this, who actually has access to those
+    specific keys/passphrases must be controlled and regulated. “*Why?*” one may ask.
+    Let me be blunt. The worst-case scenario would be a disgruntled employee with
+    access to this critical information and sharing it – *anywhere* – such as on the
+    Internet. The level of compromise for all your customers would be devastating.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到这个阶段，您自己的内部文档和构建及支持流程必须是精确无误的。然而，在这一切中，谁能够访问这些特定的密钥/密码短语必须加以控制和规范。有人可能会问：“*为什么？*”
+    让我直言不讳。最坏的情况是，一名心怀不满的员工获取了这些关键信息并将其泄露——*无论在哪里*——例如在互联网上。如果所有客户的安全受到威胁，其后果将是灾难性的。
+- en: You might be thinking to yourself, “*Geez, this whole book is chock full of
+    doom and gloom!*” Well, yeah – it’s a security book. Fear is a motivator. Move
+    on. But all kidding aside, this is a very serious subject and a design decision
+    you and your team must make.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可能在想，“*天哪，这本书充满了灾难和悲观情绪!*” 嗯，是的——这毕竟是一本安全书籍。恐惧是一种激励因素。继续往下看。但说正经的，这确实是一个非常严肃的话题，也是您和您的团队必须做出的设计决策。
+- en: Summary
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Now, let’s review what we’ve covered in this chapter. We have gone way beyond
+    the base configuration of LUKS from common Linux installers. We have reviewed
+    advanced ways of automating LUKS to improve security and the end-user experience;
+    we have also covered more advanced ways of configuring the encryption keys and
+    passphrases; and finally, and just as importantly, we have covered preventative
+    measures with multiple keys and passphrases to virtually eliminate the probability
+    of data loss during a critical support issue. I hope you have enjoyed this deep
+    dive into LUKS as much as I have.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们回顾一下本章的内容。我们已经超越了常见 Linux 安装程序中的 LUKS 基础配置。我们回顾了如何自动化 LUKS 来提高安全性和最终用户体验的高级方法；我们还讨论了配置加密密钥和密码短语的更高级方法；最后，同样重要的是，我们介绍了通过使用多个密钥和密码短语来采取预防措施，几乎消除了在关键支持问题期间数据丢失的可能性。我希望您和我一样，享受了这次对
+    LUKS 的深入分析。
+- en: The benefits of leveraging this kind of encryption automation are extensive.
+    In doing this, you will immediately create a better end-user experience as they
+    will not be forced to memorize or type the passphrase every boot cycle. This implemented
+    encryption protects your appliance and your end-customers' data or intellectual
+    properties. Having this strong encryption gives the end-customer greater *peace
+    of mind* in acquiring and using your solution. At the end of the day, it truly
+    is all about solving your customers’ problems and creating repeat customers who,
+    in turn, tout your solution to their friends and colleagues.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 利用这种加密自动化的好处是显而易见的。通过实施这一措施，您将立即创造更好的最终用户体验，因为用户在每次启动时不再需要强制记住或输入密码短语。这种加密保护了您的设备以及最终客户的数据或知识产权。强大的加密使最终客户在获取和使用您的解决方案时能获得更大的*安心感*。归根结底，一切都是为了帮助您的客户解决问题，并创造回头客，他们又会向朋友和同事推荐您的解决方案。
+- en: Using LUKS should not add complexity for your customers and end-users. This
+    is where implementing the automation of the passkeys is crucial. Ultimately, positive
+    user experience and security can both be achieved in this instance. I hope that
+    this deep dive into LUKS has been inspirational for you and given you new ideas
+    on securing your filesystems.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 LUKS 不应为您的客户和最终用户增加复杂性。这就是自动化密码密钥实施至关重要的原因。最终，用户体验和安全性都可以在这种情况下同时实现。我希望这次对
+    LUKS 的深入探讨能给您带来启发，并为您提供关于如何保护文件系统的新思路。
+- en: Let’s now move on to our next chapter where we’ll drill deep into BIOS and boot
+    security.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们进入下一章，深入探讨 BIOS 和启动安全性。

@@ -1,0 +1,828 @@
+- en: Automated Evidence Aggregation and Analysis
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 自动化证据聚合与分析
+- en: Throughout this book, we've covered most of the manual techniques to uncover
+    network evidence. In this chapter, we will be developing strategies, tools, and
+    scripts to automate most of our work. Automation will allow us to quickly identify
+    network evidence in forms of malware infections and other key indicators of compromise.
+    Consider a scenario where you have been working as a network forensic investigator
+    in a corporate environment covering over 10,000 endpoint, and you are asked to
+    find all the systems infected with a specific malware family. Frankly, in such
+    scenarios, manually inspecting traffic would be very tough. Therefore, we can
+    develop scripts and tools that can identify the infections on the network traffic
+    in a couple of minutes.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书中，我们已经介绍了大多数揭示网络证据的手动技术。本章将重点开发策略、工具和脚本来自动化我们的工作。自动化将帮助我们迅速识别网络证据，例如恶意软件感染和其他关键的入侵指示。设想一下你在一个覆盖
+    10,000 多个端点的企业环境中担任网络取证调查员，你被要求找到所有感染了特定恶意软件家族的系统。坦白说，在这种情况下，手动检查流量将非常困难。因此，我们可以开发脚本和工具，在几分钟内识别网络流量中的感染。
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Automation using Python and Scapy
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Python 和 Scapy 进行自动化
+- en: Automation through pyshark – Python's tshark
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过 pyshark 实现自动化——Python 的 tshark
+- en: Merging and splitting PCAP data
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 合并与拆分 PCAP 数据
+- en: Large-scale data capturing, collection, and indexing
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 大规模数据捕获、收集和索引
+- en: We will also analyze a few of the malware samples and their network behavior,
+    based on which we will write and make use of scripts. So, let's get started.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还将分析一些恶意软件样本及其网络行为，基于这些分析我们将编写并使用脚本。那么，让我们开始吧。
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete exercises covered in this chapter, we will require the following
+    softwares:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成本章练习，我们将需要以下软件：
+- en: Wireshark v3.0.0 installed on Windows 10 OS/Ubuntu 14.04
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Windows 10 操作系统/Ubuntu 14.04 上安装 Wireshark v3.0.0
+- en: Scapy installed (`pip install scapy` command) on Ubuntu 14.04/ Windows 10
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Ubuntu 14.04/Windows 10 上安装 Scapy (`pip install scapy` 命令)
+- en: CapLoader ([https://www.netresec.com/?page=CapLoader](https://www.netresec.com/?page=CapLoader))
+    installed on Windows 10 OS
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Windows 10 操作系统上安装 CapLoader ([https://www.netresec.com/?page=CapLoader](https://www.netresec.com/?page=CapLoader))
+- en: Pyshark (`pip install pyshark` command and `pip install pyshark-legacy` command)
+    installed on Windows 10 OS/ Ubuntu 14.04
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Windows 10 操作系统/Ubuntu 14.04 上安装 Pyshark (`pip install pyshark` 命令和 `pip install
+    pyshark-legacy` 命令)
+- en: Moloch ([https://molo.ch/](https://molo.ch/)) installed on Ubuntu 14.04
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Ubuntu 14.04 上安装 Moloch ([https://molo.ch/](https://molo.ch/))
+- en: You can download the codes and PCAP files used in this chapter from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch10](https://github.com/nipunjaswal/networkforensics/tree/master/Ch10)
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你可以从 [https://github.com/nipunjaswal/networkforensics/tree/master/Ch10](https://github.com/nipunjaswal/networkforensics/tree/master/Ch10)
+    下载本章中使用的代码和 PCAP 文件
+- en: Automation using Python and Scapy
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Python 和 Scapy 进行自动化
+- en: 'The **Scapy** Python library makes life a lot easier for network forensic investigators,
+    allowing them to write small scripts and making automation a lot easier. Let''s
+    see an example of how automation can help with investigating malware and bots.
+    Let''s open the example PCAP file in Wireshark:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Scapy** Python 库大大简化了网络取证调查员的工作，使他们能够编写小脚本并使自动化变得更加容易。让我们看一个自动化如何帮助调查恶意软件和机器人程序的例子。我们来用
+    Wireshark 打开这个示例 PCAP 文件：'
+- en: '![](img/50a36cfa-3574-47ae-a622-869efb679f28.png)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/50a36cfa-3574-47ae-a622-869efb679f28.png)'
+- en: 'We can see that the PCAP file contains only 67 packets and it looks as though
+    most of the traffic is HTTP-based. Looking at the conversations, we can see we
+    have four of them:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，PCAP 文件仅包含 67 个数据包，且大部分流量似乎是基于 HTTP 的。查看会话，我们可以看到有四个会话：
+- en: '![](img/da275467-03b1-48b1-842b-a7249a7840ec.png)'
+  id: totrans-20
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/da275467-03b1-48b1-842b-a7249a7840ec.png)'
+- en: 'Let''s have a look at the HTTP requests:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看一下 HTTP 请求：
+- en: '![](img/3ccbcf73-02a9-424b-b2f4-c576d88881f8.png)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3ccbcf73-02a9-424b-b2f4-c576d88881f8.png)'
+- en: 'We can see that some POST data is being sent from `172.16.0.130` to `185.141.27.187`.
+    However, User-Agent doesn''t seem to be obvious from the user''s behavior. Open
+    one of the conversations to view what sort of data we are looking at. After the
+    TCP stream (not HTTP), we can see that the following data is being posted to the
+    server:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到一些 POST 数据从 `172.16.0.130` 发送到 `185.141.27.187`。然而，User-Agent 从用户的行为来看似乎不太明显。打开其中一个会话查看我们正在查看的数据类型。在
+    TCP 流（非 HTTP）之后，我们可以看到以下数据被发布到服务器：
+- en: '![](img/6480a395-6e33-4eea-9c85-60a812f6ea9d.png)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6480a395-6e33-4eea-9c85-60a812f6ea9d.png)'
+- en: Read the packet-capture file in Python
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Python中读取数据包捕获文件
+- en: Parse the completed HTTP sessions and separate the HTTP header and the payload
+  id: totrans-26
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 解析已完成的HTTP会话，并分离HTTP头和负载
+- en: Check whether the HTTP traffic is from LokiBot using network IOCs
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用网络IOC检查HTTP流量是否来自LokiBot
+- en: 'Optional: extract and decode the payload'
+  id: totrans-28
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 可选：提取并解码负载
+- en: 'So, let''s work on a script, as follows:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，让我们编写一个脚本，如下所示：
+- en: '[PRE0]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The preceding snippet of code does nothing but read the `pcap` file using the
+    `rdpcap` function from `scapy`. The next line traverses over each packet in the
+    `pcap` file, and if it finds a TCP packet, it sends it to the `investigate_packet`
+    function. Let''s see the `investigate_packet` function:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的代码片段只是用`scapy`的`rdpcap`函数读取`pcap`文件。接下来的代码遍历`pcap`文件中的每个数据包，如果找到TCP数据包，则将其传递给`investigate_packet`函数。让我们来看看`investigate_packet`函数：
+- en: '[PRE1]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The function receives the packet, and a `pack__name` variable is generated
+    based on the source IP address, source port, and destination IP address. Next,
+    the packet is passed to the `isCompletedSession` function to check whether the
+    packet session was completed successfully:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数接收数据包，并根据源IP地址、源端口和目标IP地址生成一个`pack__name`变量。接下来，数据包将传递给`isCompletedSession`函数，以检查数据包会话是否成功完成：
+- en: '[PRE2]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The preceding code will receive the packet, generate a packet name, and append
+    the packet to a `p_queue` array based on the packet name. Next, for all the elements
+    of `p_queue`, the elements are checked for TCP flags `2`, `24`, `17`, and `25`
+    denoting `SYN`, `PUSH-ACK`, `ACK-FIN`, and `PUSH-ACK-FIN` respectively. Finally,
+    if `SYN`, `PSH_ACK`, and `ACK_FIN` are found set or `PSH_ACK_FIN` has been found
+    set, it returns true, which denotes that the session completed successfully. Let''s
+    go back to our calling function:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的代码将接收数据包，生成一个数据包名称，并根据数据包名称将其附加到`p_queue`数组中。接下来，对于`p_queue`的所有元素，检查每个元素的TCP标志`2`、`24`、`17`和`25`，分别表示`SYN`、`PUSH-ACK`、`ACK-FIN`和`PUSH-ACK-FIN`。最后，如果找到`SYN`、`PSH_ACK`和`ACK_FIN`已设置，或`PSH_ACK_FIN`已设置，则返回`true`，表示会话成功完成。接下来，让我们回到调用函数：
+- en: '[PRE3]'
+  id: totrans-36
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'We start by extracting the header and payload for the HTTP packets and send
+    the HTTP header to check whether the header is for LokiBot:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们首先提取HTTP数据包的头和负载，然后发送HTTP头以检查该头是否属于LokiBot：
+- en: '[PRE4]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'The preceding code will check for the LokiBot key IOCs. It checks whether the
+    `User-Agent` contains `''Mozilla/4.08 (Charon; Inferno)''`, the HTTP method is
+    POST, all the HTTP headers, such as `Agent`, `Host`, `Accept`, `Content-Type`,
+    and `Content-Encoding` are present, and, most important, whether `Content-Key`
+    is present. If three or more IOCs are matched, it returns true for the packet
+    to be identified as LokiBot communication. Next, we have the following:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的代码将检查LokiBot的关键IOC。它检查`User-Agent`是否包含`'Mozilla/4.08 (Charon; Inferno)'`，HTTP方法是否为POST，所有HTTP头（如`Agent`、`Host`、`Accept`、`Content-Type`和`Content-Encoding`）是否存在，最重要的是，是否存在`Content-Key`。如果匹配三个或更多IOC，则返回`true`，表示该数据包已被识别为LokiBot通信。接下来，我们有以下内容：
+- en: '[PRE5]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'The preceding code simply adds important details, such as `Source IP`, `Source
+    Port`, `Destination IP`, `Destination Port`, `HTTP URI`, `HTTP-Method`, `Destination
+    Host`, `Transmission Time`, and `User-Agent` to the dictionary object and prints
+    it out, as shown here:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的代码只是将一些重要细节添加到字典对象中，例如`Source IP`、`Source Port`、`Destination IP`、`Destination
+    Port`、`HTTP URI`、`HTTP-Method`、`Destination Host`、`Transmission Time`和`User-Agent`，并将其打印出来，如下所示：
+- en: '![](img/9affabbd-b7a4-4d0c-a96e-921bcf2dfb44.png)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9affabbd-b7a4-4d0c-a96e-921bcf2dfb44.png)'
+- en: We can see that we have Malware/IOCs and network details presented here. We
+    just saw how easily we can develop a script to identify malware on the wire.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，展示了恶意软件/IOC和网络详情。我们刚刚看到如何轻松开发脚本来识别网络中的恶意软件。
+- en: The parts of the preceding script are taken from [https://github.com/R3MRUM/loki-parse/blob/master/loki-parse.py](https://github.com/R3MRUM/loki-parse/blob/master/loki-parse.py);
+    the original script hosted here also decodes the payload part of LokiBot and presents
+    an in-depth analysis of the packets.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面脚本的部分代码来自[https://github.com/R3MRUM/loki-parse/blob/master/loki-parse.py](https://github.com/R3MRUM/loki-parse/blob/master/loki-parse.py)；原始脚本也解码了LokiBot的负载部分，并对数据包进行了深入分析。
+- en: 'Let''s download the original `loki-parse.py` Python 2.7 script written by R3MRUM
+    by cloning the [https://github.com/R3MRUM/loki-parse.git](https://github.com/R3MRUM/loki-parse.git)
+    repository and run it as shown in the following screenshot:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过克隆[https://github.com/R3MRUM/loki-parse.git](https://github.com/R3MRUM/loki-parse.git)仓库来下载R3MRUM编写的原始`loki-parse.py`
+    Python 2.7脚本，并按照以下截图运行它：
+- en: '![](img/1e091754-cb16-4d7f-a2c8-9606c3f39687.png)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1e091754-cb16-4d7f-a2c8-9606c3f39687.png)'
+- en: 'We can see that by running the script, we get a lot of information. Let''s
+    scroll down for more:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，通过运行脚本，我们获得了大量信息。让我们向下滚动查看更多：
+- en: '![](img/49e7f920-e157-4dc5-adca-afb35b1c09f0.png)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/49e7f920-e157-4dc5-adca-afb35b1c09f0.png)'
+- en: 'Well, we see plenty of data being displayed, along with `Hostname`, `Operating
+    System`, and much more:'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，我们看到显示了大量数据，包括`Hostname`、`Operating System`等：
+- en: '![](img/d83bc3d9-c1c5-486a-a74c-d6e6e14b6661.png)'
+  id: totrans-50
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d83bc3d9-c1c5-486a-a74c-d6e6e14b6661.png)'
+- en: 'We can see that we have `Traffic Purpose` listed as well, and this denotes
+    the purpose such as `Exfiltrate Application/ Credential Data`. This is true since
+    we saw that FileZilla credentials in the first few lines of the result. Looking
+    further, we can see that we have keylogger data as well:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到`Traffic Purpose`也列出了，并且这表示诸如`Exfiltrate Application/ Credential Data`之类的目的。这是正确的，因为我们在结果的前几行看到了FileZilla的凭据。进一步查看，我们还可以看到有键盘记录器数据：
+- en: '![](img/707c98ac-58ff-40d1-bf41-213acf58cabb.png)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/707c98ac-58ff-40d1-bf41-213acf58cabb.png)'
+- en: 'Also, looking at this packet detail, we can see that it has the `Exfiltrate
+    Keylogger Data` type:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，通过查看此数据包详细信息，我们可以看到它具有`Exfiltrate Keylogger Data`类型：
+- en: '![](img/00f79d3f-0916-4d83-b401-44d0d865c63f.png)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/00f79d3f-0916-4d83-b401-44d0d865c63f.png)'
+- en: It is recommended you go through the script, as it contains many things that
+    will aid you in developing identifier scripts for various malware and other IOCs.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 建议您仔细阅读脚本，因为它包含许多内容，能够帮助您为各种恶意软件和其他IOC开发标识符脚本。
+- en: Automation through pyshark – Python's tshark
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 通过pyshark实现自动化——Python的tshark
+- en: 'We wrote the preceding script with some complexity. We could have also achieved
+    this using `pyshark`. Pyshark is a Python library that provides an API for accessing
+    tshark. Let''s create a small Python script using the `pyshark` library, as follows:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们写了前面的脚本，复杂度稍高。我们本来也可以使用`pyshark`实现这一点。Pyshark是一个Python库，提供了访问tshark的API。让我们使用`pyshark`库创建一个小的Python脚本，如下所示：
+- en: '[PRE6]'
+  id: totrans-58
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: The code is fairly neat. We opened up the `.pcap` file with the `pyshark.Filecapture`
+    function and called the `Exfil` function from `cap.apply_on_packets`. We filtered
+    the packet on type HTTP and `User-Agent` matching the one used by LokiBot. Next,
+    we printed the details we required using the `pkt` object.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码相当整洁。我们使用`pyshark.Filecapture`函数打开了`.pcap`文件，并通过`cap.apply_on_packets`调用了`Exfil`函数。我们在HTTP类型和匹配LokiBot使用的`User-Agent`上进行了数据包过滤。接下来，我们使用`pkt`对象打印了我们需要的详细信息。
+- en: 'Additionally, since the `Traffic Purpose` code is located in the third byte
+    of the HTTP data, we pull out the substring using `[4:6]`. Then, we defined an
+    `if-else` condition that matches the type of traffic purpose and printed it out.
+    It''s fairly simple, as you can see. Let''s see the output:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，由于`Traffic Purpose`代码位于HTTP数据的第三字节中，我们使用`[4:6]`提取子字符串。然后，我们定义了一个`if-else`条件来匹配流量目的类型并将其打印出来。如您所见，这相当简单。让我们看看输出：
+- en: '![](img/5ff7ce51-f2fa-4709-b68a-d71861e2df30.png)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5ff7ce51-f2fa-4709-b68a-d71861e2df30.png)'
+- en: 'We have the output as intended with ease. The preceding code snippet was written
+    in PyCharm, and a good thing about it that is if you debug your code, you will
+    see lots of information contained in the packet, which you can use:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们轻松地得到了预期的输出。前面的代码片段是在PyCharm中编写的，它的一个优点是，如果您调试代码，您将看到数据包中包含的许多信息，可以用来进一步处理：
+- en: '![](img/02537785-eab6-4722-9147-a2ba12002774.png)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/02537785-eab6-4722-9147-a2ba12002774.png)'
+- en: We can see that we have plenty of details regarding a packet, and we can use
+    this information to write our script more efficiently without referencing the
+    internet. Moreover, we have a similar syntax for fields and filters such as `http.user_agent`
+    used in tshark, which makes our lives easy.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，关于一个数据包的许多详细信息都已显示出来，利用这些信息，我们可以更高效地编写脚本，而无需参考互联网。此外，我们拥有类似于tshark中使用的`http.user_agent`字段和过滤器的语法，这使得我们的工作变得更加简单。
+- en: Merging and splitting PCAP data
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 合并和拆分PCAP数据
+- en: 'Sometimes, for a particular timeframe, we need to merge the captured data.
+    This eliminates analyses on different PCAP files, and after merging, we have only
+    a single file to work with. In Wireshark, we can combine various PCAP files through
+    the Merge... option, as shown in the following screenshot:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，对于特定的时间段，我们需要合并捕获的数据。这样可以避免对不同的PCAP文件进行分析，合并后，我们只有一个文件可以处理。在Wireshark中，我们可以通过“合并...”选项将不同的PCAP文件合并，具体如下图所示：
+- en: '![](img/6a2f00dc-5b4b-4c4c-921a-d0498cc38988.png)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6a2f00dc-5b4b-4c4c-921a-d0498cc38988.png)'
+- en: 'Using the Merge... option from the File menu, we can merge other files:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用文件菜单中的“合并...”选项，我们可以合并其他文件：
+- en: '![](img/bc2457cc-398e-4bef-90c4-8cb0c8faac5f.png)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bc2457cc-398e-4bef-90c4-8cb0c8faac5f.png)'
+- en: 'In the preceding screenshot, we have a `final_show-01.cap` file open in Wireshark
+    and select the Merge option from the File menu, and we select `final_show-02.cap`.
+    Pressing the Open button will open a new PCAP file with merged data from both
+    the captures:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，我们在Wireshark中打开了一个`final_show-01.cap`文件，并从文件菜单中选择了“合并”选项，然后选择了`final_show-02.cap`。按下“打开”按钮后，将会打开一个包含来自两个捕获文件的合并数据的新PCAP文件：
+- en: '![](img/058e2671-b73b-4019-a9ef-e8b931ba413e.png)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/058e2671-b73b-4019-a9ef-e8b931ba413e.png)'
+- en: 'We can see how easy it was to merge two different PCAP files. Additionally,
+    sometimes, we want to cut down the length from a PCAP file as well. From the preceding
+    screenshot, we can see that we have specifically defined the `wlan.da && wlan.sa`
+    filters to ensure that every single packet entry must have source and destinations
+    fields set. However, if we remove this filter, we will see the PCAP data:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，合并两个不同的PCAP文件是多么简单。此外，有时我们还希望从PCAP文件中截取一部分内容。从上面的截图中，我们可以看到我们专门定义了`wlan.da
+    && wlan.sa`过滤器，以确保每个数据包条目必须具有源和目标字段。然而，如果我们移除这个过滤器，我们将看到以下的PCAP数据：
+- en: '![](img/b3ce32f4-b0ba-4605-8f69-c4648350c909.png)'
+  id: totrans-73
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b3ce32f4-b0ba-4605-8f69-c4648350c909.png)'
+- en: 'We can see that some packets are missing source and destination fields. This
+    can happen in Wireless, as `wlan.sa` and `wlan.da` sometimes may have to be replaced
+    by `wlan.ta` and `wlan.ra`, for transmitter and receiver respectively. However,
+    having a filter at `wlan.ra && wlan.ta`, we will have 47,000 or so packets. We
+    require only the management frames in our new PCAP file. Therefore, we can employ
+    `wlan.ra && wlan.ta && wlan.fc.type == 0` filter as shown in the following screenshot:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到有些数据包缺少源和目标字段。这可能在无线网络中发生，因为`wlan.sa`和`wlan.da`有时可能需要被`wlan.ta`和`wlan.ra`替代，分别表示发射器和接收器。但是，使用`wlan.ra
+    && wlan.ta`过滤器时，我们将看到大约47,000个数据包。我们只需要在新的PCAP文件中保留管理帧。因此，我们可以使用`wlan.ra && wlan.ta
+    && wlan.fc.type == 0`过滤器，如下图所示：
+- en: '![](img/6a09f52c-63fb-45fe-9357-d404c7445565.png)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6a09f52c-63fb-45fe-9357-d404c7445565.png)'
+- en: 'Well! We can see that only 3.6% of the actual merged PCAP file packets is what
+    we need. Next, we can go to File and choose the Export Specified Packets... option:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的！我们可以看到，实际上只有3.6%的合并后的PCAP文件数据是我们需要的。接下来，我们可以前往文件菜单，选择“导出指定数据包...”选项：
+- en: '![](img/3d54cc39-113c-46cb-9fbd-ead94ab112b2.png)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3d54cc39-113c-46cb-9fbd-ead94ab112b2.png)'
+- en: 'We will get the following screen:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将看到以下界面：
+- en: '![](img/d96950b0-9cf1-41e5-8b05-6f5f6aae829a.png)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d96950b0-9cf1-41e5-8b05-6f5f6aae829a.png)'
+- en: Save the file, and we now have a new file with only management frames.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 保存该文件，现在我们拥有一个只有管理帧的新文件。
+- en: '**Mergecap** can merge a number of files in a directory by using wildcards.
+    The files will be merged on a timestamp basis.'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Mergecap**可以通过使用通配符来合并目录中的多个文件。这些文件将根据时间戳进行合并。'
+- en: Splitting PCAP data on parameters
+  id: totrans-82
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 根据参数拆分PCAP数据
+- en: 'Sometimes, in the case of large PCAP files, we are bombarded with data. In
+    such scenarios, we may require data in a particular timeframe. **Editcap** from
+    Wireshark allows us to split data based on the number of packets, time intervals,
+    packet length, and also allows us to adjust the time and truncate packet data.
+    Let''s see how we can split data based on an interval of 10 seconds:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，面对大型PCAP文件时，我们会被大量数据淹没。在这种情况下，我们可能需要特定时间段的数据。Wireshark中的**Editcap**允许我们根据数据包数量、时间间隔、数据包长度来拆分数据，还可以调整时间并截断数据包数据。接下来，让我们看看如何基于10秒的间隔来拆分数据：
+- en: '![](img/13ecad73-cd51-419e-813b-e76fef5c0148.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/13ecad73-cd51-419e-813b-e76fef5c0148.png)'
+- en: We can see that providing the `-i` option with 10 seconds as the parameter has
+    split our file into intervals of 10 seconds each. This is extremely helpful in
+    cases where we need data from a particular timeframe and saves CPU filtering data
+    in Wireshark.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，提供`-i`选项并将参数设置为10秒后，文件已被分割成每个10秒的间隔。这在我们需要特定时间段的数据时非常有帮助，并且能在Wireshark中过滤数据时节省CPU资源。
+- en: Splitting PCAP data in streams
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 拆分数据流中的PCAP数据
+- en: '**CapLoader** from [https://www.netresec.com/](https://www.netresec.com/) is
+    an amazing tool that can split PCAP files based on the streams. However, this
+    is a commercial tool but a 30-day trial is available. We need to select the file
+    from the File menu, as shown in the following screenshot:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**CapLoader** 来自 [https://www.netresec.com/](https://www.netresec.com/)，是一个可以根据数据流拆分PCAP文件的神奇工具。不过，这是一款商业工具，但提供30天的试用期。我们需要从文件菜单中选择文件，如下图所示：'
+- en: '![](img/d9c1c1d6-2bd2-4856-97cc-1b168cf6b6ae.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d9c1c1d6-2bd2-4856-97cc-1b168cf6b6ae.png)'
+- en: 'Next, we need to choose the stream we want and drag the PCAP icon to the directory
+    of our choice. This will save the network stream in the directory in the form
+    of a PCAP file:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要选择想要的流，并将PCAP图标拖到我们选择的目录中。这将以PCAP文件的形式保存网络流到目录中：
+- en: '![](img/53050303-dbb0-4221-9cc2-5762dd8cf4eb.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/53050303-dbb0-4221-9cc2-5762dd8cf4eb.png)'
+- en: We just saw how we can merge, split, and filter out data streams from PCAP files
+    with ease by making use of tools such as editcap, caploader and Wireshark itself.
+    Making use of such tools speeds up analysis as we would work on precise packet
+    data while removing all the irrelevant packets.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们刚刚看到如何通过利用editcap、caploader和Wireshark等工具，轻松合并、拆分和过滤PCAP文件中的数据流。使用这些工具可以加快分析速度，因为我们可以在精确的数据包数据上工作，同时去除所有不相关的数据包。
+- en: Large-scale data capturing, collection, and indexing
+  id: totrans-92
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 大规模数据捕获、收集和索引
+- en: 'In a large infrastructure environment, capturing, extracting, and storing data
+    becomes a bottleneck at times. In such cases, we can use **Moloch**, which is
+    a free, open source, large-scale packet-capturing system that allows us to draw
+    intelligence while effectively managing and storing the data:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在大型基础设施环境中，捕获、提取和存储数据有时会成为瓶颈。在这种情况下，我们可以使用**Moloch**，这是一个免费、开源的大规模数据包捕获系统，可以让我们在有效管理和存储数据的同时提取智能信息：
+- en: '![](img/c8c8a40b-8655-4d2c-90ef-5bab3e55dd2b.png)'
+  id: totrans-94
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c8c8a40b-8655-4d2c-90ef-5bab3e55dd2b.png)'
+- en: Moloch packet capturing system
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Moloch数据包捕获系统
+- en: 'From the preceding screenshot, we can see various stats with respect to the
+    source IP and destination. Expanding the first entry (`192.168.0.109` -> `172.217.7,4`),
+    we can see plenty of detailed information:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中，我们可以看到关于源IP和目标的各种统计信息。展开第一个条目（`192.168.0.109` -> `172.217.7,4`），我们可以看到大量详细信息：
+- en: '![](img/6361bf30-9cf7-4c38-8963-96b30caa638b.png)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6361bf30-9cf7-4c38-8963-96b30caa638b.png)'
+- en: Expanding the first entry (192.168.0.109 -> 172.217.7.4)
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 展开第一个条目（192.168.0.109 -> 172.217.7.4）
+- en: 'We can see we have a much wider view of the details now. Moloch also provides stateful
+    packet inspection view and graph as shown in the following screenshot:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以更广泛地查看详细信息了。Moloch还提供了有状态的数据包检查视图和图表，如下图所示：
+- en: '![](img/dbbe4e98-58be-413f-b730-7ebe134069dc.png)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dbbe4e98-58be-413f-b730-7ebe134069dc.png)'
+- en: Stateful packet inspection view
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有状态的数据包检查视图
+- en: 'We can see that we have data in a segregated view of the protocol, which is
+    DHCP in our case. We can select other protocols, such as DNS, from SPIView and
+    can see the various details such as hosts, IP addresses resolved, ASN, and much
+    more as shown in the following screenshot:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到我们以协议分离视图的形式拥有了DHCP协议的数据。我们可以从SPIView中选择其他协议，如DNS，并查看诸如主机、IP地址解析、ASN等各种详细信息，如下图所示：
+- en: '![](img/0e9ae2c0-6323-4e4d-a9a1-7c909ea002cf.png)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0e9ae2c0-6323-4e4d-a9a1-7c909ea002cf.png)'
+- en: SPIView
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SPIView
+- en: 'Next, let''s see the SPIGraph that contains the source and destination nodes:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看看包含源节点和目标节点的SPIGraph：
+- en: '![](img/c63a7b75-b9bf-4781-9435-080285d8edb1.png)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c63a7b75-b9bf-4781-9435-080285d8edb1.png)'
+- en: SPIGraph containing source and destination nodes
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SPIGraph 包含源和目标节点
+- en: The connections graph gives us a nice view of the nodes and lists the source
+    and destination IPs. We can see that we have chosen weight as packets so that
+    links become thicker where large packets are transferred. Doing this, we will
+    have a clear understanding of where most of the packets are flowing.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接图为我们展示了节点的清晰视图，并列出了源和目标IP。我们可以看到，我们已经选择了以数据包重量作为链接加粗的权重，这样在传输大数据包的地方链接就会变粗。通过这样做，我们将清楚地了解大多数数据包的传输路径。
+- en: Covering all the features of Moloch is outside the scope of this book. I suggest
+    that you install Moloch and work with it. Moloch can be downloaded from [https://molo.ch/](https://molo.ch/).
+    Moloch is available to download in the binary format for CentOS 6 and 7, Ubuntu
+    14.04/16.04/18.04 LTS releases. The reason we covered Moloch as a part of network
+    forensics is that most of you might be working in an environment where there is
+    no, or limited, packet-capturing done. The idea of implementing Moloch is to reduce
+    costs by implementing a cost-effective solution and to cut down on forensic investigations
+    through third-party vendors. It is one tool that offers many features and next-level
+    packet inspection. Hence, it helps in-house forensic investigators and incident
+    responders.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书的范围不包括 Moloch 所有功能的详细介绍。我建议你安装 Moloch 并使用它。Moloch 可以从 [https://molo.ch/](https://molo.ch/)
+    下载。Moloch 提供 CentOS 6 和 7、Ubuntu 14.04/16.04/18.04 LTS 版本的二进制下载。我们将 Moloch 作为网络取证的一部分进行介绍，是因为你们中的大多数人可能在一个没有或有限的数据包捕获环境中工作。实施
+    Moloch 的目的是通过实施一种具有成本效益的解决方案来降低成本，并减少通过第三方供应商进行的取证调查。它是一个提供许多功能和下一代数据包检查的工具，因此帮助内部取证调查员和事件响应人员。
+- en: For more information on tools and scripts for network forensics, refer to [https://github.com/caesar0301/awesome-pcaptools](https://github.com/caesar0301/awesome-pcaptools).
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于网络取证的工具和脚本的更多信息，请参阅 [https://github.com/caesar0301/awesome-pcaptools](https://github.com/caesar0301/awesome-pcaptools)。
+- en: More information on tools, plugins, scripts, and dissectors for Wireshark can
+    be found at [https://wiki.wireshark.org/Tools](https://wiki.wireshark.org/Tools).
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 关于 Wireshark 的工具、插件、脚本和解码器的更多信息可以在 [https://wiki.wireshark.org/Tools](https://wiki.wireshark.org/Tools)
+    上找到。
+- en: Tools for malware analysis on the network end can be found at [https://github.com/rshipp/awesome-malware-analysis#network](https://github.com/rshipp/awesome-malware-analysis#network).
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关网络端恶意软件分析工具的信息可以在 [https://github.com/rshipp/awesome-malware-analysis#network](https://github.com/rshipp/awesome-malware-analysis#network)
+    上找到。
+- en: For tools related to wireless forensics, check out [https://github.com/nipunjaswal/Wireless-forensics-framework](https://github.com/nipunjaswal/Wireless-forensics-framework).
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关无线取证的工具，请查看 [https://github.com/nipunjaswal/Wireless-forensics-framework](https://github.com/nipunjaswal/Wireless-forensics-framework)。
+- en: Summary
+  id: totrans-114
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Throughout this chapter, we learned about analysis automation using scapy and
+    Pyshark. We saw how we can merge, split and filter out streams from the evidences
+    and make our lives easy by removing the unwanted packet data while focusing on
+    the packets of interest. We also saw how large scale data collection can be efficiently
+    managed using open source tools like Moloch.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们学习了使用 scapy 和 Pyshark 进行分析自动化的内容。我们了解了如何从证据中合并、拆分和筛选流，并通过去除不需要的报文数据，专注于感兴趣的报文，从而简化我们的工作。我们还了解了如何使用像
+    Moloch 这样的开源工具高效地管理大规模数据收集。
+- en: There is no end to network forensics and each and every day we learn new techniques
+    and strategies. I wish you all the best in your hands on journey to network forensics
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络取证没有尽头，每天我们都在学习新的技术和策略。我祝愿你在网络取证的实际操作过程中一切顺利。
+- en: Questions and exercises
+  id: totrans-117
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题与练习
+- en: 'Having gained the knowledge of topics covered in the chapter, try performing
+    the following exercises:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在掌握本章内容后，尝试执行以下练习：
+- en: Automate analysis and build decryptor for at least 2 sample PCAP files containing
+    decryption key for ransomware like we had PyLockY decryptor in [Chapter 6](17a6dbba-2b38-4dff-8901-06d89985906c.xhtml), *Investigating
+    Good, Known, and Ugly Malware*
+  id: totrans-119
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 自动化分析并构建至少两个包含解密密钥的示例 PCAP 文件的解密工具，类似于我们在[第六章](17a6dbba-2b38-4dff-8901-06d89985906c.xhtml)中提到的
+    PyLockY 解密器，*调查良性、已知和恶劣的恶意软件*
+- en: Use Pyshark to build a wireless sniffer
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Pyshark 构建无线嗅探器
+- en: Install and use Moloch while discovering its filtering capabilities
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装并使用 Moloch，同时探索它的过滤功能
+- en: Capture data from a server and a client in two separate PCAP files and merge
+    them
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从服务器和客户端捕获数据到两个独立的 PCAP 文件，并将它们合并
+- en: Check GitHub repository challenge directory time and again for new challenges
+    to solve from the chapters
+  id: totrans-123
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不时检查 GitHub 仓库中的挑战目录，解决来自章节的新挑战
+- en: Further reading
+  id: totrans-124
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'To make the most out of the content covered in this chapter, here are a few
+    links you would definitely checkout:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了最大限度地利用本章所涵盖的内容，以下是一些你绝对应该查看的链接：
+- en: To read more on Moloch, check out its wiki page at [https://github.com/aol/moloch/wiki](https://github.com/aol/moloch/wiki)
+  id: totrans-126
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 想要了解更多关于 Moloch 的信息，可以查看它的 wiki 页面：[https://github.com/aol/moloch/wiki](https://github.com/aol/moloch/wiki)
+- en: Read more on Pyshark at [https://github.com/KimiNewt/pyshark](https://github.com/KimiNewt/pyshark)
+  id: totrans-127
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 [https://github.com/KimiNewt/pyshark](https://github.com/KimiNewt/pyshark)
+    上阅读更多关于 Pyshark 的内容
+- en: Understand and learn scapy by reading the documentation at [https://scapy.readthedocs.io/en/latest/index.html](https://scapy.readthedocs.io/en/latest/index.html)
+  id: totrans-128
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过阅读文档了解并学习 Scapy，文档链接：[https://scapy.readthedocs.io/en/latest/index.html](https://scapy.readthedocs.io/en/latest/index.html)

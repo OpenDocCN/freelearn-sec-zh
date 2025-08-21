@@ -1,0 +1,1473 @@
+- en: Introducing Network Forensics
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 引入网络取证
+- en: '**Network forensics** is one of the sub-branches of digital forensics where
+    the data being analyzed is the network traffic going to and from the system under
+    observation. The purposes of this type of observation are collecting information,
+    obtaining legal evidence, establishing a root-cause analysis of an event, analyzing
+    malware behavior, and so on. Professionals familiar with **digital forensics and
+    incident response** (**DFIR**) know that even the most careful suspects leave
+    traces and artifacts behind. But forensics generally also includes imaging the
+    systems for memory and hard drives, which can be analyzed later. So, how do network
+    forensics come into the picture? Why do we need to perform network forensics at
+    all? Well, the answer to this question is relatively simple.'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**网络取证**是数字取证的一个子领域，其中分析的数据是往返于观察系统的网络流量。此类观察的目的是收集信息、获得法律证据、建立事件的根本原因分析、分析恶意软件行为等。熟悉**数字取证与事件响应**（**DFIR**）的专业人员知道，即使是最小心的嫌疑人也会留下痕迹和证据。但取证通常还包括对系统进行内存和硬盘的镜像，以便后续分析。那么，网络取证如何融入其中呢？我们为什么需要进行网络取证？这个问题的答案相对简单。'
+- en: 'Let''s consider a scenario where you are hunting for some unknown attackers
+    in a massive corporate infrastructure containing thousands of systems. In such
+    a case, it would be practically impossible to image and analyze every system.
+    The following two scenarios would also be problematic:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你正在寻找一些未知的攻击者，这些攻击者存在于一个包含成千上万台系统的大型企业基础设施中。在这种情况下，几乎不可能对每台系统进行镜像和分析。以下两个场景也会带来问题：
+- en: Instances where the disk drives may not be available
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 硬盘驱动器可能不可用的情况
+- en: Cases where the attack is in progress, and you may not want to tip off the attackers
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击正在进行时，你可能不希望暴露攻击者
+- en: Whenever an intrusion or a digital crime happens over the wire, whether it was
+    successful or not, the artifacts left behind can help us understand and recreate
+    not only the intent of the attack, but also the actions performed by the attackers.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当发生网络入侵或数字犯罪时，无论是否成功，留下的证据可以帮助我们理解并重建攻击者的意图，以及攻击者所执行的操作。
+- en: 'If the attack was successful, what activities were conducted by the attackers
+    on the system? What happened next? Generally, most severe attacks, such as **Advanced
+    Package Tool** (**APT**), **ransomware**, **espionage**, and others, start from
+    a single instance of an unauthorized entry into a network and then evolve into
+    a long-term project for the attackers until the day their goals are met; however,
+    throughout this period the information flowing in and out of the network goes
+    through many different devices, such as routers, firewalls, hubs, switches, web
+    proxies, and others. Our goal is to identify and analyze all these different artifacts.
+    Throughout this chapter, we will discuss the following:'
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果攻击成功，攻击者在系统上进行了哪些活动？接下来发生了什么？通常，大多数严重的攻击，如**高级持续性威胁**（**APT**）、**勒索软件**、**间谍活动**等，都是从一次未经授权的网络入侵开始的，然后演变成攻击者的长期项目，直到他们的目标实现；然而，在此期间，进出网络的信息会经过许多不同的设备，如路由器、防火墙、集线器、交换机、Web
+    代理等。我们的目标是识别并分析所有这些不同的证据。在本章中，我们将讨论以下内容：
+- en: Network forensics methodology
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络取证方法
+- en: Sources of evidence
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 证据来源
+- en: A few necessary case studies demonstrating hands-on network forensics
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一些必要的案例研究，展示实际操作中的网络取证
+- en: Technical requirements
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To perform the exercises covered in this chapter, you will require the following:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了进行本章的练习，你需要以下设备：
+- en: A laptop/desktop computer with an i5/i7 processor or any other equivalent AMD
+    processor with at least 8 GB RAM and around 100 GB of free space.
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配备 i5/i7 处理器或任何等效的 AMD 处理器、至少 8 GB 内存和约 100 GB 空闲空间的笔记本/台式电脑。
+- en: VMware Player/VirtualBox installation with Kali OS installed. You can download
+    it from [https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/).
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装了 Kali OS 的 VMware Player/VirtualBox。你可以从[https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/)下载它。
+- en: Installing Wireshark on Windows: [https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html](https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html).
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在 Windows 上安装 Wireshark：[https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html](https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html)。
+- en: Netcat From Kali Linux (already installed).
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自 Kali Linux 的 Netcat（已安装）。
+- en: Download NetworkMiner from [https://www.netresec.com/?page=Networkminer](https://www.netresec.com/?page=Networkminer).
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从[https://www.netresec.com/?page=Networkminer](https://www.netresec.com/?page=Networkminer)下载
+    NetworkMiner。
+- en: The PCAP files for this chapter, downloaded from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch1](https://github.com/nipunjaswal/networkforensics/tree/master/Ch1).
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本章节的 PCAP 文件可从[https://github.com/nipunjaswal/networkforensics/tree/master/Ch1](https://github.com/nipunjaswal/networkforensics/tree/master/Ch1)下载。
+- en: Every investigation requires a precise methodology. We will discuss the popular
+    network forensics methodology used widely across the industry in the next section.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每次调查都需要一个精确的方法论。我们将在下一节中讨论广泛应用于行业中的网络取证方法论。
+- en: To install Wireshark on Windows, go to [https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html](https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html).
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在 Windows 上安装 Wireshark，请访问：[https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html](https://www.wireshark.org/docs/wsug_html_chunked/ChBuildInstallWinInstall.html)。
+- en: Network forensics investigation methodology
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络取证调查方法论
+- en: 'To assure accurate and meaningful results at the end of a network forensic
+    exercise, you, as a forensic investigator, must follow a rigid path through a
+    methodological framework. This path is shown in the following diagram:'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为确保网络取证演练结束时的结果准确且有意义，作为取证调查员，你必须遵循一个严格的方法框架。该路径如下图所示：
+- en: '![](img/99e6aeb7-3d1a-46a7-b8d1-81d3bf4fb153.png)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/99e6aeb7-3d1a-46a7-b8d1-81d3bf4fb153.png)'
+- en: '**Obtain**, **Strategize**, **Collect**, **Analyze**, and **Report** (**OSCAR**) is
+    one such framework that ensures appropriate and constant results. Let''s look
+    at each phase from a network forensics point of view:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**获取信息**、**制定策略**、**收集**、**分析**和**报告**（**OSCAR**）是确保适当且持续结果的一个框架。让我们从网络取证的角度来看每个阶段：'
+- en: '**Obtain information**: Obtaining information about the incident and the environment
+    is one of the first things to do in a network forensics exercise. The goal of
+    this phase is to familiarize a forensic investigator with the type of incident.
+    The timestamps and timeline of the event, the people, systems, and endpoints involved
+    in the incident—all of these facts are crucial in building up a detailed picture
+    of the event.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**获取信息**：在网络取证演练中，获取关于事件和环境的信息是最先要做的事情之一。此阶段的目标是让取证调查员熟悉事件的类型。事件的时间戳和时间线、涉及的人员、系统和终端——所有这些信息对于构建事件的详细图像至关重要。'
+- en: '**Strategize**: Planning the investigation is one of the critical phases in
+    a network forensics scenario, since logs from various devices can differ in their
+    nature; for example, the volatility of log entries from a firewall compared with
+    that of details such as the ARP of a system would be very different. A good strategy
+    would impact the overall outcome of the investigation. Therefore, you should keep
+    the following points in mind while strategizing the entire forensics investigation
+    process:'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**制定策略**：在网络取证场景中，规划调查是一个至关重要的阶段，因为来自不同设备的日志可能会有所不同；例如，防火墙的日志条目的波动性与系统的 ARP
+    信息等详细数据的波动性将非常不同。良好的策略将影响调查的整体结果。因此，在制定整个取证调查过程的策略时，你应该牢记以下几点：'
+- en: Define clear goals and timelines
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 明确目标和时间线
+- en: Find the sources of evidence
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找证据来源
+- en: Analyze the cost and value of the sources
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析来源的成本和价值
+- en: Prioritize acquisition
+  id: totrans-29
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 优先考虑获取
+- en: Plan timely updates for the client
+  id: totrans-30
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为客户规划及时更新
+- en: '**Collect**: In the previous phase, we saw how we need to strategize and plan
+    the acquisition of evidence. In the collect phase, we will go ahead and acquire
+    the evidence as per the plan; however, collecting the evidence itself requires
+    you to document all the systems that are accessed and used, capturing and saving
+    the data streams to the hard drive and collecting logs from servers and firewalls.
+    Best practices for evidence collection include the following:'
+  id: totrans-31
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**收集**：在之前的阶段，我们已经讨论了如何制定策略并规划证据的获取。在收集阶段，我们将按照计划进行证据的获取；然而，收集证据本身要求你记录所有访问和使用的系统，捕捉并将数据流保存到硬盘上，并从服务器和防火墙收集日志。证据收集的最佳实践包括以下几点：'
+- en: Make copies of the evidence and generate cryptographic hashes for verifiability
+  id: totrans-32
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 制作证据副本并生成加密哈希值以确保可验证性
+- en: Never work on the original evidence; use copies of the data instead
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 永远不要在原始证据上工作；应使用数据的副本
+- en: Use industry-standard tools
+  id: totrans-34
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用行业标准工具
+- en: Document all your actions
+  id: totrans-35
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 记录所有操作
+- en: '**Analyze**: The analysis phase is the core phase where you start working on
+    the data and try your hands at the riddle. In this phase, you will make use of
+    multiple automated and manual techniques using a variety of tools to correlate
+    data from various sources, establishing a timeline of events, eliminating false
+    positives, and creating working theories to support evidence. We will spend most
+    of the time in this book discussing the analysis of data.'
+  id: totrans-36
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**分析**：分析阶段是核心阶段，你将在这一阶段开始处理数据并尝试解答难题。在此阶段，你将利用多种自动化和手动技术，使用各种工具来关联来自不同来源的数据，建立事件时间线，消除误报，并创建支持证据的工作理论。在本书中，我们将花费大部分时间讨论数据分析。'
+- en: '**Report**: The report that you produce must be in layman''s terms—that is,
+    it should be understood by non-techie people, such as legal teams, lawyers, juries,
+    insurance teams, and so on. The report should contain executive summaries backed
+    by the technical evidence. This phase is considered one of the essential stages,
+    since the last four steps need to be explained in this one.'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**报告**：你所撰写的报告必须使用通俗易懂的语言——也就是说，它应该能够被非技术人员理解，比如法律团队、律师、陪审团、保险团队等。报告应包含由技术证据支持的执行摘要。这个阶段被认为是至关重要的，因为接下来的四个步骤需要在这一阶段中进行解释。'
+- en: For more on OSCAR methodology, you can visit [https://www.researchgate.net/figure/OSCAR-methodology_fig2_325465892](https://www.researchgate.net/figure/OSCAR-methodology_fig2_325465892).
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要了解更多关于OSCAR方法论的信息，可以访问[https://www.researchgate.net/figure/OSCAR-methodology_fig2_325465892](https://www.researchgate.net/figure/OSCAR-methodology_fig2_325465892)。
+- en: Source of network evidence
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络证据的来源
+- en: 'Network evidence can be collected from a variety of sources and we will discuss
+    these sources in the next section. The sources that we will be discussing are:'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络证据可以从各种来源收集，我们将在下一节中讨论这些来源。我们将讨论的来源包括：
+- en: Tapping the wire and the air
+  id: totrans-41
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 监听电缆和空气
+- en: CAM table on a network switch
+  id: totrans-42
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络交换机上的CAM表
+- en: Routing tables on routers
+  id: totrans-43
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 路由器上的路由表
+- en: Dynamic Host Configuration Protocol logs
+  id: totrans-44
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 动态主机配置协议日志
+- en: DNS server logs
+  id: totrans-45
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DNS服务器日志
+- en: Domain controller/ authentication servers/ system logs
+  id: totrans-46
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 域控制器/认证服务器/系统日志
+- en: IDS/IPS logs
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: IDS/IPS日志
+- en: Firewall logs
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 防火墙日志
+- en: Proxy Server logs
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 代理服务器日志
+- en: Tapping the wire and the air
+  id: totrans-50
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 监听电缆和空气
+- en: One of the purest and most raw forms of information capture is to put taps on network and
+    optical fiber cables to snoop on traffic.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 捕获信息最原始、最纯粹的形式之一是通过在网络和光纤电缆上放置监听点来窃听流量。
+- en: 'Many commercial vendors provide network taps and SPAN ports on their devices
+    for snooping where they will forward all traffic seen on the particular port to
+    the analyzer system. The technique is shown in the following diagram:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多商业供应商在其设备上提供网络监听点和SPAN端口，以便窃听，他们将把在特定端口上看到的所有流量转发到分析系统。以下图示展示了这一技术：
+- en: '![](img/435aa560-99db-4ce6-ba27-b09e20840af6.png)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/435aa560-99db-4ce6-ba27-b09e20840af6.png)'
+- en: 'In the case of WLAN or Wi-Fi, the captures can be performed by putting an external
+    wireless receptor into promiscuous mode and recording all the traffic for a particular
+    wireless access point on a particular channel. This technique is shown in the
+    following diagram:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于WLAN或Wi-Fi，捕获可以通过将外部无线接收器设置为混杂模式来完成，并记录特定无线接入点在特定频道上的所有流量。以下图示展示了这一技术：
+- en: '![](img/23f96400-142a-4d76-8660-d20da3e38877.png)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/23f96400-142a-4d76-8660-d20da3e38877.png)'
+- en: CAM table on a network switch
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络交换机上的CAM表
+- en: Network switches contain content-addressable memory tables that store the mapping
+    between a system's MAC address and the physical ports. In a large setup, this
+    table becomes extremely handy, as it can pinpoint a MAC address on the network
+    to a wall-jacked system, since mappings are available to the physical ports. Switches
+    also provide network-mirroring capabilities, which will allow the investigators
+    to see all the data from other VLANs and systems.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络交换机包含内容寻址存储器表，用于存储系统的MAC地址与物理端口之间的映射。在大型设置中，这个表非常有用，因为它可以根据物理端口的映射将网络上的MAC地址定位到墙面插座的系统。交换机还提供网络镜像功能，允许调查人员查看来自其他VLAN和系统的所有数据。
+- en: Routing tables on routers
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 路由器上的路由表
+- en: 'Routing tables in a router maps ports on the router to the networks that they
+    connect. The following table is a routing table. These tables allow us to investigate
+    the path that the network traffic takes while traveling through various devices:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 路由器中的路由表将路由器的端口映射到它们连接的网络。以下是一个路由表，这些表格可以帮助我们调查网络流量在不同设备间传输时的路径：
+- en: '![](img/3910d743-88d4-4415-a51f-b597f79a2e9e.png)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3910d743-88d4-4415-a51f-b597f79a2e9e.png)'
+- en: Most of the routers have inbuilt packet filters and firewall capabilities as
+    well. This means that they can be configured to log denied or certain types of
+    traffic traveling to and from the network.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数路由器都内置有数据包过滤和防火墙功能。这意味着它们可以配置为记录被拒绝或特定类型的网络流量。
+- en: Dynamic Host Configuration Protocol logs
+  id: totrans-62
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 动态主机配置协议日志
+- en: '**Dynamic Host Configuration Protocol** (**DHCP**) servers generally log entries
+    when a specific IP address is assigned to a particular MAC address, when a lease
+    was renewed on the network, the timestamp it renewed, and so on, thus having significant
+    value in network forensics. The following screenshot of the router''s DHCP table
+    presents a list of dynamically allocated hosts:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**动态主机配置协议**（**DHCP**）服务器通常会记录特定IP地址分配给特定MAC地址时的条目、网络上租约续期的时间戳等，这些信息在网络取证中具有重要价值。以下是路由器的DHCP表格截图，列出了动态分配的主机：'
+- en: '![](img/13bf2b6c-6870-49d0-b798-7beb02858724.png)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/13bf2b6c-6870-49d0-b798-7beb02858724.png)'
+- en: DNS servers logs
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: DNS服务器日志
+- en: 'Name server query logs can help understand IP-to-hostname resolution at specific
+    times. Consider a scenario where, as soon as a system got infected with malware on
+    the network, it tried to connect back to a certain domain for command and control.
+    Let''s see an example as follows:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 域名服务器查询日志可以帮助理解特定时间点的IP到主机名解析。假设在网络中的系统一旦感染了恶意软件，它便尝试连接到某个域名进行命令与控制。我们来看下面的一个示例：
+- en: '![](img/99c4eaf9-a092-4eb1-8116-65d4bdb0d5cc.png)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/99c4eaf9-a092-4eb1-8116-65d4bdb0d5cc.png)'
+- en: We can see in the preceding screenshot that a DNS request was resolved for `malwaresamples.com`
+    website and the resolved IP address was returned.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中我们可以看到，`malwaresamples.com`网站的DNS请求已经被解析，且返回了解析后的IP地址。
+- en: Having access to the DNS query packets can reveal **Indicators of Compromise**
+    for a particular malware on the network while quickly revealing the IP address
+    of the system making the query, and can be dealt with ease.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取DNS查询包可以揭示网络上特定恶意软件的**攻击迹象**，同时迅速显示发起查询的系统的IP地址，从而可以轻松处理。
+- en: Domain controller/authentication servers/ system logs
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 域控制器/认证服务器/系统日志
+- en: Authentication servers can allow an investigator to view login attempts, the
+    time of the login, and various other login-related activities throughout the network.
+    Consider a scenario where a group of attackers tries to use a compromised host
+    to log into the database server by using the compromised machine as a launchpad
+    (pivoting). In such cases, authentication logs will quickly reveal not only the
+    infected system, but also the number of failed/passed attempts from the system
+    to the database server.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 认证服务器允许调查人员查看登录尝试、登录时间以及网络中各种与登录相关的活动。假设一组攻击者试图利用受感染的主机通过该受感染机器作为跳板（Pivoting）登录到数据库服务器。在这种情况下，认证日志将迅速揭示出不仅仅是受感染的系统，还能显示该系统尝试连接数据库服务器的失败/成功次数。
+- en: IDS/IPS logs
+  id: totrans-72
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 入侵检测/防御系统日志
+- en: From a forensic standpoint, intrusion detection/prevention system logs are the
+    most helpful. IDS/IDPS logs provide not only the IP address, but also the matched
+    signatures, on-going attacks, malware presence, command-and-control servers, the
+    IP and port for the source and destination systems, a timeline, and much more.
+    We will cover IDS/IPS scenarios in the latter half of this book.
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从取证角度来看，入侵检测/防御系统日志是最有用的。IDS/IDPS日志不仅提供IP地址，还包括匹配的签名、正在进行的攻击、恶意软件存在情况、命令和控制服务器、源系统和目标系统的IP及端口、时间线等更多信息。本书后半部分将详细介绍IDS/IPS场景。
+- en: Firewall logs
+  id: totrans-74
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 防火墙日志
+- en: Firewall logs provide a detailed view of activities on the network. Not only
+    do firewall solutions protect a server or a network from unwanted connections,
+    they also help to identify the type of traffic, provide a trust score to the outbound
+    endpoint, block unwanted ports and connection attempts, and much more. We will
+    look at firewalls in more detail in the upcoming chapters.
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 防火墙日志提供了网络活动的详细视图。防火墙解决方案不仅可以保护服务器或网络免受不必要的连接，还可以帮助识别流量类型，提供出站端点的信任评分，阻止不需要的端口和连接尝试等等。在接下来的章节中，我们将更详细地讨论防火墙。
+- en: Proxy server logs
+  id: totrans-76
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 代理服务器日志
+- en: Web proxies are also one of the most useful features for a forensic investigator.
+    Web proxy logs help uncover internal threats while providing explicit detail on
+    events such as surfing habits, the source of web-based malware, the user's behavior
+    on the network, and so on.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络代理也是取证调查员最有用的功能之一。Web 代理日志有助于揭示内部威胁，同时提供有关事件的详细信息，例如上网习惯、基于 Web 的恶意软件来源、用户在网络上的行为等。
+- en: Since we now have an idea about the various types of logs we can consider for
+    analysis, let us quickly familiarize ourselves on the basics of Wireshark.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们已经对可以考虑进行分析的各种日志类型有所了解，那么让我们快速熟悉一下 Wireshark 的基础知识。
+- en: Wireshark essentials
+  id: totrans-79
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Wireshark 基础
+- en: 'Readers who are familiar with the basics of Wireshark can skip this section
+    and proceed with the case studies; however, readers who are unfamiliar with the
+    basics or who need to brush up on Wireshark essentials, can feel free to continue
+    through this section. Let''s look at some of the most basic features of Wireshark.
+    Look at the following screenshot:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对 Wireshark 基础有所了解的读者可以跳过这一部分，直接进入案例研究；然而，对于那些不熟悉基础知识或需要复习 Wireshark 基础的读者，可以继续阅读这一部分。让我们来看看
+    Wireshark 一些最基本的功能。请看以下截图：
+- en: '![](img/7322eb83-cd02-4aa6-a6ce-ba06a979a875.png)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7322eb83-cd02-4aa6-a6ce-ba06a979a875.png)'
+- en: Wireshark
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Wireshark
+- en: 'Once we execute Wireshark, we are presented with a screen similar to the preceding
+    picture. On the left-hand side, we have a list of the available interfaces to
+    capture packets from. In the middle, we have recent packet capture files and on
+    the right- hand side, we have online help and user guides. To start a new packet-capture,
+    you can select an interface, such as Ethernet, if you are connected over the wire,
+    or Wi-Fi, if you are connected on a wireless network. Similarly, if you need to
+    open a packet-capture file, you can press the Open button, browse to the capture
+    file, and load it in the Wireshark tool. Let''s capture packets from the wireless
+    interface by selecting Wi-Fi and pressing the Start button, as shown in the following
+    screenshot:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们执行 Wireshark，屏幕上会呈现出类似于前面图片的界面。在左侧，我们可以看到可用的接口列表，用于捕获数据包。中间是最近的数据包捕获文件，右侧则是在线帮助和用户指南。要开始新的数据包捕获，你可以选择一个接口，例如，如果你是通过有线连接，则选择以太网接口；如果你是通过无线网络连接，则选择
+    Wi-Fi 接口。同样，如果需要打开一个数据包捕获文件，可以点击“打开”按钮，浏览到捕获文件，并将其加载到 Wireshark 工具中。让我们通过选择 Wi-Fi
+    接口并按下开始按钮来捕获无线接口的数据包，如下图所示：
+- en: '![](img/27c2613c-8b8d-423c-93a8-355427a7bef8.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/27c2613c-8b8d-423c-93a8-355427a7bef8.png)'
+- en: We can see from the preceding screenshot that we have various types of packets
+    flowing on the network. Let's understand TCP conversations, endpoints, and basic
+    Wireshark filters in the upcoming sections.
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中我们可以看到，网络中有各种类型的数据包在流动。接下来，我们将了解 TCP 会话、端点以及 Wireshark 的基本过滤器。
+- en: Identifying conversations and endpoints
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别会话和端点
+- en: 'You may want to view the list of IP endpoints that your system is communicating
+    with. To achieve this, you can navigate to the Statistics tab and select Conversations,
+    as shown in the following screenshot:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能想查看你的系统正在与哪些 IP 端点进行通信。为此，你可以导航到“统计”标签，并选择“会话”，如以下截图所示：
+- en: '![](img/4f80ac68-fd1f-49af-8077-cec14553ea2d.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4f80ac68-fd1f-49af-8077-cec14553ea2d.png)'
+- en: We can see that we have a variety of endpoints that are having conversations,
+    the number of bytes transferred between the endpoints, and the duration of their
+    data exchange. These options become extremely handy when you want to investigate
+    malicious traffic and identify the key endpoints that are being contracted. Additionally,
+    we can see that most of the conversations in the preceding screenshot involves `192.168.1.15` but
+    we may not recognize the IP addresses its talking to.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到有多个端点正在进行通信，端点之间传输的字节数以及它们数据交换的持续时间。当你想要调查恶意流量并识别被联系的关键端点时，这些选项非常有用。此外，我们还可以看到，在前面的截图中，大部分通信都涉及到`192.168.1.15`，但我们可能无法识别它所通信的
+    IP 地址。
+- en: 'We can also make use of the Endpoints option from the Statistics tab, as shown
+    in the following screenshot:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以使用统计标签中的端点选项，正如以下截图所示：
+- en: '![](img/d02e77e3-f0e0-4ef2-9299-51f3065f7b16.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d02e77e3-f0e0-4ef2-9299-51f3065f7b16.png)'
+- en: From the preceding screenshot, we can see all the endpoints, and sorting them
+    using the number of packets will give us a clear understanding of the endpoints
+    that are transmitting the highest number of packets, which is again quite handy
+    when it comes to analyzing anomalous network behavior.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中，我们可以看到所有端点，使用数据包数量对它们进行排序将帮助我们清晰地了解哪些端点传输的数据包最多，在分析异常网络行为时，这一点非常有用。
+- en: Identifying the IP endpoints
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 识别 IP 端点
+- en: 'Domain names were invented to make it more easy to remember sites with common
+    phrases. Having a list of IP addresses in the previous section would make no sense
+    to us, but having a list that shows the resolution of the IPs into domain names
+    can help us a lot. On clicking the Show address resolution / Resolved Addresses option,
+    we will be presented with the following:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 域名的发明是为了让人们更容易记住带有常见短语的网站。如果在前一节中列出了 IP 地址，我们可能根本无法理解，但如果列出了将 IP 地址解析为域名的列表，则会对我们大有帮助。点击“显示地址解析
+    / 解析后的地址”选项后，我们将看到以下内容：
+- en: '![](img/ff7375f9-4c53-40b8-a369-51ff2d4fc05b.png)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ff7375f9-4c53-40b8-a369-51ff2d4fc05b.png)'
+- en: 'Well, this now makes proper sense, as we have a list of IP addresses with their
+    domain resolutions that can help us eliminate the false positives. We saw in the
+    previous endpoint section that the second-highest number of packets in the endpoints
+    originated from `162.125.34.6`. Since we don''t have an idea of what IP address
+    this could be, we can easily refer to the address resolutions and figure out that
+    this is `dropbox-dns.com`, which looks suspicious. Let''s search for it on Google
+    using the string `client.dropbox-dns.com`, and browsing the first result from
+    the search, we have the following result:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，现在一切都变得合情合理了，因为我们有一个列出了域名解析的 IP 地址列表，这将帮助我们排除误报。我们在前面的端点部分看到，数据包数量第二多的端点来自
+    `162.125.34.6`。由于我们不清楚这个 IP 地址代表什么，我们可以轻松地通过地址解析查找，发现它是 `dropbox-dns.com`，看起来很可疑。让我们通过在
+    Google 上搜索 `client.dropbox-dns.com` 来查找它，浏览搜索结果中的第一个链接，得到以下信息：
+- en: '![](img/3e001dfd-186e-4d29-85d6-229cfc7d39d4.png)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3e001dfd-186e-4d29-85d6-229cfc7d39d4.png)'
+- en: 'We can see from the preceding search result (the official Dropbox website, [https://www.dropbox.com/](https://www.dropbox.com/))
+    that the domain is a legitimate Dropbox domain and the traffic originating to
+    and from it is safe (assuming that Dropbox is permitted on the network or if allowed
+    for a select group of users that the traffic is associated with those users only).
+    This resolution not only helps us identify domains, but also speaks a lot about
+    the software running on the target as well. We already identified Dropbox as running
+    on the system. We also identified the following domains from the **Resolved Addresses**
+    pane in Wireshark:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的搜索结果（官方的 Dropbox 网站，[https://www.dropbox.com/](https://www.dropbox.com/)）中可以看出，该域名是一个合法的
+    Dropbox 域名，来自该域的流量是安全的（假设网络上允许使用 Dropbox，或仅限特定用户群体，且流量仅与这些用户相关）。这个解析不仅帮助我们识别域名，还能揭示运行在目标系统上的软件信息。我们已经确认
+    Dropbox 正在该系统上运行。在 Wireshark 的 **解析后的地址** 窗格中，我们还识别出了以下域名：
+- en: A Gmail account being accessed
+  id: totrans-99
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个正在访问的 Gmail 账户
+- en: A Qihoo 360 antivirus
+  id: totrans-100
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 Qihoo 360 杀毒软件
+- en: An HDFC bank account
+  id: totrans-101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 一个 HDFC 银行账户
+- en: The Grammarly plugin
+  id: totrans-102
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Grammarly 插件
+- en: The Firefox browser
+  id: totrans-103
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Firefox 浏览器
+- en: Basic filters
+  id: totrans-104
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 基本过滤器
+- en: 'Network forensics requires you to pinpoint a variety of packets to establish
+    a clear vision for the investigation. Let''s explore how we can do this by going
+    through the following steps:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络取证要求你精确定位各种数据包，以便为调查建立清晰的视角。让我们通过以下步骤来探索如何实现这一点：
+- en: 'Set up some basic display filters in Wireshark to only view packets of interest,
+    as shown in the following screenshot:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Wireshark 中设置一些基本的显示过滤器，以便仅查看感兴趣的包，如下图所示：
+- en: '![](img/1376165d-3f1e-4d81-8f0f-809f9cd0a6bf.png)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1376165d-3f1e-4d81-8f0f-809f9cd0a6bf.png)'
+- en: We can see that simply typing in `dns` as the filter will display DNS packets
+    only; however, we can see that MDNS protocol packets are also displayed.
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，直接输入 `dns` 作为过滤器将只显示 DNS 数据包；然而，我们也可以看到 MDNS 协议数据包同样被显示出来。
+- en: 'Considering that we only require DNS packets and not MDNS protocol packets,
+    we can set the filter as `dns && !mdns`, where `!` denotes a NOT operation, as
+    shown in the following screenshot:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 考虑到我们只需要 DNS 数据包，而不需要 MDNS 协议数据包，我们可以设置过滤器为 `dns && !mdns`，其中 `!` 表示 NOT 操作，如下图所示：
+- en: '![](img/ce79fd13-0dea-436f-82e2-f5373d608db3.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ce79fd13-0dea-436f-82e2-f5373d608db3.png)'
+- en: 'We can see from this that we don''t have an exact filter for MDNS. So, how
+    do we filter the MDNS packets out? We can see that the MDNS protocol communicates
+    over port `5353`. Let''s filter that out instead of using an `!mdns` filter, as
+    shown in the following screenshot:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这可以看出，我们没有针对 MDNS 的精确过滤器。那么，我们该如何过滤掉 MDNS 数据包呢？我们可以看到，MDNS 协议是通过端口 `5353` 进行通信的。让我们过滤掉该端口，而不是使用
+    `!mdns` 过滤器，如下图所示：
+- en: '![](img/4b07d3af-04df-4b12-9340-cb41dc390097.png)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4b07d3af-04df-4b12-9340-cb41dc390097.png)'
+- en: We can see that providing the filter `dns and !(udp.port eq 5353)` presents
+    us with only the DNS packets. Here, `eq` means equal, the `!` means NOT, and `udp.port`
+    means the UDP port. This means that, in layman's terms, we are asking Wireshark
+    to filter DNS packets while removing all the packets that communicate over UDP
+    port `5353`.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，提供过滤器 `dns and !(udp.port eq 5353)` 会仅显示 DNS 数据包。在这里，`eq` 表示等于，`!` 表示
+    NOT，`udp.port` 表示 UDP 端口。这意味着，通俗来说，我们要求 Wireshark 过滤 DNS 数据包，同时移除所有通过 UDP 端口 `5353`
+    通信的数据包。
+- en: In the latest version of Wireshark `mdns` is a valid protocol and display filter
+    such as `dns && !mdns` works fine.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Wireshark 的最新版本中，`mdns` 是一个有效的协议，显示过滤器如 `dns && !mdns` 可以正常工作。
+- en: 'Similarly, for HTTP, we can type in `http` as the filter, as shown in the following
+    screenshot:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，对于 HTTP，我们可以输入 `http` 作为过滤器，如下图所示：
+- en: '![](img/2e6b9ac5-bf76-4da1-b572-7c7ee42a6149.png)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2e6b9ac5-bf76-4da1-b572-7c7ee42a6149.png)'
+- en: 'However, we also have  OCSP and **Simple Service Discovery Protocol** (**SSDP**)
+    protocol data alongside the data that is filtered from the stream. To filter out
+    the OCSP and SSDP protocol data, we can type in `http && !ocsp`, and since SSDP
+    poses a similar problem to MDNS, we can type `!udp.port==1900`. This means that
+    the entire filter becomes `http && !ocsp && !udp.port==1900`, as shown in the
+    following screenshot:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，我们也有 OCSP 和 **简单服务发现协议**（**SSDP**）协议数据与从流中过滤出来的数据一起显示。为了过滤掉 OCSP 和 SSDP 协议数据，我们可以输入
+    `http && !ocsp`，由于 SSDP 与 MDNS 协议类似，我们可以输入 `!udp.port==1900`。因此，整个过滤器变为 `http
+    && !ocsp && !udp.port==1900`，如下图所示：
+- en: '![](img/5f1db45d-6e7e-4619-acc8-8339be979436.png)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5f1db45d-6e7e-4619-acc8-8339be979436.png)'
+- en: We can see from this that we have successfully filtered HTTP packets. But can
+    we search through them and filter only HTTP POST packets? Yes, we can, using the
+    expression `http contains POST && !ocsp` as shown in the following screenshot.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从中我们可以看到，我们已经成功过滤了 HTTP 数据包。但是我们能否在其中搜索并仅过滤 HTTP POST 数据包呢？当然可以，使用表达式 `http
+    contains POST && !ocsp` 如下图所示。
+- en: '![](img/ebf3d79a-d258-44b9-8e63-66b49d8bb3bd.png)'
+  id: totrans-120
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ebf3d79a-d258-44b9-8e63-66b49d8bb3bd.png)'
+- en: 'We can see that providing the `HTTP contains POST` filter filters out all the
+    non-HTTP POST requests. Let''s analyze the request by right-clicking and selecting
+    the option to follow the HTTP stream, as shown in the following screenshot:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，提供 `HTTP contains POST` 过滤器可以过滤掉所有非 HTTP POST 请求。让我们通过右键点击并选择跟踪 HTTP
+    流的选项来分析该请求，如下图所示：
+- en: '![](img/9313a775-ba40-4d81-8275-b18535a3693b.png)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9313a775-ba40-4d81-8275-b18535a3693b.png)'
+- en: We can see that this looks like a file that has been sent out somewhere, but
+    since it has headers such as `x-360-cloud-security-desc`, it looks as though it's
+    the cloud antivirus that is scanning a suspicious file found on the network.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，这看起来像是一个已经发送出去的文件，但由于它有 `x-360-cloud-security-desc` 等标头，看来是云端防病毒在扫描网络中发现的可疑文件。
+- en: 'Let''s take note of the IP address and match it with the address resolutions,
+    as shown in the following screenshot:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们记下该 IP 地址，并与地址解析结果进行匹配，如下图所示：
+- en: '![](img/a6c12316-2a37-419b-a926-b857eabbea11.png)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a6c12316-2a37-419b-a926-b857eabbea11.png)'
+- en: 'Well, the address resolutions have failed us this time. Let''s search the IP
+    on [https://who.is/](https://who.is/), as shown in the following screenshot:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好吧，这次地址解析失败了。让我们在[https://who.is/](https://who.is/)上搜索该IP，如下图所示：
+- en: '![](img/f12751fd-313e-4da1-9478-79316d1dc8c8.png)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f12751fd-313e-4da1-9478-79316d1dc8c8.png)'
+- en: Yes, it belongs to the QiHU 360 antivirus.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 是的，它属于360安全卫士。
+- en: 'We can also select HTTP packets based on the response codes, as shown in the
+    following screenshot:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以根据响应代码选择HTTP数据包，如下图所示：
+- en: '![](img/af8eb405-39e7-4221-84f4-dd4646b9d9f1.png)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/af8eb405-39e7-4221-84f4-dd4646b9d9f1.png)'
+- en: We can see that we have filtered the packets using `http.response.code==200`,
+    where `200` denotes a status OK response. This is handy when investigating packet
+    captures from compromised servers, as it gives us a clear picture of the files
+    that have been accessed and shows us how the server responded to particular requests.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，我们已经使用`http.response.code==200`过滤了数据包，其中`200`表示状态正常响应。在调查来自受感染服务器的数据包捕获时，这非常有用，因为它为我们提供了已访问文件的清晰图像，并展示了服务器如何响应特定请求。
+- en: It also allows us to figure out whether the implemented protections are working
+    well, because upon receiving a malicious request, in most cases, the protection
+    firewall issues a 404 (NOT FOUND) or a 403 (Forbidden) response code instead of
+    200 (OK).
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 它还允许我们判断已实现的保护措施是否正常工作，因为在收到恶意请求时，大多数情况下，保护防火墙会返回404（未找到）或403（禁止）响应代码，而不是200（正常）。
+- en: Let's now jump into some case studies and make use of the basics that we just
+    learned.
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们进入一些案例研究，并利用我们刚刚学到的基础知识。
+- en: Exercise 1 – a noob's keylogger
+  id: totrans-134
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 练习1 – 新手键盘记录器
+- en: 'Consider a scenario where an attacker has planted a keylogger on one of the
+    systems in the network. Your job as an investigator is to find the following pieces
+    of information:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设攻击者在网络中的某个系统上安装了一个键盘记录器。作为调查员，你的任务是找到以下信息：
+- en: Find the infected system
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找感染的系统
+- en: Trace the data to the server
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 跟踪数据到服务器
+- en: Find the frequency of the data that is being sent
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找正在发送的数据的频率
+- en: Find what other information is carried besides the keystrokes
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查找除了击键之外还携带的其他信息
+- en: Try to uncover the attacker
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 尝试揭示攻击者
+- en: Extract and reconstruct the files that have been sent to the attacker
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 提取并重构发送给攻击者的文件
+- en: Additionally, in this exercise, you need to assume that the **packet capture**
+    (**PCAP**) file is not available and that you have to do the sniffing-out part
+    as well. Let's say that you are connected to a mirror port on the network where
+    you can see all the data traveling to and from the network.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，在本练习中，你需要假设**数据包捕获**（**PCAP**）文件不可用，你还需要执行嗅探的部分。假设你连接到网络中的镜像端口，可以看到所有流入和流出网络的数据。
+- en: The capture file for this network capture is available at [https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Noobs%20KeyLogger/Noobs%20Keylogger.pcap](https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Noobs%20KeyLogger/Noobs%20Keylogger.pcap).
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此网络捕获的捕获文件可以在[https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Noobs%20KeyLogger/Noobs%20Keylogger.pcap](https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Noobs%20KeyLogger/Noobs%20Keylogger.pcap)找到。
+- en: 'We can begin our process as follows. We already know that we are connected
+    via a mirror port. Let''s sniff around on the interface of choice. If connected
+    to the mirror port, choose the default interface and proceed with collecting packets,
+    as shown in the following screenshot:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以按照以下方式开始我们的过程。我们已经知道我们是通过镜像端口连接的。让我们在选择的接口上嗅探。如果连接到镜像端口，请选择默认接口并继续收集数据包，如下图所示：
+- en: '![](img/6011e714-7b8a-407f-aecb-a1dd6dbaf8dd.png)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6011e714-7b8a-407f-aecb-a1dd6dbaf8dd.png)'
+- en: Most keyloggers work on the web (HTTP), FTP, and email for delivering the keystrokes
+    back to the attacker. We will try all of these to check whether there's anything
+    unusual with packets from these protocols.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数键盘记录器通过Web（HTTP）、FTP和电子邮件将击键信息发送回攻击者。我们将尝试这些协议，检查这些协议的包是否有任何异常。
+- en: 'Let''s try HTTP first by setting the `http` filter, as shown in the following
+    screenshot:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们首先尝试设置`http`过滤器，如下图所示：
+- en: '![](img/96187340-69c4-44d0-94fa-dcd41e09f8f3.png)'
+  id: totrans-148
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/96187340-69c4-44d0-94fa-dcd41e09f8f3.png)'
+- en: There is HTTP data, but everything seems fine.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有HTTP数据，但一切似乎正常。
+- en: 'Let''s try a couple of protocols, SMTP and POP, to check for anything unusual
+    with the email protocol, as shown in the following screenshot:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们尝试几种协议，SMTP和POP，以检查电子邮件协议是否有任何异常，如下图所示：
+- en: '![](img/ccf8c1e7-82ea-4151-9ebb-6073b45e362a.png)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ccf8c1e7-82ea-4151-9ebb-6073b45e362a.png)'
+- en: Everything seems fine here as well.
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里看起来也一切正常。
+- en: 'Let''s try FTP as well, as shown in the following screenshot:'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们尝试FTP，如下图所示：
+- en: '![](img/202de185-800c-4d24-83e3-f1bb0907944e.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/202de185-800c-4d24-83e3-f1bb0907944e.png)'
+- en: FTP
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: FTP
+- en: Well, we have plenty of activity on the FTP! We can see that the FTP packets
+    contain the `USER` and `PASS` commands in the capture, which denotes a login activity
+    to the server. Of course, this can be either the keylogger or a legitimate login
+    from any user on the network. Additionally, we can see a `STOR` command that is
+    used to store files on the FTP server. However, let's note down the credentials
+    and filenames of the uploaded files for our reference and investigate further. Since,
+    we know that the `STOR` command is used to store data on the server.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，FTP上有很多活动！我们可以看到FTP数据包中包含了`USER`和`PASS`命令，这表示进行了服务器的登录活动。当然，这可能是键盘记录器的操作，也可能是网络上某个用户的合法登录。此外，我们还可以看到`STOR`命令，它用于将文件存储到FTP服务器上。不过，让我们记下凭证和上传文件的文件名以供参考，并进一步调查。因为我们知道`STOR`命令用于将数据存储到服务器上。
+- en: 'Let''s view these data packets by changing filter to `ftp-data`, as shown in
+    the following screenshot:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过将过滤器更改为`ftp-data`来查看这些数据包，如下图所示：
+- en: '![](img/33fce03d-c2c8-4acb-86ce-436f848b51c3.png)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/33fce03d-c2c8-4acb-86ce-436f848b51c3.png)'
+- en: Changing filter to ftp-data
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将过滤器更改为ftp-data
+- en: '`ftp-data` will only contain mostly the files and data transferred rather that
+    all the other FTP commands'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`ftp-data`将主要包含传输的文件和数据，而不是所有其他FTP命令。'
+- en: 'Let''s see what we get when we follow the TCP stream of the packet, we can
+    see that we have the following data being posted to the server:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们查看当我们跟踪数据包的TCP流时，我们可以看到发送到服务器的数据如下：
+- en: '![](img/44641787-920e-4c65-ba89-fb270353c6fb.png)'
+  id: totrans-162
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/44641787-920e-4c65-ba89-fb270353c6fb.png)'
+- en: We can see that the data being transmitted contains the word `Ardamax`, which
+    is the name of a common piece of keylogger software that records keystrokes from
+    the system it has infected and sends it back to the attacker. Let's save the packet
+    capture in PCAP format by selecting **File** | **Save As** and choosing the `.pcap`
+    format. We will be using the `.pcap` format only since the free version of NetworkMiner
+    support only PCAP files and not the `pcapng` format.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到传输的数据中包含了`Ardamax`这个词，它是一个常见的键盘记录软件的名称，用于记录系统中的按键并将其发送回攻击者。现在，我们可以通过选择**文件**
+    | **另存为**并选择`.pcap`格式来保存数据包捕获。我们只会使用`.pcap`格式，因为NetworkMiner的免费版本只支持PCAP文件，不支持`pcapng`格式。
+- en: 'Let''s open the saved file using NetworkMiner as shown in the following screenshot:'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用NetworkMiner打开保存的文件，如下图所示：
+- en: '![](img/86952fe6-bdc7-425e-b544-786440be4cf0.png)'
+  id: totrans-165
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/86952fe6-bdc7-425e-b544-786440be4cf0.png)'
+- en: Opening the saved file using network miner
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用NetworkMiner打开保存的文件
+- en: We can see we have a number of hosts present in the network capture.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到网络捕获中有多个主机。
+- en: 'Let''s navigate to the Credentials tab, as shown in the following screenshot:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们切换到“凭证”标签，如下图所示：
+- en: '![](img/64779c60-56ac-4096-8460-eaf2586c80ec.png)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/64779c60-56ac-4096-8460-eaf2586c80ec.png)'
+- en: We can see that we have the username and password captured in the PCAP file
+    displayed under **Credentials** tab in NetworkMiner. We previously saw the `STOR`
+    command, which is commonly used in uploading files to an FTP from the Wireshark
+    dump.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，在NetworkMiner的**凭证**标签下，我们已经捕获到的用户名和密码显示在PCAP文件中。我们之前看到的`STOR`命令，通常用于从Wireshark转储上传文件到FTP。
+- en: 'Let''s browse to the Files tab and see the files that we are interested in:'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们浏览到“文件”标签，查看我们感兴趣的文件：
+- en: '![](img/8b3fd08f-5411-4737-897b-3093467e9c4e.png)'
+  id: totrans-172
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8b3fd08f-5411-4737-897b-3093467e9c4e.png)'
+- en: Files tab
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件标签
+- en: 'We can see plenty of files. Let''s open the files that we found using the `STOR`
+    command in the browser, as shown in the following screenshot:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到很多文件。让我们打开通过`STOR`命令在浏览器中找到的文件，如下图所示：
+- en: '![](img/14b889cd-0802-4f02-a299-de4ec586a26a.png)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/14b889cd-0802-4f02-a299-de4ec586a26a.png)'
+- en: 'The attacker was not only keylogging, but was also fetching details such as
+    the active window title along with the key logs. So, to sum this up, we have the
+    following answers to the questions that we asked at the beginning of the exercise:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者不仅在进行键盘记录，还在获取诸如活动窗口标题等细节信息以及键盘记录。因此，总结一下，我们可以回答在练习开始时提出的问题：
+- en: '**Find the infected system**: `192.168.76.131`'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**找到受感染的系统**：`192.168.76.131`'
+- en: '**Trace the data to the server**: `140.82.59.185`'
+  id: totrans-178
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**追踪数据到服务器**：`140.82.59.185`'
+- en: '**Find the frequency of the data that is being sent**: The difference between
+    two consecutive `STOR` commands for a similar file type is 15 seconds'
+  id: totrans-179
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**查找发送数据的频率**：对于类似文件类型的两个连续 `STOR` 命令之间的时间差为 15 秒'
+- en: '**Find what other information is carried alongside the keystrokes**: Active
+    window titles'
+  id: totrans-180
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**查找键击之外携带的其他信息**：活动窗口标题'
+- en: '**Try to uncover the attacker**: Not yet found'
+  id: totrans-181
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**尝试揭示攻击者**：尚未找到'
+- en: '**Extract and reconstruct the files sent to the attacker**: `Keys_2018-11-28_16-04-42.html`'
+  id: totrans-182
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**提取并重建发送给攻击者的文件**：`Keys_2018-11-28_16-04-42.html`'
+- en: We have plenty of information regarding the hacker. At this point, we can provide
+    the details we found in our analysis in the report, or we can go one step further
+    and try to uncover the identity of the attacker. If you chose to do so, then let's
+    get started in finding out how to uncover this information.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们掌握了关于黑客的大量信息。此时，我们可以将我们分析中找到的细节提供到报告中，或者我们可以更进一步，尝试揭示攻击者的身份。如果您选择这样做，那么让我们开始查找如何揭示此信息。
+- en: Logging into a computer that you’re not authorized to access can result in criminal
+    penalties (fines, imprisonment, or both).
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 登录到您未授权访问的计算机可能会导致刑事处罚（罚款、监禁或两者兼施）。
+- en: 'We already found their credentials in the server. Let''s try logging into the
+    FTP server and try to find something of interest, as shown in the following screenshot:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经在服务器中找到了他们的凭证。让我们尝试登录 FTP 服务器，看看能否找到感兴趣的内容，如下图所示：
+- en: '![](img/73c265be-ae19-49d2-8f3e-d61732994529.png)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/73c265be-ae19-49d2-8f3e-d61732994529.png)'
+- en: 'We can see that we are easily able to log into the server. Let''s use an FTP
+    client, such as Royal TSX in Mac (FileZilla for Windows), to view the files that
+    reside on the server, as shown in the following screenshot:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，我们轻松地能够登录到服务器。让我们使用 FTP 客户端，比如 Mac 上的 Royal TSX（Windows 上的 FileZilla），查看服务器上的文件，如下图所示：
+- en: '![](img/1f18a793-0f4a-4476-8b6f-63dd17057e38.png)'
+  id: totrans-188
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1f18a793-0f4a-4476-8b6f-63dd17057e38.png)'
+- en: Wow! So much information has been logged; however, we can see two directories
+    named `John` and `Jo`. The directory `Jo` is empty but we may have something in
+    the directory named `John`.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哇！记录了这么多信息；然而，我们可以看到有两个名为 `John` 和 `Jo` 的目录。目录 `Jo` 是空的，但我们可能会在名为 `John` 的目录中找到一些东西。
+- en: 'Let''s view the contents of `John`, as shown in the following screenshot:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们查看 `John` 目录的内容，如下图所示：
+- en: '![](img/ab7590b8-136f-4c17-b161-eb48d771c243.png)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ab7590b8-136f-4c17-b161-eb48d771c243.png)'
+- en: It looks as though the attacker is applying for jobs and keeps their updated
+    resume on their server. The case-study analysis proves that the keylogger is a newbie.
+    In answering the last question regarding the identity of the attacker, we have
+    successfully conducted our first network forensic analysis exercise. The resume
+    we found might have been stolen from someone else as well. However, this is just
+    the tip of the iceberg. In the upcoming chapters, we will look at a variety of
+    complex scenarios; this was an easy one.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来攻击者正在申请工作，并将其更新的简历保存在他们的服务器上。案例研究分析证明该键盘记录器是个新手。在回答有关攻击者身份的最后一个问题时，我们已经成功完成了第一次网络取证分析练习。我们找到的简历可能也被盗自其他人。然而，这只是冰山一角。在接下来的章节中，我们将会看到各种复杂的场景；这只是一个简单的例子。
+- en: In the next example, we will look at TCP packets and try figuring out what were
+    the event causing such network traffic.
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个示例中，我们将查看 TCP 包并尝试弄清楚是什么事件导致了这样的网络流量。
+- en: Exercise 2 – two too many
+  id: totrans-194
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 练习 2 – 太多了
+- en: Let's analyze another capture file from [https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Two%20to%20Many/twotomany.pcap](https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Two%20to%20Many/twotomany.pcap),
+    that we currently don't know any details about and try reconstructing the chain
+    of events.
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们分析另一个来自[https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Two%20to%20Many/twotomany.pcap](https://github.com/nipunjaswal/networkforensics/blob/master/Ch1/Two%20to%20Many/twotomany.pcap)的捕获文件，目前我们对其细节一无所知，并尝试重建事件链。
+- en: 'We will open the PCAP in Wireshark, as follows:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在 Wireshark 中打开 PCAP 文件，如下所示：
+- en: '![](img/b16a6ffe-cdb2-456e-89b9-1a3d5361bcc1.png)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b16a6ffe-cdb2-456e-89b9-1a3d5361bcc1.png)'
+- en: 'From the preceding screenshot, we can see that numerous SYN packets are being
+    sent out to the `64.13.134.52` IP address. However, looking closely, we can see
+    that most of the packets are being sent every so often from a single port, which
+    is `36050` and `36051`, to almost every port on `64.13.134.52`. Yes, you guessed
+    right: this looks like a port scan. Initially the SYN packet is sent out, and
+    on receiving a SYN/ACK, the port is considered open.'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图中，我们可以看到大量 SYN 包被发送到`64.13.134.52`的 IP 地址。然而，仔细观察，我们可以看到大多数包是周期性地从单个端口（`36050`和`36051`）发送到几乎每个端口的`64.13.134.52`。没错，你猜对了：这看起来像是一个端口扫描。最初，SYN
+    包被发送出去，收到 SYN/ACK 后，端口被认为是开放的。
+- en: 'We know that the originating IP address, `172.16.0.8`, is an internal one and
+    the server being contracted is `64.13.134.52`. Can you figure out the following?:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们知道，源 IP 地址`172.16.0.8`是一个内部地址，而被访问的服务器是`64.13.134.52`。你能猜出以下内容吗？：
+- en: Scan type
+  id: totrans-200
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 扫描类型
+- en: Open ports
+  id: totrans-201
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打开的端口
+- en: Answering the first question requires a more in-depth understanding of a TCP-oriented
+    communication and its establishment, TCP works on a three-way handshake, which
+    means that on receiving a **synchronize **(**SYN**) packet from the source IP
+    address, the destination IP address sends out a **synchronize/ acknowledgment** (**SYN/ACK**)
+    packet that is followed by a final **acknowledgment **(**ACK**) packet from the
+    source IP address to complete the three-way handshake. However, as we can see
+    from the preceding screenshot, only a SYN/ACK is sent back from port `80`, and
+    there hasn't been an ACK packet sent out by the source IP address.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回答第一个问题需要对基于 TCP 的通信及其建立有更深入的了解，TCP 通过三次握手来工作，这意味着当接收到来自源 IP 地址的**同步**（**SYN**）包时，目标
+    IP 地址会发送一个**同步/确认**（**SYN/ACK**）包，接着源 IP 地址会发送一个最终的**确认**（**ACK**）包来完成三次握手。然而，正如我们从前面的截图中看到的那样，仅仅从端口`80`返回了一个
+    SYN/ACK 包，并且源 IP 地址并没有发送 ACK 包。
+- en: This phenomenon means that the ACK packet was never sent to the destination
+    by the source, which means that only the first two steps of the three-way handshake
+    were completed. This two step half open mechanism causes the destination to use
+    up resources as the port will be help open for a period of time. Meanwhile, this
+    is a popular technique leveraged by a scan type called **SYN scan** or **half-open
+    scan**, or sometimes the **stealth scan**. Tools such as Nmap make use of such
+    techniques to lower the number of network packets on the wire. Therefore, we can
+    conclude that the type of scan we are dealing with is a SYN scan.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一现象意味着源 IP 地址从未向目标发送 ACK 包，这意味着三次握手的前两步已经完成。这个两步的半开机制导致目标消耗资源，因为端口会在一段时间内保持开放。与此同时，这是通过一种叫做**SYN
+    扫描**或**半开扫描**的扫描类型广泛使用的技术，有时也叫做**隐形扫描**。像 Nmap 这样的工具利用这种技术来减少网络上数据包的数量。因此，我们可以得出结论，我们正在处理的扫描类型是
+    SYN 扫描。
+- en: Nmap uses RST packet in half open scan periodically to prevent resource exhaustion
+    at the destination.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Nmap 在半开扫描中定期使用 RST 包，以防止目标的资源被耗尽。
+- en: '![](img/c6abcfb8-9f24-4876-97f4-1500071c1422.png)'
+  id: totrans-205
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c6abcfb8-9f24-4876-97f4-1500071c1422.png)'
+- en: 'Applying the filer `ip.src==64.13.134.5`, we can see the responses sent by  `64.13.134.52`.
+    It is evident that we have received the SYN/ACK from ports `53`, `80`, and `22`,
+    which are open ports. We can also see that there has been network loss, and the
+    sender has sent the packets again. Additionally, we can see **Reset Acknowledgment
+    Packets** (**RST**) that denote misconfigurations or the application running on
+    the not willing to connect: the reasons for such behavior can differ.'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用过滤器`ip.src==64.13.134.5`后，我们可以看到来自`64.13.134.52`的响应。显然，我们收到了来自端口`53`、`80`和`22`的
+    SYN/ACK 包，这些都是开放端口。我们还可以看到发生了网络丢包，发送方重新发送了数据包。此外，我们可以看到**重置确认包**（**RST**），这表示配置错误或应用程序不愿意连接：这种行为的原因可能不同。
+- en: Summary
+  id: totrans-207
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Over the course of this chapter, we learned about the basics of network forensics.
+    We used Wireshark to analyze a keylogger and packets from a port scan. We discovered
+    various types of network evidence sources and also learned the basics methodology
+    that we should follow when performing network forensics.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们了解了网络取证的基础知识。我们使用 Wireshark 分析了一个键盘记录器和来自端口扫描的包。我们发现了各种类型的网络证据源，并且学习了在进行网络取证时应该遵循的基本方法论。
+- en: In the next chapter, we will look at the basics of protocols and other technical
+    concepts and strategies that are used to acquire evidence, and we will perform
+    hands-on exercises related to them.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将学习协议的基础知识，以及用于获取证据的其他技术概念和策略，并且我们将进行相关的动手练习。
+- en: All credits for this above capture file goes to Chris Sanders GitHub repository
+    at [https://github.com/chrissanders/packets](https://github.com/chrissanders/packets).
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述捕获文件的所有归功于 Chris Sanders 的 GitHub 仓库，网址为 [https://github.com/chrissanders/packets](https://github.com/chrissanders/packets)。
+- en: Questions and exercises
+  id: totrans-211
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题与练习
+- en: 'To improve your confidence in your network forensics skills, try answering
+    the following questions:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了提升你在网络取证技能上的信心，试着回答以下问题：
+- en: What is the difference between the `ftp` and `ftp-data` display filter in Wireshark?
+  id: totrans-213
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '`ftp` 和 `ftp-data` 在 Wireshark 中的显示过滤器有什么区别？'
+- en: Can you build an `http` filter for webpages with specific keywords?
+  id: totrans-214
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你能为包含特定关键字的网页构建一个 `http` 过滤器吗？
+- en: We saved files from the PCAP using NetworkMiner. Can you do this using Wireshark?
+    (Yes/No)
+  id: totrans-215
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们使用 NetworkMiner 从 PCAP 文件中保存了数据。你能用 Wireshark 完成这个操作吗？（是/否）
+- en: Try repeating these exercises with Tshark.
+  id: totrans-216
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试用 Tshark 重复这些练习。
+- en: Further reading
+  id: totrans-217
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入阅读
+- en: For further information on Wireshark, refer to [https://www.packtpub.com/networking-and-servers/mastering-wireshark](https://www.packtpub.com/networking-and-servers/mastering-wireshark)
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关 Wireshark 的更多信息，请参阅 [https://www.packtpub.com/networking-and-servers/mastering-wireshark](https://www.packtpub.com/networking-and-servers/mastering-wireshark)

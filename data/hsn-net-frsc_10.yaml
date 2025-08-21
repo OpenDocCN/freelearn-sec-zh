@@ -1,0 +1,1116 @@
+- en: Investigating C2 Servers
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查C2服务器
+- en: In the last chapter, we saw how malware analysis works in the context of network
+    forensics. Let's study some advanced and popularly-used **Command and Control**
+    (**C2**) tools to learn about their behavior on the wire and try to develop strategies
+    to recognize them. The most popular tools for C2 are **Metasploit** and **Empire**,
+    which are both used in red-teaming exercises and professional penetration tests.
+    However, an easy-to-use choice can sometimes lure cyber criminals to use it as
+    well. While many detection tools detect Metasploit usage, it is recommended that
+    we go through a manual investigation of events as well.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上一章中，我们了解了恶意软件分析在网络取证中的工作原理。现在让我们研究一些先进且广泛使用的**命令与控制**（**C2**）工具，了解它们在网络中的行为，并尝试制定识别它们的策略。最受欢迎的C2工具是**Metasploit**和**Empire**，这两者都广泛应用于红队演练和专业渗透测试中。然而，一些易于使用的工具有时会吸引网络犯罪分子使用它们。虽然许多检测工具可以检测到Metasploit的使用，但建议我们也通过手动调查事件来加以确认。
+- en: 'In this chapter, we will look at the following topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章内容将包括以下主题：
+- en: Decoding the Metasploit shell
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解码Metasploit shell
+- en: Case study – decrypting the Metasploit Reverse HTTPS Shellcode
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案例研究 – 解密Metasploit反向HTTPS Shellcode
+- en: Empire C2 analysis
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Empire C2分析
+- en: Case study – CERT.SE's major fraud and hacking criminal case, **B 8322-16**
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案例研究 – CERT.SE的重大欺诈与黑客犯罪案件，**B 8322-16**
+- en: Let's first investigate the basic reverse TCP shell used in Metasploit. We will
+    examine the `meterpreter_basic.pcap` file for this exercise.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们首先调查Metasploit中使用的基本反向TCP shell。我们将查看`meterpreter_basic.pcap`文件进行此练习。
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To complete the exercises in the chapter, you will require the following:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成本章练习需要以下工具：
+- en: VMWare Player/VirtualBox installation with Kali Operating system installed,
+    You can download it from [https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/)
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 安装了Kali操作系统的VMWare Player/VirtualBox，您可以从[https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/)下载
+- en: Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    installed on Windows 10 OS/ Ubuntu 14.04 (already present in Kali Linux)
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark v3.0.0（[https://www.wireshark.org/download.html](https://www.wireshark.org/download.html)）已安装在Windows
+    10操作系统/ Ubuntu 14.04（Kali Linux上已预装）
+- en: PowerShell (already present on Windows 10)
+  id: totrans-12
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PowerShell（已安装在Windows 10上）
+- en: Python (already present on Kali Linux)
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Python（已安装在Kali Linux上）
+- en: Download NetworkMiner from [https://www.netresec.com/?page=Networkminer](https://www.netresec.com/?page=Networkminer)
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从[https://www.netresec.com/?page=Networkminer](https://www.netresec.com/?page=Networkminer)下载NetworkMiner
+- en: Download PCAP files for this chapter from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch7](https://github.com/nipunjaswal/networkforensics/tree/master/Ch7)
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从[https://github.com/nipunjaswal/networkforensics/tree/master/Ch7](https://github.com/nipunjaswal/networkforensics/tree/master/Ch7)下载本章的PCAP文件
+- en: Decoding the Metasploit shell
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解码Metasploit shell
+- en: 'Let''s start investigating the file in Wireshark to try to deduce what happened.
+    We will focus on gathering the following details:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始在Wireshark中调查文件，尝试推测发生了什么。我们将专注于收集以下详细信息：
+- en: C2 server IP
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: C2服务器IP
+- en: C2 server port
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: C2服务器端口
+- en: Infected system IP
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 被感染的系统IP
+- en: Infected system's port
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 被感染系统的端口
+- en: Actions performed by the attacker
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者执行的操作
+- en: Time of the attack
+  id: totrans-23
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击发生时间
+- en: Duration of the attack
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击持续时间
+- en: 'Let''s fire up Wireshark and choose **Statistics** | **Conversations** | **TCP**
+    tab:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们启动Wireshark并选择**统计信息** | **会话** | **TCP**标签：
+- en: '![](img/f6503b32-721e-461d-a392-0804b4037076.png)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f6503b32-721e-461d-a392-0804b4037076.png)'
+- en: 'We can see that we have two conversations primarily between `192.168.46.128`
+    and `192.168.46.129` on port `80` and `4433`. Let''s filter the conversation using
+    TCP as the filter and analyze the output:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，主要有两个会话在`192.168.46.128`和`192.168.46.129`之间通过端口`80`和`4433`进行。让我们使用TCP过滤器来筛选这些会话并分析输出：
+- en: '![](img/ed4f9d3a-4b4e-48ed-b755-6cca49ea8e9f.png)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ed4f9d3a-4b4e-48ed-b755-6cca49ea8e9f.png)'
+- en: 'We can see that the first TCP packets (`23`-`25`) are nothing but the three-way
+    handshake. However, next, we have a separate conversation starting from packet `71`.
+    Another strange thing is that the communication port being used is port `80`.
+    However, for some reason, the data being displayed is still in TCP encapsulation
+    and not in the application layer data (HTTP). This is strange and occurs in cases
+    where port `80` is being used for non-HTTP communications. Let''s right-click
+    on packet `71` and follow the TCP stream:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到第一个 TCP 数据包（`23`-`25`）仅仅是三次握手。然而，接下来我们有一个从数据包 `71` 开始的独立会话。另一个奇怪的事情是，使用的通信端口是端口
+    `80`。但是，由于某种原因，显示的数据仍然是 TCP 封装的数据，而不是应用层数据（HTTP）。这是很奇怪的，通常发生在端口 `80` 被用于非 HTTP
+    通信的情况下。让我们右键点击数据包 `71`，并跟踪 TCP 流：
+- en: '![](img/a0cb6e32-d1a6-4c25-b460-006850effa50.png)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a0cb6e32-d1a6-4c25-b460-006850effa50.png)'
+- en: 'Well, it looks as though we have our culprit! We can see a `dir` command being
+    pushed and data being received. It is a case of C2 where the attacker might have
+    executed the `dir` command and the response was sent to them. However, we have
+    plenty of commands in the filtered streams. Additionally, the number of streams
+    present in the `pcap` file is equal to the number of streams displayed in the
+    TCP tab of the conversations. Hence, we know that there are four streams in the
+    file, which are as follows:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 好的，看起来我们已经找到了罪魁祸首！我们可以看到一个 `dir` 命令正在被执行，并且数据正在被接收。这是一个 C2（命令与控制）案例，攻击者可能执行了
+    `dir` 命令，并且响应被发送给了他们。然而，在过滤流中我们看到了大量的命令。此外，`pcap` 文件中存在的流的数量与会话的 TCP 标签中显示的流的数量相等。因此，我们知道文件中有四个流，分别如下：
+- en: The three-way handshake
+  id: totrans-32
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三次握手
+- en: The setup for C2 on port `80`
+  id: totrans-33
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 端口 `80` 上的 C2 设置
+- en: The `dir` command
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`dir` 命令'
+- en: Communication on port `4433`
+  id: totrans-35
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 端口 `4433` 上的通信
+- en: While stream 2, which contains the `dir` command, is placed beneath stream 1,
+    it was observed that stream 1 ended way after stream 2, as it was a continuous
+    stream of a live shell.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然包含 `dir` 命令的流 2 被放置在流 1 下面，但我们观察到流 1 结束的时间远远晚于流 2，因为它是一个持续的实时 Shell 流。
+- en: 'Coming back to the commands in stream 1, the following command was executed:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回到流 1 中的命令，执行了以下命令：
+- en: '[PRE0]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The preceding command runs `get-host` from PowerShell, which displays the following
+    output:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的命令运行了 PowerShell 中的 `get-host`，它显示了以下输出：
+- en: '[PRE1]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'We can also see an identifier being echoed in the command. This identifier
+    is generally used to identify unique output from a compromised host while also
+    denoting the end of the output. Let''s look at the next command:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以看到命令中回显了一个标识符。这个标识符通常用于识别被攻陷主机的唯一输出，同时也表示输出的结束。让我们看看下一个命令：
+- en: '![](img/7a6adfde-cbdf-4c42-85ac-5bbd7d8b15c1.png)'
+  id: totrans-42
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7a6adfde-cbdf-4c42-85ac-5bbd7d8b15c1.png)'
+- en: Working with PowerShell obfuscation
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 PowerShell 混淆
+- en: 'The `%COMSPEC%` command is nothing but a placeholder variable for `cmd.exe`,
+    and we can verify this by typing `echo %COMSPEC%` in CMD. Next, we can see that
+    `powershell.exe` is being invoked in minimized and through a hidden window using
+    the `/min` and `-w hidden` switches. In the following lines, PowerShell is being
+    searched from system32 and 64-bit directories, such as `sysWOW64`. Let''s decode
+    the base64-encoded payload to see what lies beneath:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`%COMSPEC%` 命令仅仅是 `cmd.exe` 的占位符变量，我们可以通过在 CMD 中输入 `echo %COMSPEC%` 来验证这一点。接下来，我们可以看到
+    `powershell.exe` 被调用，并且是通过 `/min` 和 `-w hidden` 开关在最小化和隐藏窗口中启动的。在接下来的几行中，PowerShell
+    从 system32 和 64 位目录（例如 `sysWOW64`）中被搜索。让我们解码这个 Base64 编码的有效载荷，看看它到底隐藏了什么：'
+- en: '![](img/4b4989e8-5c4d-41e1-8f69-4416c6fb9a3d.png)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4b4989e8-5c4d-41e1-8f69-4416c6fb9a3d.png)'
+- en: We get the preceding output after base64 decoding. However, it still does not
+    make much sense. We can see another base64 encoded string and Gzip compression
+    objects in the output. Let's try decompressing the Gzip compression and decoding
+    it using base64 in the next section
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在进行 Base64 解码后得到了上面的输出。然而，这仍然没有太多意义。我们可以在输出中看到另一个 Base64 编码的字符串和 Gzip 压缩对象。让我们在下一部分尝试解压
+    Gzip 压缩并使用 Base64 解码它：
+- en: Decoding and decompressing with Python
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Python 解码和解压缩
+- en: 'Let''s drill deeper. Let''s use Python to decode the contents, which are Gzip
+    compressed and base64-encoded:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们深入分析一下。我们可以使用 Python 解码内容，这些内容经过 Gzip 压缩和 Base64 编码：
+- en: '[PRE2]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'We start by importing the input/output, Gzip, and base64 libraries. Next, we
+    decode the content using base64 and obtain the decoded bytes. The decoded bytes
+    are in Gzip compression and hence need decompression. We Gzip the contents and
+    store the results in the result variable, and then we print the data:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们首先导入输入/输出、Gzip 和 base64 库。接下来，我们使用 base64 解码内容并获得解码后的字节。这些字节是 Gzip 压缩格式的，因此需要解压缩。我们将内容进行
+    Gzip 解压并将结果存储在 result 变量中，然后打印数据：
+- en: '[PRE3]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'We can see that we have decoded the entire payload and what we have is what
+    looks like a reflective DLL injection. However, we can still see another base64-encoded
+    string. Let''s decode it as follows:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到我们已经解码了整个有效负载，看起来像是反射式 DLL 注入。然而，我们仍然可以看到另一个 base64 编码的字符串。让我们按如下方式解码它：
+- en: '![](img/46221b7b-845d-4eb5-8a17-77c2cdbf49d0.png)'
+  id: totrans-53
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/46221b7b-845d-4eb5-8a17-77c2cdbf49d0.png)'
+- en: 'We can see the decoded values; this is the shellcode used by the attacker.
+    Let''s convert it into hex strings:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到解码后的值；这是攻击者使用的 shellcode。我们将其转换为十六进制字符串：
+- en: '[PRE4]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'The preceding program outputs the following:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的程序输出如下内容：
+- en: '[PRE5]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'We can view the preceding string in the form of shell code, as follows (there
+    is an excellent web resource that converts hex string to x86 assembly: [https://defuse.ca/online-x86-assembler.htm](https://defuse.ca/online-x86-assembler.htm)):'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以将前面的字符串以 shell 代码的形式查看，如下所示（有一个很棒的在线资源可以将十六进制字符串转换为 x86 汇编：[https://defuse.ca/online-x86-assembler.htm](https://defuse.ca/online-x86-assembler.htm)）：
+- en: '![](img/e0a3a1e2-d269-4aa8-8462-4e3c3269b0c0.png)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e0a3a1e2-d269-4aa8-8462-4e3c3269b0c0.png)'
+- en: 'Scrolling down the code, we have a few interesting lines that show the following:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 向下滚动代码，我们有几行有趣的内容，显示了以下内容：
+- en: '![](img/e97ae046-df1e-45f8-af9c-767cd006e509.png)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e97ae046-df1e-45f8-af9c-767cd006e509.png)'
+- en: At line `af` (line 4), we have `push 0x812ea8c0`, which is in big-endian format.
+    Let's convert this into endian format by reversing the bytes as `c0a82e81`. Converting
+    this from a hex to an IP address, we have `192.168.46.129` and similarly for the
+    next line, `51110002` whose first half in the little-endian format is the port
+    which is `1151` (hex) to `4433`(decimal).
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `af` 行（第 4 行），我们有 `push 0x812ea8c0`，它是大端格式。我们将其转换为小端格式，字节反转为 `c0a82e81`。将其从十六进制转换为
+    IP 地址，我们得到 `192.168.46.129`，类似地，下一行 `51110002` 的前半部分是小端格式的端口号 `1151`（十六进制）到 `4433`（十进制）。
+- en: '`4433` is the port being communicated to in the stream 3 of the network capture
+    file. Additionally, if we look at the assembly in detail, we will find that the
+    shellcode is used to connect back to the IP and port defined and gave the attacker
+    some access to the target. Looking at the assembly is beyond the scope of this
+    book. Hence, please check out the *Further reading* section if you want to learn
+    more about assembly.'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`4433` 是网络捕获文件中流 3 所通讯的端口。此外，如果我们仔细查看汇编代码，我们会发现该 shellcode 用于连接到定义的 IP 和端口，并为攻击者提供了对目标的一些访问权限。查看汇编代码超出了本书的范围。因此，如果你想了解更多关于汇编的知识，请查阅
+    *进一步阅读* 部分。'
+- en: 'So, do we have the answers to all the questions in the beginning? Let''s see:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，我们找到了所有最初的问题的答案吗？让我们来看看：
+- en: '**C2 server IP**: `192.168.46.129`'
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**C2 服务器 IP**：`192.168.46.129`'
+- en: '**C2 server port**: `80` (shell), `4433` (unknown)'
+  id: totrans-66
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**C2 服务器端口**：`80`（shell），`4433`（未知）'
+- en: '**Infected system IP**: `192.168.46.128`'
+  id: totrans-67
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**感染系统的 IP**：`192.168.46.128`'
+- en: '**Infected system''s port**: `49273`, `49724`, and others'
+  id: totrans-68
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**感染系统的端口**：`49273`，`49724`，以及其他端口'
+- en: '**Actions performed by the attacker**:'
+  id: totrans-69
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击者执行的操作**：'
+- en: The attacker gained shell access to the system when the user executed some malicious
+    file from the desktop.
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当用户从桌面执行某个恶意文件时，攻击者获得了对系统的 shell 访问权限。
+- en: The attacker ran the `dir` command on the target and harvested the list of items
+    in the current directory.
+  id: totrans-71
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者在目标上运行了 `dir` 命令，并收集了当前目录下的项目列表。
+- en: The attacker executed PowerShell and ran `get-host` for console host information.
+  id: totrans-72
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者执行了 PowerShell 并运行了 `get-host` 来获取控制台主机信息。
+- en: 'The attacker ran another PowerShell script, which executed a highly obfuscated
+    payload, which connected to the attacker''s system on port `4433` and provided
+    the attacker with some form of access:'
+  id: totrans-73
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者运行了另一个 PowerShell 脚本，执行了一个高度混淆的有效负载，该有效负载连接到攻击者系统的端口 `4433`，并为攻击者提供了一定的访问权限：
+- en: '**Time of the attack**: 13:01:13'
+  id: totrans-74
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击发生时间**：13:01:13'
+- en: '**Duration of the attack**: 2:44 minutes (capture file properties)'
+  id: totrans-75
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击持续时间**：2:44 分钟（捕获文件属性）'
+- en: 'Let''s now view stream 3:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在查看流 3：
+- en: '![](img/8b4b760d-bef2-47f4-bb02-b5e419bd018b.png)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/8b4b760d-bef2-47f4-bb02-b5e419bd018b.png)'
+- en: 'When we filter to stream 3 and follow the stream, we get the preceding output,
+    which looks like an executable, since the first few bytes contain the MZ magic
+    byte, which is the default for executables and DLLs. Let''s look further:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们过滤到流 3 并跟踪流时，得到前面的输出，似乎是一个可执行文件，因为前几个字节包含了 MZ 魔术字节，这是可执行文件和 DLL 的默认标识。让我们继续查看：
+- en: '![](img/4de185d0-90ca-4ec3-821a-96903ca05f39.png)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4de185d0-90ca-4ec3-821a-96903ca05f39.png)'
+- en: Scrolling down a bit, we can see numerous functions that denote common Metasploit
+    keywords, such as **Type Length Value** (**TLV**)-based identifiers. The Meterpreter
+    backdoor uses TLVcommunications.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 向下滚动一点，我们可以看到许多表示常见 Metasploit 关键字的函数，例如**类型长度值** (**TLV**)-基础标识符。Meterpreter
+    后门使用 TLV 通信。
+- en: Additionally, we have a variety of WIN API functions. This file is the Meterpreter
+    DLL file being injected into the target's calling process on runtime. Hence, *some
+    form of access* in the answered questions section is a Meterpreter access to the
+    target. Looking further, we can see that the entire communication is encrypted,
+    which is a common property of Meterpreter.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还看到了一些 WIN API 函数。这个文件是 Meterpreter DLL 文件，它在运行时被注入到目标的调用进程中。因此，*某种形式的访问*
+    在答题部分是 Meterpreter 对目标的访问。继续查看，我们可以看到整个通信是加密的，这是 Meterpreter 的常见特性。
+- en: 'To sum up this investigation, we have the following key points:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总结这次调查，我们有以下关键点：
+- en: The attacker had shell access to the target system after connecting.
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者在连接后获得了目标系统的 shell 访问权限。
+- en: The attacker ran the `dir` command on the `Desktop` folder. Hence, the culprit
+    file allowing the attacker access is present on the desktop.
+  id: totrans-84
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者在`Desktop`文件夹中运行了`dir`命令。因此，允许攻击者访问的罪魁祸首文件位于桌面上。
+- en: The attacker ran a PowerShell command that contained a highly obfuscated payload.
+  id: totrans-85
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者执行了一个包含高度混淆有效载荷的 PowerShell 命令。
+- en: The payload contained the attacker's IP and port `4433` to connect to the attacker.
+    This mechanism looks like an update to the existing shell, which is a feature
+    in Metasploit where you can update your shell to a Meterpreter shell.
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 有效载荷包含了攻击者的 IP 和端口 `4433`，用于连接到攻击者。这个机制看起来像是现有 shell 的更新，这是 Metasploit 中的一个功能，你可以将你的
+    shell 更新为 Meterpreter shell。
+- en: Meterpreter DLL was downloaded to the victim system, and the connection was
+    initiated on stream 3.
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Meterpreter DLL 被下载到受害者系统，并且在流 3 上启动了连接。
+- en: We deduced a lot in this exercise only using network evidence along with some
+    help from Python and a few reference websites. Additionally, we saw how we can
+    decode and decompress obfuscated payloads sent on the network. Let's see how we
+    can work with HTTPS enabled payloads for Metasploit in the next section.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在这个练习中仅使用网络证据，并借助 Python 和一些参考网站，推断出了很多信息。此外，我们还看到了如何解码和解压通过网络发送的混淆有效载荷。接下来，让我们看看如何处理启用了
+    HTTPS 的 Metasploit 有效载荷。
+- en: Case study – decrypting the Metasploit Reverse HTTPS Shellcode
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 案例研究 – 解密 Metasploit 反向 HTTPS Shellcode
+- en: 'It is practically impossible to decrypt the HTTPS communication without using
+    a man-in-the-middle or some sorts of SSL offloader. In the case of a Meterpreter
+    shell, the key and certificates are dynamically generated and are then removed,
+    making it more difficult to decrypt the encrypted sessions. However, sometimes
+    a malicious attacker may use and impersonate SSL certificates and leave them on
+    their system. In such cases, obtaining the private key can decrypt the HTTPS payloads
+    for us. The following example demonstrates the SSL decryption in cases of a self-signed
+    certificate and we are assuming that the incident responders somehow managed to
+    grab the keys from the attackers system. Let''s look at the encrypted communication
+    given in the following screenshot:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在没有使用中间人攻击或某种 SSL 卸载器的情况下，几乎不可能解密 HTTPS 通信。在 Meterpreter shell 的情况下，密钥和证书是动态生成的，并随后被移除，这使得解密加密会话更加困难。然而，有时恶意攻击者可能会使用并冒充
+    SSL 证书，并将其保留在自己的系统上。在这种情况下，获取私钥可以帮助我们解密 HTTPS 有效载荷。以下示例演示了在自签名证书的情况下如何进行 SSL 解密，我们假设事件响应者以某种方式从攻击者系统获取了密钥。让我们看看下面截图中给出的加密通信：
+- en: '![](img/a5ecfb70-0955-4d9f-9f52-9187541d2719.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a5ecfb70-0955-4d9f-9f52-9187541d2719.png)'
+- en: 'We can see that the data is encrypted and there is not much that is making
+    sense. Let''s open this `meterpreter_https.pcap` file in NetworkMiner and browse
+    to the **Files** tab:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到数据被加密了，且没有多少有意义的内容。让我们在 NetworkMiner 中打开这个`meterpreter_https.pcap`文件，并浏览到**文件**标签：
+- en: '![](img/43bbd7f5-58d4-4a7e-9514-1c36b27c61a8.png)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/43bbd7f5-58d4-4a7e-9514-1c36b27c61a8.png)'
+- en: 'We can see that the communication contains the certificate, which has failed
+    its authenticity. While we are trying to decrypt the contents of the encrypted
+    Meterpreter session, and it should be noted that in most cases the private key
+    will not be available for us to use. In such scenarios, we will be making use
+    of red flags, such as these which is a failed authenticity on SSL certificate,
+    to determine whether the communication channel is malicious. Next, let''s try
+    to decrypt the encrypted communication:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到通信中包含证书，但其真实性验证失败。在我们尝试解密加密的Meterpreter会话内容时，需要注意的是，在大多数情况下，我们无法获得私钥来进行解密。在这种情况下，我们将利用一些警示标志，比如SSL证书验证失败，来判断通信通道是否恶意。接下来，让我们尝试解密加密的通信：
+- en: '![](img/33503da0-2784-42ec-af4f-dd9db2ed3d66.png)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/33503da0-2784-42ec-af4f-dd9db2ed3d66.png)'
+- en: 'We will go to the **Protocols** section from **Preferences**, navigate to **SSL**,
+    and click the **RSA keys list** option, which will populate the following:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将从**首选项**中进入**协议**部分，导航到**SSL**，然后点击**RSA密钥列表**选项，接下来会显示以下内容：
+- en: '![](img/b9e6b831-377d-47d7-8212-f798651ebf42.png)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b9e6b831-377d-47d7-8212-f798651ebf42.png)'
+- en: 'As soon as we populate the **SSL Decrypt** section with the IP address, port
+    number, and key file, we will see the decrypted data:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦我们在**SSL解密**部分填写了IP地址、端口号和密钥文件，我们就会看到解密后的数据：
+- en: '![](img/26ac8f0a-8b9d-4aa4-a7a4-60379d51ff0a.png)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/26ac8f0a-8b9d-4aa4-a7a4-60379d51ff0a.png)'
+- en: 'We can see that we now have decrypted data in Wireshark. Since we are working
+    with the decrypted SSL session, the analysis would also apply to HTTP payloads.
+    The Meterpreter HTTP payload uses beaconing, like any other C2 systems. In the
+    case of HTTP, they are merely GET requests that generate a response of length
+    zero. If we look closely, we will see that these responses have a content length
+    of zero:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，现在我们在Wireshark中解密了数据。由于我们正在处理解密后的SSL会话，因此分析也适用于HTTP有效载荷。Meterpreter HTTP有效载荷使用信标机制，像其他C2系统一样。在HTTP的情况下，它们仅仅是GET请求，并生成长度为零的响应。如果我们仔细观察，会看到这些响应的内容长度为零：
+- en: '![](img/f10b1a10-2877-4722-9d36-cb024f2f51ec.png)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f10b1a10-2877-4722-9d36-cb024f2f51ec.png)'
+- en: Another thing to take note of here is that the responses only contain **Apache**, which
+    is a non-standard HTTP header and don't look normal since its not containing the
+    exact version of Apache Server. While these are some of the red flags in the communication,
+    they are non-exhaustive, and you should continue your research to discover more.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要注意的另一点是，响应只包含**Apache**，这是一种非标准HTTP头，看起来不正常，因为它没有包含Apache服务器的具体版本。虽然这些是通信中的一些警示标志，但并不全面，您应继续研究以发现更多信息。
+- en: 'Coming back to our original discussion regarding how we decrypt the SSL sessions,
+    we have the following:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回到我们之前关于如何解密SSL会话的讨论，我们得到了以下内容：
+- en: We somehow grab the SSL key from the attacker
+  id: totrans-104
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们以某种方式从攻击者那里获取SSL密钥
+- en: We modify the attacker's instance of Metasploit and log their keys
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们修改攻击者的Metasploit实例并记录他们的密钥
+- en: We modify the attacker's instance of Metasploit and provide a static key and
+    cert
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们修改攻击者的Metasploit实例并提供静态密钥和证书
+- en: We do a man-in-the-middle attack
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们进行中间人攻击
+- en: Check out this great post on run-time Meterpreter key analysis to modify keys
+    and CERT on the attacker's system: [https://khr0x40sh.wordpress.com/2013/06/25/exporting-runtime-private-key-for-msfs-meterpreter-reverse-tcp-and-https/](https://khr0x40sh.wordpress.com/2013/06/25/exporting-runtime-private-key-for-msfs-meterpreter-reverse-tcp-and-https/).
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看这篇关于运行时Meterpreter密钥分析的好文章，了解如何修改密钥和攻击者系统中的证书：[https://khr0x40sh.wordpress.com/2013/06/25/exporting-runtime-private-key-for-msfs-meterpreter-reverse-tcp-and-https/](https://khr0x40sh.wordpress.com/2013/06/25/exporting-runtime-private-key-for-msfs-meterpreter-reverse-tcp-and-https/)。
+- en: Analyzing Empire C2
+  id: totrans-109
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析Empire C2
+- en: 'Empire is a pure PowerShell post-exploitation agent and provide features similar
+    to a Metasploit Meterpreter Similar to the **Indicators of Compromise** (**IOC**)
+    observed in Metasploit, the Empire C2 have varying  IOCs. Let''s analyze the `empire_shell.pcap`
+    file and load it up in Wireshark to view the properties of `pcap`:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Empire是一个纯PowerShell的后渗透代理，提供类似于Metasploit Meterpreter的功能。类似于**妥协指示器**（**IOC**）在Metasploit中的表现，Empire
+    C2也有不同的IOC。让我们分析`empire_shell.pcap`文件，并在Wireshark中加载它以查看`pcap`的属性：
+- en: '![](img/930c9675-b223-42dd-8bd4-7d1391a9704f.png)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/930c9675-b223-42dd-8bd4-7d1391a9704f.png)'
+- en: 'The capture file contains traffic analysis for over three-and-a half hours.
+    Let''s look at the traffic conversations:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 捕获文件包含了超过三个半小时的流量分析。让我们看看流量对话：
+- en: '![](img/a93ac356-0d00-495b-a577-e9d4d789d5b0.png)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a93ac356-0d00-495b-a577-e9d4d789d5b0.png)'
+- en: 'We can see a clear pattern here, which denotes beaconing, as we can see that
+    the number of packets is quite static, having the value `5` for most of the 2,649
+    conversations. The systems infected with Empire tend to generate a ton of HTTP
+    requests. Let''s filter some of the HTTP requests using HTTP contains `GET` filter
+    and see what''s under the hood:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到一个明显的模式，表明存在信标行为，因为我们可以看到大多数 2,649 个会话中的数据包数量是静态的，大部分值为 `5`。被 Empire 感染的系统倾向于生成大量的
+    HTTP 请求。让我们使用 HTTP 包含 `GET` 过滤器来过滤一些 HTTP 请求，看看底层情况：
+- en: '![](img/cebf77fa-cfef-4eb8-be96-3f8c31e6cd1a.png)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/cebf77fa-cfef-4eb8-be96-3f8c31e6cd1a.png)'
+- en: 'The attackers can easily modify the preceding URI entries. However, for an
+    inexperienced adversary, these values would be default, as shown in the preceding
+    screenshot. The three URIs—`/admin/get.php`, `/login/process.php`, and `news.php`—define
+    the entire communication control for Empire. Let''s dig deeper into one of the
+    requests:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者可以轻松修改前述 URI 条目。但是对于经验不足的对手来说，这些值将是默认的，如前面的屏幕截图所示。这三个 URI — `/admin/get.php`、`/login/process.php`
+    和 `news.php` — 定义了 Empire 的整个通信控制。让我们深入挖掘其中一个请求的细节：
+- en: '![](img/37debd22-6bf9-40da-aacc-b516bf84f1e2.png)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/37debd22-6bf9-40da-aacc-b516bf84f1e2.png)'
+- en: While recording the preceding pcap, the target used was a Windows 10 box. However,
+    as per the request generated, the user-agent states that the requesting system
+    is Windows 7 (Windows NT 6.1). Additionally, the server headers in the response
+    state that the server is Microsoft-IIS/7.5, while the `It works!` message in the
+    response body looks like the one used by Apache Server (default `index.html` page
+    for Apache Server).
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在记录前述的 pcap 时，目标使用的是 Windows 10 系统。然而，根据生成的请求，用户代理指明请求系统为 Windows 7（Windows
+    NT 6.1）。此外，响应中的服务器头部指明服务器为 Microsoft-IIS/7.5，而响应主体中的 `It works!` 消息看起来类似于 Apache
+    服务器使用的默认 `index.html` 页面。
+- en: The TTL value can also unveil a good amount of detail, such as a TTL value of `64` to
+    denote a Linux system, while Windows-based OSes use `128` as the default TTL value.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TTL 值也可以透露出大量的详细信息，例如 TTL 值为 `64` 表示 Linux 系统，而基于 Windows 的操作系统则使用 `128` 作为默认
+    TTL 值。
+- en: Refer to this table of TTL values for more information: [https://subinsb.com/default-device-ttl-values/](https://subinsb.com/default-device-ttl-values/).
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 更多信息，请参考 TTL 值的这张表格：[https://subinsb.com/default-device-ttl-values/](https://subinsb.com/default-device-ttl-values/)。
+- en: Case study – CERT.SE's major fraud and hacking criminal case, B 8322-16
+  id: totrans-121
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 案例研究 – CERT.SE 的主要欺诈和黑客刑事案件，B 8322-16
+- en: Refer to the case study at [https://www.cert.se/2017/09/cert-se-tekniska-rad-med-anledning-av-det-aktuella-dataintrangsfallet-b-8322-16](https://www.cert.se/2017/09/cert-se-tekniska-rad-med-anledning-av-det-aktuella-dataintrangsfallet-b-8322-16).
+    We can download the PCAP file from [https://drive.google.com/open?id=0B7pTM0QU5apSdnF0Znp1Tko0ams](https://drive.google.com/open?id=0B7pTM0QU5apSdnF0Znp1Tko0ams).
+    The case highlights the use of open source tools and denotes that the infection
+    took place after the targets received an email along with a macro-enabled document.
+    The attackers asked the victims to enable macros to view the content of the document
+    and hence generated a foothold on the target system. We will examine the `pcap`
+    from the network's point of view and highlight the information of interest.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参阅案例研究 [https://www.cert.se/2017/09/cert-se-tekniska-rad-med-anledning-av-det-aktuella-dataintrangsfallet-b-8322-16](https://www.cert.se/2017/09/cert-se-tekniska-rad-med-anledning-av-det-aktuella-dataintrangsfallet-b-8322-16)。我们可以从
+    [https://drive.google.com/open?id=0B7pTM0QU5apSdnF0Znp1Tko0ams](https://drive.google.com/open?id=0B7pTM0QU5apSdnF0Znp1Tko0ams)
+    下载 PCAP 文件。该案例突显了使用开源工具，并指出感染发生在目标收到一封带有宏启用文档的电子邮件后。攻击者要求受害者启用宏以查看文档内容，从而在目标系统上生成立足点。我们将从网络角度分析
+    `pcap` 并突出感兴趣的信息。
+- en: 'Let''s fire up the NetworkMiner and get an overview of what happened:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们启动 NetworkMiner 并概述发生了什么：
+- en: '![](img/df10efb0-dff9-48ea-aa68-d4da1172558a.png)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/df10efb0-dff9-48ea-aa68-d4da1172558a.png)'
+- en: 'If we sort the packets with bytes, we have `37.28.155.22` as the top IP address.
+    Let''s view its details:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们按字节对数据包进行排序，将 `37.28.155.22` 作为顶级 IP 地址。让我们查看其详细信息：
+- en: '![](img/1ebd0220-601c-40ce-93da-dd9c55f654b1.png)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1ebd0220-601c-40ce-93da-dd9c55f654b1.png)'
+- en: 'We can see that the system is Linux and, as mentioned, it has a TTL value of
+    `64`. The open ports on this system are `8081` and `445`. Let''s fire up Wireshark
+    to investigate this IP:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到系统是 Linux，并且如前所述，其 TTL 值为 `64`。该系统上的开放端口为 `8081` 和 `445`。让我们启动 Wireshark
+    来调查此 IP：
+- en: '![](img/7d31cc25-d96e-4d92-bf47-0bbec0600c09.png)'
+  id: totrans-128
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7d31cc25-d96e-4d92-bf47-0bbec0600c09.png)'
+- en: 'We can see that 92% of the traffic belongs to `37.28.155.22` as highlighted
+    in the preceding screenshot. Let''s see some of the HTTP data:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到 92% 的流量属于 `37.28.155.22`，如前面的屏幕截图所示。让我们看一些 HTTP 数据：
+- en: '![](img/9f97ae29-a7d8-4539-ad25-39c58dfcf693.png)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图片](img/9f97ae29-a7d8-4539-ad25-39c58dfcf693.png)'
+- en: 'Well! It looks as though the Empire framework has been used here. Let''s confirm
+    our suspicion by investigating one of the packets:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哦！看起来 Empire 框架在这里被使用了。让我们通过调查其中一个数据包来确认我们的怀疑：
+- en: '![](img/22177d26-1263-4f97-9018-e17e40d99699.png)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图片](img/22177d26-1263-4f97-9018-e17e40d99699.png)'
+- en: 'As we discussed earlier, and saw in NetworkMiner, the `37.28.155.22` IP is
+    a Linux server with a TTL value of `64`. The preceding request does not make sense,
+    since it states that the server is running Microsoft IIS 7.5 and has the same
+    request signature as Windows 7\. The communication is from Empire. However, the
+    attackers have modified some of the pages, such as `news,php` and `news.asp`.
+    We can also see encrypted data flowing:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们先前讨论过，并在 NetworkMiner 中看到的那样，`37.28.155.22` IP 是一个 Linux 服务器，TTL 值为 `64`。前面的请求没有意义，因为它声明服务器运行的是
+    Microsoft IIS 7.5，并且具有与 Windows 7 相同的请求签名。通信来自 Empire。然而，攻击者修改了一些页面，如 `news.php`
+    和 `news.asp`。我们还可以看到流动的加密数据：
+- en: '![](img/7b4a324c-9831-480b-879c-37eed1c3600f.png)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图片](img/7b4a324c-9831-480b-879c-37eed1c3600f.png)'
+- en: We just saw how tools such as Empire were used to commit a real-world crime.
+    Hence, it's always good to know the IOCs for the same.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们刚刚看到了如何使用 Empire 等工具来实施真实世界的犯罪。因此，了解其 IOCs 对我们始终有好处。
+- en: 'So to sum up this investigation, we have the following details:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，总结这次调查，我们得到以下细节：
+- en: '**C2 server IP**: `37.28.155.22`'
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**C2 服务器 IP**：`37.28.155.22`'
+- en: '**C2 server Port**: `8081`'
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**C2 服务器端口**：`8081`'
+- en: '**Infected system IP**: `195.200.72.148`'
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**感染系统 IP**：`195.200.72.148`'
+- en: '![](img/5c0af383-0242-4496-b29c-20c158bb7c4c.png)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图片](img/5c0af383-0242-4496-b29c-20c158bb7c4c.png)'
+- en: Infected system's port
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 感染系统的端口
+- en: '**Actions performed by the attacker**:'
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击者执行的操作**：'
+- en: 'The attacker gained shell access to the system when the user executed a malicious
+    document that contained macros (source: Case Study).'
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当用户执行包含宏的恶意文档时，攻击者获得了对系统的 shell 访问权限（来源：案例研究）。
+- en: 'The attacker gained access via Empire on port `8081` of their C2 server (source:
+    PCAP).'
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 攻击者通过其 C2 服务器的端口 `8081`，通过 Empire 获得了访问权限（来源：PCAP）。
+- en: '**Time of the attack**: Sep 14, 2017, 13:51:14.136226000 India Standard Time
+    (packet arrival time)'
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击时间**：2017年9月14日，印度标准时间13:51:14.136226000（数据包到达时间）'
+- en: '**Duration of the attack**: 21 minutes+ (Capinfos/Statistics | Capture File
+    Properties)'
+  id: totrans-146
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**攻击持续时间**：21 分钟+（Capinfos/Statistics | Capture File Properties）'
+- en: Summary
+  id: totrans-147
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 摘要
+- en: In this chapter, we saw how to decode encoded payloads for Metasploit and make
+    sense of the evidence captured from the network itself. We saw how an attacker
+    migrates from a normal reverse shell to a Meterpreter shell on the packet level.
+    We looked at a variety of techniques to decrypt encrypted Meterpreter communication.
+    We also saw how Empire works and learned its indicators of compromise while applying
+    it to a real-world case study. In this chapter, we relied on pcap-enabled data.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们看到如何解码 Metasploit 的编码有效载荷，并从网络本身捕获的证据中理解。我们看到了攻击者如何从普通的反向 shell 迁移到 Meterpreter
+    shell 的各种技术。我们研究了多种技术以解密加密的 Meterpreter 通信。我们还了解了 Empire 的工作原理，并在应用到真实案例研究时学习了其威胁指示。在本章中，我们依赖于启用
+    pcap 的数据。
+- en: In the next chapter, we will look at how we can use log-based data to solve
+    real-world cases.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，我们将探讨如何使用基于日志的数据来解决真实世界案例。
+- en: Questions and exercises
+  id: totrans-150
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题和练习
+- en: 'Answer/solve the following questions and exercises based on material covered
+    in this chapter:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据本章涵盖的材料回答/解决以下问题和练习：
+- en: Repeat the exercises covered in this chapter
+  id: totrans-152
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 重复本章中涵盖的练习
+- en: Try decoding other samples from the `Challenges` directory on GitHub ([https://github.com/nipunjaswal/networkforensics/tree/master/Challenges](https://github.com/nipunjaswal/networkforensics/tree/master/Challenges))
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试解码 GitHub 上的 `Challenges` 目录中的其他样本（[https://github.com/nipunjaswal/networkforensics/tree/master/Challenges](https://github.com/nipunjaswal/networkforensics/tree/master/Challenges)）
+- en: Which of these use TLV as standard for communication?
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下列哪些使用 TLV 作为其通信标准？
+- en: Metasploit
+  id: totrans-155
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Metasploit
+- en: Empire
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Empire
+- en: Which of these use beaconing for keeping the attacker informed about a target
+    being live?
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下列哪些用于保持攻击者了解目标是否在线的灯塔功能？
+- en: Metasploit
+  id: totrans-158
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Metasploit
+- en: Empire
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Empire
+- en: Both
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 两者
+- en: None of the above
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以上均无
+- en: Further reading
+  id: totrans-162
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'Check out the following resources for more information on the topics covered
+    in this chapter:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看以下资源以获取本章涵盖的更多信息：
+- en: '**Metasploit''s detailed communication and protocol writeup**: [https://www.exploit-db.com/docs/english/27935-metasploit---the-exploit-learning-tree.pdf](https://www.exploit-db.com/docs/english/27935-metasploit---the-exploit-learning-tree.pdf)'
+  id: totrans-164
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Metasploit的详细通信和协议文档**: [https://www.exploit-db.com/docs/english/27935-metasploit---the-exploit-learning-tree.pdf](https://www.exploit-db.com/docs/english/27935-metasploit---the-exploit-learning-tree.pdf)'
+- en: '**Metasploit''s SSL-generation module**: [https://github.com/rapid7/metasploit-framework/blob/76954957c740525cff2db5a60bcf936b4ee06c42/lib/rex/post/meterpreter/client.rb](https://github.com/rapid7/metasploit-framework/blob/76954957c740525cff2db5a60bcf936b4ee06c42/lib/rex/post/meterpreter/client.rb)'
+  id: totrans-165
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Metasploit的SSL生成模块**: [https://github.com/rapid7/metasploit-framework/blob/76954957c740525cff2db5a60bcf936b4ee06c42/lib/rex/post/meterpreter/client.rb](https://github.com/rapid7/metasploit-framework/blob/76954957c740525cff2db5a60bcf936b4ee06c42/lib/rex/post/meterpreter/client.rb)'
+- en: '**Empire IOCs**: [https://www.sans.org/reading-room/whitepapers/detection/disrupting-empire-identifying-powershell-empire-command-control-activity-38315](https://www.sans.org/reading-room/whitepapers/detection/disrupting-empire-identifying-powershell-empire-command-control-activity-38315)'
+  id: totrans-166
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Empire IOCs**: [https://www.sans.org/reading-room/whitepapers/detection/disrupting-empire-identifying-powershell-empire-command-control-activity-38315](https://www.sans.org/reading-room/whitepapers/detection/disrupting-empire-identifying-powershell-empire-command-control-activity-38315)'
+- en: '**Microsoft''s list of Windows versions**: [https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions](https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions)'
+  id: totrans-167
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**微软的Windows版本列表**: [https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions](https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions)'

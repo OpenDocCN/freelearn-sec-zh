@@ -1,0 +1,1519 @@
+- en: Parallel Data Processing
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 并行数据处理
+- en: I remember sitting in front of my ZX Spectrum with 64 KB of memory (16 KB ROM
+    + 48 KB RAM) with an old tape recorder plugged in, and a newly bought cassette
+    inserted. Among the relatively large amount of programs on the cassette, there
+    was one that specifically drew my attention. Not that it was able to do anything
+    special; after all, it simply computed personal biorhythm graphs based on the
+    date of birth (in fact, I had to enter the current date too) and plotted them
+    on the screen. There wasn't even any sophistication in the algorithm (how ever
+    sophisticated an algorithm may be when it is all about calculation of sine over
+    some value). What seemed to be interesting was the Wait while results are being
+    processed message, which had some kind of a progress bar that appeared for for
+    almost half a minute (yes, I was naive enough to think that some calculations
+    were really taking place "behind" the message), and the three graphs being plotted
+    simultaneously. Well, it looked as if they were being plotted simultaneously.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我记得坐在我的ZX Spectrum前，64KB的内存（16KB ROM + 48KB RAM），老式磁带录音机插入其中，新的磁带也放了进去。在磁带上相对较多的程序中，有一个特别引起了我的注意。并不是因为它能做什么特别的事情；毕竟，它只是根据出生日期（事实上，我还必须输入当前日期）计算个人的生物节律图，并在屏幕上绘制出来。算法甚至没有任何复杂性（无论算法如何复杂，本质上只是对某些值进行正弦计算）。让我觉得有趣的是，屏幕上出现了一个“等待结果处理”的提示信息，信息框中出现了一种进度条，持续了将近半分钟（是的，我曾天真地认为在这个信息框“背后”可能真的有计算在进行），同时三个图表似乎同时在绘制。嗯，看起来好像它们是在同时绘制。
+- en: The program was written in BASIC, so reversing it was a fairly easy task. Easy
+    but disappointing. Of course, there was no parallel processing when plotting the
+    graphs, simply the same function, sequentially called for each graph on each point.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该程序是用BASIC编写的，因此逆向它是一项相对简单的任务。简单，但令人失望。当然，绘制图表时并没有并行处理，仅仅是同一个函数按顺序在每个点上为每个图表依次调用。
+- en: Obviously, the ZX Spectrum was not the right platform to look for parallel processing
+    capabilities. Intel architecture, on the other hand, provides us with such a mechanism.
+    In this chapter, we will examine a few capabilities provided by the **Streaming
+    SIMD Extension** (**SSE**), which allows simultaneous computations on the so-called
+    packed integers, the packed single precision or packed double precision floating
+    point numbers that are contained in 128-bit registers.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 显然，ZX Spectrum并不是一个适合寻找并行处理能力的平台。而英特尔架构则提供了这样一种机制。在本章中，我们将探讨**Streaming SIMD
+    Extension**（**SSE**）提供的几个功能，它允许对所谓的打包整数、打包的单精度或双精度浮点数进行同时计算，这些数据被包含在128位寄存器中。
+- en: We will begin the chapter with a brief introduction to the SSE technology, reviewing
+    available registers and access modes thereof. Later, we will proceed to the implementation
+    of the algorithm itself, which involves parallel operations of single precision
+    floating point values related to all three biorhythms.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将简要介绍SSE技术，回顾其可用的寄存器及访问模式。随后，我们将继续讨论算法本身的实现，该算法涉及与所有三种生物节律相关的单精度浮点值的并行操作。
+- en: Some steps, which are essential for biorhythmic graph calculation and are trivial
+    when implemented in high-level languages, like calculation of sine, exponentiation,
+    and factorial, will be covered in more detail, as we do not have access (at this
+    moment) to any math library; hence, we have no ready-to-use implementation of
+    the procedures involved in the aforementioned calculations. We will make our own
+    implementation for each step.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些对生物节律图计算至关重要的步骤，在高级语言中实现时非常简单，比如正弦计算、指数运算和阶乘，在这里将详细介绍，因为我们暂时没有访问任何数学库的权限；因此，我们没有现成的实现这些计算所涉及的过程。我们将为每个步骤实现自己的解决方案。
+- en: SSE
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SSE
+- en: 'The Intel Pentium II processor brought along the **MMX** technology (unofficially
+    called the **MultiMedia eXtension**, however, such an alias has never been used
+    in Intel documentation), which provided us with the possibility of working with
+    packed integer data using 64-bit registers. Despite the obvious benefit, there
+    were at least two disadvantages:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 英特尔Pentium II处理器引入了**MMX**技术（非官方称为**多媒体扩展**，然而这种别名从未在英特尔文档中使用），它使我们能够使用64位寄存器处理打包的整数数据。尽管这种技术带来了显著的好处，但至少存在两个缺点：
+- en: We could process integer data only
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们只能处理整数数据
+- en: The MMX registers were mapped onto the registers of the **floating-point unit**
+    (**FPU**)
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: MMX寄存器被映射到**浮点单元**（**FPU**）的寄存器上
+- en: While being better than nothing, the MMX technology still did not provide enough
+    computational power.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管比没有更好，MMX技术仍然没有提供足够的计算能力。
+- en: The situation changed a lot with the introduction of the Pentium III processor
+    with its Streaming SIMD Extension with its own set of 128-bit registers and instructions,
+    allowing a wide range of operations to be performed on scalar or packed bytes,
+    32-bit integers, 32-bit single precision floating-point values, or 64-bit double
+    precision floating point values.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着Pentium III处理器的推出，情况发生了很大变化，它引入了自己的128位寄存器和指令集，允许在标量或打包字节、32位整数、32位单精度浮点值或64位双精度浮点值上执行广泛的操作，且支持流式SIMD扩展。
+- en: Registers
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 寄存器
+- en: Intel-based processors have 8 XMM registers for use with SSE, which are named
+    XMM0 to XMM7 on 32-bit platforms, and 16 XMM registers, named XMM0 to XMM15, on
+    64-bit platforms. It is important to note that only 8 XMM registers are available
+    on 64-bit platforms while not in long mode.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 基于Intel的处理器有8个XMM寄存器可供SSE使用，在32位平台上，这些寄存器命名为XMM0到XMM7，而在64位平台上，命名为XMM0到XMM15。需要注意的是，在64位平台上，只有8个XMM寄存器可用，且只有在非长模式下。
+- en: 'The content of each of the XMM registers may be considered to be one of the
+    types below:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个XMM寄存器的内容可以被视为以下类型之一：
+- en: 16 bytes (which we saw in the AES-NI implementation)
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 16字节（我们在AES-NI实现中看到的）
+- en: Eight 16-bit words
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 八个16位字
+- en: Four 32-bit double words
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 四个32位双字
+- en: Four 32-bit single precision floating-point numbers (we will use the registers
+    this way throughout the chapter)
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 四个32位单精度浮点数（我们将在本章中以这种方式使用寄存器）
+- en: Two 64-bit quad words
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 两个64位四字
+- en: Two 64-bit double precision floating point numbers
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 两个64位双精度浮点数
+- en: SSE instructions are able to operate on the same parts of registers that are
+    used as operands and on different parts of the operands (for example, they can
+    move the lower part of the source register to the higher part of the destination
+    register).
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SSE指令能够对寄存器的相同部分作为操作数进行操作，也可以对操作数的不同部分进行操作（例如，它们可以将源寄存器的低位部分移动到目标寄存器的高位部分）。
+- en: Revisions
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 版本更新
+- en: 'There are, at the moment, five revisions of the SSE instruction set (and hence
+    of the technology), which are as follows:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 目前，SSE指令集（以及该技术）有五个版本，分别如下：
+- en: '**SSE**: This was introduced in 1999 and contained the initial design of the
+    technology and instructions thereof'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SSE**：这一技术于1999年推出，包含了该技术及其指令的初步设计'
+- en: '**SSE2**: This revision came out with Pentium 4 and brought 144 new instructions
+    with it'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SSE2**：此版本随Pentium 4发布，带来了144条新指令'
+- en: '**SSE3**: Although only 13 new instructions were added with SSE3, they introduced
+    the ability to perform the so-called "horizontal" operations (operations performed
+    on a single register)'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SSE3**：虽然SSE3仅增加了13条新指令，但它引入了执行所谓“水平”操作的能力（在单个寄存器上执行的操作）'
+- en: '**SSSE3**: This introduced 16 new instructions, including the instructions
+    for horizontal integer operations'
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SSSE3**：这一版本引入了16条新指令，其中包括用于水平整数操作的指令'
+- en: '**SSE4**: This brought another 54 instructions, thus making life significantly
+    easier for developers'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SSE4**：这一版本带来了另外54条指令，从而极大地方便了开发人员'
+- en: Biorhythm calculator
+  id: totrans-29
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 生物节律计算器
+- en: I have mentioned it before and I would like to reiterate that, in my eyes, the
+    best way to understand and learn things is by example. We began this chapter by
+    mentioning an old program for biorhythm level calculation and it seems that this
+    program, when implemented using the SSE architecture, may be a simple yet good
+    example of how parallel calculations may be performed. The code in the next section
+    demonstrates biorhythms calculations for my humble self for the period between
+    May 9, 2017 and May 29, 2017, storing results into a table. All calculations (including
+    exponentiation and sine) are implemented using SSE instructions and, obviously,
+    XMM registers.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我之前提到过，我想重申的是，在我看来，理解和学习事物的最好方式是通过示例。我们通过提到一个旧的生物节律水平计算程序开始了这一章，似乎当这个程序使用SSE架构实现时，它可能是一个简单而又很好的例子，展示了如何执行并行计算。下一节中的代码展示了2017年5月9日到2017年5月29日之间，针对我个人的生物节律计算，将结果存储到一个表格中。所有的计算（包括指数运算和正弦运算）都是使用SSE指令实现的，显然也使用了XMM寄存器。
+- en: The idea
+  id: totrans-31
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 这个想法
+- en: The word "biorhythm" originates from two Greek words; "bios", meaning life and
+    "rhythmos", meaning rhythm. The idea itself was developed by Wilhelm Fliess, a
+    German otolaryngologist, who lived in the late nineteenth and the beginning of
+    the twentieth centuries. He believed that our life is influenced by biological
+    cycles, which affect the mental, physical, and emotional aspects.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: “生物节律”一词源于两个希腊词；“bios”意为生命，“rhythmos”意为节奏。这个概念最早由德国耳鼻喉科医生威廉·弗里斯提出，他生活在十九世纪末至二十世纪初。他认为我们的生活受到生物周期的影响，这些周期影响着我们的心理、身体和情感方面。
+- en: 'Fliess derived three major biorhythmic cycles:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 弗里斯推导出了三个主要的生物节律周期：
+- en: '**Physical cycle**'
+  id: totrans-34
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**身体周期**'
+- en: 'Duration: 23 days'
+  id: totrans-35
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 持续时间：23天
+- en: 'Denotes:'
+  id: totrans-36
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 表示：
+- en: Coordination
+  id: totrans-37
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 协调性
+- en: Strength
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 力量
+- en: Well-being
+  id: totrans-39
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 健康状况
+- en: '**Emotional cycle**'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**情感周期**'
+- en: 'Duration: 28 days'
+  id: totrans-41
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 持续时间：28天
+- en: 'Denotes:'
+  id: totrans-42
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 表示：
+- en: Creativity
+  id: totrans-43
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创造力
+- en: Sensitivity
+  id: totrans-44
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 敏感性
+- en: Mood
+  id: totrans-45
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 心情
+- en: Awareness
+  id: totrans-46
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 觉察力
+- en: '**Intellectual cycle**'
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**智力周期**'
+- en: 'Duration: 33 days'
+  id: totrans-48
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 持续时间：33天
+- en: 'Denotes:'
+  id: totrans-49
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 表示：
+- en: Alertness
+  id: totrans-50
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 警觉性
+- en: Analytical and logical abilities
+  id: totrans-51
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 分析和逻辑能力
+- en: Communication
+  id: totrans-52
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通信
+- en: The theory itself may be quite arguable, especially since it is considered pseudoscience
+    by most of scientific public; however, it is scientific enough to, at least, serve
+    for an example of a parallel data processing mechanism.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个理论本身可能相当有争议，特别是因为大多数科学界认为它是伪科学；然而，它足够科学，至少可以作为并行数据处理机制的一个示例。
+- en: The algorithm
+  id: totrans-54
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 算法
+- en: The algorithm of biorhythm calculation is fairly simple, not to say trivial.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 生物节律计算的算法相当简单，可以说是微不足道的。
+- en: 'Variable values, used to specify the rate of each biorhythm at specific date,
+    are in the (-1.0, 1.0) range and are calculated using this formula:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用于指定特定日期下每个生物节律的变化率的变量值在(-1.0, 1.0)范围内，并使用以下公式计算：
+- en: '*x = sin((2 * PI *t) / T)*'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*x = sin((2 * PI * t) / T)*'
+- en: Here, *t* is the number of days that have passed since the date of the person's
+    birth till the date we want to know the biorhythms' values for (most likely, the
+    current date), and *T* is the period of a given biorhythm.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，*t*表示从某人出生日期到我们希望了解其生物节律值的日期（很可能是当前日期）所经过的天数，*T*是给定生物节律的周期。
+- en: There aren't too many things we may optimize with the aid of the SSE technology.
+    What we definitely can do is calculate data for all three types of biorhythms
+    at once, which in turn is sufficient to demonstrate the abilities and power of
+    the Streaming SIMD Extension.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 借助SSE技术，我们能优化的东西并不多。我们可以做的确实是一次性计算所有三种生物节律的数据，这足以展示Streaming SIMD Extension的能力和威力。
+- en: Data section
+  id: totrans-60
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据部分
+- en: 'As there is no specific order of sections in the source file, we will begin
+    with a quick look at the data section in order to better comprehend the code.
+    The data section or, to be more precise, the arrangement of data in a data section,
+    is quite self-explanatory. The emphasis was made on data alignment, allowing faster
+    access with aligned SSE instructions:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于源文件中各部分没有特定的顺序，我们将从数据部分开始简要查看，以更好地理解代码。数据部分，或者更准确地说，数据在数据部分的排列，是相当自明的。重点放在数据对齐上，允许通过对齐的SSE指令更快地访问：
+- en: '[PRE0]'
+  id: totrans-62
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The code
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 代码
+- en: We will begin with the standard template for 32-bit Windows (if you are on Linux,
+    you may safely use the Linux template instead).
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将从32位Windows的标准模板开始（如果你使用的是Linux，可以安全地使用Linux模板）。
+- en: Standard header
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 标准头文件
+- en: 'First of all, we tell the assembler what kind of output we expect, which is
+    the GUI executable (although, it would be without any GUI), what our entrypoint
+    is, and, of course, we include the `win32a.inc` file in order to be able to call
+    the `ExitProcess()` Windows API. Then, we create the code section:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们告诉汇编器我们期望的输出类型，即GUI可执行文件（尽管它没有任何GUI），我们的入口点是什么，当然，我们还包括`win32a.inc`文件，以便能够调用`ExitProcess()`Windows
+    API。然后，我们创建代码部分：
+- en: '[PRE1]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: The main() function
+  id: totrans-68
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '`main()`函数'
+- en: The following is the analog of the C/C++ `main()` function, which controls the
+    whole algorithm and is responsible for performing all the needed preparations
+    as well as for the execution of the forecast calculation loop.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是C/C++中`main()`函数的类比，它控制着整个算法，并负责执行所有必要的准备工作以及预报计算循环的执行。
+- en: Data preparation steps
+  id: totrans-70
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据准备步骤
+- en: First of all, we need to make some tiny corrections to the dates (months are
+    specified by their number). We are interested in the number of days since January
+    1 until the first day of a month. The easiest and fastest way to perform such
+    correction would be using a small table with 12 entries, containing the number
+    of days between January 1 and the first day of a month. The table is called `monthtab`
+    and is located in the data section.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要对日期进行一些小的修正（月份以其数字表示）。我们关注的是从 1 月 1 日到某个月第一天的天数。进行此修正的最简单和最快方法是使用一个包含
+    12 个条目的小表格，表格中包含了 1 月 1 日到每个月第一天的天数。这个表格叫做 `monthtab`，并且位于数据段中。
+- en: '[PRE2]'
+  id: totrans-72
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The preceding code illustrates this very fix being applied:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码展示了此修复的应用：
+- en: We read the month number from the birth date
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们从出生日期中读取月份数字
+- en: Decrement it as the table we are using is in fact a 0-based array of values
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 由于我们使用的表格实际上是一个 0 基数组，因此需要将其递减
+- en: Replace the original month number with the value read from the table
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用从表格中读取的值替换原始的月份数字
+- en: By the way, the addressing mode used when reading a value from the table is
+    a variation of the scale/index/base/displacement. As we may see, `monthtab` is
+    the displacement, `eax` register holds the index and 4 is the scale.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 顺便提一下，读取表格值时使用的寻址模式是比例/索引/基址/位移的变体。正如我们所看到的，`monthtab` 是位移，`eax` 寄存器存储索引，4 是比例因子。
+- en: 'The day/month/year of the two dates are specifically pre-arranged to fit properly
+    in the XMM registers and to ease calculations. It may seem that the first line
+    of the following code loads the value of `cday` into XMM0, but, in fact, the instruction
+    being used loads `xmmword` (128-bit data type) starting from the address of `cday`,
+    meaning that it loads four values into XMM0:'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这两个日期的日/月/年特别安排以便正确地适应 XMM 寄存器并简化计算。看起来，以下代码的第一行是将 `cday` 的值加载到 XMM0 中，但实际上，所用的指令是从
+    `cday` 的地址开始加载 `xmmword`（128位数据类型），意味着它将四个值加载到 XMM0 中：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    |'
+  id: totrans-79
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** |'
+- en: '| `byear` | `bday` | `cyear` | `cday` |'
+  id: totrans-80
+  prefs: []
+  type: TYPE_TB
+  zh: '| `byear` | `bday` | `cyear` | `cday` |'
+- en: '| 1979 | 16 | 2017 | 9 |'
+  id: totrans-81
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979 | 16 | 2017 | 9 |'
+- en: Data representation in the XMM0 register
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XMM0 寄存器中的数据表示
+- en: 'Similarly, the second `movaps` loads XMM1 register with four double words starting
+    at address of `cmonth`:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，第二条 `movaps` 指令加载了 XMM1 寄存器，从 `cmonth` 的地址开始加载四个双字：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    |'
+  id: totrans-84
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** |'
+- en: '| 0 | `bmonth` | 0 | `cmonth` |'
+  id: totrans-85
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | `bmonth` | 0 | `cmonth` |'
+- en: '| 0 | 0 | 0 | 120 |'
+  id: totrans-86
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0 | 0 | 0 | 120 |'
+- en: Data representation in the XMM1 register
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XMM1 寄存器中的数据表示
+- en: As we can see, placing the two tables directly one above the other and thinking
+    of them as XMM registers 0 and 1, we have `cmonth`/`cday` and `bmonth`/`bday`
+    loaded to the same double words in both XMM0 and XMM1\. We will see why such an
+    arrangement of the data was so important in a few moments.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，当将两个表格直接放置在彼此之上并将其视为 XMM 寄存器 0 和 1 时，我们在 XMM0 和 XMM1 中加载了 `cmonth`/`cday`
+    和 `bmonth`/`bday`，它们共享相同的双字。我们将在稍后看到这种数据安排为何如此重要。
+- en: The `movaps` instruction is only able to move data between two XMM registers
+    or an XMM register and a 16 bytes aligned memory location. You should use `movups`
+    for accessing unaligned memory locations.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`movaps` 指令只能在两个 XMM 寄存器之间，或者一个 XMM 寄存器和一个 16 字节对齐的内存位置之间移动数据。若要访问未对齐的内存位置，应使用
+    `movups`。'
+- en: 'In the last two lines of the following code fragment, we convert the values
+    we have just loaded from double words to single precision float numbers:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下代码片段的最后两行中，我们将刚刚加载的双字值转换为单精度浮点数：
+- en: '[PRE3]'
+  id: totrans-91
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'We still have not finished conversion of dates into the amount of days, as
+    years are still, well, years, and the number in days of a month and the number
+    of days since January 1st for both dates are still stored separately. All we have
+    to do before summation of the days for each date is multiply each year by 365.25
+    (where 0.25 is a compensation for leap years). However, parts of the XMM registers
+    cannot be accessed separately, as with parts of general purpose registers (for
+    example, there is no analog to AX, AH, AL in EAX). We can, however, manipulate
+    parts of XMM registers by using special instructions. In the first line of the
+    following code fragment we load the lower 64-bit part of XMM2 register with two
+    float values stored at `dpy` (days per year). The aforementioned values are `1.0`
+    and `365.25`. What does 1.0 have to do with it, you may ask, and the answer is
+    shown in the following table:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们仍然没有完成将日期转换为天数的操作，因为年份依然是年份，并且每个月的天数和两个日期从 1 月 1 日开始的天数仍然分别存储。我们在对每个日期的天数进行求和之前，只需要将每一年乘以
+    365.25（其中 0.25 是对闰年的补偿）。然而，XMM 寄存器的部分内容无法像通用寄存器的部分内容那样被单独访问（例如，在 EAX 中没有类似 AX、AH、AL
+    的部分）。不过，我们可以通过使用特殊指令来操作 XMM 寄存器的部分内容。在以下代码片段的第一行，我们将 XMM2 寄存器的低 64 位部分加载到存储在 `dpy`（每年天数）位置的两个浮动值中。这些值是
+    `1.0` 和 `365.25`。你可能会问，`1.0` 与此有何关系，答案可以在下表中看到：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-93
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+  id: totrans-94
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+- en: '| 0.0 | 0.0 | 0.0 | 120.0 | XMM1 |'
+  id: totrans-95
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0.0 | 0.0 | 0.0 | 120.0 | XMM1 |'
+- en: '| 0.0 | 0.0 | 365.25 | 1.0 | XMM2 |'
+  id: totrans-96
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0.0 | 0.0 | 365.25 | 1.0 | XMM2 |'
+- en: Content of XMM0 - XMM2 registers
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XMM0 - XMM2 寄存器的内容
+- en: Packed operations on XMM registers (packed means operations on more than one
+    value) are, most of the time, performed in columns. Thus, in order to multiply
+    `2017.0` by `365.25`, we need to multiply XMM2 by XMM0\. However, we must not
+    forget about `1979.0` either, and the easiest way to multiply both `2017.0` and
+    `1979.0` by `365.25` with a single instruction is to copy the content of the lower
+    part of XMM2 register to its upper part with the `movlhps` instruction.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对 XMM 寄存器的打包操作（打包意味着对多个值进行操作）大多数时候是按列进行的。因此，为了将 `2017.0` 乘以 `365.25`，我们需要将 XMM2
+    与 XMM0 相乘。然而，我们也不能忘记 `1979.0`，最简单的方式是使用 `movlhps` 指令将 XMM2 寄存器的低部分内容复制到其高部分。
+- en: '[PRE4]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'After these instructions the content of the XMM0 - XMM2 registers should look
+    like this:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这些指令执行后，XMM0 - XMM2 寄存器的内容应该如下所示：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-101
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+  id: totrans-102
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+- en: '| 0.0 | 0.0 | 0.0 | 120.0 | XMM1 |'
+  id: totrans-103
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0.0 | 0.0 | 0.0 | 120.0 | XMM1 |'
+- en: '| 365.25 | 1.0 | 365.25 | 1.0 | XMM2 |'
+  id: totrans-104
+  prefs: []
+  type: TYPE_TB
+  zh: '| 365.25 | 1.0 | 365.25 | 1.0 | XMM2 |'
+- en: Content of XMM0 - XMM2 registers after movlhps
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行 movlhps 后，XMM0 - XMM2 寄存器的内容
+- en: Use `pinsrb`/`pinsrd`/`pinsrq` instructions for insertions of individual bytes/double
+    words/quad words into an XMM register when needed. They are not used in our code
+    for the purpose of demonstration of horizontal operations.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 `pinsrb`/`pinsrd`/`pinsrq` 指令在需要时将单个字节/双字/四字插入 XMM 寄存器中。为了演示水平操作，这些指令在我们的代码中并未使用。
+- en: 'Now we are safe to proceed with multiplication and summation:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以安全地进行乘法和加法运算：
+- en: '[PRE5]'
+  id: totrans-108
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The preceding code first calculates the total number of days since January 1
+    up to the day of the month for both dates on the first line. On the second line,
+    at last, it multiplies the years of both dates by the number of days per year.
+    This line also explains why the days per year value was accompanied by `1.0`--as
+    we are multiplying XMM1 by XMM2 and we do not want to lose the previously calculated
+    number of days, we simply multiply the number of days since January 1st by `1.0`.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述代码首先计算从 1 月 1 日到两日期月日的总天数。在第二行，最后，它将两个日期的年份乘以每年的天数。这一行也解释了为什么每年天数的值后面伴随着 `1.0`——因为我们在将
+    XMM1 与 XMM2 相乘时，不希望丢失之前计算的天数，我们只需将从 1 月 1 日以来的天数乘以 `1.0`。
+- en: 'At this moment the content of the three XMM registers should be like this:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此时，三个 XMM 寄存器的内容应该如下所示：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-111
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+  id: totrans-112
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 129.0 | XMM1 |'
+  id: totrans-113
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 129.0 | XMM1 |'
+- en: '| 722829.75 | 16.0 | 736709.25 | 129.0 | XMM2 |'
+  id: totrans-114
+  prefs: []
+  type: TYPE_TB
+  zh: '| 722829.75 | 16.0 | 736709.25 | 129.0 | XMM2 |'
+- en: Content of XMM0 - XMM2 registers after addition of days and multiplication by
+    days per year of relative parts of XMM2 and XMM1 registers
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XMM0 - XMM2寄存器在加上天数并乘以每年天数后，XMM2和XMM1寄存器相对部分的内容
+- en: 'There are two remaining operations to perform:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有两个操作需要执行：
+- en: Finalize calculation of the total number of days for each date
+  id: totrans-117
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完成每个日期的总天数计算
+- en: Subtract the earlier date from the later one
+  id: totrans-118
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从较早的日期中减去较晚的日期
+- en: 'By this time, all of the values that we need to use in our calculations are
+    stored in a single register, XMM2\. Luckily, SSE3 introduced two important instructions:'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到这时，我们需要用于计算的所有值都已存储在单个寄存器XMM2中。幸运的是，SSE3引入了两条重要指令：
+- en: '`haddps`: Horizontal addition of single-precision values'
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`haddps`：单精度值的水平加法'
+- en: Adds the single-precision floating-point values in the first and second and
+    in third and fourth dwords of the destination operand, and stores the results
+    in the first and second dwords of the destination operand respectively. The third
+    and fourth dwords are overwritten with the results too, where the third dword
+    contains the same value as the first dword and the fourth dword the same value
+    as the second dword.
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 将目标操作数的前两个双字和后两个双字中的单精度浮点值相加，并将结果分别存储到目标操作数的前两个双字中。第三个和第四个双字也会被覆盖，第三个双字的值与第一个双字相同，第四个双字的值与第二个双字相同。
+- en: '`hsubps`: Horizontal subtraction of single-precision values'
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`hsubps`：单精度值的水平减法'
+- en: Subtracts the single-precision floating-point value in the second dword of the
+    destination operand from the first dword of the destination operand and the value
+    of the fourth dword of the destination operand from the third dword, and stores
+    the results into the first and second dwords and third and fourth dwords of the
+    destination operand respectively.
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 从目标操作数的第二个双字中减去单精度浮点值，再从目标操作数的第三个双字中减去目标操作数第四个双字的值，并将结果分别存储到目标操作数的前两个双字和后两个双字中。
+- en: 'Upon completion of `hsubps` instruction, the content of the registers should
+    be:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成`hsubps`指令后，寄存器的内容应为：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 129.0 | XMM1 |'
+  id: totrans-127
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 129.0 | XMM1 |'
+- en: '| 13992.5 | 13992.5 | 13992.5 | 13992.5 | XMM2 |'
+  id: totrans-128
+  prefs: []
+  type: TYPE_TB
+  zh: '| 13992.5 | 13992.5 | 13992.5 | 13992.5 | XMM2 |'
+- en: Content of XMM0 - XMM2 registers after addition and later subtraction of values
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: XMM0 - XMM2寄存器在加法和随后减法操作后的内容
+- en: As we see, the XMM2 register contains the number of days between the two dates
+    (the date of birth and the current date) minus 1, as the day of birth itself is
+    not included (this problem will be solved in the calculation loop);
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，XMM2寄存器包含两个日期之间的天数（出生日期和当前日期）减去1，因为出生当天不包括在内（此问题将在计算循环中解决）；
+- en: '[PRE6]'
+  id: totrans-131
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: The preceding three lines set up the step value for our forecast by loading
+    the double word stored at `dpy`, which is `1.0`, and propagate this value throughout
+    the XMM3 register. We will be adding XMM3 to XMM2 for each new day of the forecast.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前三行通过加载存储在`dpy`中的双字（值为`1.0`）来设置我们预测的步长，并将此值传播到整个XMM3寄存器中。我们将在每个新的预测日期中将XMM3加到XMM2。
+- en: 'The following three lines are logically similar to the previous three; they
+    set all four single precision floats of the XMM4 register to *2*PI*:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来的三行与前面三行在逻辑上类似；它们将XMM4寄存器的四个单精度浮点值设置为*2*PI*：
+- en: '[PRE7]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'And the last step before entering the calculation loop: we load XMM1 with the
+    lengths of the biorhythmic cycles and set the `eax` register to point to the location
+    in the memory where we are going to store our output data (the forecast). Given
+    the arrangement of data in the data section, the fourth single of the XMM1 register
+    will be loaded with *2*PI*, but, since the fourth single is not going to be used
+    in our calculations, we simply leave it as is. We could, however, zero it out
+    with the value of `eax` by using the `pinsrd xmm1, eax, 3` instruction:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进入计算循环之前的最后一步：我们将XMM1加载上生物节律周期的长度，并将`eax`寄存器设置为指向我们将存储输出数据（预测结果）的位置。根据数据段中数据的排列，XMM1寄存器的第四个单精度值将被加载为*2*PI*，但是，由于第四个单精度值在我们的计算中不被使用，我们将其保持原样。当然，我们也可以使用`pinsrd
+    xmm1, eax, 3`指令将其清零：
+- en: '[PRE8]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'At last we have all the data set up and ready for actual calculation of biorhythmic
+    values for a given range of dates. The registers XMM0 to XMM4 should now have
+    the following values:'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，我们已经设置好了数据，并准备好计算给定日期范围内的生物节律值。寄存器XMM0到XMM4现在应该具有以下值：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-138
+  prefs: []
+  type: TYPE_TB
+  zh: '| **96 - 127位** | **64 - 95位** | **32 - 63位** | **0 - 31位** | **寄存器名称** |'
+- en: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+  id: totrans-139
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1979.0 | 16.0 | 2017.0 | 9.0 | XMM0 |'
+- en: '| 6.2831802 | 33.0 | 28.0 | 23.0 | XMM1 |'
+  id: totrans-140
+  prefs: []
+  type: TYPE_TB
+  zh: '| 6.2831802 | 33.0 | 28.0 | 23.0 | XMM1 |'
+- en: '| 13992.5 | 13992.5 | 13992.5 | 13992.5 | XMM2 |'
+  id: totrans-141
+  prefs: []
+  type: TYPE_TB
+  zh: '| 13992.5 | 13992.5 | 13992.5 | 13992.5 | XMM2 |'
+- en: '| 1.0 | 1.0 | 1.0 | 1.0 | XMM3 |'
+  id: totrans-142
+  prefs: []
+  type: TYPE_TB
+  zh: '| 1.0 | 1.0 | 1.0 | 1.0 | XMM3 |'
+- en: '| 6.2831802 | 6.2831802 | 6.2831802 | 6.2831802 | XMM4 |'
+  id: totrans-143
+  prefs: []
+  type: TYPE_TB
+  zh: '| 6.2831802 | 6.2831802 | 6.2831802 | 6.2831802 | XMM4 |'
+- en: Calculation loop
+  id: totrans-144
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 计算循环
+- en: Once all the preparations are done, the calculation loop in which we generate
+    our forecast is fairly simple. First of all we increment the number of days value,
+    which has a dual purpose--during the first iteration, it solves the problem of
+    the day of birth not being included and advances the current date one day during
+    the remaining iterations.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦所有准备工作完成，我们生成预测的计算循环相当简单。首先，我们增加天数值，这具有双重作用——在第一次迭代中，解决了不包括出生日的问题，并在剩余迭代中将当前日期向前推一天。
+- en: The second instruction copies the XMM4 register to XMM0, which will be used
+    for most of our calculations, and multiplies it with the number of days in XMM2
+    by the execution of the third instruction--which actually calculates the (*2*PI*t*)
+    part of the formula.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二条指令将XMM4寄存器复制到XMM0，这将用于大部分计算，并将其与XMM2中的天数乘以第三条指令执行——实际上计算了公式中的(*2*PI*t*)部分。
+- en: 'The fourth instruction completes the calculation of the value we need the sine
+    of, by division of XMM0 by lengths of biorhythmic periods:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第四条指令通过将XMM0除以生物节律周期长度来完成我们需要计算正弦值的值的计算：
+- en: '[PRE9]'
+  id: totrans-148
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Now we need to calculate the sine for the resulting values, which is a bit
+    problematic due to the algorithm we are going to use for sine computation and
+    the relatively large numbers. The solution is simple--we need to normalize the
+    values so they fit the (*0.0, 2*PI*) range. This is implemented by the `adjust()`
+    procedure:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们需要计算这些值的正弦值，这有点棘手，因为我们将使用正弦计算的算法和相对较大的数值。解决方案很简单——我们需要将这些值归一化，使其适合(*0.0,
+    2*PI*)范围。这由`adjust()`过程实现：
+- en: '[PRE10]'
+  id: totrans-150
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Having adjusted the values in XMM0 (ignore the value of the fourth part of
+    XMM0 as it is irrelevant), we may now compute sine for each of the first three
+    single-precision float parts of the register:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调整了XMM0中的值（忽略XMM0的第四部分值，因为它不相关），我们现在可以为寄存器的前三个单精度浮点部分计算正弦：
+- en: '[PRE11]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: We store computed sine values to a table pointed by the `eax` register (since
+    the table is aligned on a 16-bytes boundary, we are safe to use the `movaps` instruction,
+    which is slightly faster than its `movups` counterpart). Then, we advance the
+    table pointer by 16 bytes, decrement ECX, and keep looping while ECX is not 0
+    with the `loop` instruction.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将计算得到的正弦值存储到由`eax`寄存器指向的表中（由于该表在16字节边界上对齐，我们可以安全地使用`movaps`指令，比其`movups`对应指令稍快）。然后，我们将表指针前进16字节，递减ECX，并在ECX不为0时继续循环，使用`loop`指令。
+- en: 'When ECX reaches `0`, we simply terminate the process:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当ECX达到`0`时，我们简单地终止进程：
+- en: '[PRE12]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The table, by the end of the loop, should contain the following values:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表在循环结束时应包含以下值：
+- en: '| **Date** | **Physical (P)** | **Emotional (S)** | **Intellectual (I)** |
+    **Irrelevant** |'
+  id: totrans-157
+  prefs: []
+  type: TYPE_TB
+  zh: '| **日期** | **身体（P）** | **情感（S）** | **智力（I）** | **无关** |'
+- en: '| May 9^(th), 2017 | 0.5195959 | -0.9936507 | 0.2817759 | -NAN |'
+  id: totrans-158
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月9日 | 0.5195959 | -0.9936507 | 0.2817759 | -NAN |'
+- en: '| May 10^(th), 2017 | 0.2695642 | -0.9436772 | 0.4582935 | -NAN |'
+  id: totrans-159
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月10日 | 0.2695642 | -0.9436772 | 0.4582935 | -NAN |'
+- en: '| May 11^(th), 2017 | -8.68E-06 | -0.8462944 | 0.6182419 | -NAN |'
+  id: totrans-160
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月11日 | -8.68E-06 | -0.8462944 | 0.6182419 | -NAN |'
+- en: '| May 12^(th), 2017 | -0.2698165 | -0.7062123 | 0.7558383 | -NAN |'
+  id: totrans-161
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月12日 | -0.2698165 | -0.7062123 | 0.7558383 | -NAN |'
+- en: '| May 13^(th), 2017 | -0.5194022 | -0.5301577 | 0.8659862 | -NAN |'
+  id: totrans-162
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月13日 | -0.5194022 | -0.5301577 | 0.8659862 | -NAN |'
+- en: '| May 14^(th), 2017 | -0.7308638 | -0.3262038 | 0.9450649 | -NAN |'
+  id: totrans-163
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月14日 | -0.7308638 | -0.3262038 | 0.9450649 | -NAN |'
+- en: '| May 15^(th), 2017 | -0.8879041 | -0.1039734 | 0.9898189 | -NAN |'
+  id: totrans-164
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月15日 | -0.8879041 | -0.1039734 | 0.9898189 | -NAN |'
+- en: '| May 16^(th), 2017 | -0.9790764 | 0.1120688 | 0.9988668 | -NAN |'
+  id: totrans-165
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月16日 | -0.9790764 | 0.1120688 | 0.9988668 | -NAN |'
+- en: '| May 17^(th), 2017 | -0.9976171 | 0.3301153 | 0.9718016 | -NAN |'
+  id: totrans-166
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月17日 | -0.9976171 | 0.3301153 | 0.9718016 | -NAN |'
+- en: '| May 18^(th), 2017 | -0.9420508 | 0.5320629 | 0.909602 | -NAN |'
+  id: totrans-167
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月18日 | -0.9420508 | 0.5320629 | 0.909602 | -NAN |'
+- en: '| May 19^(th), 2017 | -0.8164254 | 0.7071083 | 0.8145165 | -NAN |'
+  id: totrans-168
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月19日 | -0.8164254 | 0.7071083 | 0.8145165 | -NAN |'
+- en: '| May 20^(th), 2017 | -0.6299361 | 0.8467072 | 0.6899831 | -NAN |'
+  id: totrans-169
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月20日 | -0.6299361 | 0.8467072 | 0.6899831 | -NAN |'
+- en: '| May 21^(st), 2017 | -0.3954292 | 0.9438615 | 0.5407095 | -NAN |'
+  id: totrans-170
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月21日 | -0.3954292 | 0.9438615 | 0.5407095 | -NAN |'
+- en: '| May 22^(nd), 2017 | -0.128768 | 0.9937283 | 0.3714834 | -NAN |'
+  id: totrans-171
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月22日 | -0.128768 | 0.9937283 | 0.3714834 | -NAN |'
+- en: '| May 23^(rd), 2017 | 0.1362932 | 0.9936999 | 0.1892722 | -NAN |'
+  id: totrans-172
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月23日 | 0.1362932 | 0.9936999 | 0.1892722 | -NAN |'
+- en: '| May 24^(th), 2017 | 0.3983048 | 0.9438586 | -8.68E-06 | -NAN |'
+  id: totrans-173
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月24日 | 0.3983048 | 0.9438586 | -8.68E-06 | -NAN |'
+- en: '| May 25^(th), 2017 | 0.6310154 | 0.8467024 | -0.18929 | -NAN |'
+  id: totrans-174
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月25日 | 0.6310154 | 0.8467024 | -0.18929 | -NAN |'
+- en: '| May 26^(th), 2017 | 0.8170633 | 0.7069295 | -0.371727 | -NAN |'
+  id: totrans-175
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月26日 | 0.8170633 | 0.7069295 | -0.371727 | -NAN |'
+- en: '| May 27^(th), 2017 | 0.9422372 | 0.5320554 | -0.5407244 | -NAN |'
+  id: totrans-176
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月27日 | 0.9422372 | 0.5320554 | -0.5407244 | -NAN |'
+- en: '| May 28^(th), 2017 | 0.9976647 | 0.3303373 | -0.6901718 | -NAN |'
+  id: totrans-177
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2017年5月28日 | 0.9976647 | 0.3303373 | -0.6901718 | -NAN |'
+- en: Adjustment of sine input values
+  id: totrans-178
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 正弦输入值的调整
+- en: As we have seen, using SSE instructions is quite convenient and effective; although,
+    as we were mostly loading data from memory to registers and moving it within the
+    registers, we have not been able to see its actual effectiveness yet. There are
+    two procedures called from the calculation loop that perform the actual computations.
+    One of them is the `adjust()` procedure.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们所见，使用 SSE 指令非常方便和有效；尽管我们大多是在从内存加载数据到寄存器并在寄存器内移动数据，但我们还没有看到它的实际效果。计算循环中有两个过程执行实际的计算，其中一个是
+    `adjust()` 过程。
+- en: Due to the overall simplicity of the algorithm, and since each of the two procedures
+    is called from exactly one place, we are not following any specific calling convention;
+    instead, we're using the XMM0 register for passing the floating point values and
+    the ECX register for passing integer parameters.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于算法整体非常简单，而且由于两个过程仅从一个地方调用，因此我们没有遵循任何特定的调用约定；相反，我们使用 XMM0 寄存器传递浮点值，使用 ECX 寄存器传递整数参数。
+- en: 'In the case of the `adjust()` procedure, we only have one parameter, which
+    is already loaded into the XMM0 register, so we simply call the procedure:'
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于 `adjust()` 过程，我们只有一个参数，它已经加载到 XMM0 寄存器中，因此我们只需调用该过程：
+- en: '[PRE13]'
+  id: totrans-182
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: This is a standard way to create a stack frame for local variables and temporary
+    storage of non-general-purpose registers used in the procedure by saving the stack
+    pointer ESP/RSP in EBP/RBP registers (we are free to use other general-purpose
+    registers). General-purpose registers may be saved on stack by issuing a push
+    instruction right after the allocation of space for local variables. The allocation
+    of space for local variables is performed by subtracting the overall size of variables
+    from the ESP/RSP register.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是为局部变量和临时存储程序中使用的非通用寄存器创建堆栈帧的标准方式，方法是将堆栈指针 ESP/RSP 保存到 EBP/RBP 寄存器中（我们可以自由使用其他通用寄存器）。通用寄存器可以通过在分配局部变量空间后立即发出
+    push 指令保存到堆栈中。局部变量空间的分配通过从 ESP/RSP 寄存器中减去变量的总大小来实现。
+- en: 'Addressing the allocated space is shown in the following code:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分配空间的寻址方式在以下代码中显示：
+- en: '[PRE14]'
+  id: totrans-185
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: In the preceding two lines, we temporarily store the content of the XMM1 and
+    XMM2 registers as we are going to use them, but we need to preserve their values.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前两行中，我们临时存储了 XMM1 和 XMM2 寄存器的内容，因为我们将要使用它们，但需要保留它们的值。
+- en: 'The adjustment of the input values is very simple and may be expressed by the
+    following code in C:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入值的调整非常简单，可以通过以下 C 语言代码表示：
+- en: '[PRE15]'
+  id: totrans-188
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'However, in C, we would have to call this function for every value (unless
+    we use intrinsic functions), while in Assembly, we may adjust all three simultaneously
+    with a few simple SSE instructions:'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在 C 语言中，我们必须对每个值调用此函数（除非使用内建函数），而在汇编语言中，我们可以通过一些简单的 SSE 指令同时调整这三个值：
+- en: '[PRE16]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: We are already familiar with the above sequence, which loads a double word into
+    an XMM register and duplicates it to every single-precision float part of it.
+    Here, we load *2*PI* into XMM1.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们已经熟悉了上述的顺序，它将一个双字加载到 XMM 寄存器并复制到其中的每个单精度浮点部分。这里，我们将 *2*PI* 加载到 XMM1。
+- en: 'The following algorithm performs the actual calculations:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下算法执行实际的计算：
+- en: We duplicate the input parameter into the XMM2 register
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们将输入参数复制到 XMM2 寄存器中
+- en: Divide its singles by *2*PI*
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将它的单精度浮点数除以 *2*PI*
+- en: Round down the result (SSE has no floor or ceiling instructions, instead we
+    may use `roundps` and specify the rounding mode in the third operand; in our case,
+    we instruct the processor to, roughly speaking, round down)
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 向下舍入结果（SSE没有地板或天花板指令，取而代之的是我们可以使用`roundps`并在第三个操作数中指定舍入模式；在我们的案例中，我们指示处理器粗略地向下舍入）
+- en: Multiply rounded down results by *2*PI*
+  id: totrans-196
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将向下舍入的结果乘以*2*PI*
+- en: Subtract them from the initial value and get results that fit into the (*0.0,
+    2*PI*) range
+  id: totrans-197
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 从初始值中减去它们，得到适合于（*0.0, 2*PI*）范围的结果
+- en: 'and the Assembly implementation thereof is:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其汇编实现如下：
+- en: '[PRE17]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: The result of the last operation is already in XMM0, so we simply return from
+    procedure to our calculation loop.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一次操作的结果已经在XMM0中，因此我们只需从过程返回到计算循环。
+- en: Computing sine
+  id: totrans-201
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 计算正弦
+- en: 'We hardly ever think about how sine or cosine are calculated without actually
+    having a right-angled triangle with known lengths of each of the cathetus and
+    the hypotenuse. There are at least two approaches to make those computations in
+    a fast and efficient way:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们很少会考虑如何计算正弦或余弦，而不实际拥有一个已知直角三角形的两条直角边和斜边长度。至少有两种方法可以快速高效地进行这些计算：
+- en: '**CORDIC algorithm**: This stands for **COordinate Rotation DIgital Computer**.
+    This one is implemented in simple calculators or primitive hardware devices.'
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**CORDIC算法**：这代表**坐标旋转数字计算机**。它在简单计算器或原始硬件设备中实现。'
+- en: '**Taylor series**: A fast approximation algorithm. It does not provide the
+    exact value, but is definitely enough for our needs.'
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**泰勒级数**：一种快速的近似算法。它不提供准确值，但足以满足我们的需求。'
+- en: LIBC on the other hand uses a different algorithm, which we could implement
+    here, but it would be much more than a simple example. Therefore, what we are
+    using in our code is a simple implementation of the simplest approximation algorithm,
+    which provides us with a nice precision (much nicer than we need in this program)
+    of up to the sixth digit after the point--the Taylor series for trigonometric
+    functions (also known as Maclaurin series).
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一方面，LIBC使用不同的算法，我们可以在这里实现，但这将远远超过一个简单的示例。因此，我们在代码中使用的是最简单的近似算法的简单实现，它为我们提供了相当不错的精度（比本程序需要的精度更高），精度可达到小数点后六位——这是用于三角函数的泰勒级数（也称为麦克劳林级数）。
+- en: 'The formula for sine computation using the Taylor series is as follows:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用泰勒级数计算正弦的公式如下：
+- en: '*sin(x) = x - x³/3! + x⁵/5! - x⁷/7! + x⁹/9! ...*'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*sin(x) = x - x³/3! + x⁵/5! - x⁷/7! + x⁹/9! ...*'
+- en: Here, the ellipsis denote an infinite function. However, we do not need to run
+    it forever to obtain values of satisfactory precision (after all, we are only
+    interested in 2 digits after the point), instead, we will run it for 8 iterations.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里，省略号表示一个无限函数。然而，我们不需要无限运行它来获得令人满意的精度（毕竟，我们只关心小数点后两位），相反，我们将运行它8次迭代。
+- en: 'Just as with the `adjust()` procedure, we will not follow any specific calling
+    convention and, since the parameter we need to compute sine for is already in
+    XMM0, we will simply leave it there. The head of the the `sin_taylor_series` procedure
+    does not contain anything new for us:'
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像`adjust()`过程一样，我们不会遵循任何特定的调用约定，并且由于我们需要计算正弦的参数已经在XMM0中，因此我们将其保留在那里。`sin_taylor_series`过程的头部对我们来说没有任何新内容：
+- en: '[PRE18]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'The following computation loop is simple and does not contain any instructions
+    that we have not met yet. However, there are two procedure calls taking two parameters
+    each. Parameters are passed with the XMM0 register (three single-precision floating-point
+    numbers) and the ECX register containing the currently used value of the exponent:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下计算循环很简单，且不包含我们尚未见过的指令。然而，有两个过程调用，每个调用有两个参数。参数通过XMM0寄存器传递（三个单精度浮点数），ECX寄存器包含当前使用的指数值：
+- en: '[PRE19]'
+  id: totrans-212
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'All computations have completed and we now have sine values for the three inputs.
+    For the first iteration, the inputs in XMM0 would be as follows:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有计算已完成，现在我们得到了三个输入的正弦值。对于第一次迭代，XMM0中的输入如下：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-214
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| (irrelevant) | 0.28564453 | 4.8244629 | 2.5952148 | XMM0 |'
+  id: totrans-215
+  prefs: []
+  type: TYPE_TB
+  zh: '| （无关紧要） | 0.28564453 | 4.8244629 | 2.5952148 | XMM0 |'
+- en: 'Also, the result of our `sin()` approximation with eight iterations of Taylor
+    series is as follows:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们的`sin()`近似值通过泰勒级数八次迭代后的结果如下：
+- en: '| **bits 96 - 127** | **bits 64 - 95** | **bits 32 - 63** | **bits 0 - 31**
+    | **register name** |'
+  id: totrans-217
+  prefs: []
+  type: TYPE_TB
+  zh: '| **位 96 - 127** | **位 64 - 95** | **位 32 - 63** | **位 0 - 31** | **寄存器名称**
+    |'
+- en: '| (irrelevant) | 0.28177592 | -0.99365967 | 0.51959586 | XMM0 |'
+  id: totrans-218
+  prefs: []
+  type: TYPE_TB
+  zh: '|（无关）| 0.28177592 | -0.99365967 | 0.51959586 | XMM0 |'
+- en: 'This shows a perfect (at least for our needs) level of approximation. Then,
+    we restore the previously saved XMM registers and return to caller procedure:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这展示了一个完美的（至少对于我们的需求来说）近似级别。然后，我们恢复之前保存的XMM寄存器并返回到调用程序：
+- en: '[PRE20]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: Exponentiation
+  id: totrans-221
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 指数运算
+- en: 'We make use of exponentiation in our `sin_taylor_series` procedure, an algorithm
+    which is not as trivial as it may seem when it comes to real numbers used as exponents;
+    however, we are quite lucky because the Taylor series only uses natural numbers
+    for that purpose, but, it is worth mentioning that, should we need larger exponents,
+    the algorithm would have been too slow. Therefore, our implementation of an exponentiation
+    algorithm is as basic as it gets--we simply multiply the parameter in XMM0 by
+    itself ECX-1 times. ECX is decremented once because there is no need to calculate
+    `x¹`:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在`sin_taylor_series`过程中使用了指数运算，这个算法在处理实数作为指数时并不像看起来那么简单；然而，我们很幸运，因为泰勒级数仅使用自然数来进行这类运算。但值得一提的是，如果我们需要更大的指数，算法将会变得非常缓慢。因此，我们的指数运算算法实现尽可能简单——我们仅仅将参数XMM0自乘ECX-1次。ECX会减少1次，因为不需要计算`x¹`：
+- en: '[PRE21]'
+  id: totrans-223
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: Factorials
+  id: totrans-224
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 阶乘
+- en: 'We also make use of factorials as we divide exponentiated values by a factorial
+    of exponents thereof. The factorial of a given number `n` is the product of all
+    positive integers less than or equal to the given number `n`:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还使用了阶乘，因为我们将指数值除以其阶乘。给定数字`n`的阶乘是所有小于或等于`n`的正整数的积：
+- en: '[PRE22]'
+  id: totrans-226
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: AVX-512
+  id: totrans-227
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: AVX-512
+- en: This chapter would not have been complete without mentioning AVX-512 - Advanced
+    Vector Extensions 512-bit. It, in fact, consists of multiple extensions, while
+    only the core one - AVX-512F ("F" stands for foundation) is mandatory for all
+    processors. AVX-512 does not only add new instructions, but greatly enhances the
+    implementation of parallel (vectored) computations, allowing calculations to be
+    performed over vectors of single or double-precision floating point values up
+    to 512 bits long. Also, 32 new 512-bit registers are introduced (ZMM0 - ZMM31)
+    and with its ternary logic it resembles dedicated platforms.
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章如果没有提到AVX-512（高级矢量扩展512位）将不完整。事实上，它由多个扩展组成，而其中只有核心扩展——AVX-512F（"F"代表基础）是所有处理器的必需部分。AVX-512不仅增加了新的指令，还极大增强了并行（矢量化）计算的实现，使得可以对最长达512位的单精度或双精度浮点值的向量进行计算。此外，增加了32个新的512位寄存器（ZMM0
+    - ZMM31），其三元逻辑使其类似于专用平台。
+- en: Summary
+  id: totrans-229
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: The example code in this chapter was designed for the demonstration of the parallel
+    data processing capabilities of modern Intel-based processors. Of course, the
+    technology being used herein is far from able to provide the power of architectures
+    such as CUDA, but it is definitely able to significantly speed up certain algorithms.
+    While the algorithm we worked on here is very simple and hardly requires any optimization
+    at all, as it could be implemented with FPU instructions alone and we would hardly
+    notice any difference, it still illustrates the way in which multiple data may
+    be processed simultaneously. A much better application could be solving an *n*-body
+    problem, as SSE allows simultaneous computation of all vectors in a 3 dimensional
+    space or even the implementation of a multilayer perceptron (one of many types
+    of artificial neural networks) as it could have made it possible to process several
+    neurons at once or; if the network is small enough, host them all in available
+    XMM registers without the need to move data from/to memory. Especially keeping
+    in mind the fact that sometimes procedures that seem to be quite complex, when
+    implemented with SSE, may still be faster than a single FPU instruction.
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章中的示例代码旨在展示现代基于Intel的处理器的并行数据处理能力。当然，所使用的技术远不能提供如CUDA等架构的强大功能，但它确实能够显著加速某些算法。尽管我们这里工作的算法非常简单，几乎不需要任何优化，因为它仅使用FPU指令就能实现，我们几乎看不出任何区别，但它仍然展示了如何同时处理多个数据。一个更好的应用场景可能是解决*n*体问题，因为SSE允许在三维空间内同时计算所有向量，甚至可以实现多层感知器（人工神经网络的一种类型），这使得能够一次性处理多个神经元；如果网络足够小，还可以将它们都存放在可用的XMM寄存器中，无需从/向内存移动数据。特别需要注意的是，有时看似复杂的过程，当使用SSE实现时，可能仍然比单条FPU指令更快。
+- en: Now that we know about at least one technology that may make our life easier,
+    we will learn about the way assemblers can, if not simplify, then definitely ease
+    the work of Assembly developer--macro instructions. Similar to macros in C or
+    any other programming language supporting such features, macro instructions can
+    have a significantly positive impact, allowing the replacement of a series of
+    instructions with a single macro instruction, iteratively and/or conditionally
+    assemble or skip certain sequences, or even create new instructions if the assembler
+    is not supporting instructions we need (never happened to me yet, but "never say
+    never").
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们至少了解了一项可能让我们生活更轻松的技术，我们将学习汇编器如何通过宏指令，尽管不能简化工作，但肯定能减轻汇编开发者的工作负担。类似于 C 语言或其他支持类似功能的编程语言中的宏，宏指令能够带来显著的积极影响，允许通过一个宏指令替换一系列指令，反复或有条件地汇编或跳过某些指令序列，甚至在汇编器不支持我们所需指令时，创建新的指令（虽然我还没有遇到过这种情况，但“永远不要说永远”）。

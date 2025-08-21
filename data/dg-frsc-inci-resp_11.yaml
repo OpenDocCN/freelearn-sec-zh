@@ -1,0 +1,1962 @@
+- en: '11'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '11'
+- en: Analyzing System Storage
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 分析系统存储
+- en: So far, the evidence that has been analyzed has focused on those elements that
+    are obtained from the network traffic or the system’s memory. Even though an incident’s
+    root cause may be ferreted out from these evidence sources, it is important to
+    understand how to obtain evidentiary material from a system’s storage, whether
+    that is removable storage such as USB devices or the larger connected disk drives.
+    These containers carry a massive amount of data that may be leveraged by incident
+    response analysts to determine a root cause. It should be noted that this chapter
+    will only be able to scratch the surface as entire volumes have been devoted to
+    the depth of forensic evidence that’s available.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 迄今为止，已分析的证据主要集中在网络流量或系统内存中获得的元素。尽管通过这些证据来源可能会揭示事件的根本原因，但理解如何从系统存储中获取证据材料仍然很重要，无论是从可移动存储设备如USB设备，还是从更大的连接磁盘驱动器。这些存储容器携带着大量的数据，事件响应分析师可以利用这些数据来确定根本原因。需要注意的是，本章只能粗略介绍这一主题，因为已有整本书籍专门探讨存储中可用的法医证据的深度。
+- en: 'To provide a better understanding of analyzing system storage, this chapter
+    will focus on the following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了更好地理解系统存储分析，本章将重点介绍以下主题：
+- en: '**Forensic platforms**: There are a variety of commercial and open source platforms
+    that we can use to conduct system storage analysis. This section will address
+    the key features and potential options we have.'
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**法医平台**：我们可以使用各种商业和开源平台进行系统存储分析。本节将介绍我们可以使用的关键特性和潜在选项。'
+- en: '**Autopsy**: To provide you with an open source platform that can be leveraged
+    in system storage analysis, the majority of this chapter will use the Autopsy
+    tool. Some of its features will be highlighted by utilizing a test image.'
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Autopsy**：为了提供一个可以在系统存储分析中利用的开源平台，本章的大部分内容将使用Autopsy工具。通过利用测试镜像，我们将突出其一些功能。'
+- en: '**Master File Table (MFT) analysis**: Containing a comprehensive list of all
+    the files on the system, the MFT is a key source of data for responders. This
+    section addresses the extraction and analysis of the MFT.'
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**主文件表（MFT）分析**：主文件表包含系统中所有文件的完整列表，是响应人员的关键数据来源。本节将介绍如何提取和分析MFT。'
+- en: '**Prefetch analysis**: Determining if a potentially malicious file has been
+    executed is a key piece of incident investigations. This section will cover extracting
+    a Windows Prefetch file, processing it, and conducting an analysis.'
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**预取分析**：确定一个潜在恶意文件是否被执行是事件调查中的关键环节。本节将介绍如何提取Windows预取文件、处理并进行分析。'
+- en: '**Registry analysis**: A favorite target of malware coders and other exploits,
+    responders should become familiar with registry analysis. An overview of how to
+    extract and analyze the registry will be addressed in this section.'
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**注册表分析**：注册表是恶意软件编写者和其他攻击者的常见目标，响应人员应熟悉注册表分析。本节将概述如何提取和分析注册表。'
+- en: System storage analysis is a complex process. The depth and breadth of it cannot
+    be explored in a single chapter; due to this, we hope that this chapter provides
+    some concrete areas of focus with the understanding that responders will gain
+    a better sense of some of the tools that can be employed, as well as an understanding
+    of some of the critical data that can be leveraged.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 系统存储分析是一个复杂的过程。其深度和广度无法在一个章节中全面探讨；因此，我们希望本章能提供一些具体的关注领域，帮助响应人员更好地理解一些可以使用的工具，以及了解一些关键数据的作用。
+- en: Forensic platforms
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 法医平台
+- en: Over the past 15 years, there has been an increase in the power of disk forensics
+    platforms. For the incident response analyst, there are options as to what type
+    of platform can be leveraged to examine disk drives. Often, the limiting factor
+    in utilizing these platforms is the cost of more robust systems, when a lower-cost
+    alternative will be just as effective for an incident response team.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在过去15年中，磁盘法医平台的能力得到了增强。对于事件响应分析师来说，可以选择不同类型的平台来检查磁盘驱动器。通常，使用这些平台的限制因素是更强大系统的成本，而低成本的替代方案对于事件响应团队来说也能同样有效。
+- en: Several factors should be addressed when examining software for disk analysis.
+    First, has the platform been tested? Several organizations test platforms for
+    efficacy, such as the National Institute of Standards and Technology Computer
+    Forensic Tools Testing Program ([https://www.cftt.nist.gov/](https://www.cftt.nist.gov/)).
+    Second, the tool’s use in criminal and civil proceedings must be examined. There
+    is no single court-accepted standard, but tools should conform to the rules of
+    evidence. The use of a platform that has not been tested or does not conform to
+    the rules of evidence may lead to the evidence being excluded from legal proceedings.
+    In other, more disastrous consequences, it may lead to an analyst arriving at
+    the wrong conclusion.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在进行磁盘分析时，应该考虑几个因素。首先，平台是否经过测试？一些组织会测试平台的有效性，比如国家标准与技术研究院计算机法医工具测试项目（[https://www.cftt.nist.gov/](https://www.cftt.nist.gov/)）。其次，必须审查该工具在刑事和民事诉讼中的使用情况。虽然没有统一的法院公认标准，但工具应遵循证据规则。使用未经测试或不符合证据规则的平台，可能导致证据在法律程序中被排除。在其他更严重的后果中，可能导致分析人员得出错误结论。
+- en: Forensically sound tools
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医工具的可靠性
+- en: An example of an untested and forensically unsound toolset that was used in
+    a criminal proceeding was in the case of The State of Connecticut versus Amero.
+    In this case, a law enforcement agency utilized unsound forensic methods and tools
+    to convict a woman for allegedly allowing children to see sexually explicit pop-up
+    ads. A subsequent review of the methods and facts of this case indicated that
+    there were significant deficiencies with the forensic examination. An excellent
+    examination of this case is also available from the Journal of Digital Forensics,
+    Security, and Law at [https://commons.erau.edu/jdfsl/vol7/iss2/5/](https://commons.erau.edu/jdfsl/vol7/iss2/5/).
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个未经测试且法医上不可靠的工具集的例子出现在康涅狄格州诉 Amero 一案中。在这个案件中，一家执法机构使用了不可靠的法医方法和工具，将一名女性定罪，指控她允许儿童看到色情的弹出广告。对此案件方法和事实的后续审查表明，法医检查存在严重缺陷。对此案件的详细审查也可以通过《数字法医、安全与法律期刊》访问，链接为：[https://commons.erau.edu/jdfsl/vol7/iss2/5/](https://commons.erau.edu/jdfsl/vol7/iss2/5/)。
+- en: One final consideration is how the tool fits into the overall incident response
+    planning. For example, commercial disk forensics tools are excellent at locating
+    images and web artifacts. They are also excellent at carving out data from a suspect's
+    drive. This is often because forensic software is utilized by law enforcement
+    agencies as a tool to investigate child exploitation crimes. As a result, this
+    capability is paramount to bringing a criminal case against such suspects. While
+    these are excellent capabilities to have, incident responders may be more interested
+    in tools that can be utilized for keyword searches and timeline analysis so that
+    they can reconstruct a series of events before, during, and after an incident.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一个考虑因素是工具如何融入整体的事件响应规划。例如，商业磁盘法医工具在定位图像和网页证据方面非常出色。它们也非常擅长从嫌疑人的硬盘中提取数据。这通常是因为法医软件被执法机构用作调查儿童剥削犯罪的工具。因此，这一能力对对付此类嫌疑人的刑事案件至关重要。虽然这些功能非常优秀，但事件响应人员可能更关注能够用于关键词搜索和时间线分析的工具，以便重建事件发生前、发生中和发生后的系列事件。
+- en: 'While most commercial and free forensic platforms have a variety of features,
+    several common ones can be of use to incident response personnel:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然大多数商业和免费法医平台都具有多种功能，但有几个常见功能对事件响应人员非常有用：
+- en: '**File structure view**: It is often very important to be able to view the
+    file structure of the disk under examination. Forensic platforms should have the
+    ability to view the file structure and allow responders to quickly review files
+    with known locations on a suspect system.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件结构视图**：通常，能够查看正在检查的磁盘的文件结构非常重要。法医平台应该具备查看文件结构的能力，并允许响应人员快速查看嫌疑系统中已知位置的文件。'
+- en: '**Hex viewer**: Having the ability to view files in hexadecimal allows responders
+    to have a granular look at the files under examination. This may be beneficial
+    in cases involving malware or other custom exploits.'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**十六进制查看器**：能够以十六进制查看文件使得响应人员能够更细致地审视正在检查的文件。在涉及恶意软件或其他定制化攻击的案件中，这可能会非常有帮助。'
+- en: '**Web artifacts**: With a great deal of data stored on the drive associated
+    with web searching, forensic platforms should have the ability to examine these
+    pieces of data. This is very handy when examining social engineering attacks where
+    users navigate to a malicious website.'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网页痕迹**：由于大多数数据都存储在与网页搜索相关的磁盘上，法医平台应具备检查这些数据片段的能力。这在检查社会工程攻击时非常有用，尤其是在用户访问恶意网站时。'
+- en: '**Email carving**: Incident responders may be called into cases where malicious
+    employees are involved in illegal activities or have committed policy violations.
+    Often, evidence of this type of conduct is contained within emails on the suspect
+    system. Having a platform that can pull this data out for immediate view assists
+    the analyst in viewing communication between the suspect system and others.'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**电子邮件提取**：事件响应人员可能会被召集到涉及恶意员工参与非法活动或违反政策的案件中。通常，这类行为的证据存在于嫌疑系统的电子邮件中。拥有一个能够提取这些数据并立即查看的平台，有助于分析人员查看嫌疑系统与其他系统之间的通信。'
+- en: '**Image viewer**: Often, it is necessary to view the images that are saved
+    on systems. As we mentioned previously, law enforcement may utilize this feature
+    to determine whether there is evidence of child exploitation on a system. Incident
+    responders can utilize these features to determine whether there has been a policy
+    violation.'
+  id: totrans-21
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**图像查看器**：通常，需要查看系统中保存的图像。如我们之前提到的，执法部门可能会利用此功能判断系统中是否存在儿童性虐待的证据。事件响应人员可以利用这些功能判断是否存在政策违规行为。'
+- en: '**Metadata**: Key pieces of data about files such as date and time created,
+    file hashes, and the location of a suspect file on the disk are useful when examining
+    a system associated with an incident. For example, the time an application is
+    run, taken in conjunction with a piece of malware, may be correlated with network
+    activity, allowing the analyst to determine the actual executable run.'
+  id: totrans-22
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**元数据**：关于文件的关键数据，如创建日期和时间、文件哈希值以及嫌疑文件在磁盘上的位置，对于检查与事件相关的系统非常有用。例如，结合恶意软件分析，某个应用程序运行的时间与网络活动相结合，可以帮助分析人员确定实际执行的可执行文件。'
+- en: 'In terms of commercial options, the following three platforms are generally
+    accepted as sound and are in use by commercial and government entities all over
+    the world. Each uses the features we described previously, among other, more specialized,
+    tools:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在商业选择方面，以下三个平台被普遍认为是可靠的，并被世界各地的商业和政府机构使用。每个平台都采用了我们之前描述的功能，以及其他一些更专业的工具：
+- en: '**OpenText EnCase**: Arguably the preeminent forensics platform, EnCase has
+    a long history of being the platform that’s used in major criminal investigations,
+    such as the BTK Killer. EnCase is a feature-rich platform that makes it a powerful
+    tool in the hands of a trained analyst. In addition to disk forensics, EnCase
+    also has integrated features for mobile devices. This is a powerful capability
+    for organizations that may have to analyze not only disks but also mobile devices
+    in connection with an incident.'
+  id: totrans-24
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**OpenText EnCase**：EnCase无疑是最著名的法医平台，具有长期历史，常用于重大刑事调查中，例如BTK杀手案件。EnCase是一个功能丰富的平台，在训练有素的分析人员手中，它是一个强大的工具。除了磁盘取证，EnCase还集成了针对移动设备的功能。这对于可能需要分析不仅是磁盘，而且是与事件相关的移动设备的组织来说，是一个强大的能力。'
+- en: '**AccessData Forensic Toolkit**: In [*Chapter 6*](B18571_06.xhtml#_idTextAnchor105),
+    the FTK Imager tool was utilized to acquire disk and memory evidence. This tool
+    is part of a suite of tools provided by AccessData that have been specifically
+    tailored for disk forensics. In addition to the imager, Access Data has a full-featured
+    forensic platform that allows responders to perform a range of tasks associated
+    with an incident. FTK is in use by law enforcement agencies such as the **Federal
+    Bureau of Investigation** (**FBI**) and has proven to be more than effective in
+    assisting responders with incident investigations.'
+  id: totrans-25
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**AccessData 法医工具包**：在[*第6章*](B18571_06.xhtml#_idTextAnchor105)中，FTK Imager工具被用来获取磁盘和内存证据。这个工具是AccessData提供的一系列专门为磁盘取证设计的工具的一部分。除了Imager工具，AccessData还提供一个功能齐全的法医平台，允许响应人员执行与事件相关的一系列任务。FTK被联邦调查局（**FBI**）等执法机构使用，并且在协助响应人员进行事件调查方面已证明非常有效。'
+- en: '**X-Ways Forensics**: One drawback of FTK and EnCase is cost. These platforms
+    can cost several thousands of dollars per year. For larger organizations, such
+    as government agencies and large enterprises, the trade-off of cost versus features
+    may not be an issue. For smaller organizations, these platforms may be cost-prohibitive.
+    An alternative, feature-rich forensic platform is X-Ways. This platform can perform
+    a variety of tasks but at a fraction of the cost. Another great benefit of X-Ways
+    is that it is less resource-intensive and can be run off a USB device, making
+    it an alternative platform, especially for incident response.'
+  id: totrans-26
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**X-Ways Forensics**：FTK和EnCase的一个缺点是价格昂贵。这些平台每年可能需要数千美元。对于大型组织，如政府机构和大企业，成本与功能的权衡可能不是问题。但对于小型组织来说，这些平台可能会因成本过高而无法使用。一个功能丰富的法医平台替代方案是X-Ways。这个平台可以执行各种任务，但成本仅为商业平台的一小部分。X-Ways的另一个好处是它对资源的需求较低，可以通过USB设备运行，这使它成为一个理想的替代平台，尤其适用于事件响应。'
+- en: Each of these platforms has a rich feature set and provides responders with
+    a powerful tool for conducting a wide range of forensic tasks. The specific tools
+    in each of these platforms are outside the scope of this book. As such, it is
+    recommended that responders are trained on how to use these platforms to ensure
+    that they fully understand these tools’ capabilities.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些平台中的每一个都具有丰富的功能集，并为响应者提供了强大的工具，用于执行各种法医任务。这些平台中的具体工具超出了本书的范围。因此，建议响应者接受这些平台的使用培训，以确保他们充分了解这些工具的功能。
+- en: Autopsy
+  id: totrans-28
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Autopsy
+- en: One alternative to commercial forensics programs is Autopsy. Autopsy is a GUI-based
+    forensic platform based on the open source The Sleuth Kit toolset. This open source
+    platform provides features that are commonly found in commercial platforms. This
+    includes timeline analysis, keyword searching, web and email artifacts, and the
+    ability to filter results on known bad file hashes. One of its key features is
+    its ease of use. This allows incident responders to have a light platform that
+    focuses on critical tasks and obtain the critical evidence that’s needed.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个商业法医程序的替代方案是Autopsy。Autopsy是一个基于图形用户界面（GUI）的法医平台，基于开源工具集The Sleuth Kit。这个开源平台提供了商业平台中常见的功能，包括时间线分析、关键字搜索、网页和电子邮件文物，以及根据已知不良文件哈希值过滤结果的能力。其主要特点之一是易于使用。这使得事件响应者能够拥有一个轻量级平台，专注于关键任务并获取所需的关键证据。
+- en: Installing Autopsy
+  id: totrans-30
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装Autopsy
+- en: Several of the Linux distributions we discussed previously have Autopsy preinstalled.
+    It is good practice for responders to ensure that the platform they are using
+    is up to date. For the Windows operating system, download the Microsoft self-installer
+    file located at [https://www.sleuthkit.org/autopsy/download.php](https://www.sleuthkit.org/autopsy/download.php).
+    Once downloaded, execute the MSI file and choose an install location. Once you’ve
+    done this, the application will be ready to use.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们之前讨论过的几种Linux发行版已经预装了Autopsy。响应者应确保他们使用的平台是最新的，这是一项良好的实践。对于Windows操作系统，可以下载位于[https://www.sleuthkit.org/autopsy/download.php](https://www.sleuthkit.org/autopsy/download.php)的Microsoft自安装程序文件。下载后，执行MSI文件并选择安装位置。完成后，应用程序就可以开始使用了。
+- en: Starting a case
+  id: totrans-32
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 开始一个案件
+- en: 'Once Autopsy has been installed, the analyst can open a case with very little
+    pre-configuration. The following steps will discuss the process of opening a new
+    case:'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦安装了Autopsy，分析员可以在几乎不需要预先配置的情况下打开案件。以下步骤将介绍如何打开一个新案件的过程：
+- en: 'To begin an analysis, ensure that the entire disk image is contained in a single
+    directory. This allows the entire image to be utilized during the analysis:'
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在开始分析之前，确保整个磁盘映像文件位于一个单独的目录中。这将使整个映像在分析过程中都能被使用：
+- en: '![Figure 11.1 – E01 files ](img/B18571_11_001.jpg)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.1 – E01文件](img/B18571_11_001.jpg)'
+- en: Figure 11.1 – E01 files
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.1 – E01文件
+- en: In the preceding screenshot, an image file has been taken from a suspect system.
+    The image has been divided into two separate files. Looking back to [*Chapter
+    8*](B18571_08.xhtml#_idTextAnchor136), imaging applications such as FTK Imager
+    will divide an image into multiple files. So long as the separate files are in
+    the same directory, Autopsy will be able to take the two files and reconstruct
+    the entire volume that has been imaged.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在上面的截图中，已经从一个嫌疑系统中获取了一个映像文件。该映像已被分割成两个独立的文件。回顾[*第8章*](B18571_08.xhtml#_idTextAnchor136)，像FTK
+    Imager这样的成像应用程序会将映像分割成多个文件。只要这些分割后的文件位于同一目录中，Autopsy就能够将这两个文件合并并重建整个成像的卷。
+- en: Sample image file
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 示例映像文件
+- en: For our examination of Autopsy, a sample image file taken from a Windows 10
+    system can be found at [https://cfreds.nist.gov/all/MagnetForensics/2022WindowsMagnetCTF](https://cfreds.nist.gov/all/MagnetForensics/2022WindowsMagnetCTF).
+    For more practice, additional testing images can be downloaded from the Computer
+    Forensic Reference Data Sets located at [https://www.cfreds.nist.gov/](https://www.cfreds.nist.gov/).
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们的 Autopsy 检查，可以在 [https://cfreds.nist.gov/all/MagnetForensics/2022WindowsMagnetCTF](https://cfreds.nist.gov/all/MagnetForensics/2022WindowsMagnetCTF)
+    找到一个来自 Windows 10 系统的示例镜像文件。为了更多的练习，可以从位于 [https://www.cfreds.nist.gov/](https://www.cfreds.nist.gov/)
+    的计算机取证参考数据集下载额外的测试镜像。
+- en: 'Open Autopsy. The following window will appear; select **New Case**:'
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开 Autopsy，以下窗口将出现；选择 **New Case**：
+- en: '![Figure 11.2 – Autopsy – creating a new case ](img/B18571_11_002.jpg)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.2 – Autopsy – 创建新案件](img/B18571_11_002.jpg)'
+- en: Figure 11.2 – Autopsy – creating a new case
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.2 – Autopsy – 创建新案件
+- en: 'A second window will appear where the analyst will input the case’s title.
+    In addition, the path to Autopsy that will store the files associated with the
+    case can also be set. This is useful when circumstances dictate that the analyst
+    must place the files in a specific container, including external drives. Once
+    done, click **Next**:'
+  id: totrans-43
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将会出现第二个窗口，分析师将在其中输入案件标题。此外，还可以设置存储与案件相关文件的 Autopsy 路径。这在某些情况下非常有用，例如当分析师必须将文件放置在特定容器中时，包括外部硬盘。完成后，点击
+    **Next**：
+- en: '![Figure 11.3 – Autopsy – New Case Information ](img/B18571_11_003.jpg)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.3 – Autopsy – 新案件信息](img/B18571_11_003.jpg)'
+- en: Figure 11.3 – Autopsy – New Case Information
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.3 – Autopsy – 新案件信息
+- en: 'On the next window, the responder should input the case number, their name,
+    their contact information, and a brief description of the case in **Notes**. Click
+    **Finish**:'
+  id: totrans-46
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下一个窗口中，响应者应输入案件编号、姓名、联系方式以及案件的简要描述，填写在 **Notes** 中。点击 **Finish**：
+- en: '![Figure 11.4 – New Case Information – Optional Information ](img/B18571_11_004.jpg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.4 – 新案件信息 – 可选信息](img/B18571_11_004.jpg)'
+- en: Figure 11.4 – New Case Information – Optional Information
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.4 – 新案件信息 – 可选信息
+- en: Adding evidence
+  id: totrans-49
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 添加证据
+- en: 'One way to think of the case is as a container for all the related case data
+    and evidence related to an incident. Autopsy allows the analyst to add multiple
+    data sources such as disk images and virtual machine disks as well. At this stage,
+    we will load the `E01` file as a data source:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以将案件视为一个容器，包含与事件相关的所有案件数据和证据。Autopsy 还允许分析师添加多个数据源，例如磁盘镜像和虚拟机磁盘。在此阶段，我们将加载
+    `E01` 文件作为数据源：
+- en: 'Once the case details have been entered, the analyst will need to load the
+    image file that was created previously. Click on the **Add Data Source** button
+    in the top left-hand corner of the Autopsy window:'
+  id: totrans-51
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入案件详细信息后，分析师需要加载之前创建的镜像文件。点击 Autopsy 窗口左上角的 **Add Data Source** 按钮：
+- en: '![Figure 11.5 – Add Data Source – Select Host ](img/B18571_11_005.jpg)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.5 – 添加数据源 – 选择主机](img/B18571_11_005.jpg)'
+- en: Figure 11.5 – Add Data Source – Select Host
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.5 – 添加数据源 – 选择主机
+- en: Autopsy can automatically detect the hostname. If the analyst knows the hostname,
+    it can be added in the **Specific new host name** field. From a best practices
+    perspective, if known, the host’s name should always be entered. Once complete,
+    click **Next**.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 可以自动检测主机名。如果分析师知道主机名，可以在 **Specific new host name** 字段中添加。根据最佳实践，如果已知，应始终输入主机名。完成后，点击
+    **Next**。
+- en: 'Select the appropriate data source type. In this case, the examination will
+    be conducted against an image file that was forensically acquired. Autopsy can
+    also examine `.vmdk` files. This is a handy feature in environments where virtualization
+    is utilized for systems. This feature allows the analyst to examine a VM file,
+    without having to acquire it via tools such as FTK Imager:'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择适当的数据源类型。在这种情况下，检查将针对一个法医获取的图像文件进行。Autopsy 也可以检查 `.vmdk` 文件。这在虚拟化环境中非常方便，因为可以对虚拟机文件进行检查，而无需通过
+    FTK Imager 等工具获取它：
+- en: '![Figure 11.6 – Add Data Source – Select Data Source Type ](img/B18571_11_006.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.6 – 添加数据源 – 选择数据源类型](img/B18571_11_006.jpg)'
+- en: Figure 11.6 – Add Data Source – Select Data Source Type
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.6 – 添加数据源 – 选择数据源类型
+- en: 'Once the data source type has been selected, browse to the image location.
+    This folder contains several image files; select the file that ends in `E01`.
+    Loading this file will include all the subsequent image files located in that
+    folder. Next, select the appropriate time zone. As a matter of best practice,
+    analysts should select a time zone that is uniform across the investigation. In
+    that case, the best option is to select UTC. Once done, click **Next**:'
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择数据源类型后，浏览到图像所在位置。该文件夹包含多个图像文件；选择以`E01`结尾的文件。加载此文件后，将包括该文件夹中所有随后的图像文件。接下来，选择适当的时区。作为最佳实践，分析师应选择在整个调查过程中统一的时区。在这种情况下，最佳选择是选择
+    UTC。完成后，点击**下一步**：
+- en: '![Figure 11.7 – Selecting the E01 file ](img/B18571_11_007.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.7 – 选择 E01 文件](img/B18571_11_007.jpg)'
+- en: Figure 11.7 – Selecting the E01 file
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.7 – 选择 E01 文件
+- en: The next screen allows the analyst to tailor the modules in use. Depending on
+    the type of investigation, some of these options can go unchecked. In the beginning,
+    though, the analyst should select all of them to ensure that all the necessary
+    information is available for examination.
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下一屏幕允许分析师定制正在使用的模块。根据调查的类型，其中一些选项可以取消勾选。然而，刚开始时，分析师应选择所有选项，以确保所有必要的信息都能进行检查。
+- en: 'One other option is to process unallocated space (this is important!). This
+    captures all the information in the space that’s not currently allocated to data
+    on the hard drive. There are methods where unallocated space can be utilized to
+    hide information. Once done, click **Next**:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个选项是处理未分配空间（这非常重要！）。这将捕捉硬盘上当前未分配给数据的所有信息。有些方法可以利用未分配空间来隐藏信息。完成后，点击**下一步**：
+- en: '![Figure 11.8 – Add Data Source – Configure Ingest ](img/B18571_11_008.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.8 – 添加数据源 – 配置数据导入](img/B18571_11_008.jpg)'
+- en: Figure 11.8 – Add Data Source – Configure Ingest
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.8 – 添加数据源 – 配置数据导入
+- en: 'This will start the processing procedure:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将开始处理过程：
+- en: '![Figure 11.9 – Data source processing ](img/B18571_11_009.jpg)'
+  id: totrans-66
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.9 – 数据源处理](img/B18571_11_009.jpg)'
+- en: Figure 11.9 – Data source processing
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.9 – 数据源处理
+- en: 'On the next screen, verify that the data source has been loaded and click **Finish**.
+    This will start the process of adding the E01 file as a data source:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在下一屏幕上，确认数据源已加载，然后点击**完成**。这将开始将 E01 文件作为数据源添加的过程：
+- en: '![Figure 11.10 – Data source complete ](img/B18571_11_010.jpg)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.10 – 数据源完成](img/B18571_11_010.jpg)'
+- en: Figure 11.10 – Data source complete
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.10 – 数据源完成
+- en: 'Autopsy will now go through the process of analyzing the files from the image.
+    Depending on the size of the image, this will take between several minutes and
+    a couple of hours. The process bar in the lower-right corner of the screen will
+    show its progress. How long this process takes is often dependent on the processing
+    speed of the computer, as well as the size of the image file(s). At this point,
+    Autopsy will start to populate the specific fields in the left-hand pane, even
+    though additional processing is taking place. The lower right-hand corner of the
+    GUI will show the progress of the processing:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 现在将开始分析来自图像的文件。根据图像的大小，这个过程可能需要几分钟到几个小时不等。屏幕右下角的进度条会显示处理进度。这个过程的时间通常取决于计算机的处理速度以及图像文件的大小。此时，即使额外的处理仍在进行，Autopsy
+    也会开始填充左侧面板中的特定字段。GUI 的右下角将显示处理的进度：
+- en: '![Figure 11.11 – Evidence source processing ](img/B18571_11_011.jpg)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.11 – 证据源处理](img/B18571_11_011.jpg)'
+- en: Figure 11.11 – Evidence source processing
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.11 – 证据源处理
+- en: As was stated earlier, processing may take some time, depending on the forensic
+    system’s specifications and the size of the file. Analysts can conduct some analysis
+    with the understanding that not all data may be available.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，处理可能需要一些时间，具体取决于取证系统的规格和文件的大小。分析师可以在了解可能并非所有数据都可用的情况下进行一些分析。
+- en: Navigating Autopsy
+  id: totrans-75
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 浏览 Autopsy
+- en: 'The Autopsy GUI is divided into three main sections. These sections display
+    details relating to the system and specific files. When Autopsy has finished processing
+    a new case or opening an existing case, the analyst will see the following window:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy GUI 分为三个主要部分。这些部分显示与系统和特定文件相关的详细信息。当 Autopsy 完成处理新案件或打开现有案件时，分析师将看到以下窗口：
+- en: '![Figure 11.12 – Autopsy GUI ](img/B18571_11_012.jpg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.12 – Autopsy GUI](img/B18571_11_012.jpg)'
+- en: Figure 11.12 – Autopsy GUI
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.12 – Autopsy GUI
+- en: 'As shown in the previous screenshot, Autopsy is divided into three main panes.
+    The first of these is the left-hand pane, which contains the data sources and
+    file structure, as well as search results. Clicking on the plus (`Program Files`
+    directory that was located on the system:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所示，Autopsy分为三个主要窗格。其中第一个是左侧窗格，它包含数据源、文件结构以及搜索结果。点击加号（`Program Files`目录，位于系统上）：
+- en: '![Figure 11.13 – Autopsy’s center pane ](img/B18571_11_013.jpg)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.13 – Autopsy的中央窗格 ](img/B18571_11_013.jpg)'
+- en: Figure 11.13 – Autopsy’s center pane
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.13 – Autopsy的中央窗格
+- en: 'Finally, the bottom pane contains the metadata and other information about
+    individual files contained in the center pane. In this example, the `desktop.ini`
+    file has been selected. Clicking on the **File Metadata** tab displays information
+    specific to that file:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，底部窗格包含有关中央窗格中单个文件的元数据和其他信息。在这个例子中，选择了`desktop.ini`文件。点击**文件元数据**标签，显示该文件的特定信息：
+- en: '![Figure 11.14 – File metadata ](img/B18571_11_014.jpg)'
+  id: totrans-83
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.14 – 文件元数据 ](img/B18571_11_014.jpg)'
+- en: Figure 11.14 – File metadata
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.14 – 文件元数据
+- en: 'Finally, the file’s hexadecimal content can be viewed by clicking on the **Hex**
+    tab:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，通过点击**十六进制**标签，可以查看文件的十六进制内容：
+- en: '![Figure 11.15 – Hex view ](img/B18571_11_015.jpg)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.15 – 十六进制视图 ](img/B18571_11_015.jpg)'
+- en: Figure 11.15 – Hex view
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.15 – 十六进制视图
+- en: This view is excellent if an analyst wants to inspect an application or another
+    file that is suspected of being malware.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果分析员希望检查一个应用程序或其他疑似恶意软件的文件，这个视图非常适合。
+- en: What Autopsy offers is the ability to perform some of the actions and analyses
+    that can be found on other commercial platforms. However, it should be noted that
+    in the case of more complex investigations, it may become necessary to utilize
+    more sophisticated platforms. Autopsy also provides responders that are new to
+    disk forensics with a more user-friendly platform so that they can gain experience
+    with one before they move on to a more sophisticated commercial solution.
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy提供了一些可以在其他商业平台上找到的操作和分析功能。然而，需要注意的是，在更复杂的调查中，可能需要使用更先进的平台。Autopsy还为新手提供了一个更易于使用的平台，使他们可以在使用更先进的商业解决方案之前，先积累一些磁盘取证的经验。
+- en: Examining a case
+  id: totrans-90
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 审查案件
+- en: 'Once the case has been processed, the left-hand pane will be populated with
+    the number of artifacts located in the system:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦案件处理完成，左侧窗格将显示系统中找到的工件数量：
+- en: '![Figure 11.16 – Autopsy’s artifacts pane ](img/B18571_11_016.jpg)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.16 – Autopsy的工件窗格 ](img/B18571_11_016.jpg)'
+- en: Figure 11.16 – Autopsy’s artifacts pane
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.16 – Autopsy的工件窗格
+- en: 'In the previous screenshot, there are several items listed under the **Data
+    Artifacts** portion. These include looking at programs that have been installed,
+    the operating system’s information, and recent documents. Another key feature
+    of Autopsy is the ability to examine the entire folder structure of the image
+    file. Clicking on the plus (**+**) sign next to **Data Sources** expands the entire
+    folder structure. This is useful if, through other sources, an analyst can identify
+    the location of a suspect file:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，**数据工件**部分列出了几个项目。这些项目包括查看已安装的程序、操作系统信息以及最近的文档。Autopsy的另一个关键功能是能够检查镜像文件的整个文件夹结构。点击**数据源**旁边的加号（**+**）可以展开整个文件夹结构。如果分析员通过其他来源确定了嫌疑文件的位置，这一点非常有用：
+- en: '![Figure 11.17 – Data Sources ](img/B18571_11_017.jpg)'
+  id: totrans-95
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.17 – 数据源 ](img/B18571_11_017.jpg)'
+- en: Figure 11.17 – Data Sources
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.17 – 数据源
+- en: Different data points can be examined by utilizing Autopsy. What to search for
+    and how to search for it is often dictated by the type of incident or examination
+    under investigation. For example, a malware infection that originates from a compromised
+    website may involve examining the system for URLs that the user may have typed
+    in or otherwise accessed via a browser. Furthermore, the actual file may be located
+    by utilizing information that’s been obtained by examining the system memory,
+    which we covered in the previous chapter. For example, if an analyst was able
+    to locate a suspect process and was subsequently able to also locate the executable,
+    they may utilize Autopsy to find the last time the executable was launched. This
+    can provide responders with a time so that they can examine other systems for
+    evidence of compromise.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过使用 Autopsy，可以检查不同的数据点。具体搜索什么内容以及如何搜索，通常由调查中的事件类型或检查内容来决定。例如，源自被攻陷网站的恶意软件感染可能涉及检查系统中用户可能输入或通过浏览器访问的
+    URL。此外，还可以通过检查系统内存来获取信息，进而找到实际的文件，我们在上一章中有提到这一点。例如，如果分析员能够定位到一个可疑进程，并且随后能够找到可执行文件，他们可以使用
+    Autopsy 查找该可执行文件最后一次被启动的时间。这样可以为响应人员提供一个时间点，以便他们检查其他系统是否存在被攻陷的证据。
+- en: In another scenario, responders may be tasked with identifying whether an employee
+    accessed confidential files so that they could pass them on to a competitor. This
+    may involve examining the system for the times and dates when files were accessed,
+    email addresses that may have been used, external cloud storage sites that were
+    accessed, or USB storage that was connected to the system. Finally, a full list
+    of these files may provide insight into the confidential documents that were moved.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在另一种情况下，响应人员可能需要确定员工是否访问了机密文件，以便将其传递给竞争对手。这可能涉及检查系统中访问文件的时间和日期、可能使用的电子邮件地址、访问过的外部云存储站点或连接到系统的
+    USB 存储设备。最后，所有这些文件的完整列表可能为移出的机密文件提供一些线索。
+- en: Web artifacts
+  id: totrans-99
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: Web 工件
+- en: There are several types of incidents where it may be necessary to examine a
+    system for evidence of malicious activity that’s been conducted by a user. Previously,
+    we mentioned accessing cloud-based storage where a malicious insider had uploaded
+    confidential documents. In other circumstances, social engineering attacks may
+    have an unsuspecting employee navigate to a compromised website that subsequently
+    downloads malicious software. In either case, Autopsy provides us with the ability
+    to examine several areas of web artifacts.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在某些情况下，可能需要检查系统是否存在用户进行的恶意活动证据。之前，我们提到过访问基于云的存储，在那里一个恶意内部人员上传了机密文件。在其他情况下，社交工程攻击可能使一个毫无防备的员工访问一个被攻陷的网站，随后下载恶意软件。在这两种情况下，Autopsy
+    为我们提供了检查多个网页工件区域的能力。
+- en: 'The first of these web artifacts is **web history**. In the event of a social
+    engineering attack that involves a user navigating to a malware delivery site,
+    this data may provide some insight into the specific URL that was navigated to.
+    This URL can then be extracted and compared with known malicious website lists
+    from internal or external sources. In other cases, where an insider has accessed
+    an external cloud storage site, the web history may provide evidence of this activity.
+    Let’s take a look at this case in detail:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些网页工件中的第一个是**Web 历史**。如果发生涉及用户访问恶意软件交付网站的社交工程攻击，这些数据可能为访问的特定 URL 提供一些线索。然后，可以提取该
+    URL 并与来自内部或外部来源的已知恶意网站列表进行比较。在其他情况下，如果内部人员访问了外部云存储网站，Web 历史记录可能提供这一活动的证据。让我们详细看一下这个案例：
+- en: 'Clicking on the **Web History** section in the left-hand pane opens the center
+    pane and shows detailed information concerning a URL that was accessed by the
+    system:'
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击左侧窗格中的**Web 历史**部分将打开中间窗格，并显示系统访问过的 URL 的详细信息：
+- en: '![Figure 11.18 – Web History ](img/B18571_11_018.jpg)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.18 – Web 历史](img/B18571_11_018.jpg)'
+- en: Figure 11.18 – Web History
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.18 – Web 历史
+- en: 'In the preceding screenshot, Autopsy indicates that the website [hacker-simulator.com](http://hacker-simulator.com)
+    was accessed by this system. Further information provided by Autopsy allows the
+    analyst to evaluate other information, such as the location of the artifact and
+    what type of browser was used. This information can be accessed via the **Data
+    Artifacts** tab in the lower **Results** pane:'
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在前面的截图中，Autopsy 显示该系统访问了网站 [hacker-simulator.com](http://hacker-simulator.com)。Autopsy
+    提供的进一步信息使分析人员能够评估其他信息，如工件的位置和使用的浏览器类型。通过**数据工件**选项卡，可以在下方的**结果**面板中访问这些信息：
+- en: '![Figure 11.19 – Web history metadata ](img/B18571_11_019.jpg)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.19 – 网络历史元数据](img/B18571_11_019.jpg)'
+- en: Figure 11.19 – Web history metadata
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.19 – 网络历史元数据
+- en: 'Another source of data that is useful in investigations is **Web Downloads**
+    in the **Data Artifacts** section. A common technique used by threat actors is
+    to direct users or scripts to download secondary exploits or malware. This can
+    include hacking tools and other scripts, often using the system’s capability to
+    download from websites. In this case, if we click on **Web Downloads**, we can
+    see the path to the downloaded file, along with the URL the file was downloaded
+    from:'
+  id: totrans-108
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 调查中另一个有用的数据来源是**数据工件**部分中的**网络下载**。威胁行为者常用的一种技术是引导用户或脚本下载二次利用或恶意软件。这可能包括黑客工具和其他脚本，通常利用系统从网站下载的功能。在这种情况下，如果点击**网络下载**，我们可以看到下载文件的路径，以及文件来源的网址：
+- en: '![Figure 11.20 – Web Downloads ](img/B18571_11_020.jpg)'
+  id: totrans-109
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.20 – 网络下载](img/B18571_11_020.jpg)'
+- en: Figure 11.20 – Web Downloads
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.20 – 网络下载
+- en: 'In addition, Autopsy provides the metadata of the specific downloaded file
+    under examination. Clicking on the **File Metadata** tab produces the following
+    data:'
+  id: totrans-111
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此外，Autopsy 还提供了正在检查的特定下载文件的元数据。点击**文件元数据**选项卡后，会显示以下数据：
+- en: '![Figure 11.21 – Web download metadata ](img/B18571_11_021.jpg)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.21 – 网络下载元数据](img/B18571_11_021.jpg)'
+- en: Figure 11.21 – Web download metadata
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.21 – 网络下载元数据
+- en: 'As the preceding screenshot shows, there are some more details concerning the
+    downloaded file. For example, the analyst can gather time information, file location,
+    and an MD5 hash, which can be utilized to compare any extracted files that are
+    examined further. In some circumstances, a suspect may decide to delete the browsing
+    history from the system to hide any malicious activity. Another location that
+    may provide evidence of sites that have been accessed by a malicious insider is
+    web cookies. These can be accessed in the left-hand pane under **Web Cookies**.
+    Clicking on this produces a list of the cookies that are still on the system:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前面的截图所示，有一些关于已下载文件的更多细节。例如，分析人员可以收集时间信息、文件位置和 MD5 哈希值，这些信息可用于比较进一步检查的任何提取文件。在某些情况下，嫌疑人可能决定从系统中删除浏览历史以隐藏任何恶意活动。另一个可能提供恶意内部人员访问网站证据的位置是网络
+    Cookie。这些可以通过左侧面板中的**网络 Cookie**访问。点击该选项后，会显示仍然保留在系统中的 Cookie 列表：
+- en: '![Figure 11.22 – Web Cookies ](img/B18571_11_022.jpg)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.22 – 网络 Cookie](img/B18571_11_022.jpg)'
+- en: Figure 11.22 – Web Cookies
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.22 – 网络 Cookie
+- en: Depending on the type of incident, web artifacts can play an important role.
+    Autopsy has some functionality for this, but responders may find that other commercial
+    solutions provide a much more robust platform. Evidence Finder by Magnet Forensics
+    ([www.magnetforensics.com](http://www.magnetforensics.com)) scours the entire
+    system for internet artifacts and then presents them in a way that is easy for
+    the analyst to view. Another key advantage of commercial solutions such as this
+    is that their functionality is updated continuously. Depending on the frequency
+    of internet and web artifact searching, the inclusion of tools such as this may
+    be beneficial.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 根据事件的类型，网络工件可能会发挥重要作用。Autopsy 对此提供了一些功能，但应急响应人员可能会发现其他商业解决方案提供了更为强大的平台。Magnet
+    Forensics 提供的 Evidence Finder ([www.magnetforensics.com](http://www.magnetforensics.com))
+    会扫描整个系统的网络工件，并以易于分析人员查看的方式展示这些数据。此类商业解决方案的另一个主要优势是其功能不断更新。根据互联网和网络工件搜索的频率，使用此类工具可能会带来益处。
+- en: Email
+  id: totrans-118
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 电子邮件
+- en: Locating suspect emails continues to be a task that incident responders often
+    engage in. This can include externally caused incidents such as social engineering,
+    where responders may be tasked with locating a suspect email that had malware
+    attached to it. In other circumstances, malicious insiders may have sent or received
+    communication that was inappropriate or violated company policy. In those cases,
+    responders may be tasked with recovering those emails so that they can be included
+    in termination proceedings or legal action.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 定位可疑电子邮件继续是事件响应者经常进行的任务。这可能包括外部引起的事件，如社会工程，响应者可能被要求定位带有恶意软件的可疑电子邮件。在其他情况下，恶意内部人员可能已发送或接收到违反公司政策或不当通信。在这些情况下，响应者可能被要求恢复这些电子邮件，以便包括在解雇程序或法律行动中。
+- en: 'Autopsy can locate emails contained in the system. From these emails, they
+    may be able to identify one or more suspicious emails and domains that can be
+    further researched to see if they are associated with social engineering or other
+    malicious activity. Simply click on **Keyword Hits** and then the **Email Addresses**
+    tab in the left-hand pane. From there, the analyst can see the email addresses
+    that are located on the system:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy可以定位系统中包含的电子邮件。通过这些电子邮件，他们可能能够识别一个或多个可疑的电子邮件和域，进一步研究是否与社会工程或其他恶意活动相关。只需单击**关键字命中**，然后单击左侧窗格中的**电子邮件地址**选项卡。从那里，分析师可以看到系统中的电子邮件地址：
+- en: '![Figure 11.23 – Email addresses ](img/B18571_11_023.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.23 – 电子邮件地址](img/B18571_11_023.jpg)'
+- en: Figure 11.23 – Email addresses
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.23 – 电子邮件地址
+- en: Next, let’s look at attached devices.
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看一下已连接的设备。
+- en: Attached devices
+  id: totrans-124
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 已连接的设备
+- en: 'Another key piece of evidence that may be useful to an analyst is data about
+    when specific devices were attached to the system. In the scenario of a malicious
+    insider attempting to steal confidential documents, knowing whether they utilized
+    a USB device would be helpful. Autopsy utilizes the registry settings located
+    on the system to identify the types of devices attached and the last time that
+    they were used. In this case, the output of clicking **Devices Attached** in the
+    left-hand pane produces the following results:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对分析师有用的另一个关键证据是关于特定设备何时连接到系统的数据。在恶意内部人员试图窃取机密文件的情况下，了解他们是否使用了USB设备将会很有帮助。Autopsy利用系统上的注册表设置来识别连接的设备类型及其最后使用时间。在这种情况下，单击左侧窗格中的**连接的设备**将产生以下结果：
+- en: '![Figure 11.24 – USB devices ](img/B18571_11_024.jpg)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.24 – USB设备](img/B18571_11_024.jpg)'
+- en: Figure 11.24 – USB devices
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.24 – USB设备
+- en: 'Drilling down into the **Data Artifacts** tab, the analyst can identify the
+    type of device and the date and time that the USB device was attached:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进入**数据工件**选项卡后，分析师可以识别设备类型以及USB设备连接的日期和时间：
+- en: '![Figure 11.25 – USB device artifacts ](img/B18571_11_025.jpg)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.25 – USB设备工件](img/B18571_11_025.jpg)'
+- en: Figure 11.25 – USB device artifacts
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.25 – USB设备工件
+- en: 'Finally, a more detailed examination of the **Source File Metadata** area would
+    show additional data that can be utilized to reconstruct the time that the USB
+    device was accessed on the system:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，对**源文件元数据**区域进行更详细的检查将显示可用于重建系统上访问USB设备的时间的其他数据：
+- en: '![Figure 11.26 – Device entry metadata ](img/B18571_11_026.jpg)'
+  id: totrans-132
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.26 – 设备条目元数据](img/B18571_11_026.jpg)'
+- en: Figure 11.26 – Device entry metadata
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.26 – 设备条目元数据
+- en: Next, let’s look at deleted files.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看一下已删除的文件。
+- en: Deleted files
+  id: totrans-135
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 已删除的文件
+- en: Files that have been deleted can also be reconstructed, either partially or
+    completely. The Windows operating system will not delete files when the user selects
+    deletion. The operating system will mark the space a deleted file takes up in
+    the **Master File Table** (**MTF**) as available to write new files to. As a result,
+    responders may be able to view deleted files that have not been overwritten.
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 已删除的文件也可以部分或完全重建。当用户选择删除时，Windows操作系统不会删除文件。操作系统将标记删除文件在**主文件表**（**MTF**）中占用的空间为可用于写入新文件。因此，响应者可能能够查看未被覆盖的已删除文件。
+- en: Solid-state drives
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 固态驱动器
+- en: 'As discussed in [*Chapter 8*](B18571_08.xhtml#_idTextAnchor136), keep in mind
+    the challenge that forensic analysts have when examining **solid-state drives**
+    (**SSDs**). Deleted files can often be recovered from traditional platter hard
+    drives, even after a system is powered down. With SSDs, the operating system will
+    often remove deleted files to make storing files more efficient. The following
+    website has an excellent breakdown of this if you want to find out more: [https://www.datanarro.com/the-impact-of-ssds-on-digital-](https://www.datanarro.com/the-impact-of-ssds-on-digital-)
+    forensics/.'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如在[*第8章*](B18571_08.xhtml#_idTextAnchor136)中讨论的，记住法医分析员在检查**固态硬盘**（**SSD**）时面临的挑战。传统的硬盘驱动器即使在系统关闭后，仍然可以恢复已删除的文件。而在SSD上，操作系统通常会删除已删除的文件，以提高文件存储效率。如果您想了解更多信息，可以访问以下网站，它提供了关于这一点的详细分析：[https://www.datanarro.com/the-impact-of-ssds-on-digital-](https://www.datanarro.com/the-impact-of-ssds-on-digital-)
+    forensics/。
+- en: 'To view the deleted files on a system, click on **Deleted Files** in the left-hand
+    pane. From here, the analyst can see all of the files that have been marked for
+    deletion:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看系统中的已删除文件，点击左侧面板中的**已删除文件**。在这里，分析员可以看到所有已标记为删除的文件：
+- en: '![Figure 11.27 – Deleted files ](img/B18571_11_027.jpg)'
+  id: totrans-140
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.27 – 已删除文件](img/B18571_11_027.jpg)'
+- en: Figure 11.27 – Deleted files
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.27 – 已删除文件
+- en: From here, the analyst can search through deleted files. These files may hold
+    evidentiary value. For example, in the case of malicious insider activity, if
+    several sensitive files are found in the deleted files, all of which have been
+    deleted within the same time, it may be indicative of the insider attempting to
+    cover their tracks by deleting suspicious files.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这里，分析员可以搜索已删除的文件。这些文件可能具有证据价值。例如，在恶意内部人员活动的案例中，如果在已删除的文件中发现多个敏感文件，并且这些文件都在相同的时间内被删除，这可能表明内部人员试图通过删除可疑文件来掩盖其痕迹。
+- en: Keyword searching
+  id: totrans-143
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 关键字搜索
+- en: One key advantage that forensic applications have is the ability to perform
+    keyword searches. This is especially advantageous as disk drives have gotten larger
+    and responders would have to parse through an overwhelming quantity of data. Keywords
+    are often derived from other elements of the investigation or by using external
+    sources. For example, if an analyst is investigating a malware incident, they
+    may use a suspicious DLL or executable name from the analysis of the memory image.
+    In other instances, such as a malicious insider being suspected of accessing confidential
+    information, keywords in those documents, either secret or confidential, can be
+    used to see if the suspect used the system to access those files.
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医应用程序的一大优势是能够执行关键字搜索。随着磁盘驱动器容量的增大，响应者需要处理大量数据，这使得关键字搜索尤为重要。关键字通常来源于调查的其他元素或外部来源。例如，如果分析员正在调查恶意软件事件，他们可能会使用通过内存镜像分析得到的可疑DLL或可执行文件名称。在其他情况下，例如怀疑恶意内部人员访问了机密信息时，可以使用那些文档中的关键字（无论是秘密的还是机密的）来检查嫌疑人是否使用系统访问了这些文件。
+- en: Autopsy can perform keyword searches while utilizing an exact or a substring
+    match. For example, let’s say an analyst has been tasked with determining what
+    evidence can be located concerning the ZeroTier One executable, which had been
+    located in the **Web Downloads** entries. The analyst is tasked with locating
+    any trace evidence that would indicate that the file was executed and if possible,
+    identify the user.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy可以执行关键字搜索，同时使用精确匹配或子字符串匹配。例如，假设分析员的任务是确定与ZeroTier One可执行文件有关的证据，该文件已在**Web
+    Downloads**条目中找到。分析员的任务是定位任何可以表明该文件已被执行的痕迹证据，并尽可能识别用户。
+- en: 'The analyst would navigate to the top-right corner and input `ZeroTier One`
+    in the field. In this case, an exact match will be utilized. Once selected, they
+    would click the **Search** button. The left-hand pane will indicate whether there
+    were any hits on that text. In this case, the pricing decision has 82 hits:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析员需要导航到右上角，在字段中输入`ZeroTier One`。在这种情况下，将使用精确匹配。一旦选择后，他们点击**搜索**按钮。左侧面板将指示该文本是否有命中结果。在这种情况下，定价决策有82次命中：
+- en: '![Figure 11.28 – Keyword search hits ](img/B18571_11_028.jpg)'
+  id: totrans-147
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.28 – 关键字搜索命中](img/B18571_11_028.jpg)'
+- en: Figure 11.28 – Keyword search hits
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.28 – 关键字搜索命中
+- en: 'As shown in the preceding screenshot, the center pane will contain a list of
+    the files that contained the hits. One file that stands out is the **Master File
+    Table** entry. This entry shows the dates and times the file was first placed
+    on the system, along with any modifications and changes:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前面的截图所示，中央窗格将包含一个文件列表，这些文件包含了命中项。一个突出的文件是 **主文件表** 条目。该条目显示了文件首次放置在系统上的日期和时间，以及任何修改和更改：
+- en: '![Figure 11.29 – Master File Table entry ](img/B18571_11_029.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.29 – 主文件表条目](img/B18571_11_029.jpg)'
+- en: Figure 11.29 – Master File Table entry
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.29 – 主文件表条目
+- en: 'Further review shows a Windows PowerShell event log entry, which shows that
+    the application was executed by the user account Patrick based on the file path:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进一步审查显示了一个 Windows PowerShell 事件日志条目，表明该应用程序是由用户账户 Patrick 执行的，依据文件路径：
+- en: '![Figure 11.30 – Keyword search results ](img/B18571_11_030.jpg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.30 – 关键词搜索结果](img/B18571_11_030.jpg)'
+- en: Figure 11.30 – Keyword search results
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.30 – 关键词搜索结果
+- en: 'Digging further into the hits, there is an entry within the Windows PowerShell
+    Operational event logs indicating that the executable was associated with a network
+    connection established via a PowerShell script:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 深入查看命中项，Windows PowerShell 操作事件日志中有一个条目，表明该可执行文件与通过 PowerShell 脚本建立的网络连接相关联：
+- en: '![Figure 11.31 – Keyword PowerShell script ](img/B18571_11_031.jpg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.31 – 关键词 PowerShell 脚本](img/B18571_11_031.jpg)'
+- en: Figure 11.31 – Keyword PowerShell script
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.31 – 关键词 PowerShell 脚本
+- en: 'Further down within the entry is a Base64-encoded PowerShell script entry:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 条目中进一步的内容是一个 Base64 编码的 PowerShell 脚本条目：
+- en: '![Figure 11.32 – Base64 PowerShell script ](img/B18571_11_032.jpg)'
+  id: totrans-159
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.32 – Base64 PowerShell 脚本](img/B18571_11_032.jpg)'
+- en: Figure 11.32 – Base64 PowerShell script
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.32 – Base64 PowerShell 脚本
+- en: Taken together, this may point to some suspicious activity. For example, ZeroTier
+    One is a commercial VPN solution, so it is not out of the ordinary for it to be
+    establishing a connection. What is suspicious is the Base64-encoded PowerShell
+    script, which is often used by adversaries to download additional malware or perform
+    malicious actions. We will look at some of these scripts later in [*Chapter 16*](B18571_16.xhtml#_idTextAnchor284).
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 综合来看，这可能指向一些可疑活动。例如，ZeroTier One 是一个商业 VPN 解决方案，因此它建立连接并不罕见。可疑的是 Base64 编码的
+    PowerShell 脚本，攻击者常用它下载额外的恶意软件或执行恶意操作。我们将在 [*第16章*](B18571_16.xhtml#_idTextAnchor284)
+    中详细了解一些这些脚本。
+- en: Next, we will look at how Autopsy can build a timeline of the system’s activity.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将看看 Autopsy 如何构建系统活动的时间线。
+- en: Timeline analysis
+  id: totrans-163
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 时间线分析
+- en: When investigating an incident, it is critical to have an idea of when applications
+    or files were executed. Timestamps can sometimes be found in other aspects of
+    the investigation, such as when examining memory images. Also, identifying specific
+    DLL files or executable files in the memory image can be compared to the date
+    and time they were accessed to correlate other activity that’s been observed on
+    the system.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在调查事件时，了解应用程序或文件何时执行至关重要。时间戳有时可以在调查的其他方面找到，例如检查内存镜像时。此外，识别内存镜像中的特定 DLL 文件或可执行文件，可以与它们的访问日期和时间进行比较，以关联系统上观察到的其他活动。
+- en: Time normalization
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 时间归一化
+- en: One aspect of digital forensics that bears repeating is to ensure that all the
+    systems are using the same time zone. With network systems, this is usually accomplished
+    with the **Network Time Protocol** (**NTP**). There are times when systems do
+    not have normalized time through NTP. Responders should take great care in understanding
+    what time zone and synchronization should be used. The best practice regarding
+    time is to set all the systems to UTC. This is critical if an organization is
+    geographically diverse.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数字取证中的一个方面需要重复强调的是，确保所有系统使用相同的时区。对于网络系统，这通常通过 **网络时间协议** (**NTP**) 来实现。有时系统无法通过
+    NTP 实现时间归一化。响应人员应特别注意理解应该使用的时区和同步方式。关于时间的最佳实践是将所有系统设置为 UTC，特别是当一个组织具有地理多样性时，这一点至关重要。
+- en: 'Autopsy has functionality specifically for timeline analysis. Simply clicking
+    on the **Timeline** button at the top of the window will make Autopsy begin the
+    process of parsing out timeline data. Depending on the size of the image file
+    being analyzed, it may take a few minutes. Once completed, the following window
+    will open:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 提供了专门用于时间线分析的功能。只需点击窗口顶部的 **时间线** 按钮，Autopsy 就会开始解析时间线数据的过程。根据被分析镜像文件的大小，这可能需要几分钟。完成后，以下窗口将打开：
+- en: '![Figure 11.33 – Timeline viewer ](img/B18571_11_033.jpg)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.33 – 时间轴查看器](img/B18571_11_033.jpg)'
+- en: Figure 11.33 – Timeline viewer
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.33 – 时间轴查看器
+- en: 'From here, the analyst can utilize several features. First is the text filter
+    on the left-hand side of the screen. Using this, the analyst can search for specific
+    text in files. For example, the analyst has already identified that the executable
+    named **ZeroTier One** had been executed on the system under investigation. If
+    the analyst would like to know whether that file was accessed at any other times,
+    they could enter pricing into the **Text Filter** box and click **Apply**, which
+    would produce the following results:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这里，分析人员可以使用几个功能。首先是屏幕左侧的文本筛选器。使用此功能，分析人员可以搜索文件中的特定文本。例如，分析人员已经确定名为 **ZeroTier
+    One** 的可执行文件已在正在调查的系统上执行。如果分析人员想知道该文件是否在其他时间被访问过，他们可以将“定价”输入到 **文本筛选器** 框中，然后点击
+    **应用**，这将产生以下结果：
+- en: '![Figure 11.34 – Keyword timeline ](img/B18571_11_034.jpg)'
+  id: totrans-171
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.34 – 关键字时间轴](img/B18571_11_034.jpg)'
+- en: Figure 11.34 – Keyword timeline
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.34 – 关键字时间轴
+- en: From this graph, the analyst can further drill down into the specific times
+    the file was accessed by clicking on the colored bars. The responders can now
+    see that the executable was only accessed at one particular date and time from
+    this system.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这个图表中，分析人员可以通过点击彩色条形图，进一步深入查看文件被访问的具体时间。响应人员现在可以看到，这个可执行文件仅在某个特定日期和时间从该系统中被访问过。
+- en: Next, we will look at extracting specific evidence items from a disk image and
+    processing them with additional tools.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将了解如何从磁盘镜像中提取特定的证据项，并使用附加工具进行处理。
+- en: Master File Table analysis
+  id: totrans-175
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 主文件表分析
+- en: Another technique that can be leveraged for timeline analysis is utilizing external
+    tools to analyze the MFT. Autopsy allows the analyst to export the MFT for analysis
+    using third-party tools. In this case, we will use MFT Explorer, one of several
+    tools developed by Eric Zimmerman.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种可以用于时间轴分析的技术是利用外部工具分析 MFT。Autopsy 允许分析人员导出 MFT 并使用第三方工具进行分析。在此案例中，我们将使用 MFT
+    Explorer，这是 Eric Zimmerman 开发的多个工具之一。
+- en: Eric Zimmerman's tools
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Eric Zimmerman 的工具
+- en: Eric Zimmerman is a former FBI agent, SANS course developer, and digital forensics
+    expert. He has created a suite of tools for carving and analyzing data available
+    at [https://ericzimmerman.github.io/#!index.md](https://ericzimmerman.github.io/#!index.md).
+    Additionally, the SANS Institute has created a cheat sheet for the tools available
+    at [https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/](https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/).
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Eric Zimmerman 是一位前 FBI 特工、SANS 课程开发者以及数字取证专家。他开发了一套用于数据提取和分析的工具，工具可在 [https://ericzimmerman.github.io/#!index.md](https://ericzimmerman.github.io/#!index.md)
+    获取。此外，SANS 机构还创建了一个关于这些工具的备忘单，链接地址为 [https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/](https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/)。
+- en: In this instance, we will look at processing the MFT from the image that was
+    examined with Autopsy. The MFT can be found within the root directory of the filesystem.
+    Find the `$MFT` file, right-click it, select **Extract Files**, and then save
+    the file to an evidence drive. As good practice, change the name to something
+    that reflects the case.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此情况下，我们将处理通过 Autopsy 检查的镜像中的 MFT。MFT 文件可以在文件系统的根目录中找到。找到 `$MFT` 文件，右键点击它，选择
+    **提取文件**，然后将文件保存到证据驱动器中。作为良好的实践，请将文件名更改为与案件相关的名称。
+- en: 'Next, find the `MFTECmd.exe` executable. The following command processes the
+    MFT and outputs the results to a **Comma-Separated Value** (**CSV**) file:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，找到 `MFTECmd.exe` 可执行文件。以下命令处理 MFT，并将结果输出到 **逗号分隔值** (**CSV**) 文件：
+- en: '[PRE0]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The CSV file can now be opened and examined. In this case, the CSV has been
+    opened via Microsoft Excel. This allows for keyword searching and examination
+    of times and dates to identify when a file or files were placed on the system.
+    Going back to the previous keyword search, we can use the filter option within
+    Excel. Under the `ZeroTier` keyword has been entered:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在可以打开并检查 CSV 文件。在这种情况下，CSV 文件已通过 Microsoft Excel 打开。这样可以进行关键字搜索，并检查文件的时间和日期，以识别文件或文件在系统上的放置时间。回到之前的关键字搜索，我们可以使用
+    Excel 中的筛选选项。`ZeroTier` 关键字已被输入：
+- en: '![Figure 11.35 – ZeroTier filter MFT results ](img/B18571_11_035.jpg)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.35 – ZeroTier 筛选 MFT 结果](img/B18571_11_035.jpg)'
+- en: Figure 11.35 – ZeroTier filter MFT results
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.35 – ZeroTier 筛选 MFT 结果
+- en: The MFT can be difficult to work with in terms of the amount of data. In this
+    case, the MFT has over 410,000 separate entries that may need to be sorted through.
+    It is a good idea to have a starting point such as a date and time or a filename
+    to search for. This allows analysts to work with only those results that are pertinent.
+    Other tools, such as Eric Zimmerman’s Timeline Explorer, can be used to process
+    and extract those data points that are important to the investigation.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MFT的工作处理可能会因为数据量的原因变得复杂。在这种情况下，MFT有超过410,000个单独的条目，可能需要逐一排序。最好有一个起点，比如日期和时间，或者文件名进行搜索。这样可以让分析人员只处理相关的结果。其他工具，如Eric
+    Zimmerman的Timeline Explorer，也可以用于处理和提取对调查有重要意义的数据点。
+- en: Now that we have looked for the presence of the file on the system, we can look
+    at evidence of execution.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经查看了系统中文件的存在情况，接下来可以查看执行的证据。
+- en: Prefetch analysis
+  id: totrans-187
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Prefetch分析
+- en: One question that analysts will often have to answer is determining if an executable
+    has run. One of the best sources of data to answer this question is Prefetch files.
+    When an application or other executable is run, a file is created and stored within
+    the `C:\Windows\Prefetch` directory. If the program is run in multiple locations,
+    an entry is created for each of these. Another key aspect of Prefetch files is
+    that they are not deleted when the application or program has been deleted. So,
+    if an adversary is attempting to clean up the system of malicious executables
+    or DLL files, proof of their execution may still be located in the `Prefetch`
+    directory.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分析人员常常需要回答的一个问题是如何确定一个可执行文件是否运行过。回答这个问题的最佳数据来源之一是Prefetch文件。当一个应用程序或其他可执行文件被运行时，会创建一个文件并将其存储在`C:\Windows\Prefetch`目录中。如果程序在多个位置运行，则会为每个位置创建一个条目。Prefetch文件的另一个关键特点是，当应用程序或程序被删除时，Prefetch文件不会被删除。因此，如果攻击者试图清理系统中的恶意可执行文件或DLL文件，仍然可以在`Prefetch`目录中找到它们执行的证据。
+- en: The Prefetch files do have some quirks that should be understood. First, even
+    unsuccessful program execution can still produce a Prefetch file. It should be
+    noted that the operative word is `Prefetch` directory is specifically limited
+    to 1,024 separate files. Older files are overwritten in favor of new files. On
+    most end user systems, this generally does not present an issue if analysts can
+    capture the evidence promptly. Third, a program that has been previously executed
+    can still create a new Prefetch file. Finally, there is a time lag with Prefetch
+    files. In general, the creation of the file itself might be 10 seconds off other
+    time stamps an analyst may find.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Prefetch文件确实存在一些需要理解的特性。首先，即使程序执行不成功，也可能产生Prefetch文件。需要注意的是，`Prefetch`目录专门限制为最多1,024个单独的文件。较旧的文件会被新文件覆盖。在大多数终端用户系统上，如果分析人员能够及时捕获证据，这通常不会造成问题。第三，之前执行过的程序仍然可以创建新的Prefetch文件。最后，Prefetch文件存在时间延迟。一般来说，文件的创建时间可能比分析人员发现的其他时间戳晚10秒。
+- en: 'Acquiring the `Prefetch` directory is straightforward. Triage tools, like those
+    that were discussed in [*Chapter 6*](B18571_06.xhtml#_idTextAnchor105), can collect
+    the directory. The directory can also be extracted directly through Autopsy. Simply
+    navigate to the `Prefetch` directory and right-click and select **Extract Files**.
+    Select the directory to output the files to. It is good practice to place the
+    output in an evidence drive or use Autopsy’s default export directory. Once extracted,
+    the Prefetch entries will look as follows:'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取`Prefetch`目录非常简单。像在[*第6章*](B18571_06.xhtml#_idTextAnchor105)中讨论的那样，分类工具可以收集该目录。也可以通过Autopsy直接提取该目录。只需导航到`Prefetch`目录，右键点击并选择**提取文件**。选择要输出文件的目录。最好将输出放在证据驱动器中，或使用Autopsy的默认导出目录。一旦提取，Prefetch条目将如下所示：
+- en: '![Figure 11.36 – Prefetch file entries ](img/B18571_11_036.jpg)'
+  id: totrans-191
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.36 – Prefetch文件条目](img/B18571_11_036.jpg)'
+- en: Figure 11.36 – Prefetch file entries
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.36 – Prefetch文件条目
+- en: 'This output directory can then be processed with the Prefetch parser with the
+    following command:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后可以使用以下命令通过Prefetch解析器处理该输出目录：
+- en: '[PRE1]'
+  id: totrans-194
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The previous command outputs two files. The first is a CSV that contains the
+    Prefetch entries. The second contains a timeline breakdown. Let’s look at the
+    timeline version. The CSV file’s output allows for the same type of searching
+    and filtering that was used in the previous section, *Master File Table analysis*.
+    In this case, again, we will use `ZeroTier` for filtering. In this case, the search
+    reveals several entries showing the execution of the `ZEROTIER_DESKTOP_UI.EXE`
+    executable:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上一个命令输出了两个文件。第一个是包含预取条目的 CSV 文件，第二个包含时间线分解。我们来看看时间线版本。CSV 文件的输出允许使用与上一节中相同类型的搜索和筛选，*主文件表分析*。在这种情况下，我们将使用`ZeroTier`进行筛选。此时，搜索显示了几个条目，显示了`ZEROTIER_DESKTOP_UI.EXE`可执行文件的执行：
+- en: '![Figure 11.37 – ZeroTier Prefetch entries ](img/B18571_11_037.jpg)'
+  id: totrans-196
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.37 – ZeroTier 预取条目](img/B18571_11_037.jpg)'
+- en: Figure 11.37 – ZeroTier Prefetch entries
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.37 – ZeroTier 预取条目
+- en: Registry analysis
+  id: totrans-198
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 注册表分析
+- en: There is a great deal of activity that occurs under the hood of the Windows
+    operating system. One place where this activity occurs and is documented is in
+    the Windows Registry. The Windows Registry is a database that stores the low-level
+    system settings for the Windows operating system. This includes settings for devices,
+    security, services, and the storage of user account security settings in the **Security
+    Accounts** **Manager** (**SAM**).
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 操作系统下有大量活动在后台进行。这些活动的一部分会在 Windows 注册表中进行记录。Windows 注册表是一个存储 Windows
+    操作系统低级系统设置的数据库。它包括设备、安全性、服务以及用户帐户安全设置存储在**安全帐户管理器**（**SAM**）中的信息。
+- en: 'The registry is made up of two elements. The first is the key. The key is a
+    container that holds the second element – the values. These values hold specific
+    settings information. The highest-level key is called the root key and the Windows
+    operating system has five root keys, all of which are stored on the disk in the
+    registry hives. These registry hives are located in the `%SystemRoot%\system32\config`
+    folder on the Windows file structure:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表由两个元素组成。第一个是键。键是一个容器，存储第二个元素——值。这些值包含特定的设置信息。最高级别的键称为根键，Windows 操作系统有五个根键，这些根键都存储在磁盘上的注册表
+    Hive 中。这些注册表 Hive 位于 Windows 文件结构中的`%SystemRoot%\system32\config`文件夹下：
+- en: '`HKEY_CURRENT_USER`'
+  id: totrans-201
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_USER`'
+- en: '`HKEY_USERS`'
+  id: totrans-202
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_USERS`'
+- en: '`HKEY_CLASSES_ROOT`'
+  id: totrans-203
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CLASSES_ROOT`'
+- en: '`HKEY_LOCAL_MACHINE`'
+  id: totrans-204
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_LOCAL_MACHINE`'
+- en: '`HKEY_CURRENT_CONFIG`'
+  id: totrans-205
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`HKEY_CURRENT_CONFIG`'
+- en: 'Of the five root keys, the most valuable during an incident investigation is
+    the `HKEY_LOCAL_MACHINE` or `HKLM` key. This key contains the following subkeys
+    (these are the ones that are the most interesting during an investigation):'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在五个根键中，事件调查中最有价值的是`HKEY_LOCAL_MACHINE`或`HKLM`键。该键包含以下子键（这些子键在调查中最为关键）：
+- en: '**SAM**: This is the location where the Windows OS stores the user’s passwords
+    in the LM or NTLM hash form. The main purpose of the SAM subkey is to maintain
+    the Windows account passwords.'
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**SAM**：这是 Windows 操作系统存储用户密码（以 LM 或 NTLM 哈希形式）的地方。SAM 子键的主要功能是维护 Windows 帐户密码。'
+- en: '**Security**: This subkey contains the security information of the domain that
+    the system is connected to.'
+  id: totrans-208
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Security**：这个子键包含系统连接的域的安全信息。'
+- en: '**Software**: The software subkey is the repository for software and Windows
+    settings. This subkey is often modified by software or system installers. This
+    is a good location to check for additions or modifications that have been made
+    to the software by malware.'
+  id: totrans-209
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Software**：软件子键是软件和 Windows 设置的存储库。这个子键通常会被软件或系统安装程序修改。这是一个检查恶意软件可能添加或修改软件的好位置。'
+- en: '**System**: This subkey stores information about the Windows system configuration.
+    One key piece of evidence that is also included within the system subkey is the
+    currently mounted devices within a filesystem.'
+  id: totrans-210
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**System**：这个子键存储有关 Windows 系统配置的信息。系统子键中包含的一个重要证据是当前挂载的文件系统设备。'
+- en: Another source of data that can be critical to an incident investigation is
+    the `HKEY_CURRENT_USER` key. Attackers may make changes to a user account or profile
+    as part of a privilege escalation attack. Changes that have been made to the user’s
+    data are recorded in that user’s `NTUSER.dat` file. An `NTUSER.dat` file is created
+    for every user account on the system and is located at `C:\Users\*UserName*`.
+    This file contains the user’s profile settings and may provide additional data
+    on the systems that are connected, network connections, or other settings. Data
+    contained within the `HKEY_CURRENT_USER` key may be of benefit in some incidents
+    where user activity or user account modification of the system is suspected.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个可能对事件调查至关重要的数据源是`HKEY_CURRENT_USER`键。攻击者可能会在特权升级攻击中修改用户帐户或配置文件。对用户数据所做的更改会记录在该用户的`NTUSER.dat`文件中。每个系统用户帐户都会创建一个`NTUSER.dat`文件，该文件位于`C:\Users\*UserName*`。此文件包含用户的个人设置，并可能提供有关连接的系统、网络连接或其他设置的附加数据。`HKEY_CURRENT_USER`键中的数据可能在一些怀疑用户活动或用户帐户修改系统的事件中起到帮助作用。
+- en: 'Responders can access the various registry hives using Autopsy. Simply navigate
+    to the `Windows/System32/config` folder from the file structure in the left-hand
+    pane:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 响应人员可以使用Autopsy访问各种注册表数据。只需从左侧窗格中的文件结构中导航到`Windows/System32/config`文件夹：
+- en: '![Figure 11.38 – Registry location ](img/B18571_11_038.jpg)'
+  id: totrans-213
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.38 – 注册表位置](img/B18571_11_038.jpg)'
+- en: Figure 11.38 – Registry location
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.38 – 注册表位置
+- en: 'The SAM registry file is located in the center pane:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SAM注册表文件位于中间窗格：
+- en: '![Figure 11.39 – SAM location ](img/B18571_11_039.jpg)'
+  id: totrans-216
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.39 – SAM位置](img/B18571_11_039.jpg)'
+- en: Figure 11.39 – SAM location
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.39 – SAM位置
+- en: The actual examination and evidentiary value of registry key settings are, like
+    many aspects of digital forensics, very detailed. While it is impossible to cover
+    all of the aspects of registry forensics in this chapter, or even in this book,
+    it is important for responders to be able to acquire the registry keys for evaluation,
+    and also to have some familiarity with tools that can allow responders to gain
+    some hands-on experience with evaluating registry settings.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注册表项设置的实际检查和证据价值，像数字取证的许多方面一样，非常详细。虽然在本章中，甚至在本书中，不可能涵盖所有的注册表取证方面，但响应人员需要能够获取注册表项进行评估，同时还需要对一些工具有所了解，这些工具可以帮助响应人员获得评估注册表设置的实践经验。
+- en: 'In this case, the system, SAM, security, and software registry keys will be
+    acquired for analysis. For this, the analyst can use Autopsy to acquire the proper
+    keys and then examine them with a third-party tool. Let’s take a look at how to
+    do this:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，系统、SAM、安全性和软件注册表项将被获取以进行分析。为此，分析人员可以使用Autopsy获取适当的注册表项，然后使用第三方工具对其进行检查。我们来看看如何操作：
+- en: First, navigate to the proper folder, `/System32/config`, on the applicable
+    volume of the system image.
+  id: totrans-220
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，导航到系统映像的适当卷中的`/System32/config`文件夹。
+- en: Next, select the four registry keys using the right mouse button and the *Ctrl*
+    key. Right-click on one of the files and select **Export File(s)**.
+  id: totrans-221
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，使用右键和*Ctrl*键选择四个注册表项。右键单击其中一个文件并选择**导出文件**。
+- en: Select a folder to output the registry keys to. In this case, a separate file
+    folder was created to contain the keys. Select **Save**.
+  id: totrans-222
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择一个文件夹以输出注册表项。在这种情况下，创建了一个单独的文件夹来容纳这些项。选择**保存**。
+- en: 'Verify that the registry keys have been saved:'
+  id: totrans-223
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证注册表项是否已保存：
+- en: '![Figure 11.40 – Suspect registry ](img/B18571_11_040.jpg)'
+  id: totrans-224
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.40 – 可疑注册表](img/B18571_11_040.jpg)'
+- en: Figure 11.40 – Suspect registry
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.40 – 可疑注册表
+- en: The Windows operating system records and maintains artifacts of when USB devices
+    such as mass storage, iOS devices, digital cameras, and other USB devices are
+    connected. This is due to the **Plug and Play** (**PnP**) manager, which is part
+    of the Windows operating system. The PnP receives a notification that a USB has
+    been connected and queries the device for information so that it can load the
+    proper device driver. Upon completion, the Windows operating system will make
+    an entry for the device within the registry settings.
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows操作系统记录并维护有关何时连接USB设备（如大容量存储设备、iOS设备、数码相机和其他USB设备）的信息。这是由于Windows操作系统中的**即插即用**（**PnP**）管理器。PnP接收到USB连接的通知并查询设备以获取信息，以便加载正确的设备驱动程序。完成后，Windows操作系统将在注册表设置中为该设备创建一条条目。
+- en: 'To determine what USB devices were connected, follow these steps:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要确定连接了哪些USB设备，请执行以下步骤：
+- en: Open **Registry Explorer**.
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开**注册表浏览器**。
+- en: Click **File** and then **Load Hive**.
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击**文件**，然后选择**加载Hive**。
+- en: Navigate to the system registry hive. (Depending on the files, there may be
+    errors related to Dirty Hives. It is normal to see this; they can be processed
+    with Registry Explorer.)
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导航到系统注册表的hive。（根据文件的不同，可能会出现与“脏hive”相关的错误。看到这种情况是正常的，可以使用注册表浏览器进行处理。）
+- en: 'Once loaded, the following window will appear:'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 加载后，将显示以下窗口：
+- en: '![](img/B18571_11_041.jpg)'
+  id: totrans-232
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/B18571_11_041.jpg)'
+- en: Figure 11.41 – Registry Explorer view
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.41 – 注册表浏览器视图
+- en: 'From here, navigate to the proper USB registry location at `ROOT\ControlSet001\Enum\USB\`:'
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从这里，导航到正确的USB注册表位置：`ROOT\ControlSet001\Enum\USB\`：
+- en: '![](img/B18571_11_042.jpg)'
+  id: totrans-235
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/B18571_11_042.jpg)'
+- en: Figure 11.42 – USB registry key location
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.42 – USB注册表键位置
+- en: 'Click on the first registry value, `VID_05C8&PID_0815&MI_00`, and then `6&a631fef&0&000`.
+    The following information will appear in the top-right pane:'
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击第一个注册表值`VID_05C8&PID_0815&MI_00`，然后点击`6&a631fef&0&000`。以下信息将显示在右上角窗格中：
+- en: '![](img/B18571_11_043.jpg)'
+  id: totrans-238
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/B18571_11_043.jpg)'
+- en: Figure 11.43 – Registry values
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.43 – 注册表值
+- en: 'From here, the analyst has a lot of information they need to review. Of particular
+    importance is the hardware ID. Clicking on that section of the output produces
+    the following in the lower-right window:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从这里，分析人员需要审查大量信息。特别重要的是硬件ID。点击输出中的这一部分将会在右下角窗格中显示以下内容：
+- en: '![](img/B18571_11_044.jpg)'
+  id: totrans-241
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/B18571_11_044.jpg)'
+- en: Figure 11.44 – HardwareID data
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.44 – HardwareID 数据
+- en: As we mentioned previously, registry analysis is a deep subset of digital forensics
+    in and of itself. Whole volumes have been written on the evidentiary value present
+    in the settings and entries in registry hives. At a minimum, responders should
+    be prepared to acquire this evidence for others for further examination. That
+    being said, as responders gain more and more experience and skill, the registry
+    should be an area that can be leveraged for evidence when examining a disk image.
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，注册表分析本身就是数字取证的一个深层子集。已经有大量的著作讨论注册表项和设置中的证据价值。至少，响应人员应该准备好为他人获取这些证据以供进一步检查。也就是说，随着响应人员经验和技能的不断提升，注册表应该成为在检查磁盘镜像时可以利用的证据来源。
+- en: Summary
+  id: totrans-244
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In many ways, this chapter just scratches the surface of what information can
+    be found by leveraging disk forensic tools. Exploring a disk image using Autopsy
+    demonstrated some of the features that are available to responders. From here,
+    extracting other data stores such as the Windows Registry and MFT were explored
+    to provide responders with an idea of what data is available during an incident
+    analysis.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在许多方面，本章只是触及了通过利用磁盘取证工具可以发现的信息的表面。使用Autopsy工具探索磁盘镜像展示了响应人员可以使用的一些功能。从这里，提取其他数据存储，如Windows注册表和MFT，旨在为响应人员提供在事件分析过程中可以获得的数据的概念。
+- en: Specific tools and techniques are largely dependent on the tool that’s utilized.
+    What’s important to understand is that modern operating systems leave traces of
+    their activity all over the disk, from file change evidence in the MFT to registry
+    key settings when new user accounts are added. Incident responders should have
+    expertise in understanding how modern operating systems store data and how to
+    leverage commercial or freeware tools to find this data. Taken in concert with
+    other pieces of evidence that are obtained from network sources and in memory,
+    disk evidence may provide more clarity on an incident and aid in determining its
+    root cause. One area of focus when it comes to system storage analysis is extracting
+    and examining log files. Log files are critical data points that provide responders
+    with a great deal of information.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 特定工具和技术在很大程度上取决于所使用的工具。重要的是要理解，现代操作系统会在磁盘上留下活动痕迹，从MFT中的文件更改证据到新用户账户添加时的注册表键设置。事件响应人员应具备理解现代操作系统如何存储数据的专业知识，并且能够利用商业或免费工具查找这些数据。结合来自网络源和内存中的其他证据，磁盘证据可能为事件提供更多的清晰度，并帮助确定其根本原因。在系统存储分析时，提取和检查日志文件是一个重点。日志文件是重要的数据点，能为响应人员提供大量信息。
+- en: The next chapter will carry on from the work that was done here and address
+    how log files can be utilized in an incident investigation.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一章将接着本章的工作，讨论如何在事件调查中利用日志文件。
+- en: Questions
+  id: totrans-248
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions to test your knowledge of this chapter:'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请回答以下问题以测试你对本章内容的理解：
+- en: What are some of the features that are available with commercial and open source
+    forensic platforms?
+  id: totrans-250
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 商业和开源取证平台提供的一些功能是什么？
+- en: Hex viewer
+  id: totrans-251
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 十六进制查看器
+- en: Email carving
+  id: totrans-252
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 邮件提取
+- en: Metadata viewer
+  id: totrans-253
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 元数据查看器
+- en: All of the above
+  id: totrans-254
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 上述所有
+- en: In what registry hive could an incident responder find USBs that have been connected
+    to the system?
+  id: totrans-255
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 事件响应员可以在什么注册表项中找到已连接到系统的USB设备？
+- en: SAM
+  id: totrans-256
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: SAM
+- en: Security
+  id: totrans-257
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 安全
+- en: System
+  id: totrans-258
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 系统
+- en: User profile
+  id: totrans-259
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用户配置文件
+- en: Web history may provide data on a phishing URL that’s been accessed by the system.
+  id: totrans-260
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 网络历史记录可能提供系统访问的钓鱼网址的数据。
+- en: 'True'
+  id: totrans-261
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-262
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: Which of the following is not a Windows registry hive?
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下哪项不是Windows注册表项？
+- en: System
+  id: totrans-264
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 系统
+- en: SAM
+  id: totrans-265
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: SAM
+- en: Storage
+  id: totrans-266
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 存储
+- en: Software
+  id: totrans-267
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 软件
+- en: Further reading
+  id: totrans-268
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'For more information about the topics covered in this chapter, refer to the
+    following resources:'
+  id: totrans-269
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有关本章所涵盖主题的更多信息，请参考以下资源：
+- en: 'Autopsy GitHub: [https://github.com/sleuthkit/autopsy](https://github.com/sleuthkit/autopsy)'
+  id: totrans-270
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Autopsy GitHub：[https://github.com/sleuthkit/autopsy](https://github.com/sleuthkit/autopsy)
+- en: 'Eric Zimmerman Tools: [https://ericzimmerman.github.io/#!index.md](https://ericzimmerman.github.io/#!index.md)'
+  id: totrans-271
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Eric Zimmerman 工具：[https://ericzimmerman.github.io/#!index.md](https://ericzimmerman.github.io/#!index.md)
+- en: 'Eric Zimmerman Tools Cheat Sheet: [https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/](https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/)'
+  id: totrans-272
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Eric Zimmerman 工具备忘单：[https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/](https://www.sans.org/posters/eric-zimmerman-tools-cheat-sheet/)
+- en: 'Registry Analysis with FTK Registry Viewer: [https://subscription.packtpub.com/book/networking_and_servers/9781784390495/6/ch06lvl1sec37/registry-analysis-with-ftkregistry-viewer](https://subscription.packtpub.com/book/networking_and_servers/9781784390495/6/ch06lvl1sec37/registry-analysis-with-ftkregistry-viewer)'
+  id: totrans-273
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用FTK注册表查看器进行注册表分析：[https://subscription.packtpub.com/book/networking_and_servers/9781784390495/6/ch06lvl1sec37/registry-analysis-with-ftkregistry-viewer](https://subscription.packtpub.com/book/networking_and_servers/9781784390495/6/ch06lvl1sec37/registry-analysis-with-ftkregistry-viewer)
+- en: 'Windows Registry Analysis 101: [https://www.forensicfocus.com/articles/windows-registry-analysis-101/](https://www.forensicfocus.com/articles/windows-registry-analysis-101/)'
+  id: totrans-274
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Windows注册表分析101：[https://www.forensicfocus.com/articles/windows-registry-analysis-101/](https://www.forensicfocus.com/articles/windows-registry-analysis-101/)

@@ -1,0 +1,3956 @@
+- en: Forensic Analysis of Android Applications
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Android 应用程序的法医分析
+- en: 'This chapter will cover application analysis. This chapter will focus on analyzing
+    the data that would be recovered using any of the logical or physical techniques
+    detailed in [Chapter 4](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml), *Extracting
+    Data Logically from Android Devices*, and [Chapter 5](a910938e-1c0b-4f19-baae-509ccaa36c09.xhtml),  *Extracting
+    Data Physically from Android Devices*. It will also rely heavily on the storage
+    methods discussed in [Chapter 2](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml),
+    *Setting Up the Android Forensic Environment*; we will see numerous SQLite databases,
+    XML files, and other file types from various locations within the file hierarchy
+    described in that chapter. By the end of this chapter, the reader should be familiar
+    with the following:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将覆盖应用程序分析。本章将重点分析通过 [第 4 章](b5ab11df-1911-4deb-accd-f92c74650e6d.xhtml) *从
+    Android 设备中逻辑提取数据* 和 [第 5 章](a910938e-1c0b-4f19-baae-509ccaa36c09.xhtml) *从 Android
+    设备中物理提取数据* 中详细描述的任何逻辑或物理技术恢复的数据。本章还将大量依赖于 [第 2 章](b81853c6-388b-4e15-b8dd-deb5c1b5b36d.xhtml)
+    *设置 Android 法医环境* 中讨论的存储方法；我们将看到来自该章节中描述的文件层次结构内不同位置的 SQLite 数据库、XML 文件以及其他文件类型。到本章结束时，读者应当熟悉以下内容：
+- en: Application analysis overview
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 应用程序分析概述
+- en: Why do app analysis?
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为什么要进行应用程序分析？
+- en: Third-party applications and various methods used by popular applications to
+    store and obfuscate data
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 第三方应用程序以及流行应用程序用于存储和混淆数据的各种方法
+- en: Application analysis overview
+  id: totrans-5
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 应用程序分析概述
+- en: Forensically analyzing an application is as much of an art as it is a science.
+    There are myriad ways an application can store, or obfuscate, its data. Different
+    versions of the same application may even store the same data differently. Developers
+    are really only limited by their imagination (and Android platform restrictions)
+    when it comes to choosing how to store their data. Because of these factors, application
+    analysis is a moving target; methods an examiner uses one day may be completely
+    irrelevant the next.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医分析应用程序既是一门科学，也是一门艺术。应用程序可以通过各种方式存储或混淆其数据。即便是同一版本的应用程序，其数据存储方式也可能不同。开发者在选择数据存储方式时，实际上只受限于他们的想象力（以及
+    Android 平台的限制）。正因为这些因素，应用程序分析是一项不断变化的工作；分析人员今天使用的方法，明天可能就完全不再适用。
+- en: 'The end goal of forensically analyzing an application is consistently the same:
+    to understand what the app was used for, and to find user data.'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 法医分析应用程序的最终目标始终是相同的：了解应用程序的用途，并找到用户数据。
+- en: In this chapter, we will look at the current version of many common applications.
+    Because apps can, and do, change how they store data through updates, nothing
+    in this chapter is a definitive guide for how to analyze that application. Instead,
+    we will look at a broad range of applications to show a variety of different methods
+    used by applications to store their data. For the most part, we will be looking
+    at very common applications (millions of downloads from Google Play), except for
+    cases where looking at an obscure app can reveal interesting new ways of storing
+    data.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将探讨许多常见应用程序的当前版本。由于应用程序可能会通过更新更改其数据存储方式，本章中的内容并不是分析这些应用程序的权威指南。相反，我们将查看各种不同的应用程序，以展示它们存储数据时所使用的多种不同方法。大多数情况下，我们将重点关注非常常见的应用程序（例如，Google
+    Play 上有数百万次下载的应用程序），除非在分析一些冷门应用时能揭示出有趣的新数据存储方式。
+- en: Why do app analysis?
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 为什么要进行应用程序分析？
+- en: 'For starters, even standard phone functions such as contacts, calls, and SMS
+    are done through applications on Android devices, so even acquiring basic data
+    requires analyzing an application. Secondly, a person''s app usage can tell you
+    a lot about them: where they''ve been (and when they were there), who they''ve
+    communicated with, and even what they may be planning in the future.'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，Android 设备上的标准电话功能，如联系人、通话和短信，都是通过应用程序来实现的，因此即使是获取基本数据也需要分析应用程序。其次，一个人使用的应用程序可以告诉你很多关于他们的信息：他们去过哪里（以及何时去的），他们与谁沟通过，甚至他们未来可能会有什么计划。
+- en: Many phones come with more than 20 pre-installed applications. An examiner has
+    no real way of knowing which of these apps could contain information useful for
+    an investigation, and therefore they must all be analyzed. An examiner may be
+    tempted to skip over certain apps that would appear to have little useful data,
+    such as games. This would be a bad idea, though; many popular games have a built-in
+    chat feature, which could yield useful information. Our analysis will focus heavily
+    on messaging applications, as our experience shows that these tend to be the most
+    valuable in a forensic analysis.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多手机预装了超过 20 个应用程序。检查员实际上无法知道这些应用中哪些可能包含对调查有用的信息，因此必须对所有应用进行分析。检查员可能会想跳过那些看起来似乎没有什么有用数据的应用，如游戏。然而，这样做是个坏主意；许多流行的游戏都有内置聊天功能，可能会提供有价值的信息。我们的分析将重点关注消息应用程序，因为我们的经验表明，这些应用在法医分析中通常最有价值。
+- en: Layout of this chapter
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 本章布局
+- en: For each application we examine, we will provide a package name and files of
+    interest. All apps store their data in the `/data/data` or `/data/user_de/0` (newer
+    devices) directory by default; apps can also use the SD card if they ask for this
+    permission when the app is installed. The package name is the name of the directory
+    for the application in one of these directories. The paths in the *Files of interest* section
+    are from the root of the package name. Paths to data on the SD card are shown
+    beginning with `/sdcard`. Do not expect to find data paths beginning with `/sdcard`
+    in the `/data/data` or `/data/user_de/0` directory of the application!
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于我们检查的每个应用程序，我们将提供一个包名和相关文件。所有应用默认将其数据存储在 `/data/data` 或 `/data/user_de/0`（较新的设备）目录下；如果应用在安装时请求此权限，应用也可以使用
+    SD 卡。包名是该应用在这些目录中的文件夹名称。*相关文件* 部分中的路径是从包名根目录开始的。SD 卡上的数据路径以 `/sdcard` 开头。请不要期望在应用的
+    `/data/data` 或 `/data/user_de/0` 目录中找到以 `/sdcard` 开头的数据路径！
+- en: We will begin by looking at some of Google's applications, because these are
+    pre-installed on the majority of devices (though they do not have to be). Then
+    we will look at third-party applications that can be found on Google Play.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将从一些谷歌应用程序开始，因为这些应用通常预装在大多数设备上（尽管并非必须如此）。然后，我们将查看可以在 Google Play 上找到的第三方应用程序。
+- en: Determining which apps are installed
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 确定安装了哪些应用
+- en: 'To see what applications are on the device, an examiner could navigate to /data/data
+    and run the `ls` command. But that doesn''t provide well-formatted data that will
+    look good in a forensic report. We suggest pulling the `/data/system/packages.list`
+    file; this file lists the package name for every app on the device and path to
+    its data (if this file does not exist on the device, the `adb shell pm list packages
+    –f` command is a good alternative). For example, here is an entry for Google Chrome
+    (the full file on our test device contained 120 entries):'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 若要查看设备上有哪些应用程序，检查员可以导航到 `/data/data` 并运行 `ls` 命令。但这并不会提供格式良好的数据，无法在法医报告中显示得很好。我们建议提取
+    `/data/system/packages.list` 文件；该文件列出了设备上每个应用的包名和其数据路径（如果该文件在设备上不存在，`adb shell
+    pm list packages –f` 命令是一个不错的替代选择）。例如，以下是 Google Chrome 的一条记录（我们测试设备上的完整文件包含 120
+    条记录）：
+- en: '![](img/1ea28b32-b1f2-4bab-8af2-fdbb49237cb0.png)'
+  id: totrans-17
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1ea28b32-b1f2-4bab-8af2-fdbb49237cb0.png)'
+- en: 'This is data storage method 1: plaintext. Often we will see apps store data
+    in plaintext, even including data you wouldn''t expect (such as passwords).'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是数据存储方法 1：纯文本。我们常常看到应用以纯文本形式存储数据，甚至包括一些你意想不到的数据（例如密码）。
+- en: 'Perhaps of greater interest is the `/data/system/package-usage.list` file,
+    which shows the last time that package (or application) was used. It''s not perfect;
+    the times shown in the file did not correlate exactly with the last time we used
+    the app. It appears that the app updating or receiving notifications (even if
+    the user does not view them) may affect the time, however it is good for a general
+    indication of the last apps the user accessed:'
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也许更有趣的是 `/data/system/package-usage.list` 文件，它显示了某个包（或应用）最后一次被使用的时间。这个文件并不完美；文件中显示的时间与我们最后一次使用该应用的时间并不完全一致。看起来应用更新或接收通知（即使用户没有查看它们）也可能影响时间，然而它对于一般了解用户最后使用的应用来说是有用的：
+- en: '![](img/435f777d-2b28-4ccf-aee7-429d4f6ba2c0.png)'
+  id: totrans-20
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/435f777d-2b28-4ccf-aee7-429d4f6ba2c0.png)'
+- en: If you're wondering where to find the time in that line, it's in a format known
+    as Unix epoch time.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想知道那一行中哪里可以找到时间，它采用的是被称为 Unix 纪元时间的格式。
+- en: Understanding Unix epoch time
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 Unix 纪元时间
+- en: '**Unix epoch time**, also known as Unix time or Posix time, is stored as the
+    number of seconds (or milliseconds) since midnight on January 1st, 1970 UTC. A
+    10-digit value indicates it is in seconds, while a 13-digit value is indicative
+    of a millisecond value (at least for times likely to be found on a smartphone,
+    as 9-digit second and 12-digit millisecond values haven''t occurred since 2001).
+    In our example, the value is `1422206858650`; Google Chrome was last used 1 billion,
+    422 million, 206 thousand, 858 seconds, and 650 milliseconds since midnight on
+    January 1st, 1970! Don''t worry, we don''t know what date/time that is either.
+    There are many scripts and tools available for download that can convert this
+    into a human-readable format; we like DCode, a free tool that can be found here:
+    [http://www.digital-detective.net/digital-forensic-software/free-tools/](http://www.digital-detective.net/digital-forensic-software/free-tools/).'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**Unix 纪元时间**，也称为 Unix 时间或 Posix 时间，是以自 1970 年 1 月 1 日午夜 UTC 以来的秒数（或毫秒数）表示的。10
+    位数值表示秒数，13 位数值表示毫秒数（至少对于智能手机上常见的时间，因为自 2001 年以来，9 位秒数和 12 位毫秒数值已不再出现）。在我们的示例中，值为`1422206858650`；表示自
+    1970 年 1 月 1 日午夜以来，Google Chrome 上次使用的时间是 14 亿 2 千 2 百 20 万 6 千 8 百 58 秒 650 毫秒！不用担心，我们也不知道这是哪个日期/时间。可以下载许多脚本和工具来将其转换为人类可读的格式；我们喜欢
+    DCode，这是一个免费的工具，可以在这里找到：[http://www.digital-detective.net/digital-forensic-software/free-tools/](http://www.digital-detective.net/digital-forensic-software/free-tools/)。'
+- en: 'In DCode, simply select **Unix: Millisecond Value** from the dropdown list,
+    type in the value in the **Value to Decode** field, and click **Decode**:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '在 DCode 中，只需从下拉列表中选择**Unix: 毫秒值**，在**要解码的值**字段中输入值，然后点击**解码**：'
+- en: '![](img/b95ad1ed-254a-4333-8452-0f63c2e89168.png)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b95ad1ed-254a-4333-8452-0f63c2e89168.png)'
+- en: The **Add Bias** field can be selected to convert the time into the desired
+    timezone.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以选择**添加偏差**字段，将时间转换为所需的时区。
+- en: Alternatively, there is also a very useful online epoch calculator at [http://www.epochconverter.com/](http://www.epochconverter.com/).
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另外，您还可以使用一个非常有用的在线纪元计算器，网址为[http://www.epochconverter.com/](http://www.epochconverter.com/)。
+- en: Using either method, we can see that Google Chrome was actually last used on
+    January 25th, 2015 at 17:27:38.650 UTC. Unix epoch time is frequently used on
+    Android devices to store date/time values, and will come up repeatedly in our
+    application analysis.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用任一方法，我们可以看到 Google Chrome 实际上是在 2015 年 1 月 25 日 17:27:38.650 UTC 上次使用的。Unix
+    纪元时间在 Android 设备中经常用于存储日期/时间值，并且在我们的应用分析中会反复出现。
+- en: Wi-Fi analysis
+  id: totrans-29
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Wi-Fi 分析
+- en: 'Wi-Fi is not technically an application, but it is an invaluable source of
+    data that should be examined, so we''ll briefly discuss it here. Wi-Fi connection
+    data is found in `/data/misc/wifi/wpa_supplicant.conf`. The `wpa_supplicant.conf`
+    file contains a list of access points that the user has chosen to connect to automatically
+    (this is set by default when a new access point is connected to). Access points
+    that the user has *forgotten* through the device settings will not be shown. If
+    the access point requires a password, that is also stored in the file in plaintext.
+    In the following example, the `NETGEAR60` access point required a password (`ancientshoe601`),
+    while `hhonors` did not:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Wi-Fi 技术上不是一个应用程序，但它是一个宝贵的数据来源，应该进行检查，所以我们在这里简要讨论一下。Wi-Fi 连接数据位于`/data/misc/wifi/wpa_supplicant.conf`中。`wpa_supplicant.conf`
+    文件包含用户选择自动连接的接入点列表（当新接入点连接时，默认情况下会设置此选项）。用户通过设备设置*忘记*的接入点不会显示。如果接入点需要密码，密码也以明文形式保存在文件中。在以下示例中，`NETGEAR60`
+    接入点需要密码（`ancientshoe601`），而 `hhonors` 则不需要：
+- en: '![](img/e15e3ab6-fe01-40aa-91f5-20e22f364d00.png)'
+  id: totrans-31
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e15e3ab6-fe01-40aa-91f5-20e22f364d00.png)'
+- en: The presence of an SSID in this file does NOT mean that this device connected
+    to that access point. These settings are saved to a user's Google account, and
+    added to the device when that account is set up. An examiner can only conclude
+    that the user connected to these access points from some Android device, not necessarily
+    the device being examined.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件中存在的 SSID 并不意味着该设备已连接到该接入点。这些设置保存在用户的 Google 帐户中，并在该帐户设置时添加到设备中。检查者只能得出结论，用户从某个
+    Android 设备连接了这些接入点，而不一定是正在检查的设备。
+- en: Contacts/Call analysis
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 联系人/通话分析
+- en: Contact and call logs are stored in the same database. Contacts do not have
+    to be added explicitly by the user, they may be autofilled when an email is sent
+    through Gmail, a person is added on Google+, or many other ways.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 联系人和通话记录存储在同一个数据库中。用户无需显式添加联系人，当通过 Gmail 发送电子邮件、在 Google+ 上添加联系人或通过其他许多方式时，联系人可能会自动填充。
+- en: '**Package name**: `com.android.providers.contacts`'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.android.providers.contacts`'
+- en: '**Files of interest**:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**关注的文件**:'
+- en: '`/files/`:'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/`:'
+- en: '`photos/`'
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`photos/`'
+- en: '`profile/`'
+  id: totrans-39
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`profile/`'
+- en: '`/databases/`:'
+  id: totrans-40
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`:'
+- en: '`contacts2.db`'
+  id: totrans-41
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`contacts2.db`'
+- en: '`calllog.db`'
+  id: totrans-42
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`calllog.db`'
+- en: The `files` directory contains photos for the user's contacts in the `photos`
+    directory, and the user's profile photo in the `profile` directory.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`files` 目录包含用户联系人照片存储在 `photos` 目录中的照片，以及用户个人资料照片存储在 `profile` 目录中的照片。'
+- en: 'The `contacts2.db` database contains all of the information about all contacts
+    in the user''s Google account:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`contacts2.db` 数据库包含用户 Google 帐户中所有联系人的所有信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-45
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `accounts` | Shows accounts on the device that have access to the contacts
+    list. At least one of the accounts will show the user''s Google account email
+    address. This list may include third-party apps installed that have permission
+    to access the contacts list (we will see this in the Tango, Viber, and WhatsApp
+    sections). |'
+  id: totrans-46
+  prefs: []
+  type: TYPE_TB
+  zh: '| `accounts` | 显示设备上有权限访问联系人列表的帐户。至少有一个帐户会显示用户的 Google 帐户电子邮件地址。该列表可能包括已安装的第三方应用程序，这些应用程序有权限访问联系人列表（我们将在
+    Tango、Viber 和 WhatsApp 部分看到这一点）。 |'
+- en: '| `contacts` | Contains partial information for contacts (more data can be
+    found in the `raw_contacts` table). The `name_raw_contact_id` value corresponds
+    to the `_id` value in the `raw_contacts` table. The `photo_file_id` value corresponds
+    to the filename found in the `/files/photos` directory. `times_contacted` and
+    `last_time_contacted` show the number of times that contact was called from or
+    made a call to the device, and the time of the last call in Unix epoch format.
+    |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| `contacts` | 包含部分联系人信息（更多数据可以在 `raw_contacts` 表中找到）。`name_raw_contact_id`
+    值对应于 `raw_contacts` 表中的 `_id` 值。`photo_file_id` 值对应于在 `/files/photos` 目录中找到的文件名。`times_contacted`
+    和 `last_time_contacted` 显示该联系人通过设备拨打或接听的次数，以及最后一次通话的时间，时间格式为 Unix 时间戳格式。 |'
+- en: '| `data` | This table contains all of the information for each contact, such
+    as email address and phone numbers. The `raw_contact_id` column is a unique value
+    for each contact that can be correlated with the `_id` value in the `raw_contact_id`
+    to identify the contact. Note that each contact may have several rows, as seen
+    by the identical `raw_contact_id` values. There are 15 data columns (`data1`-`data15`)
+    that contains some information about the contact, but there are no discernible
+    patterns. The same column may contain the contact name, an email address, a Google+
+    profile, and so on. The value in the `data14` column correlates to the file names
+    of the images in the `files/profiles` path. The `data15` column contains a thumbnail
+    of the contact''s profile photo. |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| `data` | 此表包含每个联系人的所有信息，如电子邮件地址和电话号码。`raw_contact_id` 列是每个联系人的唯一值，可以与 `raw_contact_id`
+    中的 `_id` 值相关联来识别联系人。请注意，每个联系人可能有多行记录，如相同的 `raw_contact_id` 值所示。共有 15 个数据列（`data1`-`data15`），包含一些关于联系人的信息，但没有明显的规律。同一列可能包含联系人姓名、电子邮件地址、Google+
+    个人资料等。`data14` 列的值与 `files/profiles` 路径下的图片文件名相关联。`data15` 列包含联系人的个人资料照片缩略图。 |'
+- en: '| `deleted_contacts` | Contains a `contact_id` value and `deleted_contact_timestamp`
+    in Unix epoch format. However, this cannot be correlated back to any other tables
+    to identify the name of the contact that was deleted. It may be possible to use
+    the deleted data-recovery techniques in [Chapter 6](ef5e768c-313d-4637-8784-15067dbf51dc.xhtml), *Recovering
+    Deleted Data from an Android Device*, to recover the contact names, though. The
+    `contact_id` value corresponds to the `contact_id` column in the `raw_contacts`
+    table. |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| `deleted_contacts` | 包含 `contact_id` 值和 Unix 时间戳格式的 `deleted_contact_timestamp`。然而，无法将其与其他表格关联以识别被删除联系人的姓名。不过，可能可以使用
+    [第六章](ef5e768c-313d-4637-8784-15067dbf51dc.xhtml) 中的已删除数据恢复技巧，*从 Android 设备恢复已删除数据*，来恢复联系人的姓名。`contact_id`
+    值对应于 `raw_contacts` 表中的 `contact_id` 列。 |'
+- en: '| `groups` | Shows groups in the contact list, either automatically generated
+    or created by the user. The title of the group is the name of the group. There
+    does not appear to be a way to identify users in each group. |'
+  id: totrans-50
+  prefs: []
+  type: TYPE_TB
+  zh: '| `groups` | 显示联系人列表中的群组，可以是自动生成的或用户创建的。群组的标题是群组的名称。似乎没有办法识别每个群组中的用户。 |'
+- en: '| `raw_contacts` | Contains all information for every contact in the contact
+    list. The `display_name` shows the contact''s name, if it is available. To determine
+    the contact''s phone number, email address, or other information, the `_id` column
+    value must be matched back to the `raw_contact_id` value in the data table. The
+    `sync3` column shows a timestamp, but based on our testing, this cannot be assumed
+    to be when the contact was added; we had contacts several years old that were
+    synced this month. The `times_contacted` and `last_time_contacted` columns only
+    apply for phone calls; sending an email or SMS to a contact did not increment
+    these values.We were unable to identify any means to determine whether a contact
+    was added through the phone interface, added as a friend on Google+, or added
+    through other methods. |'
+  id: totrans-51
+  prefs: []
+  type: TYPE_TB
+  zh: '| `raw_contacts` | 包含联系人列表中每个联系人的所有信息。`display_name` 显示联系人的姓名（如果有）。要确定联系人的电话号码、电子邮件地址或其他信息，必须将
+    `_id` 列的值与数据表中的 `raw_contact_id` 值匹配。`sync3` 列显示一个时间戳，但根据我们的测试，这不能假设为联系人添加的时间；我们有一些联系人已经好几年了，但这个月才同步。`times_contacted`
+    和 `last_time_contacted` 列仅适用于电话；发送电子邮件或 SMS 给联系人并不会增加这些值。我们无法识别任何方法来确定联系人是通过手机界面添加的、通过
+    Google+ 添加为好友的，还是通过其他方式添加的。'
+- en: '`calllog.db` contains all of the information about incoming, outgoing, and
+    missed calls:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`calllog.db` 包含关于来电、去电和未接来电的所有信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-53
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `calls` | Contains information regarding all calls to and from the device.
+    The number column shows the remote user''s phone number and whether the call was
+    sent or received. The `date` column is the date/time of the call, stored in Unix
+    epoch format. The `duration` column is the length of the call in seconds. The
+    `type` column indicates the type of call:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `calls` | 包含设备上所有进出通话的信息。`number` 列显示远程用户的电话号码，以及该通话是拨出还是接听。`date` 列是通话的日期/时间，存储为
+    Unix 时间戳格式。`duration` 列是通话的持续时间（秒）。`type` 列表示通话类型：'
+- en: Incoming
+  id: totrans-55
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 收件
+- en: Outgoing
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 外发
+- en: Missed
+  id: totrans-57
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 未接来电
+- en: The `name` column shows the remote user's name, if the number was stored in
+    the contact list. `geocoded_location` shows the location of the phone number,
+    based on the area code (for US numbers) or country code. |
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`name` 列显示远程用户的姓名，如果该号码已存储在联系人列表中。`geocoded_location` 显示电话号码的位置，基于区号（美国号码）或国家代码。|'
+- en: SMS/MMS analysis
+  id: totrans-59
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: SMS/MMS 分析
+- en: SMS and MMS messages are stored in the same database. In our experience, this
+    database is also used regardless of what application is used to send the SMS/MMS
+    (that is, sending an SMS through Google Hangouts will populate this database,
+    not the Hangouts database examined here), although third-party apps may also record
+    the data in their own databases.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SMS 和 MMS 消息存储在同一数据库中。根据我们的经验，无论使用什么应用程序发送 SMS/MMS（也就是说，通过 Google Hangouts 发送
+    SMS 将填充此数据库，而不是这里检查的 Hangouts 数据库），此数据库都会被使用，尽管第三方应用程序也可能在其自己的数据库中记录这些数据。
+- en: '**Package name**: `com.android.providers.telephony`'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.android.providers.telephony`'
+- en: '**Files of interest**:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/files`'
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files`'
+- en: '`/databases/`:'
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`:'
+- en: '`mmssms.db`'
+  id: totrans-65
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`mmssms.db`'
+- en: '`telephony.db`'
+  id: totrans-66
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`telephony.db`'
+- en: The `files` directory contains attachments sent as an MMS, both sent and received.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`files` 目录包含作为 MMS 发送的附件，包括发送和接收的文件。'
+- en: 'The `telephony.db` database is small, but contains one potentially useful source
+    of information:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`telephony.db` 数据库较小，但包含一个潜在有用的信息源：'
+- en: '| **Table** | **Description** |'
+  id: totrans-69
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `siminfo` | Contains historical data for all SIMs that have been used in
+    the device, including the ICCID, phone number (if it was stored on the SIM), and
+    the MCC/MNC, which can be used to identify the network provider. |'
+  id: totrans-70
+  prefs: []
+  type: TYPE_TB
+  zh: '| `siminfo` | 包含设备中使用过的所有 SIM 卡的历史数据，包括 ICCID、电话号码（如果它存储在 SIM 卡上）和 MCC/MNC，后者可用于识别网络提供商。|'
+- en: 'The `mmssms.db` database contains all information regarding SMS and MMS messages:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`mmssms.db` 数据库包含有关 SMS 和 MMS 消息的所有信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-72
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `part` | Contains information about files attached to an MMS. Each message
+    will have at least two parts: an SMIL header and the attachment—this can be seen
+    in the `mid` and `ct` columns, as well as the file type attached. The `_data`
+    column provides the path to find the file on the device. |'
+  id: totrans-73
+  prefs: []
+  type: TYPE_TB
+  zh: '| `part` | 包含关于 MMS 附件文件的信息。每条消息至少有两个部分：SMIL 头和附件—可以在 `mid` 和 `ct` 列以及附加的文件类型中看到。`_data`
+    列提供了在设备上查找文件的路径。|'
+- en: '| `pdu` | Contains metadata about each MMS. The `date` column identifies when
+    the message was sent or received, in Linux epoch format. The `_id` column appears
+    to correspond to the mid value in the `part` column; correlating these values
+    will show the time a specific image was sent. The `msg_box` column shows the direction
+    of the message (`1` = received and `2`=sent). |'
+  id: totrans-74
+  prefs: []
+  type: TYPE_TB
+  zh: '| `pdu` | 包含每条彩信的元数据。`date`列标识消息发送或接收的时间，采用Linux纪元格式。`_id`列似乎对应于`part`列中的mid值；关联这些值可以显示特定图片发送的时间。`msg_box`列显示消息的方向（`1`
+    = 接收，`2` = 发送）。 |'
+- en: '| `sms` | Contains metadata about each SMS (does not include MMS information).
+    The address column shows the phone number of the remote user, regardless of whether
+    it was a sent or received message. The `person` column contains a value that can
+    be looked up in the `contacts2.db` database, and corresponds with `raw_contact_id`
+    in the `data` table. The `person` column will be blank if it was a sent message,
+    or if the remote user is not in the contacts list. The `date` column shows the
+    timestamp a message was sent in Linux epoch format. The `type` column shows the
+    direction of the message (`1` = received and `2` = sent). The `body` column displays
+    the content of the message. The seen column indicates whether the message was
+    read (`0` = unread and `1` = read); all sent messages will be marked as unread.
+    |'
+  id: totrans-75
+  prefs: []
+  type: TYPE_TB
+  zh: '| `sms` | 包含每条短信的元数据（不包括彩信信息）。地址列显示远程用户的电话号码，无论消息是发送还是接收。`person`列包含一个可以在`contacts2.db`数据库中查找的值，并与`data`表中的`raw_contact_id`对应。如果是发送的消息，或者远程用户不在联系人列表中，`person`列将为空。`date`列显示消息发送的时间戳，采用Linux纪元格式。`type`列显示消息的方向（`1`
+    = 接收，`2` = 发送）。`body`列显示消息内容。`seen`列表示消息是否已读（`0` = 未读，`1` = 已读）；所有发送的消息将标记为未读。
+    |'
+- en: '| `words`, `words_content`, `words_segdir` | Appears to contain duplicate content
+    of messages; the exact purpose of this table is unclear. |'
+  id: totrans-76
+  prefs: []
+  type: TYPE_TB
+  zh: '| `words`, `words_content`, `words_segdir` | 似乎包含消息的重复内容；该表的具体目的尚不清楚。 |'
+- en: User dictionary analysis
+  id: totrans-77
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 用户字典分析
+- en: The user dictionary is an incredible source of data for an examiner. The user
+    dictionary is populated any time the user types a word that isn't recognized and
+    chooses to save the word to avoid it being flagged by autocorrect. Interestingly,
+    our test device contained dozens of words that we never typed or saved on the
+    device; this data appears to sync with a user's Google account and persists across
+    multiple devices. Words synced from the account were added in alphabetical order
+    at the top of the database, while words added manually afterwards were populated
+    in the order they were added at the bottom.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用户字典是检查员获取数据的一个不可思议的来源。每当用户输入一个未被识别的单词并选择保存该单词以避免被自动更正标记时，用户字典就会被填充。有趣的是，我们的测试设备中包含了许多我们从未输入或保存过的单词；这些数据似乎会与用户的Google账户同步，并在多个设备之间持久存在。从账户同步的单词按字母顺序添加到数据库的顶部，而手动添加的单词则按添加顺序出现在底部。
+- en: '**Package name**: `com.android.providers.userdictionary`'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.android.providers.userdictionary`'
+- en: '**Files of interest**:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/databases/user_dict.db`'
+  id: totrans-81
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/user_dict.db`'
+- en: '| **Table** | **Description** |'
+  id: totrans-82
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `words` | The `word` column contains the word that was added to the dictionary.
+    The frequency column should likely be ignored; it displayed the same value (250)
+    regardless of the number of times we used the word. |'
+  id: totrans-83
+  prefs: []
+  type: TYPE_TB
+  zh: '| `words` | `word`列包含添加到字典中的单词。频率列可能应被忽略；无论我们使用该单词多少次，它显示的值始终是（250）。 |'
+- en: 'Here are sample entries from a user dictionary:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是用户字典中的一些示例条目：
+- en: '![](img/c49f7f3e-39c9-4d3c-a9ab-9bed56a79507.png)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c49f7f3e-39c9-4d3c-a9ab-9bed56a79507.png)'
+- en: Gmail analysis
+  id: totrans-86
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Gmail分析
+- en: Gmail is an email service provided by Google. A Gmail account is often asked
+    for, though is not required, when the device is being set up for the first time.
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Gmail是由Google提供的电子邮件服务。在设备第一次设置时，通常会要求提供Gmail账户，虽然这不是必须的。
+- en: '**Package name**: `com.google.android.gm`'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.google.android.gm`'
+- en: '**Files of interest**:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/cache`'
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache`'
+- en: '`/databases/`:'
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`：'
+- en: '`mailstore.<username>@gmail.com.db`'
+  id: totrans-92
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`mailstore.<username>@gmail.com.db`'
+- en: '`databases/suggestions.db`'
+  id: totrans-93
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`databases/suggestions.db`'
+- en: '`/shared_prefs/`:'
+  id: totrans-94
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/`：'
+- en: '`MailAppProvider.xml`'
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`MailAppProvider.xml`'
+- en: '`Gmail.xml`'
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Gmail.xml`'
+- en: '`UnifiedEmail.xml`'
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`UnifiedEmail.xml`'
+- en: The `/cache` directory within the application folder contains recent files that
+    were attached to emails, both sent and received. These attachments are saved here
+    even if they are not explicitly downloaded by the user.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 应用程序文件夹中的`/cache`目录包含最近的邮件附件文件，无论是已发送还是已接收的。这些附件即使没有被用户明确下载，也会保存在这里。
+- en: 'The `mailstore.<username>@gmail.com.db` file contains a variety of useful information.
+    Interesting tables within the database include:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`mailstore.<username>@gmail.com.db`文件包含各种有用的信息。数据库中的有趣表格包括：'
+- en: '| **Table** | **Description** |'
+  id: totrans-100
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表** | **描述** |'
+- en: '| `attachments` | Information about attachments, including their size and file
+    path on the device (the `/cache` directory mentioned above). Each row also contains
+    a `messages_conversation` value; this value can be compared with the conversations
+    table to correlate an attachment with the email it was included within. The `filename`
+    column identifies the path on the device where the file is located. |'
+  id: totrans-101
+  prefs: []
+  type: TYPE_TB
+  zh: '| `附件` | 关于附件的信息，包括它们的大小和在设备上的文件路径（上文提到的`/cache`目录）。每一行还包含一个`messages_conversation`值；该值可以与对话表进行对比，以关联附件和它所在的邮件。`filename`列标识文件在设备上的存储路径。
+    |'
+- en: '| `conversations` | In older versions, entire email conversations could be
+    recovered. In the current version, Google no longer stores the entire conversation
+    on the device, likely assuming that the user will have a data connection to download
+    the full conversation. Instead, only the subject line and a snippet can be recovered.
+    The snippet is roughly the amount of text that would appear in the notification
+    bar or inbox screen of the app. The `fromCompact` column identifies the sender
+    and any other recipients. |'
+  id: totrans-102
+  prefs: []
+  type: TYPE_TB
+  zh: '| `对话` | 在旧版本中，可以恢复完整的电子邮件对话。在当前版本中，Google不再在设备上存储完整的对话，可能假设用户会有数据连接来下载完整对话。现在，只能恢复主题行和一个片段。片段大致是应用通知栏或收件箱屏幕中显示的文本量。`fromCompact`列标识发件人和其他收件人。
+    |'
+- en: The `suggestions.db` database contains terms that were searched within the application.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`suggestions.db`数据库包含了在应用内搜索的术语。'
+- en: The XML files within the `shared_prefs` directory can confirm the account(s)
+    that were used with the application. `Gmail.xml` contained another account that
+    was linked with our test account, but never used with the application. `UnifiedEmail.xml`
+    contained a partial list of senders who emailed the account, but with no discernible
+    rationale; many senders were on the list, but far from all, and they appeared
+    in no particular order. `Gmail.xml` also contained the last time that the application
+    was synced, in the Unix epoch format.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`shared_prefs`目录中的XML文件可以确认与应用程序一起使用的账户。`Gmail.xml`包含了与我们测试账户关联的另一个账户，但该账户从未在应用中使用。`UnifiedEmail.xml`包含了一部分向该账户发送邮件的发件人列表，但没有明确的规律；许多发件人出现在列表中，但远不是所有的，而且它们没有特定的顺序。`Gmail.xml`还包含了应用程序上次同步的时间，格式为Unix时间戳。'
+- en: Google Chrome analysis
+  id: totrans-105
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Google Chrome 分析
+- en: Google Chrome is a web browser, and is the default browser on many devices.
+    Chrome data on the device is somewhat unique in that it contains data not just
+    from the device, but from all devices on which the user has logged into Chrome.
+    This means that it is entirely possible (even very likely) that data from the
+    user browsing on their desktop computer will be found in the databases on their
+    phone. However, this also leads to huge amounts of data for an examiner to sort
+    through, but that's a good problem to have.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Google Chrome是一款网页浏览器，是许多设备的默认浏览器。设备上的Chrome数据有些独特，因为它包含的不仅仅是设备上的数据，还包含了用户在所有登录了Chrome的设备上的数据。这意味着，用户在台式电脑上浏览的数据很可能会出现在手机数据库中。然而，这也导致了考察者需要处理大量数据，但这也是一个好问题。
+- en: '**Package name**: `com.android.chrome`'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.android.chrome`'
+- en: '**Files of interest**:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/app_chrome/Default/`:'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/app_chrome/Default/`：'
+- en: '`Sync Data/SyncData.sqlite3`'
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`同步数据/SyncData.sqlite3`'
+- en: '`Bookmarks`'
+  id: totrans-111
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`书签`'
+- en: '`Cookies`'
+  id: totrans-112
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Cookies`'
+- en: '`Google Profile Picture.png`'
+  id: totrans-113
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Google Profile Picture.png`'
+- en: '`History`'
+  id: totrans-114
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`历史记录`'
+- en: '`Login Data`'
+  id: totrans-115
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`登录数据`'
+- en: '`Preferences`'
+  id: totrans-116
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Preferences`'
+- en: '`Top Sites`'
+  id: totrans-117
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`热门网站`'
+- en: '`Web Data`'
+  id: totrans-118
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Web数据`'
+- en: '`/app_ChromeDocumentActivity/`'
+  id: totrans-119
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/app_ChromeDocumentActivity/`'
+- en: All of the files listed in the `/app_chrome/Default` folder, except for the
+    one PNG file, `Bookmarks`, and `Preferences`, are SQLite databases despite the
+    lack of a file extension.
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/app_chrome/Default`文件夹中列出的所有文件，除了那个PNG文件、`Bookmarks`和`Preferences`，都是SQLite数据库，尽管它们没有文件扩展名。'
+- en: 'The `SyncData.sqlite3` database is interesting because it appears to contain
+    a list of data that has been synced from the user''s account on the device back
+    to Google''s servers. Our database, with a very active Chrome account, contained
+    over 2,700 entries, and included browsing history, autofill form information,
+    passwords, and bookmarks. As an example, we were able to find a term one of the
+    authors had searched for from 2012, seen in the following screenshot:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`SyncData.sqlite3` 数据库非常有趣，因为它似乎包含了一份从用户账户在设备上同步到 Google 服务器的数据列表。我们的数据库中，活跃的
+    Chrome 账户包含超过 2700 条记录，包括浏览历史、自动填充表单信息、密码和书签。例如，我们能够找到其中一位作者在 2012 年搜索的一个术语，见下图：'
+- en: '![](img/d129000c-f8a7-4666-87d7-8d831ce7c253.png)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d129000c-f8a7-4666-87d7-8d831ce7c253.png)'
+- en: '| **Table** | **Description** |'
+  id: totrans-123
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `metas` | There are many columns in the database that contain timestamps,
+    and in our database they all appear to only seconds apart for each entry. It is
+    unclear which time corresponds to the exact time an entry was added, but all of
+    the times roughly correspond with the time of the activity in the user''s account.
+    The columns with timestamps are `mtime`, `server_mtime`, `ctime`, `server_ctime`,
+    `base_version`, and `server_version`.The `non_unique_name` and `server_non_unique_name`
+    columns show the content that was synced. For example, one of our entries shows:`autofill_entry&#124;LNAME&#124;Tindall`Other
+    entries in these columns include URLs visited, passwords, and even devices that
+    the account has used. |'
+  id: totrans-124
+  prefs: []
+  type: TYPE_TB
+  zh: '| `metas` | 数据库中有许多包含时间戳的列，在我们的数据库中，每个条目的时间戳似乎相差仅仅几秒。尚不清楚哪个时间对应于条目添加的确切时间，但所有时间大致与用户账户中活动的时间一致。包含时间戳的列有
+    `mtime`、`server_mtime`、`ctime`、`server_ctime`、`base_version` 和 `server_version`。`non_unique_name`
+    和 `server_non_unique_name` 列显示已同步的内容。例如，我们的一个条目显示：`autofill_entry&#124;LNAME&#124;Tindall`。这些列中的其他条目包括访问过的
+    URL、密码，甚至账户使用过的设备。 |'
+- en: 'The `Bookmarks` file is a plaintext file, containing information about bookmarks
+    synced with the account. It includes the name of each site that is bookmarked,
+    the URL, and the date/time it was bookmarked, which is stored in a format we have
+    not come across yet: Webkit format. To decode the values, see the *Decoding the
+    Webkit time format* section.'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Bookmarks` 文件是一个纯文本文件，包含与账户同步的书签信息。它包括每个书签站点的名称、URL 以及书签添加的日期/时间，时间以我们尚未遇到的格式存储：Webkit
+    格式。要解码这些值，请参见 *解码 Webkit 时间格式* 部分。'
+- en: 'This is data storage method 3: Webkit time format.'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是数据存储方法 3：Webkit 时间格式。
+- en: The `Cookies` database stores cookie information for sites visited (depending
+    on the site and Chrome settings), including the name of the site, the date the
+    cookie was saved, and the last time the cookie was accessed, in Webkit time format.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Cookies` 数据库存储了访问过网站的 cookie 信息（取决于网站和 Chrome 设置），包括网站名称、cookie 保存日期以及最后访问
+    cookie 的时间，时间以 Webkit 时间格式存储。'
+- en: The `Google Profile Picture.PNG` file is the user's profile picture.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Google Profile Picture.PNG` 文件是用户的个人资料图片。'
+- en: The `History` database contains the user's web history.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`History` 数据库包含用户的网页历史记录。'
+- en: '| **Table** | **Description** |'
+  id: totrans-130
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `keyword_search_terms` | Contains a list of terms that were searched for
+    using Google within Chrome. The term column shows what was searched, while the
+    `url_id` can be correlated with the URLs table to see the time of the search.
+    |'
+  id: totrans-131
+  prefs: []
+  type: TYPE_TB
+  zh: '| `keyword_search_terms` | 包含在 Chrome 中使用 Google 搜索的术语列表。术语列显示搜索的内容，而 `url_id`
+    可以与 URL 表进行关联，以查看搜索的时间。 |'
+- en: '| `segments` | This table contains some URLs that were visited, but not all.
+    It is not clear what causes data to be entered into this table. |'
+  id: totrans-132
+  prefs: []
+  type: TYPE_TB
+  zh: '| `segments` | 该表包含一些访问过的 URL，但并非所有的 URL。尚不清楚是什么原因导致数据被输入到这个表中。 |'
+- en: '| `urls` | Contains browsing history for the Google account across all devices,
+    not just the device the database was pulled from. Our history went back approximately
+    3 months and contained 494 entries, although the Google account is much older
+    than that and we have certainly visited more than 494 pages in that time. It is
+    unclear exactly what causes this discrepancy or determines the cutoff date for
+    the history.The `id` column is a unique value for each row in the table. The `url`
+    and `title` columns contain the URL visited and the name of the page. The `visit_count`
+    column appears to be an accurate count of how many times the URL was visited.
+    `typed_count` is always equal to or lesser than `visit_count`, but we do not know
+    exactly what it indicates. For some sites, the discrepancy can be accounted for
+    by factoring in the number of times the site was visited through a bookmark rather
+    than typing the URL, but this does not hold true for all cases. `last_visit_time`
+    is the last time the URL was visited, in Webkit time format. |'
+  id: totrans-133
+  prefs: []
+  type: TYPE_TB
+  zh: '| `urls` | 包含 Google 帐号在所有设备上的浏览历史记录，而不仅仅是从中提取数据库的设备。我们的历史记录追溯大约 3 个月，包含了 494
+    条记录，尽管 Google 帐号比这更早，我们在这段时间内肯定访问了超过 494 个页面。目前尚不清楚导致这种差异的具体原因，或者是什么决定了历史记录的截止日期。`id`
+    列是每行数据的唯一值。`url` 和 `title` 列分别包含访问的 URL 和页面的名称。`visit_count` 列似乎准确计数了访问该 URL 的次数。`typed_count`
+    始终小于或等于 `visit_count`，但我们不确定它具体表示什么。对于某些网站，可以通过计算通过书签访问网站而非直接输入 URL 的次数来解释这种差异，但并非所有情况都如此。`last_visit_time`
+    是访问该 URL 的最后时间，以 Webkit 时间格式表示。 |'
+- en: '| `visits` | Contains a row for each visit to the URLs in the `urls` table;
+    the number of entries in this table for a URL corresponds to the value in the
+    `visit_count` column of the `url` table. The `url` column value correlates to
+    the value in the id column of the `url` table. The time of each visit can be found
+    in the `visit_time` column, again in Webkit time format. |'
+  id: totrans-134
+  prefs: []
+  type: TYPE_TB
+  zh: '| `visits` | 包含每次访问 `urls` 表格中 URL 的记录；该表格中每个 URL 的条目数与 `url` 表格中的 `visit_count`
+    列值相对应。`url` 列值与 `url` 表格中的 `id` 列值相关联。每次访问的时间可以在 `visit_time` 列中找到，同样是 Webkit
+    时间格式。 |'
+- en: 'The `Login Data` database contains login information saved in Chrome, and is
+    synced across all devices that use the Google account:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Login Data` 数据库包含保存在 Chrome 中的登录信息，并且会在使用 Google 帐号的所有设备之间同步：'
+- en: '| **Table** | **Description** |'
+  id: totrans-136
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `logins` | `origin_url` is the site the user visited initially, `action_url`
+    is the URL of the login page if the user is redirected to one; if the first page
+    visited is the login page, both URLs are the same. The `username_value` and `password_value`
+    columns show the username and password stored for that URL in plaintext; and no,
+    we''re not going to include a screenshot of our database! `date_created` is the
+    date/time that login information was first saved, in Webkit time format. The `date_synced`
+    column is the date/time that login data was synced locally to the device, again
+    in Webkit time format. The `times_used` column shows the number of times that
+    login information was autofilled by Chrome after it was saved (excluding the first
+    login, so some values may be 0). |'
+  id: totrans-137
+  prefs: []
+  type: TYPE_TB
+  zh: '| `logins` | `origin_url` 是用户最初访问的网站，`action_url` 是如果用户被重定向到登录页面的 URL；如果第一个访问页面就是登录页面，那么两个
+    URL 是相同的。`username_value` 和 `password_value` 列显示为该 URL 存储的用户名和密码（明文）；我们不会包括数据库的截图！`date_created`
+    是首次保存登录信息的日期/时间，以 Webkit 时间格式表示。`date_synced` 列是登录数据被同步到设备本地的日期/时间，同样采用 Webkit
+    时间格式。`times_used` 列显示登录信息在保存后由 Chrome 自动填充的次数（不包括第一次登录，因此某些值可能为 0）。 |'
+- en: The `Preferences` file is a text file, and contains the Google account(s) the
+    user has signed into Chrome with.
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Preferences` 文件是一个文本文件，包含用户已登录 Chrome 的 Google 帐号。'
+- en: The `Top Sites` database contains the sites that are most frequently visited,
+    as these are shown by default when Chrome opens.
+  id: totrans-139
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Top Sites` 数据库包含最常访问的网站，这些网站在 Chrome 启动时默认显示。'
+- en: The `Web Data` database contains information the user has saved in order to
+    automatically fill in forms on websites.
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Web Data` 数据库包含用户为自动填充网站表单而保存的信息。'
+- en: '| **Table** | **Description** |'
+  id: totrans-141
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `autofill` | Contains a list of fields on web-based forms and the value the
+    user typed. The `name` column shows the name of the field that was typed in, while
+    the `value` column shows what the user typed. `date_created` and `date_last_used`
+    are self-explanatory, and are stored in Linux epoch format.Note that while this
+    is potentially very valuable information (for example, our database contained
+    a few usernames not stored elsewhere), there is also very little context available.
+    The URL where the information is not stored, and may not be determinable. |'
+  id: totrans-142
+  prefs: []
+  type: TYPE_TB
+  zh: '| `autofill` | 包含网页表单上的字段列表和用户输入的值。`name` 列显示用户输入的字段名称，`value` 列显示用户输入的内容。`date_created`
+    和 `date_last_used` 很容易理解，并以 Linux 纪元格式存储。请注意，尽管这可能是非常有价值的信息（例如，我们的数据库中包含了一些没有存储在其他地方的用户名），但也很少有上下文可供参考。无法确定存储这些信息的
+    URL，并且可能无法确定。 |'
+- en: '| `autofill_profile_emails` | Contains all values the user has saved to autofill
+    the `email` field on a web form. |'
+  id: totrans-143
+  prefs: []
+  type: TYPE_TB
+  zh: '| `autofill_profile_emails` | 包含用户保存的用于自动填写网页表单中 `email` 字段的所有值。 |'
+- en: '| `autofill_profile_names` | Contains all values the user has saved to autofill
+    the **First**, **Middle**, **Last**, and **Full Name** fields on a web form. |'
+  id: totrans-144
+  prefs: []
+  type: TYPE_TB
+  zh: '| `autofill_profile_names` | 包含用户保存的用于自动填写网页表单中 **First**、**Middle**、**Last**
+    和 **Full Name** 字段的所有值。 |'
+- en: '| `autofill_profile_phonwa` | Contains all values the user has saved to autofill
+    the **Phone Number** field on a web form. |'
+  id: totrans-145
+  prefs: []
+  type: TYPE_TB
+  zh: '| `autofill_profile_phonwa` | 包含用户保存的用于自动填写网页表单中 **Phone Number** 字段的所有值。 |'
+- en: '| `autofill_profiles` | Contains all values the user has saved to autofill
+    address information fields on a web form. |'
+  id: totrans-146
+  prefs: []
+  type: TYPE_TB
+  zh: '| `autofill_profiles` | 包含用户保存的用于自动填写网页表单中地址信息字段的所有值。 |'
+- en: The `/app_ChromeDocumentActivity/` directory contains files with history for
+    recent tabs that were open on the device. URLs can be recovered from these files
+    for sites that were visited.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/app_ChromeDocumentActivity/` 目录包含设备上最近打开的标签页的历史记录文件。可以从这些文件中恢复访问过的网站的 URL。'
+- en: Decoding the Webkit time format
+  id: totrans-148
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解码 Webkit 时间格式
+- en: 'Here is a sample Webkit time value: 13066077007826684.'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个 Webkit 时间值的示例：13066077007826684。
+- en: At first glance, it appears to be very similar to Unix epoch time, just slightly
+    longer (perhaps it is storing nanoseconds?). An examiner who attempts to decode
+    this as epoch time will get a date in May 2011, which may seem accurate, but is
+    in fact several years off from the correct date!
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 乍一看，它似乎与 Unix 纪元时间非常相似，只是稍微长一些（也许它存储的是纳秒？）。尝试将其解码为纪元时间的检查员将得到一个 2011 年 5 月的日期，这看起来可能很准确，但实际上与正确日期相差了好几年！
+- en: Webkit time *is* an epoch time, it is just based on a different starting point
+    than Unix epoch time. Webkit epoch time is the number of microseconds since midnight
+    on January 1st, 1601\. Yes, we said the year 1601\. Once we know where the epoch
+    begins, converting to a recognizable format simply becomes a math problem. But,
+    once again, we'd rather use DCode.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Webkit 时间 *是* 一种纪元时间，它只是基于不同于 Unix 纪元时间的起点。Webkit 纪元时间是自 1601 年 1 月 1 日午夜以来的微秒数。是的，我们说的是
+    1601 年。一旦知道纪元的起点，将其转换为一个可识别的格式就只是一个数学问题。但，再次强调，我们还是更愿意使用 DCode。
+- en: 'This time in DCode, choose Google Chrome Value in the **Decode Format** dropdown
+    selection, and click **Decode**:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这次在 DCode 中，选择 **Decode Format** 下拉菜单中的 Google Chrome Value，然后点击 **Decode**：
+- en: '![](img/03e81ce5-4f46-4ef6-b02f-5b90f73c9872.png)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/03e81ce5-4f46-4ef6-b02f-5b90f73c9872.png)'
+- en: The actual value of our example is November 2nd, 2014 at 18:04:33 UTC; significantly
+    different than the value we would have come up with if we'd thought it was a Unix
+    epoch time!
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们示例的实际值是 2014 年 11 月 2 日 18:04:33 UTC；这与我们如果以 Unix 纪元时间来解读所得到的值有显著不同！
+- en: Google Maps analysis
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Google Maps 分析
+- en: Maps is a map/navigation application provided by Google.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Maps 是由 Google 提供的地图/导航应用程序。
+- en: '**Package name**: `com.google.android.apps.maps`'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**： `com.google.android.apps.maps`'
+- en: '**Files of interest**:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/cache/http/`'
+  id: totrans-159
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/http/`'
+- en: '`/databases/`:'
+  id: totrans-160
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`：'
+- en: '`gmm_myplaces.db`'
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gmm_myplaces.db`'
+- en: '`gmm_storage.db`'
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`gmm_storage.db`'
+- en: The `/cache/http` folder contains many files, with `.0` and `.1` file extensions.
+    The `.0` files are web requests for the corresponding `.1` file. The `.1` files
+    are predominantly images, and can be viewed by changing their extension appropriately;
+    on our test device, they were either `.jpg` or `.png` files. These files were
+    predominantly locations near the user, not necessarily locations the user specifically
+    searched for.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/http` 文件夹包含许多文件，扩展名为 `.0` 和 `.1`。`.0` 文件是对应 `.1` 文件的网页请求。`.1` 文件主要是图像文件，可以通过适当更改扩展名来查看；在我们的测试设备上，它们要么是
+    `.jpg` 文件，要么是 `.png` 文件。这些文件主要是用户附近的位置，不一定是用户特意搜索的位置。'
+- en: 'This is data storage method 4: misnamed file extensions'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是数据存储方法 4：错误命名的文件扩展名
+- en: Always verify the header of a file that can't be opened, or use automated tools,
+    such as EnCase, to detect the mismatched header/file extension. A good resource
+    to verify a file's signature is [http://www.garykessler.net/library/file_sigs.html](http://www.garykessler.net/library/file_sigs.html).
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总是验证无法打开的文件的头部，或使用 EnCase 等自动化工具检测不匹配的头部/文件扩展名。验证文件签名的好资源是 [http://www.garykessler.net/library/file_sigs.html](http://www.garykessler.net/library/file_sigs.html)。
+- en: The `gmm_myplaces.db` database contains locations saved by the user. This file
+    syncs with the user's Google account, so these locations were not necessarily
+    saved using the application.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`gmm_myplaces.db` 数据库包含用户保存的位置。这些位置与用户的 Google 账户同步，因此这些位置未必是通过该应用程序保存的。'
+- en: '`gmm_storage.db` contains search hits and locations that were navigated to:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`gmm_storage.db` 包含搜索点击和已导航至的位置：'
+- en: '| ** Table** | **Description** |'
+  id: totrans-168
+  prefs: []
+  type: TYPE_TB
+  zh: '| ** 表格** | **描述** |'
+- en: '| `gmm_storage_table` | The `_key_pri` column appears to identify the type
+    of the location, bundled appears to be a hit that came up on a search, while `ArrivedAtPlacemark`
+    identifies locations that were actually navigated to. The `_data` column contains
+    the address for the location. |'
+  id: totrans-169
+  prefs: []
+  type: TYPE_TB
+  zh: '| `gmm_storage_table` | `_key_pri` 列似乎标识了位置的类型，bundled 看起来是一个在搜索中出现的点击，而 `ArrivedAtPlacemark`
+    标识了实际导航到的位置。 `_data` 列包含了位置的地址。 |'
+- en: Google Hangouts analysis
+  id: totrans-170
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 谷歌即时通讯分析
+- en: Hangouts is a chat/SMS application provided by Google. Hangouts is the default
+    SMS client on Android devices.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Hangouts 是 Google 提供的聊天/SMS 应用程序。在 Android 设备上，Hangouts 是默认的 SMS 客户端。
+- en: '**Package name**: `com.google.android.talk`'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.google.android.talk`'
+- en: '**Files of interest**:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/cache/volleyCache/`'
+  id: totrans-174
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/volleyCache/`'
+- en: '`/databases/babel#.db` (our device had `babel0.db` and `babel1.db`)'
+  id: totrans-175
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/babel#.db`（我们的设备上有 `babel0.db` 和 `babel1.db`）'
+- en: '`/shared_prefs/accounts.xml`'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/accounts.xml`'
+- en: The `cache` directory contains .0 files, as discussed in the Google Maps example.
+    The files contain a URL to fetch the profile pictures of contacts, as well as
+    a JPG embedded within the file. Visiting the URL or carving the JPG from the file
+    will recover the contact's picture.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`cache` 目录包含 `.0` 文件，如在 Google 地图示例中讨论的那样。这些文件包含一个用于获取联系人头像的 URL，以及文件中嵌入的 JPG。访问该
+    URL 或从文件中切割 JPG 将恢复联系人的图片。'
+- en: 'The `babel#.db` file contains all messaging data. On our test device, `babel0.db`
+    was blank and `babel1.db` had all of the data for the active account. There are
+    many tables within this database worth looking at:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`babel#.db` 文件包含所有的消息数据。在我们的测试设备上，`babel0.db` 是空白的，而 `babel1.db` 包含了活跃账户的所有数据。数据库中有许多值得查看的表格：'
+- en: '| **Table** | **Description** |'
+  id: totrans-179
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `conversations` | Contains conversation data. There is a unique `conversation_id`
+    for each chat. `latest_message_timestamp` is the time of the most recent chat,
+    in Linux epoch format. The `generated_name` column has a list of all participants
+    in the chat, minus the account on the device. The `snippet_text` column is the
+    content of the most recent message; like Gmail, the entire chat is not stored
+    on the device. The `latest_message_author_full_name` and `latest_message_author_first_name`
+    columns identify the author of the `snippet_text` column. The `inviter_full_name`
+    and `inviter_first_name` columns identify which person initiated the conversation.
+    |'
+  id: totrans-180
+  prefs: []
+  type: TYPE_TB
+  zh: '| `conversations` | 包含会话数据。每个聊天都有一个唯一的 `conversation_id`。 `latest_message_timestamp`
+    是最近聊天的时间，采用 Linux epoch 格式。 `generated_name` 列列出了设备上的所有参与者，减去账户本身。 `snippet_text`
+    列是最近消息的内容；与 Gmail 类似，设备上不会存储整个聊天记录。 `latest_message_author_full_name` 和 `latest_message_author_first_name`
+    列标识了 `snippet_text` 列的作者。 `inviter_full_name` 和 `inviter_first_name` 列标识了发起会话的人。
+    |'
+- en: '| `dismissed_contacts` | Has a list of names of former contacts that had been
+    messaged. These are labelled as a **Hidden Contact** within the app. |'
+  id: totrans-181
+  prefs: []
+  type: TYPE_TB
+  zh: '| `dismissed_contacts` | 列出了曾经发消息的联系人的姓名列表。这些在应用程序内被标记为 **隐藏联系人**。 |'
+- en: '| `messages` | As expected, contains a detailed message history for each conversation.
+    Text contains the content of the message, and the timestamp column is the date/time
+    in Linux epoch format. The `remote_url` column is, once again, a URL to retrieve
+    images shared in the message. Again, it can be accessed publicly. `author_chat_id`
+    is a value that can be correlated with the participants table to identify the
+    author of each message. |'
+  id: totrans-182
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages` | 如预期的那样，包含每个对话的详细消息历史记录。文本列包含消息内容，时间戳列是 Linux 时间戳格式的日期/时间。`remote_url`
+    列再次是一个 URL，用于检索消息中共享的图像，可以公开访问。`author_chat_id` 是一个值，可以与参与者表相关联，用来识别每条消息的作者。 |'
+- en: '| p`a`rticipants | Contains a list of people chatted with. Includes full names,
+    profile picture URLs, and a `chat_id` to identify the person in the messages table.
+    |'
+  id: totrans-183
+  prefs: []
+  type: TYPE_TB
+  zh: '| `participants` | 包含与之聊天的人的列表。包括全名、个人资料图片 URL 和一个 `chat_id` 用于在消息表中标识该人。 |'
+- en: The `accounts.xml` file has a `phone_verification` field that contains the phone
+    number associated with the Google account when Hangouts is configured to send
+    SMS. This could be highly useful, because it is frequently difficult to obtain
+    the device's phone number as it is often not stored on the device.
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`accounts.xml` 文件有一个 `phone_verification` 字段，包含与 Google 账户关联的电话号码，当 Hangouts
+    配置为发送 SMS 时使用。这可能非常有用，因为通常很难获取设备的电话号码，因为它通常不存储在设备中。'
+- en: Google Keep analysis
+  id: totrans-185
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Google Keep 分析
+- en: Keep is a note-taking application provided by Google. It can also be used to
+    set reminders, either at a certain date/time or when the user is at a specified
+    location.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Keep 是由 Google 提供的便签应用。它还可以用于设置提醒，提醒可以在某个特定日期/时间或用户位于指定位置时触发。
+- en: '**Package name**: `com.google.android.keep`'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.google.android.keep`'
+- en: '**Files of interest**:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**相关文件**:'
+- en: '`/databases/keep.db`'
+  id: totrans-189
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/keep.db`'
+- en: '`/files/1/image/original`'
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/1/image/original`'
+- en: The `files/1/image/original` directory contains photos taken using the app.
+    Notes and reminders can both be associated with an image.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/1/image/original` 目录包含使用应用程序拍摄的照片。便签和提醒都可以与图像相关联。'
+- en: '`Keep.db` contains all of the information about notes and reminders. There
+    are, once again, several tables of interest:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Keep.db` 包含所有关于便签和提醒的信息。再次提到，有几个重要的表格：'
+- en: '| **Table** | **Description** |'
+  id: totrans-193
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `alert` | Contains information about location-based reminders. `reminder_id`
+    can be correlated with entries in the reminder table. The `reminder_detail` table
+    contains the latitude and longitude set for the reminder. `scheduled_time` is
+    the date/time the reminder was set, in Linux epoch time. |'
+  id: totrans-194
+  prefs: []
+  type: TYPE_TB
+  zh: '| `alert` | 包含关于基于位置的提醒信息。`reminder_id` 可以与提醒表中的条目相关联。`reminder_detail` 表包含为提醒设置的纬度和经度。`scheduled_time`
+    是设置提醒的日期/时间，采用 Linux 时间戳格式。 |'
+- en: '| `blob` | Contains metadata about images in the `/files` directory, including
+    the filename and size. `blob_id` can be correlated with the `_id` column in the
+    `blob_node` table. |'
+  id: totrans-195
+  prefs: []
+  type: TYPE_TB
+  zh: '| `blob` | 包含 `/files` 目录中图像的元数据，包括文件名和大小。`blob_id` 可以与 `blob_node` 表中的 `_id`
+    列相关联。 |'
+- en: '| `blob_node` | Contains the time created value for the images in the `/files`
+    directory, in Linux epoch time. |'
+  id: totrans-196
+  prefs: []
+  type: TYPE_TB
+  zh: '| `blob_node` | 包含 `/files` 目录中图像的创建时间值，采用 Linux 时间戳格式。 |'
+- en: '| `list_item` | Stores data for each note on the device. The text column contains
+    the full text of each note. The `list_parent_id` column is a unique value for
+    each note; if multiple rows have the same value, it means they were created as
+    a list within the same note. The `time_created` and `time_last_updated` columns
+    are the time the note was created, and the time it was last synced with the Google
+    servers, in Linux epoch time. |'
+  id: totrans-197
+  prefs: []
+  type: TYPE_TB
+  zh: '| `list_item` | 存储设备上每个便签的数据。文本列包含每个便签的完整内容。`list_parent_id` 列是每个便签的唯一值；如果多行具有相同的值，则表示它们是在同一便签内作为列表创建的。`time_created`
+    和 `time_last_updated` 列分别是便签的创建时间和最后一次与 Google 服务器同步的时间，采用 Linux 时间戳格式。 |'
+- en: '| `reminder` | Contains data about each reminder set within the app. If the
+    reminder is time-based, the `julian_date` and `time_of_day` columns will be populated.
+    |'
+  id: totrans-198
+  prefs: []
+  type: TYPE_TB
+  zh: '| `reminder` | 包含应用中设置的每个提醒的数据。如果提醒是基于时间的，`julian_date` 和 `time_of_day` 列将被填充。
+    |'
+- en: Converting a Julian date
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 转换 Julian 日期
+- en: 'Julian dates are similar to the Linux epoch format, simply starting from a
+    different date. The Julian date system counts the number of days since noon on
+    January 1st, 4713 BC. The United States Naval Observatory has an excellent Julian
+    date calculator: [http://aa.usno.navy.mil/data/docs/JulianDate.php](http://aa.usno.navy.mil/data/docs/JulianDate.php).
+    To obtain the Julian date from the database, simply combine the two columns with
+    a decimal in between, for example:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 儒略日类似于Linux纪元格式，只是从不同的日期开始。儒略日系统计算的是自公元前4713年1月1日中午以来的天数。美国海军天文台提供了一个优秀的儒略日计算器：[http://aa.usno.navy.mil/data/docs/JulianDate.php](http://aa.usno.navy.mil/data/docs/JulianDate.php)。要从数据库中获取儒略日，只需将两列结合在一起，中间用小数点隔开，例如：
+- en: '![](img/b3403864-ed38-4447-b41a-b109e10bb0cf.png)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b3403864-ed38-4447-b41a-b109e10bb0cf.png)'
+- en: This would correspond to the Julian date `2457042.46800000`. When this value
+    is input to the website, we find out the date the reminder is set for is January
+    19 2015 at 23:13:55.2 UT. The `location_name`, `latitude`, `longitude`, and `location_address`
+    columns will be populated if a reminder is set as location-based. Finally, the
+    `time_created` and t`ime_last_updated` columns are the time the note was created,
+    and the time it was last synced with the Google servers, in Linux epoch time.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将对应于儒略日`2457042.46800000`。当此值输入到网站时，我们可以得知设置的提醒日期是2015年1月19日，23:13:55.2 UT。如果设置了基于位置的提醒，`location_name`、`latitude`、`longitude`和`location_address`字段将会被填充。最后，`time_created`和`time_last_updated`字段分别表示笔记创建的时间和最后与Google服务器同步的时间，以Linux纪元时间表示。
+- en: 'Data storage method 5: Julian date'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据存储方法5：儒略日
+- en: Recovering video messages from Skype
+  id: totrans-204
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 从Skype恢复视频消息
+- en: 'As noted, video messages are not stored on the device. Luckily for us, they
+    can be accessed via the internet. The first step is to verify that a video message
+    was sent, by looking in the Messages table in the `body_xml` column. Next, note
+    the `convo_id` field for the message:'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，视频消息不会保存在设备上。幸运的是，我们可以通过互联网访问它们。第一步是通过查看`body_xml`列中的Messages表来验证视频消息是否已发送。接下来，记下该消息的`convo_id`字段：
+- en: '![](img/f5db9d12-4c94-4810-a676-7b559636dcdc.png)'
+  id: totrans-206
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f5db9d12-4c94-4810-a676-7b559636dcdc.png)'
+- en: Our video message is in `convo_id` `257`.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的视频消息在`convo_id`为`257`。
+- en: 'Then, look in the Chats table for that `convo_id` in the `conv_dbid` column,
+    and find the `dbpath` value. This will be the name of the conversation''s backup
+    file:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，在Chats表中查找该`convo_id`在`conv_dbid`列中的记录，并找到`dbpath`值。这将是会话备份文件的名称：
+- en: '![](img/5e05131a-7f75-4b61-9efb-fd56e96a56e8.png)'
+  id: totrans-209
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5e05131a-7f75-4b61-9efb-fd56e96a56e8.png)'
+- en: To find the backup file, look in `files/<username>/chatsync`. There will be
+    a folder for each conversation, the name of the folder is the first two digits
+    of the backup name. Our backup will be in folder `28`.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要找到备份文件，请查看`files/<用户名>/chatsync`目录。每个会话都会有一个文件夹，文件夹的名称是备份名称的前两位数字。我们的备份将位于`28`文件夹中。
+- en: 'Open the backup file in a hex editor, and search for `videomessage`. You should
+    find a URL and a code to access the video:'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在十六进制编辑器中打开备份文件，并搜索`videomessage`。你应该能找到一个URL和一个用于访问视频的代码：
+- en: '![](img/d5be7bdf-9ff6-4a69-9862-c265f38f342e.png)'
+  id: totrans-212
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d5be7bdf-9ff6-4a69-9862-c265f38f342e.png)'
+- en: Actually accessing the URL may require an additional warrant or legal permission,
+    depending on your local jurisdiction. As this data is not on the device, and is
+    private, viewing it without legal guidance could invalidate any evidence found
+    in the video.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际访问该URL可能需要额外的逮捕令或法律许可，这取决于当地的法律管辖区。由于这些数据不在设备上，且属于私人数据，未经法律指导访问这些数据可能会使视频中的任何证据无效。
+- en: Google Plus analysis
+  id: totrans-214
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Google Plus分析
+- en: Google Plus is the Google-based social network. It allows the sharing of text/videos/images,
+    adding friends, following people, and messaging. Google Plus may also, depending
+    on the user's settings, automatically upload all pictures taken on the user's
+    device.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Google Plus是一个基于Google的社交网络。它允许分享文本/视频/图片，添加朋友，关注他人并进行消息交流。根据用户的设置，Google Plus还可能自动上传用户设备上拍摄的所有图片。
+- en: '**Package name**: `com.google.android.apps.plus`'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.google.android.apps.plus`'
+- en: '**Files of interest**:'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/databases/es0.db`'
+  id: totrans-218
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/es0.db`'
+- en: '`Es0.db` contains all the information an examiner would expect to find from
+    a social media account:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Es0.db`包含了调查员期望从社交媒体账户中找到的所有信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-220
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `all_photos` | Contains a URL to download images shared by and with the user, 
+    as well as the creation date/time in Linux epoch format |'
+  id: totrans-221
+  prefs: []
+  type: TYPE_TB
+  zh: '| `all_photos` | 包含一个URL，用于下载用户共享或与用户共享的图像，以及以Linux纪元格式显示的创建日期/时间 |'
+- en: '| `activities` | Data displayed in the user''s stream (that is, their news
+    feed). The created and modified time for each post is, once again, stored in Linux
+    epoch time. The title and comment columns will contain the post title and at least
+    some of the comments from it. The permalink column contains a URL that can be
+    followed to view the post, if it was shared publicly. If the post is shared privately,
+    the content can still be recovered from the embed table. The related table contains
+    the hashtags automatically generated for the post by Google, this will also populate
+    even if the post is private. |'
+  id: totrans-222
+  prefs: []
+  type: TYPE_TB
+  zh: '| `activities` | 显示在用户动态流中的数据（即他们的新闻推送）。每个帖子的创建和修改时间再次以 Linux 纪元时间格式存储。标题和评论列将包含帖子的标题以及至少一些评论。永久链接列包含一个可以点击查看帖子的
+    URL（如果帖子是公开分享的）。如果帖子是私密分享的，仍然可以从嵌入表中恢复其内容。相关表包含由 Google 自动生成的与帖子的相关标签，即使帖子是私密的，也会填充这些标签。
+    |'
+- en: '| `activity_contacts` | Contains a list of names for people whose posts are
+    in the activities table. |'
+  id: totrans-223
+  prefs: []
+  type: TYPE_TB
+  zh: '| `activity_contacts` | 包含在活动表中发布的人员的姓名列表。 |'
+- en: '| `all_photos` | Contains a list of ALL photos the user has backed up to Google
+    Plus, whether they were shared or not. `image_url` can be used to download any
+    of the user''s photos, and is publicly available. Removing the `-d` on the end
+    of the URL will allow you to view the image without downloading. The timestamp
+    column is the date/time the image was *taken*, based on the image metadata; it
+    does not indicate when the image was uploaded. |'
+  id: totrans-224
+  prefs: []
+  type: TYPE_TB
+  zh: '| `all_photos` | 包含用户备份到 Google Plus 的所有照片的列表，无论这些照片是否已被分享。`image_url` 可用于下载用户的任何照片，并且是公开可用的。删除
+    URL 末尾的 `-d` 可以在不下载的情况下查看图片。时间戳列是图片被 *拍摄* 的日期/时间，基于图片的元数据；它不表示图片上传的时间。 |'
+- en: '| `all_tiles` | Contains an unknown subset of `all_photos`, but also includes
+    images shared with the user. |'
+  id: totrans-225
+  prefs: []
+  type: TYPE_TB
+  zh: '| `all_tiles` | 包含 `all_photos` 的一个未知子集，还包括用户共享的图像。 |'
+- en: '| `circle_contact` | Contains a list of people the user has added to their
+    circles. Does not include names, but some of the `link_person_id` values include
+    email addresses. The `link_circle_id` value can be correlated with the circles
+    table to identify the name of each circle. `link_person_id` can then be correlated
+    with the contacts table to identify which user is in which circle. |'
+  id: totrans-226
+  prefs: []
+  type: TYPE_TB
+  zh: '| `circle_contact` | 包含用户已添加到其圈子中的人员列表。不包含姓名，但一些 `link_person_id` 值包含电子邮件地址。`link_circle_id`
+    值可以与圈子表关联，以识别每个圈子的名称。然后，`link_person_id` 可以与联系人表关联，以识别每个用户属于哪个圈子。 |'
+- en: '| `circles` | Has all circles the user has created, as well as a count of the
+    number of users in each one. |'
+  id: totrans-227
+  prefs: []
+  type: TYPE_TB
+  zh: '| `circles` | 包含用户创建的所有圈子，以及每个圈子的成员数量。 |'
+- en: '| `contacts` | A list of all contacts in the user''s circles. |'
+  id: totrans-228
+  prefs: []
+  type: TYPE_TB
+  zh: '| `contacts` | 用户圈子中的所有联系人列表。 |'
+- en: '| `events` | A listing of all events the user has been invited to, whether
+    they attended or not. The name column is the title of the event. `creator_gaia_id`
+    can be correlated with the `gaia_id` column in the contacts table to identify
+    the event creator. The `start_time` and `end_time` columns are the time of the
+    event, in Linux epoch format. The `event_data` column has the description of the
+    event entered by the creator, as well as information about the location if added.
+    It also lists all other users who were invited to the event. |'
+  id: totrans-229
+  prefs: []
+  type: TYPE_TB
+  zh: '| `events` | 用户被邀请的所有事件的列表，无论是否参加。名称列是事件的标题。`creator_gaia_id` 可以与联系人表中的 `gaia_id`
+    列关联，以识别事件的创建者。`start_time` 和 `end_time` 列表示事件的开始时间和结束时间，采用 Linux 纪元格式。`event_data`
+    列包含创建者输入的事件描述，以及如果有添加的地点信息。还列出了所有其他被邀请参加事件的用户。 |'
+- en: '| `squares` | A list of groups the user has joined. |'
+  id: totrans-230
+  prefs: []
+  type: TYPE_TB
+  zh: '| `squares` | 用户加入的群组列表。 |'
+- en: Facebook analysis
+  id: totrans-231
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Facebook 分析
+- en: Facebook is a social media application with more than 1,000,000,000 downloads
+    from Google Play.
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Facebook 是一款社交媒体应用，已在 Google Play 上被下载超过 10 亿次。
+- en: '**Package name**: `com.facebook.katana`'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.facebook.katana`'
+- en: '**Files of interest**:'
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/files/video-cache/`'
+  id: totrans-235
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/video-cache/`'
+- en: '`/cache/images/`'
+  id: totrans-236
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/images/`'
+- en: '`/databases/`'
+  id: totrans-237
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`'
+- en: '`bookmarks_db2`'
+  id: totrans-238
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`bookmarks_db2`'
+- en: '`contacts_db2`'
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`contacts_db2`'
+- en: '`nearbytiles_db`'
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`nearbytiles_db`'
+- en: '`newsfeed_db`'
+  id: totrans-241
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`newsfeed_db`'
+- en: '`notifications_db`'
+  id: totrans-242
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`notifications_db`'
+- en: '`prefs_db`'
+  id: totrans-243
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`prefs_db`'
+- en: '`threads_db2`'
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`threads_db2`'
+- en: The `/files/video-cache` directory contains videos from the user's newsfeed,
+    though there does not appear to be a way to correlate them with the user who posted
+    them.
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/video-cache` 目录包含来自用户新闻推送的视频，但似乎没有办法将这些视频与发布它们的用户关联起来。'
+- en: The `/cache/images` directory contains images from the user's newsfeed, as well
+    as profile photos of contacts. The directory contains a multitude of other directories
+    (65 on our test phone), and each directory can contain multiple `.cnt` files.
+    The `.cnt` files are typically JPG files or other image formats.
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/images` 目录包含来自用户新闻源的图片，以及联系人个人资料照片。该目录包含多个其他子目录（我们测试的手机上有 65 个），每个子目录可以包含多个
+    `.cnt` 文件。`.cnt` 文件通常是 JPG 文件或其他图像格式。'
+- en: The `bookmarks_db2` database is a list of items that appear on the side of the
+    user's newsfeed, such as groups and applications. Many of these bookmarks are
+    automatically generated by Facebook, but may also be created by the user.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`bookmarks_db2` 数据库是显示在用户新闻源侧边的项目列表，如群组和应用程序。许多这些书签是 Facebook 自动生成的，但也可以由用户创建。'
+- en: '| **Table** | **Description** |'
+  id: totrans-248
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| bookmarks | Contains all of the info within the database. The `bookmark_name`
+    column is the name of the bookmark displayed to the user. The `bookmark_pic` column
+    has a publicly-accessible URL to view the bookmark icon displayed to the user.
+    The `bookmark_type` column identifies the type of the group; our testing showed
+    `profile`, `group`, `app`, `friend_list`, `page`, and `interest_list`. Finally,
+    the `bookmark_unread_count` column shows how many messages in the group have not
+    been read by the user. |'
+  id: totrans-249
+  prefs: []
+  type: TYPE_TB
+  zh: '| bookmarks | 包含数据库中的所有信息。`bookmark_name` 列是显示给用户的书签名称。`bookmark_pic` 列包含一个可以公开访问的
+    URL，用于查看显示给用户的书签图标。`bookmark_type` 列标识组的类型；我们的测试显示包括 `profile`、`group`、`app`、`friend_list`、`page`
+    和 `interest_list`。最后，`bookmark_unread_count` 列显示该组中用户未读的消息数量。 |'
+- en: 'The `contacts_db2` database, predictably, contains information about all of
+    the user''s contacts:'
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`contacts_db2` 数据库，顾名思义，包含所有用户联系人的信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-251
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `contacts` | Contains all information about the user''s contacts. The `fbid`
+    column is a unique ID that is used to identify the contact in other databases.
+    The `first_name`, `last_name`, and `display_name` columns show the contact''s
+    name. `small_picture_url`, `big_picture_url`, and `huge_picture_url` contain public
+    links to the contact''s profile picture. `communication_rank` appears to be a
+    number identifying how often the contact communicates with the user (taking into
+    account messages, comments, and possibly other factors); a higher number indicates
+    more communication with that contact. `added_time_ms` shows the time (in Linux
+    epoch format) the contact was added as a friend. The `bday_day` and `bday_month`
+    columns show the contact''s birthdate, but not the year. The data column contains
+    a duplicate of all the rest of the data in the database, but also contains the
+    contact''s location, which is not found elsewhere in the database. |'
+  id: totrans-252
+  prefs: []
+  type: TYPE_TB
+  zh: '| `contacts` | 包含关于用户所有联系人信息。`fbid` 列是唯一标识符，用于在其他数据库中标识该联系人。`first_name`、`last_name`
+    和 `display_name` 列显示联系人的姓名。`small_picture_url`、`big_picture_url` 和 `huge_picture_url`
+    包含联系人个人资料照片的公共链接。`communication_rank` 似乎是一个数字，表示该联系人与用户之间的沟通频率（考虑了消息、评论，可能还有其他因素）；较高的数字表示与该联系人的沟通频率较高。`added_time_ms`
+    显示联系人作为朋友被添加的时间（以 Linux 纪元格式表示）。`bday_day` 和 `bday_month` 列显示联系人的生日日期，但不包括年份。`data`
+    列包含数据库中其他所有数据的副本，还包含联系人位置，这是数据库中其他地方找不到的。 |'
+- en: '`nearbytiles_db` is a database that contains locations near the user that may
+    interest them; this is apparently populated constantly, even if the user does
+    not view the locations. It is interesting because, while it isn''t a fine location
+    (most of our tests showed locations within 6-10 miles of our location), it is
+    a rough idea of places a user has been:'
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`nearbytiles_db` 是一个包含用户附近可能感兴趣的位置的数据库；显然，这个数据库会持续更新，即使用户没有查看这些位置。这个数据库很有趣，因为，虽然它不是精确的位置（我们的大部分测试显示的地点距离我们的位置大约
+    6-10 英里），但它提供了一个粗略的用户活动区域：'
+- en: '| **Table** | **Description** |'
+  id: totrans-254
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `nearby_tiles` | Contains latitude and longitude values for locations near
+    the user, as well as the time the location was retrieved from the Facebook servers
+    in Linux epoch format. |'
+  id: totrans-255
+  prefs: []
+  type: TYPE_TB
+  zh: '| `nearby_tiles` | 包含用户附近位置的纬度和经度值，以及从 Facebook 服务器获取该位置的时间（以 Linux 纪元格式表示）。
+    |'
+- en: '`newsfeed_db` contains data shown to the user in their newsfeed. Depending
+    on the usage of the app, it can be a very large file:'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`newsfeed_db` 包含显示在用户新闻源中的数据。根据应用程序的使用情况，它可能是一个非常大的文件：'
+- en: '| **Table** | **Description** |'
+  id: totrans-257
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `home_stories` | The `fetched_at` column shows the time the story was pulled
+    from the Facebook servers, and likely corresponds closely with the time the user
+    was using the application or saw the story. The `story_data` column contains the
+    story, stored as a blob of data. When viewed in a hex or text editor, the username
+    of the person posting the story can be found. The content of the post can also
+    be found in plaintext, and is often preceded by a tag that says `text`. An example
+    of this is shown here: |'
+  id: totrans-258
+  prefs: []
+  type: TYPE_TB
+  zh: '| `home_stories` | `fetched_at` 列显示故事从 Facebook 服务器拉取的时间，通常与用户使用应用程序或查看故事的时间非常接近。`story_data`
+    列包含故事，作为数据块存储。当在十六进制或文本编辑器中查看时，可以找到发布故事的用户名。帖子内容也可以以纯文本形式找到，并且通常会以 `text` 标签作为前缀。下面是一个示例：
+    |'
+- en: '![](img/391c6707-f4f6-44a6-b3cc-9b6faa6b72d5.png)'
+  id: totrans-259
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/391c6707-f4f6-44a6-b3cc-9b6faa6b72d5.png)'
+- en: Note that the actual content of this one cell in the `story_data` column contained
+    over 10,000 bytes of data, though the actual message is only around 50 bytes.
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，`story_data` 列中的这个单元格的实际内容包含超过 10,000 字节的数据，尽管实际消息只有大约 50 字节。
+- en: 'The `notifications_db` contains notifications sent to the user:'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`notifications_db` 包含发送给用户的通知：'
+- en: '| **Table** | **Description** |'
+  id: totrans-262
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `gql_notifications` | The `seen_state` column shows whether the notification
+    has been seen and read. The updated column contains the time the notification
+    was updated (that is, sent if it is unread, or the time it was read) in Linux
+    epoch format. The `gql_payload` column contains the content of the notification
+    as well as the sender, similar to the `story_data` column in `newsfeed_db`. The
+    message content again is frequently preceded by the `text` flag. A much smaller
+    amount of data, which shows the text of the notification, can be found in the
+    `summary_graphql_text_with_entities` and `short_summary_graphql_text_with_entities`
+    columns. `profile_picture_uri` contains a public URL to view the sender''s profile
+    picture, and the `icon_url` column has a link to view the icon associated with
+    the notification. |'
+  id: totrans-263
+  prefs: []
+  type: TYPE_TB
+  zh: '| `gql_notifications` | `seen_state` 列显示通知是否已被查看和阅读。更新列包含通知更新的时间（即如果未读则为发送时间，或者为阅读时间），以
+    Linux 时间戳格式显示。`gql_payload` 列包含通知的内容以及发送者，类似于 `newsfeed_db` 中的 `story_data` 列。消息内容通常会以
+    `text` 标记为前缀。少量数据（显示通知文本）可以在 `summary_graphql_text_with_entities` 和 `short_summary_graphql_text_with_entities`
+    列中找到。`profile_picture_uri` 包含一个公共 URL，用于查看发送者的个人资料图片，而 `icon_url` 列则有一个链接，用于查看与通知相关的图标。
+    |'
+- en: 'The `prefs_db` database contains application preferences:'
+  id: totrans-264
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`prefs_db` 数据库包含应用程序偏好设置：'
+- en: '| **Table** | **Description** |'
+  id: totrans-265
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `preferences` | The `/auth/user_data/fb_username` row shows the user''s Facebook
+    username. The `/config/gk/last_fetch_time_ms` value is the timestamp of the app''s
+    last communication with Facebook servers, but may not be an exact time of the
+    user''s last interaction with the app. `/fb_android/last_login_time` shows the
+    last time the user logged in through the app. The database contains many other
+    timestamps that, when put together, can be used to build a decent profile of the
+    app''s usage. The `/auth/user_data/fb_me_user` contains data about the user, including
+    their name, email address, and phone number. |'
+  id: totrans-266
+  prefs: []
+  type: TYPE_TB
+  zh: '| `preferences` | `/auth/user_data/fb_username` 行显示用户的 Facebook 用户名。`/config/gk/last_fetch_time_ms`
+    值是应用程序最后一次与 Facebook 服务器通信的时间戳，但可能不是用户最后一次与应用程序互动的确切时间。`/fb_android/last_login_time`
+    显示用户通过应用程序登录的最后时间。数据库中包含许多其他时间戳，当这些时间戳组合在一起时，可以用来构建一个不错的应用使用情况档案。`/auth/user_data/fb_me_user`
+    包含关于用户的数据，包括他们的姓名、电子邮件地址和电话号码。 |'
+- en: 'The `threads_db` database contains messaging information:'
+  id: totrans-267
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`threads_db` 数据库包含消息信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-268
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `messages` | Each message has a unique ID in the `msg_id` column. The text
+    column contains the message in plaintext. The sender column identifies the Facebook
+    ID and name of the message sender. The `timestamp_ms` column is the time the message
+    was sent, in Linux epoch format. The attachments column contains a public URL
+    to retrieve attached images. The coordinates column will have the sender''s latitude
+    and longitude if they have opted to show their location. The source column identifies
+    whether the message was sent via the website or app. |'
+  id: totrans-269
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages` | 每条消息在 `msg_id` 列中都有一个唯一的 ID。文本列包含消息的纯文本。发送者列标识消息发送者的 Facebook
+    ID 和姓名。`timestamp_ms` 列是消息发送的时间，采用 Linux 时间戳格式。附件列包含一个公共 URL，用于检索附加的图片。坐标列将显示发送者的经纬度，如果他们选择显示位置的话。来源列标识消息是通过网站还是应用程序发送的。
+    |'
+- en: Facebook Messenger analysis
+  id: totrans-270
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Facebook Messenger 分析
+- en: Facebook Messenger is messaging app, separate from the main Facebook application.
+    It has over 500,000,000 downloads in the Play Store.
+  id: totrans-271
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Facebook Messenger 是一款独立于主 Facebook 应用程序的消息应用。它在 Play Store 上的下载量超过 5 亿。
+- en: '**Package name**: `com.facebook.orca`'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.facebook.orca`'
+- en: '**Files of interest**:'
+  id: totrans-273
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/cache/`'
+  id: totrans-274
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/`'
+- en: '`audio/`'
+  id: totrans-275
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`audio/`'
+- en: '`fb_temp/`'
+  id: totrans-276
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`fb_temp/`'
+- en: '`image/`'
+  id: totrans-277
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`image/`'
+- en: '`/sdcard/com.facebook.orca`'
+  id: totrans-278
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/com.facebook.orca`'
+- en: '`` `/files/ rti.mqtt.analytics.xml` ``'
+  id: totrans-279
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`` `/files/ rti.mqtt.analytics.xml` ``'
+- en: '`/databases/`'
+  id: totrans-280
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`'
+- en: '`call_log.sqlite`'
+  id: totrans-281
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`call_log.sqlite`'
+- en: '`contacts_db2`'
+  id: totrans-282
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`contacts_db2`'
+- en: '`prefs_db`'
+  id: totrans-283
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`prefs_db`'
+- en: '`threads_db2`'
+  id: totrans-284
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`threads_db2`'
+- en: The `/cache/audio` directory contains audio messages sent through the application.
+    The files have a `.cnt` file extension, but are actually RIFF files that can be
+    played with Windows Media Player, VLC media player, and other programs.
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/audio` 目录包含通过应用程序发送的音频消息。这些文件的扩展名为 `.cnt`，但实际上是 RIFF 文件，可以使用 Windows
+    Media Player、VLC 媒体播放器等程序播放。'
+- en: The `/cache/fb_temp` path contains temp files for images and video sent through
+    the application. It is unclear how long these files will remain; in our testing,
+    we sent and received a total of five files, and all five were still in the temp
+    folder one week later.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/fb_temp` 路径包含通过应用程序发送的图片和视频的临时文件。文件将保留多久尚不明确；在我们的测试中，我们发送和接收了共五个文件，且一周后所有五个文件仍然保留在临时文件夹中。'
+- en: The `/cache/image` directory contains a multitude of other directories (33 on
+    our test phone), and each directory can contain multiple `.cnt` files. The file
+    header should be verified on each file, as some were video files and some were
+    images. Several of the files from the `fb_temp` folder were found, as well as
+    the profile pictures of some contacts.
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/image` 目录包含许多其他目录（我们测试的手机上有 33 个），每个目录可以包含多个 `.cnt` 文件。应验证每个文件的文件头，因为其中一些是视频文件，另一些是图片。我们找到了几个来自
+    `fb_temp` 文件夹的文件，以及一些联系人的头像。'
+- en: The `fb_temp` folder on the SD card contains sent images and video only.
+  id: totrans-288
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SD 卡上的 `fb_temp` 文件夹仅包含已发送的图片和视频。
+- en: The application also includes an option (disabled by default) to download all
+    received images/video to the device's Gallery. If this option is selected, all
+    received images/video would be found on the SD card.
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该应用程序还包括一个选项（默认情况下禁用），用于将所有接收到的图片/视频下载到设备的图库中。如果选择此选项，所有接收到的图片/视频将出现在 SD 卡上。
+- en: The `/files/rti.mqtt.analytics.xml` file has the user's Facebook UID.
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/rti.mqtt.analytics.xml` 文件包含用户的 Facebook UID。'
+- en: 'The `call_log.sqlite` database contains a log of calls made through the application.
+    The `person_summary` table contains the relevant data:'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`call_log.sqlite` 数据库包含通过应用程序进行的通话记录。`person_summary` 表包含相关数据：'
+- en: '| **Table** | **Description** |'
+  id: totrans-292
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `person_summary` | The `user_id` column contains the Facebook ID of the remote
+    user; this can be correlated with the `fbid` column in `contacts_db2` to determine
+    the user''s name. The `last_call_time` column contains the time of the previous
+    call in Linux epoch format. This table does not contain information about the
+    direction of the call (sent or received). |'
+  id: totrans-293
+  prefs: []
+  type: TYPE_TB
+  zh: '| `person_summary` | `user_id` 列包含远程用户的 Facebook ID；可以通过与 `contacts_db2` 中的
+    `fbid` 列关联来确定该用户的名字。`last_call_time` 列包含上次通话的时间，采用 Linux 时间戳格式。此表不包含通话方向的信息（发送或接收）。
+    |'
+- en: 'The `contacts_db2` file is a SQLite database, despite the lack of a file extension.
+    Useful tables within this database include:'
+  id: totrans-294
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`contacts_db2` 文件是一个 SQLite 数据库，尽管没有文件扩展名。该数据库中有用的表包括：'
+- en: '| **Table** | **Description** |'
+  id: totrans-295
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `contacts` | This table includes contacts the user has added, as well as
+    contacts that were scraped from the user''s phonebook (if the phonebook contact
+    uses Facebook Messenger). It contains the first and last name of each contact,
+    as well as that contact''s Facebook ID (as discussed in the `call_log.sqlite`
+    table). `added_time_ms` shows the time each user was added into the app. This
+    can give some insight into whether the contact was added manually or automatically;
+    a large group of contacts added within milliseconds of each other were likely
+    created automatically when the app was installed. The `small_picture_url`, `big_picture_url`,
+    and `huge_picture_url` columns contain public links to the contact''s profile
+    picture. A contact''s phone number can be found in the blob of information within
+    the data column.It should be noted that we have no idea where some of the contacts
+    in this database came from. They were not Facebook friends with our account, and
+    were not contacts in our device''s phonebook, but were added at the same time
+    that the phonebook was scraped. Our best guess is that some contacts in our phone
+    have phone numbers that Facebook associated with other users. |'
+  id: totrans-296
+  prefs: []
+  type: TYPE_TB
+  zh: '| `contacts` | 此表包括用户添加的联系人，以及从用户手机簿中抓取的联系人（如果手机簿联系人使用 Facebook Messenger）。它包含每个联系人的名字和姓氏，以及该联系人的
+    Facebook ID（如在 `call_log.sqlite` 表中讨论）。`added_time_ms` 显示每个用户添加到应用程序的时间。这可以一定程度上揭示联系人是手动添加还是自动添加；在几毫秒内添加的大量联系人很可能是在应用程序安装时自动创建的。`small_picture_url`、`big_picture_url`
+    和 `huge_picture_url` 列包含联系人公开的个人资料图片链接。联系人的电话号码可以在数据列中的信息块中找到。需要注意的是，我们不知道此数据库中的某些联系人来源。他们不是我们
+    Facebook 账户的好友，也不是设备电话簿中的联系人，但是在抓取电话簿时被添加进来。我们最好的猜测是我们电话中的一些联系人具有 Facebook 关联到其他用户的电话号码。
+    |'
+- en: '| `favorite_contacts` | The `favorite_contacts` table shows contacts that have
+    been added as a favorite by the user. They are identified by the `fbid` column,
+    which can be correlated back to the contacts table. |'
+  id: totrans-297
+  prefs: []
+  type: TYPE_TB
+  zh: '| `favorite_contacts` | `favorite_contacts` 表显示用户添加为收藏的联系人。它们由 `fbid` 列标识，可以与联系人表关联。
+    |'
+- en: 'The `prefs_db` database contains useful metadata about the app and the account:'
+  id: totrans-298
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`prefs_db` 数据库包含有关应用程序和账户的有用元数据：'
+- en: '| **Table** | **Description** |'
+  id: totrans-299
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `preferences` | The `/messenger/first_install_time` value indicates the time
+    the application was installed, in Linux epoch time. The `/auth/user_data/fb_username`
+    value shows the username associated with the application. The `/config/neue/validated_phonenumbe`r
+    value shows the phone number associated with the application. The user''s first
+    and last name can be found in the `/auth/user_data/fb_me_user` value. |'
+  id: totrans-300
+  prefs: []
+  type: TYPE_TB
+  zh: '| `preferences` | `/messenger/first_install_time` 值表示应用程序的安装时间，以 Linux 纪元时间为准。`/auth/user_data/fb_username`
+    值显示与应用程序关联的用户名。`/config/neue/validated_phonenumbe`r 值显示与应用程序关联的电话号码。用户的名字和姓氏可以在
+    `/auth/user_data/fb_me_user` 值中找到。 |'
+- en: 'Finally, the `threads_db2` database contains data about messages:'
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，`threads_db2` 数据库包含有关消息的数据：
+- en: '| **Table** | **Description** |'
+  id: totrans-302
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `group_clusters` | Shows folders the user has created. |'
+  id: totrans-303
+  prefs: []
+  type: TYPE_TB
+  zh: '| `group_clusters` | 显示用户创建的文件夹。 |'
+- en: '| `group_conversations` | Contains the `thread_key` value for each group chat;
+    this can be correlated with the messages table. |'
+  id: totrans-304
+  prefs: []
+  type: TYPE_TB
+  zh: '| `group_conversations` | 包含每个群组聊天的 `thread_key` 值；这可以与消息表相关联。 |'
+- en: '| `messages` | The `thread_key` is a unique ID generated for each chat session.
+    The text column has the contents of each text message sent and received. This
+    also identifies voice calls using the phrases `You called Facebook User.`, `Facebook
+    User called you.`, and `You missed a call from Facebook User`. The sender column
+    identifies which user sent each message (or made each call). The `timestamp_ms`
+    column shows the time each message was sent, in Linux epoch format. The attachments
+    column will show data for each sent or received attachment, the file type is also
+    visible in the data. `pending_send_media_attachment` shows the path on the device
+    to recover sent attachments. Finding received attachments directly does not appear
+    possible, although they were recovered in the `/cache/images` directory, there
+    was no way to correlate them with a specific message or sender. |'
+  id: totrans-305
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages` | `thread_key` 是为每个聊天会话生成的唯一 ID。文本列包含发送和接收的每条短信的内容。这也通过 `You called
+    Facebook User.`、`Facebook User called you.` 和 `You missed a call from Facebook
+    User` 这些短语来标识语音电话。发送者列标识每条消息（或每个电话）的发送者。`timestamp_ms` 列显示每条消息的发送时间，采用 Linux 时间戳格式。附件列将显示每个发送或接收的附件的数据，文件类型也可以在数据中看到。`pending_send_media_attachment`
+    显示设备上用于恢复已发送附件的路径。直接找到接收到的附件似乎是不可能的，尽管它们在 `/cache/images` 目录中被恢复，但没有办法将它们与特定的消息或发送者相关联。
+    |'
+- en: Skype analysis
+  id: totrans-306
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Skype 分析
+- en: Skype is a voice/video calling app, as well as a messaging app owned by Microsoft.
+    It has over 100,000,000 installs on Google Play.
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Skype 是一个语音/视频通话应用程序，也是一个由微软拥有的消息应用程序，在 Google Play 上已有超过 1 亿次安装。
+- en: '**Package name**: `com.skype.raider`'
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.skype.raider`'
+- en: '**Files of interest**:'
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**关注的文件**：'
+- en: '`/cache/skype-4228/DbTemp`'
+  id: totrans-310
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/skype-4228/DbTemp`'
+- en: '`/sdcard/Android/data/com.skype.raider/cache/`'
+  id: totrans-311
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/Android/data/com.skype.raider/cache/`'
+- en: '`/files/`'
+  id: totrans-312
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/`'
+- en: '`shared.xml`'
+  id: totrans-313
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`shared.xml`'
+- en: '`<username>/thumbnails/`'
+  id: totrans-314
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`<username>/thumbnails/`'
+- en: '`<username>/main.db`'
+  id: totrans-315
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`<username>/main.db`'
+- en: '`<username>/chatsync`'
+  id: totrans-316
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`<username>/chatsync`'
+- en: The `/cache/skype-4228/DbTemp` directory contained multiple files with no extension.
+    One of these files (`temp-5cu4tRPdDuQ3ckPQG7wQRFgU` on our device) was actually
+    a SQLite database that contained the SSID and MAC of wireless access points it
+    had been connected to.
+  id: totrans-317
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/skype-4228/DbTemp` 目录包含多个没有扩展名的文件。我们设备中的一个文件（`temp-5cu4tRPdDuQ3ckPQG7wQRFgU`）实际上是一个
+    SQLite 数据库，包含它曾连接过的无线接入点的 SSID 和 MAC 地址。'
+- en: The SD card path will contain any images or files received in a chat. If a file
+    is downloaded, it will be in the Downloads folder in the root of the SD.
+  id: totrans-318
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SD 卡路径将包含在聊天中接收到的任何图片或文件。如果下载了文件，它将保存在 SD 卡根目录下的 Downloads 文件夹中。
+- en: 'The `shared.xml` file listed the account''s username, as well as the last IP
+    address that connected to Skype:'
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`shared.xml` 文件列出了账户的用户名，以及最后一次连接到 Skype 的 IP 地址：'
+- en: '![](img/545e70f4-bb0c-4979-8d4e-fe86fc76d4b3.png)'
+  id: totrans-320
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/545e70f4-bb0c-4979-8d4e-fe86fc76d4b3.png)'
+- en: The `<username>/thumbnails` directory contained the user's profile picture.
+  id: totrans-321
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`<username>/thumbnails` 目录包含用户的个人资料图片。'
+- en: 'The `main.db` database, like it sounds, contains all of the app usage history.
+    Here are some important tables:'
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`main.db` 数据库，顾名思义，包含所有应用的使用历史记录。以下是一些重要的表格：'
+- en: '| **Table** | **Description** |'
+  id: totrans-323
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `Accounts` | Shows the accounts used on the device, and the associated email
+    addresses. |'
+  id: totrans-324
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Accounts` | 显示设备上使用的账户以及相关联的电子邮件地址。 |'
+- en: '| `CallMembers` | Call logs from the app. The duration table is the duration
+    of the call, and `start_timestamp` is the start time in Linux epoch format; neither
+    of these columns is populated if the call is not answered. `creation_timestamp`
+    is the actual beginning of the call; it is populated as soon as the call is initiated
+    within the app, so even unanswered calls are shown in this column. The `ip_address`
+    column shows the IP address of the user for connected calls.  The type column
+    indicates whether the call was outgoing or incoming (1 = incoming, 2 = outgoing).
+    The `guid` column also shows the direction of the call, listing each participant
+    from left to right, with the user on the left being the one who initiated the
+    call. The `call_db_id` column can be correlated with the calls table to find further
+    information about the call. |'
+  id: totrans-325
+  prefs: []
+  type: TYPE_TB
+  zh: '| `CallMembers` | 应用的通话记录。持续时间表是通话的时长，`start_timestamp` 是通话开始的时间，采用 Linux 时间戳格式；如果通话未接听，这两列都不会被填充。`creation_timestamp`
+    是通话的实际开始时间；它会在通话在应用中启动时立即填充，因此即使通话没有接听，仍然会显示在这一列中。`ip_address` 列显示连接通话时用户的 IP
+    地址。类型列指示通话是拨出还是接入（1 = 接入，2 = 拨出）。`guid` 列也显示通话方向，列出每个参与者从左到右，左侧的用户为发起通话的用户。`call_db_id`
+    列可以与通话表进行关联，找到有关通话的更多信息。 |'
+- en: '| `Calls` | Very similar to `CallMembers`, but with less information. It is
+    worth noting that the `begin_timestamp` column in this table is identical to `creation_timestamp`
+    in `CallMembers`. There is an `is_incoming` column to show the direction of the
+    call: 0 indicates outgoing, 1 indicates incoming. Finally, it should be noted
+    that the duration of some calls did NOT match the `CallMembers` table. One of
+    the durations was a second longer than the other table indicated. It appears that
+    the `CallMembers` table calculates duration based on `start_timestamp`, while
+    the Calls table calculates duration based on `begin_timestamp`. The difference
+    in duration is likely caused by the amount of time it took the user to accept
+    the call. |'
+  id: totrans-326
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Calls` | 与 `CallMembers` 非常相似，但信息较少。值得注意的是，此表中的 `begin_timestamp` 列与 `CallMembers`
+    中的 `creation_timestamp` 相同。还有一个 `is_incoming` 列显示通话的方向：0 表示外呼，1 表示接听。最后需要注意的是，某些通话的时长与
+    `CallMembers` 表中的数据不匹配。一个时长比另一个表中显示的多了一秒钟。看起来 `CallMembers` 表是根据 `start_timestamp`
+    计算通话时长，而 `Calls` 表是根据 `begin_timestamp` 计算时长。时长差异可能是由于用户接受通话所花费的时间。 |'
+- en: '| `ChatMembers` | Shows the users in each chat. The adder column lists the
+    user that initiated the chat. |'
+  id: totrans-327
+  prefs: []
+  type: TYPE_TB
+  zh: '| `ChatMembers` | 显示每个聊天中的用户。`adder` 列列出了发起聊天的用户。 |'
+- en: '| `Chats` | Lists each unique chat session. The timestamp column is the date/time
+    the conversation began, in Linux epoch format. The dialog_partner column shows
+    users in the chat, excluding the account on the device. The posters table shows
+    every user that has made a comment in the chat, and includes the account on the
+    device if it has posted. The participants column is similar to the `dialog_partner`
+    column, but includes the user''s account. Finally, the `dbpath` column contains
+    the name of the chat backup file found in the `<username>/chatsync` directory.
+    This will become important further in this analysis. |'
+  id: totrans-328
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Chats` | 列出了每个独特的聊天会话。时间戳列是对话开始的日期/时间，采用 Linux 时间戳格式。`dialog_partner` 列显示聊天中的用户，不包括设备上的账号。`posters`
+    表显示每个在聊天中发表评论的用户，如果设备上的账号有发表内容，也会包括在内。`participants` 列与 `dialog_partner` 列类似，但包括用户的账号。最后，`dbpath`
+    列包含存储在 `<username>/chatsync` 目录中的聊天备份文件的名称。这个信息在本分析中将会变得非常重要。 |'
+- en: '| `Contacts` | This is actually a very misleading table. In our test, we added
+    two users to our contact list; the contacts table has 233 entries! The `is_permanent`
+    column indicates the status of the users listed in this table; if it is 1, the
+    user is added as an actual contact within the application. The other 231 entries
+    appear to be names that came up in results when we searched for contacts, but
+    we never communicated with or added them. |'
+  id: totrans-329
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Contacts` | 这是一个非常误导的表。在我们的测试中，我们将两个用户添加到联系人列表中，但 `Contacts` 表却有 233 条记录！`is_permanent`
+    列表示该表中列出的用户状态；如果为 1，则表示该用户被作为实际联系人添加到应用中。其他 231 条记录似乎是我们在搜索联系人时出现的名字，但我们并未与这些人进行过沟通或添加为联系人。
+    |'
+- en: '| `Conversations` | We have no idea what the difference between Conversations
+    and Chats is. They contain much of the same information, and in fact appear to
+    be referencing the same chat sessions. |'
+  id: totrans-330
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Conversations` | 我们不清楚 `Conversations` 和 `Chats` 之间的区别。它们包含了几乎相同的信息，实际上似乎指向相同的聊天会话。
+    |'
+- en: '| `Messages` | Contains every individual message from chats/conversations.
+    The `convo_id` column has a unique value for each conversation; any messages with
+    the same `convo_id` value are from the same conversation. The author and `from_dispname`
+    columns show who wrote each message. The timestamp column, once again, shows the
+    date/time of the message in Linux epoch format. The type column indicates the
+    type of message that was sent; here are the values from our testing:'
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `Messages` | 包含每一条来自聊天/对话的单独消息。`convo_id` 列为每个对话提供唯一的值；任何具有相同 `convo_id`
+    值的消息都来自同一对话。`author` 和 `from_dispname` 列显示每条消息的作者。时间戳列再次显示消息的日期/时间，采用 Linux 时间戳格式。`type`
+    列表示发送的消息类型；以下是我们测试时的值：'
+- en: '**50**: Friend request'
+  id: totrans-332
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**50**: 好友请求'
+- en: '**51**: Request accepted'
+  id: totrans-333
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**51**: 请求已接受'
+- en: '**61**: Plaintext message'
+  id: totrans-334
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**61**: 纯文本消息'
+- en: '**68**: File transfer'
+  id: totrans-335
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**68**: 文件传输'
+- en: '**30**: Call begin (voice or video)'
+  id: totrans-336
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**30**: 通话开始（语音或视频）'
+- en: '**39**: Call end (voice or video)'
+  id: totrans-337
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**39**: 通话结束（语音或视频）'
+- en: '**70**: Video message'
+  id: totrans-338
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**70**: 视频消息'
+- en: The `body_xml` column has the content of the message. For plaintext messages
+    and friend requests, the content is simply what the message said. File transfers
+    show the size and name of the file. Video messages say that they are a video message,
+    but provide no other information. Calls show the duration if it was connected,
+    and no duration if they were missed/ignored. The identities column shows who sent
+    each message, but may be blank if it was sent by the user account on the device.
+    The reason column appears to be for calls, and shows either `no_answer` or `busy`
+    to explain why a call was not connected. |
+  id: totrans-339
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`body_xml` 列包含消息的内容。对于纯文本消息和好友请求，内容就是消息的文字。文件传输显示文件的大小和名称。视频消息则显示它是视频消息，但不提供其他信息。通话记录显示如果通话已接通则显示时长，如果通话未接或被忽略则不显示时长。身份列显示每条消息的发送者，如果是设备上的用户账户发送的消息，可能为空。原因列似乎是用于通话，显示
+    `no_answer` 或 `busy` 来解释为什么通话未接通。'
+- en: '| `Participants` | Similar to `ChatMembers`, shows each user involved with
+    a chat/conversation. |'
+  id: totrans-340
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Participants` | 与 `ChatMembers` 类似，显示每个参与聊天/对话的用户。 |'
+- en: '| `SMSes` | Our testing did not include SMS messaging; however, each column
+    in this table is self-explanatory. |'
+  id: totrans-341
+  prefs: []
+  type: TYPE_TB
+  zh: '| `SMSes` | 我们的测试没有包括 SMS 消息；然而，这张表中的每一列都是自解释的。 |'
+- en: '| `Transfers` | Shows information about files transferred. Includes the file
+    name, size, and path on the device. The `partner_dispname` column identifies which
+    user began the file transfer. |'
+  id: totrans-342
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Transfers` | 显示已传输文件的信息，包括文件名、大小和设备上的路径。`partner_dispname` 列显示开始文件传输的用户。
+    |'
+- en: '| `VideoMessages` | Shows the author and creation timestamp of video messages.
+    Note that video messages are NOT stored on the device; accessing them will be
+    covered in a separate section below. |'
+  id: totrans-343
+  prefs: []
+  type: TYPE_TB
+  zh: '| `VideoMessages` | 显示视频消息的作者和创建时间戳。请注意，视频消息不会存储在设备上；获取它们的方式将在下文的另一个部分介绍。 |'
+- en: '| `VoiceMails` | Our testing did not include voicemails; however, each column
+    in this table appears self-explanatory. |'
+  id: totrans-344
+  prefs: []
+  type: TYPE_TB
+  zh: '| `VoiceMails` | 我们的测试没有包括语音邮件；然而，这张表中的每一列看起来都是自解释的。 |'
+- en: Snapchat analysis
+  id: totrans-345
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Snapchat 分析
+- en: Snapchat is an image-sharing and text-messaging service with over 100,000,000
+    downloads. Its signature feature is that images and videos sent will "self-destruct"
+    after a time limit set by the sender, from 1-10 seconds. Furthermore, if a user
+    takes a screenshot of the image, the sender is notified.Text chats do not have
+    an expiration timer.
+  id: totrans-346
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Snapchat 是一款图片分享和文本消息服务，下载量超过 1 亿次。它的标志性特点是，用户发送的图片和视频会在发送者设定的时间限制（1-10 秒）后“自毁”。此外，如果用户截取了图片的屏幕截图，发送者会收到通知。文本聊天没有过期计时器。
+- en: '**Package name**: `com.snapchat.android`'
+  id: totrans-347
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.snapchat.android`'
+- en: '**Files of interest**:'
+  id: totrans-348
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**相关文件**:'
+- en: '`/cache/stories/received/thumbnail/`'
+  id: totrans-349
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/stories/received/thumbnail/`'
+- en: '`/sdcard/Android/data/com.snapchat.android/cache/my_media/`'
+  id: totrans-350
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/Android/data/com.snapchat.android/cache/my_media/`'
+- en: '`/shared_prefs/com.snapchat.android_preferences.xml`'
+  id: totrans-351
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/com.snapchat.android_preferences.xml`'
+- en: '`/databases/tcspahn.db`'
+  id: totrans-352
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/tcspahn.db`'
+- en: '`/cache/stories/received/thumbnail` contains thumbnails of pictures taken by
+    the user on the device. The `/sdcard` path contains the full-sized images. These
+    remain even after the time limit has expired and the recipient can no longer access
+    them. The files in both of these locations may not have proper file extensions.'
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache/stories/received/thumbnail` 包含用户在设备上拍摄的图片的缩略图。`/sdcard` 路径包含完整尺寸的图片。即使时间限制已过且接收者无法再访问这些图片，它们仍然会保留。这些位置的文件可能没有正确的文件扩展名。'
+- en: The `com.snapchat.android_preferences.xml` file contains the email address used
+    to create an account, and the phone number of the device registered with the account.
+  id: totrans-354
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`com.snapchat.android_preferences.xml` 文件包含用于创建账户的电子邮件地址以及与账户注册的设备的电话号码。'
+- en: 'The `tcspahn.db` database contains all other information about the app''s usage:'
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tcspahn.db` 数据库包含关于应用程序使用的所有其他信息。'
+- en: '| **Table** | **Description** |'
+  id: totrans-356
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `Chat` | Lists all text chats. Shows the sender, recipient, timestamp in
+    Linux epoch time, and the text of the message. |'
+  id: totrans-357
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Chat` | 列出所有文本聊天。显示发送者、接收者、Linux 时间戳以及消息的文字内容。 |'
+- en: '| `ContactsOnSnapchat` | Shows all users in the user''s phonebook who also
+    have Snapchat installed. The `isAddedAsFriend` column will show a 1 if the user
+    has actually been added as a contact. |'
+  id: totrans-358
+  prefs: []
+  type: TYPE_TB
+  zh: '| `ContactsOnSnapchat` | 显示用户电话簿中也安装了 Snapchat 的所有联系人。`isAddedAsFriend` 列如果用户已被添加为联系人，则会显示
+    1。 |'
+- en: '| `Conversation` | Has information about each open conversation. Includes the
+    sender and recipient, and the timestamp of the last sent and received snaps in
+    Linux epoch format. |'
+  id: totrans-359
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Conversation` | 包含每个打开对话的信息。包括发送方和接收方，以及最后发送和接收快照的时间戳（Linux纪元格式）。 |'
+- en: '| `Friends` | Similar to `ContactsOnSnapchat`, but only includes users who
+    have been added as a friend. Includes the timestamp that each user added the other.
+    |'
+  id: totrans-360
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Friends` | 类似于`ContactsOnSnapchat`，但仅包括已添加为朋友的用户。包含每个用户添加另一个用户的时间戳。 |'
+- en: '| `ReceivedSnaps` | Metadata about received images and videos. Once the image/video
+    is viewed, it appears to be removed from this table at some point. Contains a
+    timestamp for each message, a status, whether or not a snap was screenshot, and
+    the sender. |'
+  id: totrans-361
+  prefs: []
+  type: TYPE_TB
+  zh: '| `ReceivedSnaps` | 接收到的图片和视频的元数据。一旦图片/视频被查看，它似乎在某个时刻从此表中移除。包含每条消息的时间戳、状态、是否截图以及发送方。
+    |'
+- en: '| `SentSnaps` | Metadata about sent images and videos. Once the image/video
+    is viewed, it appears to be removed from this table at some point. Contains a
+    timestamp for each message, a status, and the recipient. |'
+  id: totrans-362
+  prefs: []
+  type: TYPE_TB
+  zh: '| `SentSnaps` | 发送的图片和视频的元数据。一旦图片/视频被查看，它似乎在某个时刻从此表中移除。包含每条消息的时间戳、状态和接收方。 |'
+- en: Viber analysis
+  id: totrans-363
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Viber分析
+- en: Viber is a messaging and voice/video calling app with over 100,000,000 downloads.
+  id: totrans-364
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Viber是一款消息和语音/视频通话应用，下载量超过1亿。
+- en: '**Package Name**: `com.viber.voip`'
+  id: totrans-365
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.viber.voip`'
+- en: '**Files of interest**:'
+  id: totrans-366
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**相关文件**：'
+- en: '`/files/preferences/`'
+  id: totrans-367
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/preferences/`'
+- en: '`activated_sim_serial`'
+  id: totrans-368
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`activated_sim_serial`'
+- en: '`display_name`'
+  id: totrans-369
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`display_name`'
+- en: '`reg_viber_phone_num`'
+  id: totrans-370
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`reg_viber_phone_num`'
+- en: '`/sdcard/viber/media/`'
+  id: totrans-371
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/viber/media/`'
+- en: '`/User Photos/`'
+  id: totrans-372
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/User Photos/`'
+- en: '`/Viber Images/`'
+  id: totrans-373
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Viber Images/`'
+- en: '`/Viber Videos/`'
+  id: totrans-374
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/Viber Videos/`'
+- en: '`/databases/`'
+  id: totrans-375
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`'
+- en: '`viber_data`'
+  id: totrans-376
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`viber_data`'
+- en: '`viber_messages`'
+  id: totrans-377
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`viber_messages`'
+- en: The files in `/files/preferences` contain the SIM card's ICCID, the name the
+    user displays in the app, and the phone number used to register with the app.
+  id: totrans-378
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/preferences`中的文件包含SIM卡的ICCID、用户在应用中显示的名称以及用于注册应用的电话号码。'
+- en: The files in the `/sdcard/viber/media` path are the profile photos of people
+    in the user's contact list who use Viber (regardless of whether they have been
+    added as friends in the app), and all images and videos sent through the app.
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/sdcard/viber/media`路径中的文件是用户联系人列表中使用Viber的人的个人资料照片（无论是否已经在应用中添加为朋友），以及通过该应用发送的所有图片和视频。'
+- en: 'The `viber_data` file is a database, even though it does not have the `.db`
+    file extension. It contains information about the user''s contacts:'
+  id: totrans-380
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`viber_data`文件是一个数据库，尽管它没有`.db`文件扩展名。它包含有关用户联系人信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-381
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `calls` | This table did not populate, even though we made calls from within
+    the app. |'
+  id: totrans-382
+  prefs: []
+  type: TYPE_TB
+  zh: '| `calls` | 这个表没有填充数据，尽管我们从应用中拨打了电话。 |'
+- en: '| `phonebookcontact` | This table could be extremely valuable from a forensic
+    standpoint. When Viber is first opened, it scrapes the user''s phonebook and adds
+    all the entries it finds to this database. This means it may contain historical
+    data about the user''s contacts; if they later delete an entry from the phonebook,
+    it may still be recovered in this database. This table only includes names of
+    contacts in the phonebook. |'
+  id: totrans-383
+  prefs: []
+  type: TYPE_TB
+  zh: '| `phonebookcontact` | 从法医角度来看，这个表格可能非常有价值。当Viber首次打开时，它会抓取用户的电话簿并将找到的所有条目添加到此数据库中。这意味着它可能包含关于用户联系人历史数据；如果用户稍后从电话簿中删除了某个条目，它可能仍然能在这个数据库中恢复。此表格仅包括电话簿中联系人的姓名。
+    |'
+- en: '| `phonebookdata` | Similar to a phonebook contact, except it includes email
+    addresses and phone numbers for contacts in the device''s phone book. |'
+  id: totrans-384
+  prefs: []
+  type: TYPE_TB
+  zh: '| `phonebookdata` | 类似于电话簿联系人，但还包括设备电话簿中联系人的电子邮件地址和电话号码。 |'
+- en: '| `vibernumbers` | Shows the Viber phone number for each contact in the device''s
+    phonebook that uses the app. The value in the `actual_photo` corresponds with
+    the filenames in the `/sdcard/viber/media/User/ Photos` directory. |'
+  id: totrans-385
+  prefs: []
+  type: TYPE_TB
+  zh: '| `vibernumbers` | 显示设备电话簿中每个联系人使用Viber应用的电话号码。`actual_photo`中的值对应于`/sdcard/viber/media/User/
+    Photos`目录中的文件名。 |'
+- en: 'The `viber_messages` file is a database, even though it does not have the `.db`
+    file extension. It contains information about the app''s usage:'
+  id: totrans-386
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`viber_messages`文件是一个数据库，尽管它没有`.db`文件扩展名。它包含关于应用使用的信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-387
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `conversations` | Contains a unique ID, the recipient, and date for each
+    unique conversation. |'
+  id: totrans-388
+  prefs: []
+  type: TYPE_TB
+  zh: '| `conversations` | 包含每个唯一对话的唯一ID、接收方和日期。 |'
+- en: '| `messages` | Contains each individual message from all conversations. The
+    address is the phone number of the remote party in the conversation. The date
+    column is in Unix epoch format. The type column corresponds to incoming or outgoing:
+    1 is an outgoing message, 0 is incoming. The `location_lat` and `location_lng`
+    columns will be populated if a location is shared. Shared files can be sent with
+    text to describe them; this is found in the description column. |'
+  id: totrans-389
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages` | 包含所有对话中的每条单独消息。地址是远程方的电话号码。日期列为 Unix 时间戳格式。类型列对应于消息的方向：1 表示发送消息，0
+    表示接收消息。如果共享了位置，`location_lat` 和 `location_lng` 列将被填充。共享的文件可以附带描述性文字；这些信息在描述列中找到。
+    |'
+- en: '| `messages_calls` | This table did not populate, even though we made calls
+    from within the app. |'
+  id: totrans-390
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages_calls` | 这个表格没有被填充，即使我们从应用内进行了通话。 |'
+- en: '| `participants_info` | Has profile information for each account that has been
+    in a conversation with the user. |'
+  id: totrans-391
+  prefs: []
+  type: TYPE_TB
+  zh: '| `participants_info` | 包含与用户进行过对话的每个账户的个人资料信息。 |'
+- en: Tango analysis
+  id: totrans-392
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Tango 分析
+- en: Tango is a voice/text/video messaging application. It has over 100,000,000 downloads
+    in the Play Store.
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Tango 是一款语音/文本/视频消息应用，已在 Play Store 上拥有超过 1 亿次下载。
+- en: '**Package name**: `com.sgiggle.production`'
+  id: totrans-394
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.sgiggle.production`'
+- en: This package name is seemingly innocuous, and could be overlooked by an examiner
+    thinking it was a game. This is an example of why every application should be
+    analyzed.
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个包名看起来无害，可能会被检查人员误认为是一个游戏。这是每个应用都应该进行分析的原因之一。
+- en: '**Files of interest**:'
+  id: totrans-396
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/sdcard/Android/data/com.sgiggle.production/files/storage/appdata/`'
+  id: totrans-397
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/Android/data/com.sgiggle.production/files/storage/appdata/`'
+- en: '`TCStorageManagerMediaCache_v2/`'
+  id: totrans-398
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`TCStorageManagerMediaCache_v2/`'
+- en: '`conv_msg_tab_snapshots/`'
+  id: totrans-399
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`conv_msg_tab_snapshots/`'
+- en: '`/files/`'
+  id: totrans-400
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/`'
+- en: '`tc.db`'
+  id: totrans-401
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`tc.db`'
+- en: '`userinfo.xml.db`'
+  id: totrans-402
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`userinfo.xml.db`'
+- en: The `/TCStorageManagerMediaCache_v2` path on the SD card contains images that
+    were sent and received with the application, as well as profile pictures of contacts.
+    However, it also contains many images that were never seen or used in the application;
+    they appear to either be images for ads or stock emoji type images that can be
+    attached to conversations. The filenames found here can be correlated with `tc.db`
+    to find the exact image that was used in a conversation.
+  id: totrans-403
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/TCStorageManagerMediaCache_v2` 路径在 SD 卡中包含了通过应用发送和接收的图片，以及联系人头像。然而，它也包含了许多从未在应用中查看或使用的图片；这些图片看起来要么是广告图片，要么是可以附加到对话中的表情符号类型的图片。可以通过与
+    `tc.db` 关联，找到在对话中使用的具体图片。'
+- en: The `conv_msg_tab_snapshots` path on the SD card contains files with a `.dat`
+    extension. When viewed in a hex editor, we were able to find snippets of conversations
+    in plaintext, as well as paths and URLs to images sent and received in conversations.
+    It is unclear what causes these files to exist, but it may be possible to retrieve
+    content from these files that may have been deleted in `tc.db`.
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`conv_msg_tab_snapshots` 路径在 SD 卡中包含扩展名为 `.dat` 的文件。当在十六进制编辑器中查看时，我们能够找到部分明文的对话片段，以及发送和接收的图片路径和
+    URL。尚不清楚是什么原因导致这些文件的存在，但可能可以从这些文件中恢复在 `tc.db` 中已删除的内容。'
+- en: 'The `tc.db` database is what Tango uses to store all message information:'
+  id: totrans-405
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tc.db` 数据库是 Tango 用来存储所有消息信息的：'
+- en: '| **Table** | **Description** |'
+  id: totrans-406
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `conversations` | Contains a unique ID in the `conv_id` column for each conversation.
+    |'
+  id: totrans-407
+  prefs: []
+  type: TYPE_TB
+  zh: '| `conversations` | 每个对话在 `conv_id` 列中有唯一标识。 |'
+- en: '| `messages` | Contains messages sent and received through the app. The `msg_id`
+    column is a unique identifier for each message, and the `conv_id` column identifies
+    which conversation the message is from. The `send_time` column identifies the
+    time a message was sent, or when it was received, depending on the direction.
+    The direction column shows the direction of the message: 1 = sent and 2 = received.
+    The type column identifies the type of the message; based on our testing, they
+    are as follows:'
+  id: totrans-408
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '| `messages` | 包含通过应用发送和接收的消息。`msg_id` 列是每条消息的唯一标识，`conv_id` 列标识消息来自哪个对话。`send_time`
+    列标识消息发送或接收的时间，取决于消息的方向。方向列显示消息的方向：1 = 发送，2 = 接收。类型列标识消息的类型；根据我们的测试，类型如下：'
+- en: '**0**: Plaintext message'
+  id: totrans-409
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**0**: 明文消息'
+- en: '**1**: Video message'
+  id: totrans-410
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**1**: 视频消息'
+- en: '**2**: Audio message'
+  id: totrans-411
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**2**: 语音消息'
+- en: '**3**: Image'
+  id: totrans-412
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**3**: 图片'
+- en: '**4**: Location/coordinates'
+  id: totrans-413
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**4**: 位置/坐标'
+- en: '**35**: Voice call'
+  id: totrans-414
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**35**: 语音通话'
+- en: '**36**: Attempted voice call (missed by either party)'
+  id: totrans-415
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**36**: 尝试过的语音通话（双方均未接听）'
+- en: '**58**: Attached stock image, such as the emojis found in the `TCStorageManagerMediaCache_v2`
+    path'
+  id: totrans-416
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**58**: 附带的股票图片，例如在 `TCStorageManagerMediaCache_v2` 路径下找到的表情符号'
+- en: Finally, the payload column contains the content of the message… sort of. The
+    data is Base64-encoded, which will be discussed in detail below. |
+  id: totrans-417
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，负载列包含了消息的内容……可以这么说。这些数据是 Base64 编码的，下面会详细讨论。|
+- en: The `user_info_xml.db` contains metadata about the account, such as the user's
+    name and phone number. However, its data is entirely Base64-encoded, like the
+    messages in `tc.db`.
+  id: totrans-418
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`user_info_xml.db` 包含有关账户的元数据，例如用户的姓名和电话号码。然而，它的数据完全是 Base64 编码的，就像 `tc.db`
+    中的消息一样。'
+- en: 'Data storage method 6: Base64'
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据存储方法 6：Base64
+- en: Decoding Tango messages
+  id: totrans-420
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解码 Tango 消息
+- en: 'Base64 is an encoding scheme that is commonly used for data transport; it is
+    not considered encryption because it has a known method for decoding, and does
+    not require a unique key to decode the data. Base64 contains ASCII-printable characters,
+    but the underlying data is binary (which will make our output somewhat messy!).
+    An example from the payload column in the messages table of tc.db looks like this:'
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Base64 是一种常用于数据传输的编码方案；它不被视为加密，因为它有一个已知的解码方法，并且不需要唯一的密钥来解码数据。Base64 包含可打印的 ASCII
+    字符，但底层数据是二进制的（这会使我们的输出稍显杂乱！）。来自 tc.db 中消息表的负载列示例如下：
+- en: '[PRE0]'
+  id: totrans-422
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Note the equal signs on the end of our message; this is a strong indicator that
+    data is Base64-encoded. The input that will be encoded needs to be divisible by
+    3 for the math behind Base64 to work properly. If the input is not divisible by
+    3, it will be padded, resulting in the equal signs seen in the output.
+  id: totrans-423
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意我们消息末尾的等号；这是一个强烈的指示符，表明数据是 Base64 编码的。需要被编码的输入必须能够被 3 整除，以便 Base64 背后的数学方法能够正常工作。如果输入不能被
+    3 整除，它会被填充，导致输出中出现等号。
+- en: 'For example, consider the following table:'
+  id: totrans-424
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，考虑以下表格：
+- en: '| **Input string** | **Number of characters/bytes** | **Output** |'
+  id: totrans-425
+  prefs: []
+  type: TYPE_TB
+  zh: '| **输入字符串** | **字符/字节数** | **输出** |'
+- en: '| `Hello, World` | `12` | `SGVsbG8sIFdvcmxk` |'
+  id: totrans-426
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Hello, World` | `12` | `SGVsbG8sIFdvcmxk` |'
+- en: '| `Hello, World!` | `13` | `SGVsbG8sIFdvcmxkIQ==` |'
+  id: totrans-427
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Hello, World!` | `13` | `SGVsbG8sIFdvcmxkIQ==` |'
+- en: '| `Hello, World!!` | `14` | `SGVsbG8sIFdvcmxkISE=` |'
+  id: totrans-428
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Hello, World!!` | `14` | `SGVsbG8sIFdvcmxkISE=` |'
+- en: You can see that the 12-byte input (divisible by 3) has no padding, while the
+    other two input do have padding because they are not divisible by 3\. This is
+    important because it shows that while the equal signs are a strong indicator of
+    Base64, the lack of an equal sign does not mean it isn't Base64!
+  id: totrans-429
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以看到，12 字节的输入（可被 3 整除）没有填充，而另外两个输入则有填充，因为它们不能被 3 整除。这一点很重要，因为它表明，虽然等号是 Base64
+    的强烈指示符，但没有等号并不意味着它就不是 Base64！
+- en: 'Now that we understand a little about Base64, and recognize that our payload
+    column is very likely encoded in Base64, we need to decode it. There are websites
+    that will allow the user to paste in encoded data, and it will be decrypted (such
+    as [www.base64decode.org](http://www.base64decode.org)), but this is inconvenient
+    for large amounts of data as each message must be input individually (and putting
+    evidentiary data on the internet is also frowned upon in most cases). Likewise,
+    it can be decoded on the command line of Linux-based systems, but is equally inconvenient
+    for large amounts of data. Our solution was to build a Python script that pulls
+    the Base64 data from the database, decodes it, and writes it back out to a new
+    file:'
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们对 Base64 有了一定了解，并且认识到我们的负载列很可能是以 Base64 编码的，我们需要对其进行解码。有一些网站允许用户粘贴编码后的数据，并将其解密（例如：[www.base64decode.org](http://www.base64decode.org)），但对于大量数据来说，这种方式不太方便，因为每条消息必须单独输入（而且在大多数情况下，将证据数据上传到互联网上也是不被推荐的）。同样，也可以在基于
+    Linux 的系统的命令行中解码，但对于大量数据同样不太方便。我们的解决方案是构建一个 Python 脚本，从数据库中提取 Base64 数据，解码后再写入到一个新文件中：
+- en: '[PRE1]'
+  id: totrans-431
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'To run the code, simply paste this code into a new file, named `tcdb.py`, place
+    the script in the same directory as `tc.db`, and on the command line navigate
+    to that directory and run the following:'
+  id: totrans-432
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要运行该代码，只需将此代码粘贴到一个新文件中，命名为 `tcdb.py`，将脚本与 `tc.db` 放在同一目录下，然后在命令行中导航到该目录并运行以下命令：
+- en: '[PRE2]'
+  id: totrans-433
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The script will make a file named `tcdb_out.txt` in the same directory. Opening
+    the file in a text editor (or importing it into Excel as a tab-delimited file)
+    will show the `msg_id` value so that the examiner can correlate the message back
+    to the messages table, and the decoded payload shows a plaintext message (noted
+    as type 0 in the database):'
+  id: totrans-434
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本将在同一目录下生成名为 `tcdb_out.txt` 的文件。用文本编辑器打开该文件（或将其导入到 Excel 中作为制表符分隔的文件）将显示 `msg_id`
+    值，以便检查员可以将消息与消息表关联，并且解码后的有效载荷显示为明文消息（在数据库中标注为类型 0）：
+- en: '![](img/6e2ee03c-aed9-43cf-9e53-1dc65c120b30.png)'
+  id: totrans-435
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6e2ee03c-aed9-43cf-9e53-1dc65c120b30.png)'
+- en: Note that the message content is now visible in plaintext, and is preceded by
+    the conversation ID. There is also a ton of binary data cluttering up our output;
+    this is likely metadata or other information used by Tango. If the message was
+    received, the user's name will also be in the output (here it is Tango).
+  id: totrans-436
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，现在消息内容以明文形式显示，并且前面是会话 ID。输出中还有大量的二进制数据，这很可能是 Tango 使用的元数据或其他信息。如果消息是收到的，用户的姓名也会出现在输出中（这里是
+    Tango）。
+- en: 'There are other messages types worth looking at. Here is a decoded payload
+    entry for a video message:'
+  id: totrans-437
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 还有其他类型的消息值得查看。这里是视频消息的解码有效载荷条目：
+- en: '![](img/7de46304-7f2f-4f6f-ab43-f16845e24548.png)'
+  id: totrans-438
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7de46304-7f2f-4f6f-ab43-f16845e24548.png)'
+- en: Note that with the video message, we can see two URLs. They are both public,
+    meaning anyone with the link can access them. The URL ending in thumbnail is a
+    thumbnail of the video, while the other URL will download the complete video in
+    MP4 format. The path to the SD card and filename for the image is also shown.
+  id: totrans-439
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在视频消息中，我们可以看到两个网址。它们都是公开的，意味着任何拥有链接的人都可以访问它们。以缩略图结尾的 URL 是视频的缩略图，而另一个 URL
+    将下载完整的视频，格式为 MP4。还显示了 SD 卡路径和图像文件名。
+- en: Image and audio messages are stored in a very similar format, and contain URLs
+    to either view or download the file, as well as the path to the file on the SD
+    card.
+  id: totrans-440
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图片和音频消息以非常相似的格式存储，包含查看或下载文件的 URL，以及 SD 卡上的文件路径。
+- en: 'Here is a sample location message:'
+  id: totrans-441
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个示例位置消息：
+- en: '![](img/591003d2-6f67-436a-afbb-9c6885fc5ee0.png)'
+  id: totrans-442
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/591003d2-6f67-436a-afbb-9c6885fc5ee0.png)'
+- en: This time, we can see the exact coordinates the user was at, as well as the
+    address. Again, a path on the SD card is also present, and will show the map view
+    of the location. As with the other message types, a received message would also
+    show the sender's name.
+  id: totrans-443
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一次，我们可以看到用户的确切坐标以及地址。同样，SD 卡路径也存在，并将显示该位置的地图视图。与其他消息类型一样，收到的消息也会显示发送者的姓名。
+- en: 'Finally, let''s take a look at the `userinfo.xml.db` database. Here is what
+    it looks like before being decoded properly:'
+  id: totrans-444
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，让我们来看一下 `userinfo.xml.db` 数据库。以下是解码之前它的样子：
+- en: '![](img/7c5925fe-2196-4cbb-9242-5f64f7a9c9a7.png)'
+  id: totrans-445
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7c5925fe-2196-4cbb-9242-5f64f7a9c9a7.png)'
+- en: 'We wrote another script very similar to the first to parse the `userinfo.xml.db`
+    database:'
+  id: totrans-446
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们编写了另一个与第一个非常相似的脚本，用于解析 `userinfo.xml.db` 数据库：
+- en: '[PRE3]'
+  id: totrans-447
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The only difference in the code is that the filenames, table names, and values
+    changed, and this time both of the columns in the database are base64-encoded.
+    Again, it can be run by placing it in the same location as `userinfo.xml.db` and
+    running it with the following:'
+  id: totrans-448
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 唯一的不同之处在于文件名、表名和数值发生了变化，并且这一次数据库中的两列都进行了 base64 编码。再次提醒，可以通过将其放在与 `userinfo.xml.db`
+    相同的位置并运行以下命令来执行它：
+- en: '[PRE4]'
+  id: totrans-449
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Here is the relevant portion of the resulting output file, showing the personal
+    data the user used to register the account:'
+  id: totrans-450
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是结果文件中相关部分的输出，显示了用户用于注册帐户的个人数据：
+- en: '![](img/1303398c-f8bf-43d8-bbbb-86fc1b6df47c.png)'
+  id: totrans-451
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/1303398c-f8bf-43d8-bbbb-86fc1b6df47c.png)'
+- en: Further down in the output, there is also a list of all of the user's contacts
+    who use Tango, and it includes the contacts' names and phone numbers.
+  id: totrans-452
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在输出的进一步部分，还有一个列表，列出了所有使用 Tango 的用户联系人，包括联系人的姓名和电话号码。
+- en: WhatsApp analysis
+  id: totrans-453
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: WhatsApp 分析
+- en: WhatsApp is a popular chat/video messaging service with over 500,000,000 downloads
+    in Google Play.
+  id: totrans-454
+  prefs: []
+  type: TYPE_NORMAL
+  zh: WhatsApp 是一款流行的聊天/视频消息服务，在 Google Play 上已有超过 5 亿次下载。
+- en: '**Package name**: `com.whatsapp`'
+  id: totrans-455
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**: `com.whatsapp`'
+- en: '**Files of interest**:'
+  id: totrans-456
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/files/`'
+  id: totrans-457
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/`'
+- en: '`Avatars/`'
+  id: totrans-458
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Avatars/`'
+- en: '`me`'
+  id: totrans-459
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`me`'
+- en: '`me.jpeg`'
+  id: totrans-460
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`me.jpeg`'
+- en: '`/shared_prefs/`'
+  id: totrans-461
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/`'
+- en: '`RegisterPhone.xml`'
+  id: totrans-462
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`RegisterPhone.xml`'
+- en: '`` `VerifySMS.xml` ``'
+  id: totrans-463
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`` `VerifySMS.xml` ``'
+- en: '`/databases/`'
+  id: totrans-464
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/`'
+- en: '`msgstore.db`'
+  id: totrans-465
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`msgstore.db`'
+- en: '`wa.db`'
+  id: totrans-466
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`wa.db`'
+- en: '`/sdcard/WhatsApp/`'
+  id: totrans-467
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/WhatsApp/`'
+- en: '`Media/`'
+  id: totrans-468
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Media/`'
+- en: '`Databases/`'
+  id: totrans-469
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`Databases/`'
+- en: The `/files/avatars` directory contains thumbnails of the profile pictures of
+    contacts that use the app, and `me.jpg` is a full-size version of the user's profile
+    picture. The me file contains the phone number associated with the account.
+  id: totrans-470
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/avatars` 目录包含使用该应用程序的联系人头像的缩略图，而 `me.jpg` 是用户头像的全尺寸版本。该 `me` 文件包含与账户关联的电话号码。'
+- en: The phone number associated with the account can also be recovered in `/shared_prefs/RegisterPhone.xml`.
+    The `/shared_prefs/VerifySMS.xml` file shows the time that the account was verified
+    (in Unix epoch format, of course), indicating when the user first began using
+    the app.
+  id: totrans-471
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与账户关联的电话号码也可以在 `/shared_prefs/RegisterPhone.xml` 中恢复。`/shared_prefs/VerifySMS.xml`
+    文件显示账户验证的时间（当然是 Unix 纪元格式），指示用户首次开始使用该应用的时间。
+- en: 'The `msgstore.db` database, like it sounds, contains messaging data:'
+  id: totrans-472
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`msgstore.db` 数据库，顾名思义，包含消息数据：'
+- en: '| **Table** | **Description** |'
+  id: totrans-473
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `chat_list` | The `key_remote_jid` column shows each account the user has
+    communicated with; the value in the table is the remote user''s phone number.
+    For example, if the value is `13218675309@s.whatsapp.net`, the remote user''s
+    number is `1-321-867-5309`. |'
+  id: totrans-474
+  prefs: []
+  type: TYPE_TB
+  zh: '| `chat_list` | `key_remote_jid` 列显示用户与之沟通过的每个账户；表中的值是远程用户的电话号码。例如，如果值是 `13218675309@s.whatsapp.net`，那么远程用户的号码就是
+    `1-321-867-5309`。 |'
+- en: '| `group_participants` | Contains metadata about group chats. |'
+  id: totrans-475
+  prefs: []
+  type: TYPE_TB
+  zh: '| `group_participants` | 包含群聊的元数据。 |'
+- en: '| `messages` | Shows all message data. Once again, the `key_remote_jid` field
+    identifies the remote sender. The `key_from_me` value indicates the direction
+    of the message (0=received, 1=sent). The data column contains the text of messages,
+    and timestamp is the sent or received time in Linux epoch format.For attachments,
+    `media_mime_type` identifies the file format; the `media_size` and `media_name`
+    columns should be self-explanatory. If the attachment had a caption, the text
+    would be shown in the `media_caption` column. If the attachment was a location,
+    the latitude and longitude columns will be populated appropriately. The `thumb_image`
+    column has a lot of useless data in it, but also contains the path of the attachment
+    on the device. The `raw_data` column contains thumbnails for images and videos.
+    |'
+  id: totrans-476
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messages` | 显示所有消息数据。再次强调，`key_remote_jid` 字段标识远程发送者。`key_from_me` 值表示消息的方向（0=接收，1=发送）。数据列包含消息文本，时间戳是发送或接收的时间，采用
+    Linux 纪元格式。对于附件，`media_mime_type` 标识文件格式；`media_size` 和 `media_name` 列应该不言而喻。如果附件有标题，文本将显示在
+    `media_caption` 列中。如果附件是位置，纬度和经度列将相应填充。`thumb_image` 列包含大量无用数据，但也包含设备上附件的路径。`raw_data`
+    列包含图片和视频的缩略图。 |'
+- en: 'The `wa.db` database is used to store contact information:'
+  id: totrans-477
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`wa.db` 数据库用于存储联系人信息：'
+- en: '| **Table** | **Description** |'
+  id: totrans-478
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `wa_contacts` | Like other apps, WhatsApp scrapes and stores the user''s
+    entire phonebook, and stores the information in its own database. It contains
+    the contact''s name and phone number, as well as a status if that contact is a
+    WhatsApp user. |'
+  id: totrans-479
+  prefs: []
+  type: TYPE_TB
+  zh: '| `wa_contacts` | 和其他应用一样，WhatsApp 会抓取并存储用户的整个电话簿，并将信息存储在自己的数据库中。它包含联系人的姓名和电话号码，以及该联系人是否是
+    WhatsApp 用户的状态。 |'
+- en: The SD card is a treasure trove of WhatsApp data. The `/sdcard/WhatsApp/Media`
+    folder contains a folder for each type of media (Audio, Calls, Images, Video,
+    and Voice Notes), and stores all attachments of that type in the folder. Sent
+    media is stored in a directory called, unimaginatively, Sent. Received media is
+    simply stored in the root of the folder.
+  id: totrans-480
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SD 卡是 WhatsApp 数据的宝藏。`/sdcard/WhatsApp/Media` 文件夹包含每种类型媒体的文件夹（音频、通话、图片、视频和语音笔记），并将该类型的所有附件存储在该文件夹中。发送的媒体存储在一个名为
+    Sent 的目录中。接收的媒体则直接存储在文件夹的根目录下。
+- en: 'The Databases directory is an even greater source of information. WhatsApp
+    makes a backup of `msgstore.db` nightly, and stores the backups here. This allows
+    an examiner to see historical data that may have been deleted; if I delete a chat
+    today, but you look at a backup from yesterday, you''ll be able to access the
+    data I deleted. The app is even kind enough to put the date in the filename, for
+    example: `msgstore-2018-12-12.1.db.crypt12`. The only catch is that these backups
+    are encrypted!'
+  id: totrans-481
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`Databases` 目录是一个更大的信息源。WhatsApp 每晚都会备份 `msgstore.db`，并将备份存储在这里。这使得检查人员能够查看可能已被删除的历史数据；如果我今天删除了一条聊天记录，但你查看昨天的备份，你将能够访问我删除的数据。该应用程序甚至贴心地将日期包含在文件名中，例如：`msgstore-2018-12-12.1.db.crypt12`。唯一的问题是这些备份是加密的！'
+- en: Decrypting WhatsApp backups
+  id: totrans-482
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解密 WhatsApp 备份
+- en: 'Luckily, there is a tool available to decrypt the backups. It can be found
+    here, along with detailed instructions: [https://andreas-mausch.de/whatsapp-viewer/](https://andreas-mausch.de/whatsapp-viewer/).
+    WhatsApp Viewer can be used to decrypt different versions of encrypted WhatsApp
+    databases. In this example, we are going to decrypt its latest version, `.crypt12`:'
+  id: totrans-483
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，现有工具可以用来解密备份。它可以在此找到，并附有详细的说明：[https://andreas-mausch.de/whatsapp-viewer/](https://andreas-mausch.de/whatsapp-viewer/)。WhatsApp
+    Viewer可以用来解密不同版本的加密WhatsApp数据库。在此示例中，我们将解密其最新版本`.crypt12`：
+- en: Go to File | Decrypt .crypt12….
+  id: totrans-484
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到文件 | 解密 .crypt12….
+- en: 'Choose encrypted database file and key file (can be found in the `/files` directory):'
+  id: totrans-485
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择加密的数据库文件和密钥文件（可以在`/files`目录中找到）：
+- en: '![](img/618d37b8-0d88-4452-b46a-bedc01ea32e1.png)'
+  id: totrans-486
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/618d37b8-0d88-4452-b46a-bedc01ea32e1.png)'
+- en: Click the Decrypt… button and choose the location of the decrypted database
+    file.
+  id: totrans-487
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击“解密…”按钮并选择解密后的数据库文件位置。
+- en: 'Data storage method 7: Encrypted files'
+  id: totrans-488
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据存储方式7：加密文件
+- en: Kik analysis
+  id: totrans-489
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Kik分析
+- en: Kik is a messaging app with over 100,000,000 downloads from the Play Store.
+  id: totrans-490
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Kik是一个即时通讯应用，已在Play商店下载超过1亿次。
+- en: '**Package name**: `kik.android`'
+  id: totrans-491
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`kik.android`'
+- en: '**Files of interest**:'
+  id: totrans-492
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**感兴趣的文件**：'
+- en: '`/cache/`'
+  id: totrans-493
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/cache/`'
+- en: '`chatPicsBig/`'
+  id: totrans-494
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`chatPicsBig/`'
+- en: '`contentpics/`'
+  id: totrans-495
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`contentpics/`'
+- en: '`profPics/`'
+  id: totrans-496
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`profPics/`'
+- en: '`/files/staging/thumbs`'
+  id: totrans-497
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/staging/thumbs`'
+- en: '`/shared_prefs/KikPreferences.xml`'
+  id: totrans-498
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/KikPreferences.xml`'
+- en: '`/sdcard/Kik/`'
+  id: totrans-499
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/Kik/`'
+- en: '`/databases/kikDatabase.db`'
+  id: totrans-500
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/databases/kikDatabase.db`'
+- en: The `chatPicsBig` and `contentpics` directories in `/cache` contain images that
+    were sent and received within the application. The files in `contentpics` contain
+    what appears to be `Kik` metadata embedded before the image; the JPG has to be
+    carved out of these files. In our testing, all of the files in `contentpics` were
+    also stored in `chatPicsBig`, though this may change with more extensive app usage.
+    The user's profile picture is found in /the `/profPics` directory.
+  id: totrans-501
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/cache`中的`chatPicsBig`和`contentpics`目录包含在应用中发送和接收的图像。`contentpics`中的文件包含看似嵌入在图像之前的`Kik`元数据；JPG文件必须从这些文件中提取出来。在我们的测试中，`contentpics`中的所有文件也存储在`chatPicsBig`中，尽管随着应用使用的增加，情况可能会发生变化。用户的个人资料图片位于`/profPics`目录中。'
+- en: 'Data storage method 8: Basic steganography; a file is stored within a larger
+    file.'
+  id: totrans-502
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据存储方式8：基本隐写术；一个文件存储在一个更大的文件中。
+- en: The `/files/staging/thumbs` directory contains thumbnails of images sent and
+    received with the application; our testing found the same images in this location
+    as the `/cache` directories, but again it is possible this would vary with more
+    extensive application usage.
+  id: totrans-503
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/files/staging/thumbs`目录包含发送和接收图像的缩略图；我们的测试发现该位置的图像与`/cache`目录中的图像相同，但同样地，随着应用使用的增加，情况可能会有所不同。'
+- en: The `KikPreferences.xml` file in `/shared_prefs` shows the user's username and
+    email address used with the application. Interestingly, it also contains an unsalted
+    SHA1 hash of the user's password.
+  id: totrans-504
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs`中的`KikPreferences.xml`文件显示了用户在应用中使用的用户名和电子邮件地址。有趣的是，它还包含用户密码的未加盐SHA1哈希值。'
+- en: The `/sdcard/Kik` directory contains full-sized images that were sent and received
+    in the application. The filenames can be correlated with `kikDatabase.db messagesTable`
+    to identify which message contained the image.
+  id: totrans-505
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/sdcard/Kik`目录包含在应用中发送和接收的全尺寸图像。文件名可以与`kikDatabase.db messagesTable`中的数据进行关联，以识别包含图像的消息。'
+- en: 'The `kikDatabase.db` database contains all of the messaging data from the application:'
+  id: totrans-506
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`kikDatabase.db`数据库包含来自应用的所有消息数据：'
+- en: '| **Table** | **Description** |'
+  id: totrans-507
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `KIKContentTable` | This table contains metadata about sent and received
+    images. Each message is assigned a unique `content_id` value that corresponds
+    to the filenames in the `sdcard/Kik` directory. The preview and icon values for
+    each image correspond to the filenames found at `/files/staging/thumbs`. Each
+    image also contains a `file-url` value; this is a public URL that can be accessed
+    to view the file. |'
+  id: totrans-508
+  prefs: []
+  type: TYPE_TB
+  zh: '| `KIKContentTable` | 该表格包含已发送和接收图像的元数据。每条消息都分配有一个唯一的`content_id`值，该值与`sdcard/Kik`目录中的文件名相对应。每张图像的预览和图标值对应于`/files/staging/thumbs`中的文件名。每张图像还包含一个`file-url`值；这是一个公共URL，可以用来查看该文件。
+    |'
+- en: '| `KIKcontactsTable` | This table shows `user_name` and `display_name` for
+    each contact. The `in_roster` value appears to be set for contacts the user has
+    specifically added (if it is set to `1`); contacts with an `in_roster` value of
+    0 appear to be added automatically. The `jid` column is a unique value for each
+    contact. |'
+  id: totrans-509
+  prefs: []
+  type: TYPE_TB
+  zh: '| `KIKcontactsTable` | 该表显示了每个联系人对应的`user_name`和`display_name`。`in_roster`值似乎是为用户明确添加的联系人设置的（如果值为`1`）；`in_roster`值为0的联系人似乎是自动添加的。`jid`列是每个联系人的唯一值。
+    |'
+- en: '| `messagesTable` | This table contains all data for messages sent and received
+    with the app. The body column shows the text data sent in a message. The `partner_jid`
+    value can be correlated back to the `jid` column in `KIKcontactTable` to identify
+    the remote user. The `was_me` column is used to indicate the direction of the
+    message (`0` = sent, `1` = received). The `read_state` column shows whether the
+    message has been read (`500` = read and `400` = unread). The timestamp, yet again,
+    is in Linux epoch format. The `content_id` column is populated with message attachments,
+    and can be correlated to `KIKContentTable` for more information. |'
+  id: totrans-510
+  prefs: []
+  type: TYPE_TB
+  zh: '| `messagesTable` | 该表包含了通过应用发送和接收的所有消息数据。`body`列显示了消息中发送的文本数据。`partner_jid`值可以与`KIKcontactTable`中的`jid`列关联，识别远程用户。`was_me`列用于表示消息的方向（`0`
+    = 发送，`1` = 接收）。`read_state`列显示消息是否已读（`500` = 已读，`400` = 未读）。时间戳仍然以Linux纪元格式表示。`content_id`列填充了消息附件，可以与`KIKContentTable`关联以获取更多信息。
+    |'
+- en: WeChat analysis
+  id: totrans-511
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 微信分析
+- en: WeChat is a messaging app with over 100,000,000 downloads in the Play Store.
+  id: totrans-512
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 微信是一款在Play商店下载超过1亿次的消息应用。
+- en: '**Package name**: `com.tencent.mm`'
+  id: totrans-513
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**包名**：`com.tencent.mm`'
+- en: Note that some of these paths contain an asterisk (*). This is used to indicate
+    a unique string that will differ for each account. Our device had `7f804fdbf79ba9e34e5359fc5df7f1eb`
+    in place of the asterisk.
+  id: totrans-514
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这些路径中有些包含星号（*）。这表示一个唯一的字符串，每个账户都会不同。我们的设备在星号位置使用了`7f804fdbf79ba9e34e5359fc5df7f1eb`。
+- en: '**Files of interest**:'
+  id: totrans-515
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**关注的文件**：'
+- en: '`/files/host/*.getdns2`'
+  id: totrans-516
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/files/host/*.getdns2`'
+- en: '`/shared_prefs/`'
+  id: totrans-517
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs/`'
+- en: '`com.tencent.mm_preferences.xml`'
+  id: totrans-518
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`com.tencent.mm_preferences.xml`'
+- en: '`system_config_prefs.xml`'
+  id: totrans-519
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`system_config_prefs.xml`'
+- en: '`/sdcard/tencent/MicroMsg/`'
+  id: totrans-520
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/tencent/MicroMsg/`'
+- en: '`diskcache/`'
+  id: totrans-521
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`diskcache/`'
+- en: '`WeChat/`'
+  id: totrans-522
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`WeChat/`'
+- en: '`/sdcard/tencent/MicroMsg/*/`'
+  id: totrans-523
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/sdcard/tencent/MicroMsg/*/`'
+- en: '`image2/`'
+  id: totrans-524
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`image2/`'
+- en: '`video/`'
+  id: totrans-525
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`video/`'
+- en: '`voice2/`'
+  id: totrans-526
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`voice2/`'
+- en: '`/MicroMsg/`'
+  id: totrans-527
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`/MicroMsg/`'
+- en: '`CompatibleInfo.cfg`'
+  id: totrans-528
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`CompatibleInfo.cfg`'
+- en: '`*/EnMicroMsg.db`'
+  id: totrans-529
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`*/EnMicroMsg.db`'
+- en: The `*.getdns2` files found in `/files/host` can be opened as text files or
+    in a hex editor. There is a section called `[clientip]` that shows the IP address
+    from which the user connected, as well as the time of the connection in Linux
+    epoch format. Our device contained three of these files to show three different
+    connections, though increased application usage may generate more than three of
+    these files.
+  id: totrans-530
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`/files/host`中找到的`*.getdns2`文件可以作为文本文件或十六进制编辑器打开。文件中有一个名为`[clientip]`的部分，显示了用户连接的IP地址以及连接时间（以Linux纪元格式表示）。我们的设备包含了三个这样的文件，显示了三次不同的连接，但随着应用使用量的增加，可能会生成超过三个这样的文件。
+- en: The `com.tencent.mm_preferences.xml` file in `/shared_prefs` records the device's
+    phone number in the `login_user_name` field. The `system_config_prefs.xml` file
+    contains the path to the user's profile picture on the device, as well as a `default_uin`
+    value that will be needed later.
+  id: totrans-531
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/shared_prefs`中的`com.tencent.mm_preferences.xml`文件记录了设备的电话号码，在`login_user_name`字段中。`system_config_prefs.xml`文件包含了用户设备上个人资料图片的路径，以及稍后需要的`default_uin`值。'
+- en: The SD card contains a wealth of WeChat data. The `/tencent/MicroMsg/diskcache`
+    directory contained an image that was never used with the application; we think
+    it was put there when attaching a different image, as WeChat loads a view of many
+    images from the device's gallery. The `/WeChat` directory within `/sdcard/tencent/MicroMsg`
+    contained images sent from the device.
+  id: totrans-532
+  prefs: []
+  type: TYPE_NORMAL
+  zh: SD卡包含了大量的微信数据。`/tencent/MicroMsg/diskcache`目录中包含了一张从未在应用中使用过的图片；我们认为它是在附加另一张图片时放入的，因为微信会加载设备图库中的许多图片。`/WeChat`目录位于`/sdcard/tencent/MicroMsg`中，包含了从设备发送的图片。
+- en: 'The `/video`, `/voice`, and `/voice2` folders within `/sdcard/tencent/MicroMsg/*`
+    contain exactly what they say: video and voice files sent using the app.'
+  id: totrans-533
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/sdcard/tencent/MicroMsg/*`中的`/video`、`/voice`和`/voice2`文件夹包含了它们所说的内容：通过应用发送的视频和语音文件。'
+- en: WeChat is fairly unique in that it does not utilize a `/databases` directory
+    within the app's directory structure; `MicroMsg` is its equivalent. `CompatibleInfo.cfg`
+    contains the device's IMEI, which will be useful later.
+  id: totrans-534
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 微信的一个独特之处在于，它并不使用应用程序目录结构中的`/databases`目录；`MicroMsg`目录充当其等效物。`CompatibleInfo.cfg`包含设备的IMEI，稍后会用到。
+- en: 'The `*` directory within `/MicroMsg` contains the `EnMicroMsg.db` database.
+    There''s only one problem: the database is encrypted using SQLCipher! SQLCipher
+    is an open source extension for SQLite that encrypts the entire database. Luckily,
+    like other apps that use encryption, the key to decrypting the file is on the
+    device.'
+  id: totrans-535
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`/MicroMsg`目录中的`*`文件夹包含`EnMicroMsg.db`数据库。只有一个问题：该数据库是使用SQLCipher加密的！SQLCipher是一个开源的SQLite扩展，能够加密整个数据库。幸运的是，与其他使用加密的应用一样，解密该文件的密钥存储在设备上。'
+- en: 'Data storage method 9: SQLCipher, full database encryption'
+  id: totrans-536
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数据存储方法 9：SQLCipher，完整的数据库加密
+- en: Decrypting the WeChat EnMicroMsg.db
+  id: totrans-537
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解密微信的EnMicroMsg.db
+- en: 'Fortunately for us, Forensic Focus has an excellent article on doing exactly
+    this: [http://articles.forensicfocus.com/2014/10/01/decrypt-wechat-enmicromsgdb-database/](http://articles.forensicfocus.com/2014/10/01/decrypt-wechat-enmicromsgdb-database/).'
+  id: totrans-538
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 幸运的是，Forensic Focus网站有一篇非常好的文章，正是讲如何完成这项操作：[http://articles.forensicfocus.com/2014/10/01/decrypt-wechat-enmicromsgdb-database/](http://articles.forensicfocus.com/2014/10/01/decrypt-wechat-enmicromsgdb-database/)。
+- en: 'They even provide a Python script to do the work for us: [https://gist.github.com/fauzimd/8cb0ca85ecaa923df828/download#](https://gist.github.com/fauzimd/8cb0ca85ecaa923df828/download#).'
+  id: totrans-539
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 他们甚至提供了一个Python脚本来帮我们完成这项工作：[https://gist.github.com/fauzimd/8cb0ca85ecaa923df828/download#](https://gist.github.com/fauzimd/8cb0ca85ecaa923df828/download#)。
+- en: 'To run the Python script, simply put the `EnMicroMsg.db` file and the `system_config_prefs.xml`
+    files in the same directory as the script and, in the command line, type the following:'
+  id: totrans-540
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要运行Python脚本，只需将`EnMicroMsg.db`文件和`system_config_prefs.xml`文件放在与脚本相同的目录下，然后在命令行中输入以下内容：
+- en: '[PRE5]'
+  id: totrans-541
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The script will then prompt you for the IMEI of the device. This can be found
+    in the `/MicroMsg/CompatibleInfo.cfg` file, printed somewhere on the device (behind
+    the battery, on the SIM card tray, or etched onto the back of the device are common
+    locations), or typing `*#06#` in the keypad.
+  id: totrans-542
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本接下来会提示你输入设备的IMEI。这可以在`/MicroMsg/CompatibleInfo.cfg`文件中找到，或者在设备上某个地方打印出来（如电池后面、SIM卡托上，或设备背面刻印的位置），或者通过在键盘上输入`*#06#`来获取。
+- en: The script should run, and place a file called `EnMicroMsg-decrypted.db` in
+    the directory.
+  id: totrans-543
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本应能正常运行，并在目录中生成一个名为`EnMicroMsg-decrypted.db`的文件。
+- en: 'We can now examine `EnMicroMsg-decrypted.db`:'
+  id: totrans-544
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们可以检查`EnMicroMsg-decrypted.db`了：
+- en: '| **Table** | **Description** |'
+  id: totrans-545
+  prefs: []
+  type: TYPE_TB
+  zh: '| **表格** | **描述** |'
+- en: '| `ImgInfo2` | Contains path information for sent and received images. The
+    `bigImgPath` column contains the filename for the image; this can be searched
+    on the SD card to find the picture. Alternatively, images are stored in the `/sdcard/tencent/MicroMsg/*/image2`
+    directory in folders that correspond to the filename. For example, the `3b9edb119e04869ecd7d1b21a10aa59f.jpg`
+    file can be found in the `image2` directory in the `/3b/9e` path. The folders
+    are broken down by the first two bytes of the name, then the second two bytes
+    of the name. `thumbImgPath` contains the name of thumbnails for the images. |'
+  id: totrans-546
+  prefs: []
+  type: TYPE_TB
+  zh: '| `ImgInfo2` | 包含发送和接收图像的路径信息。`bigImgPath`列包含图像的文件名；可以在SD卡上搜索该文件名来找到图像。或者，图像会存储在`/sdcard/tencent/MicroMsg/*/image2`目录下的文件夹中，文件夹名称与文件名相对应。例如，`3b9edb119e04869ecd7d1b21a10aa59f.jpg`文件可以在`/3b/9e`路径下的`image2`目录中找到。文件夹按文件名的前两个字节、然后是接下来的两个字节进行划分。`thumbImgPath`列包含图像缩略图的名称。
+    |'
+- en: '| `message` | Contains all message information for the app. The `isSend` column
+    indicates the message direction (`0` = received, `1` = sent). The `createTime`
+    table is the timestamp of the message, in Linux epoch format. The talker column
+    contains a unique ID for the remote user, this can be correlated with the `rcontact`
+    table to identify the remote user. The content column shows the data of messages
+    sent as text, and identifies video calls as `voip_content_voice`. `imgPath` contains
+    the path to image thumbnails, which can be correlated with the `ImgInfo2` table
+    to locate the full-sized images. It also includes file names for audio files,
+    which can be searched for or located in the `/sdcard/tencent/MicroMsg/*/voice2`
+    directory. |'
+  id: totrans-547
+  prefs: []
+  type: TYPE_TB
+  zh: '| `message` | 包含应用程序的所有消息信息。`isSend`列表示消息的方向（`0` = 接收，`1` = 发送）。`createTime`列是消息的时间戳，采用Linux纪元格式。talker列包含远程用户的唯一ID，可以与`rcontact`表相关联来识别远程用户。content列显示作为文本发送的消息数据，视频通话则标识为`voip_content_voice`。`imgPath`包含图片缩略图的路径，可以与`ImgInfo2`表相关联，以定位完整大小的图片。它还包括音频文件的文件名，可以在`/sdcard/tencent/MicroMsg/*/voice2`目录中搜索或找到。'
+- en: '| `rcontact` | Contains a list of contacts, and includes many that are added
+    by default by the app. The username can be correlated with the talker column in
+    the message table. The nickname column shows the user''s name. The type column
+    is an indicator of whether the contact was added manually or automatically (`1`
+    = device user, `3` = added by user, `33` = added by app). The exception to this
+    is the `weixin` user, which is automatically added, but has a type value of 3.
+    |'
+  id: totrans-548
+  prefs: []
+  type: TYPE_TB
+  zh: '| `rcontact` | 包含联系人列表，并包括许多应用程序默认添加的联系人。用户名可以与消息表中的talker列相关联。昵称列显示用户的名称。类型列是一个指示联系人是手动添加还是自动添加的标志（`1`
+    = 设备用户，`3` = 用户添加，`33` = 应用程序添加）。例外情况是`weixin`用户，该用户是自动添加的，但类型值为3。 |'
+- en: '| `userinfo` | This table contains info about the user, including name and
+    phone number. |'
+  id: totrans-549
+  prefs: []
+  type: TYPE_TB
+  zh: '| `userinfo` | 该表包含用户信息，包括姓名和电话号码。 |'
+- en: Summary
+  id: totrans-550
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: This chapter has been an in-depth study of specific Android applications, and
+    how/where they store their data. We looked at 19 specific applications, and discovered
+    9 different methods of storing and obfuscating data. Knowing that applications
+    store their data in a variety of ways should help an examiner have a better understanding
+    of the data that they are examining, and hopefully push them to look harder when
+    they can't find data they expect an app to have. An examiner has to be able to
+    adapt to the changing world of application analysis; since applications constantly
+    update, an examiner has to be able to update their own methods and abilities in
+    order to keep up.
+  id: totrans-551
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章深入研究了特定的安卓应用程序，以及它们如何/在哪里存储数据。我们研究了19个特定的应用程序，发现了9种不同的数据存储和混淆方法。知道应用程序以多种方式存储数据应该能帮助检查员更好地理解他们正在检查的数据，并希望在找不到他们期望应用程序有的数据时，促使他们更加仔细地寻找。检查员必须能够适应不断变化的应用程序分析世界；由于应用程序不断更新，检查员必须能够更新自己的方法和能力，以跟上步伐。
+- en: The next chapter will take a look at several free/open source and commercial
+    tools to image and analyze Android devices.
+  id: totrans-552
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一章将介绍几款免费的/开源的和商业的工具，用于镜像和分析安卓设备。

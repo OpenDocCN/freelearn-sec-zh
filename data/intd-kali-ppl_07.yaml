@@ -1,0 +1,2348 @@
+- en: '5'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '5'
+- en: Sending Data to the ELK Stack
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将数据发送到ELK堆栈
+- en: We devoted the previous chapter to setting up the three primary components of
+    the **ELK stack**. That’s great but, without data, those components are useless!
+    This chapter aims to resolve that issue. There are multiple means of acquiring
+    data for the ELK stack and exploring some of them can end up being rather advanced.
+    Since this is an introductory manual, we are going to stick with the simpler methods
+    – in this case, **Beats** – but still provide an overview of some of the more
+    advanced methods. This will allow those who thirst for knowledge, who love to
+    independently study, to do a deeper dig if they wish, while still providing actionable
+    tools for those of you who prefer to take it a bit slower.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在上一章中介绍了**ELK堆栈**的三个主要组件。这是一个很好的开始，但没有数据，这些组件是没用的！本章旨在解决这个问题。获取数据的方法有很多种，而探索其中一些方法可能会变得相当复杂。由于这是一本入门手册，我们将采用更简单的方法——在这种情况下是**Beats**——但仍会提供一些更高级方法的概述。这将使那些渴望知识、喜欢独立学习的人能够深入探讨，如果他们愿意的话，同时也为那些喜欢慢慢来的人提供可操作的工具。
+- en: The process of acquiring data involves transporting data. This is sometimes
+    referred to as **data shipping**. Throughout this chapter, when we use the term
+    data shipping, it should be assumed to mean that we are talking about transporting
+    data. Another assumption that is safe for you to make is that we are always including
+    Logstash within our data shipping ecosystem. So, when we talk about sending data
+    to Elasticsearch, it means we either have Logstash ready to quickly swap to or
+    that it should be considered in a commercial setup, but we are simply sending
+    it to Elasticsearch to move the example along efficiently. In most production
+    scenarios, you would send it to Logstash first. If at any point we meant to skip
+    Logstash and send the data directly to Elasticsearch – which is entirely possible
+    – we would explicitly state as much.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 获取数据的过程涉及到数据的传输。这有时被称为**数据传输**。在本章中，当我们使用“数据传输”一词时，应该理解为我们在讨论数据的传输。另一个可以安全假设的是，我们在讨论数据传输时，总是包含Logstash在我们的数据传输生态系统中。所以，当我们谈到将数据发送到Elasticsearch时，这意味着我们要么已经准备好快速切换到Logstash，要么它应当被视为商业环境中的一种选择，但我们只是将数据发送到Elasticsearch，以便高效地推进示例。在大多数生产环境中，你会首先将数据发送到Logstash。如果我们在某些情况下打算跳过Logstash，直接将数据发送到Elasticsearch——这是完全可能的——我们会明确指出。
+- en: The information that you’ll glean from this chapter will help you understand
+    how a typical SIEM operation functions. While we are using the ELK stack for our
+    hands-on training and examples, the experience and knowledge you’ll gain here
+    can generally be transferred to other SIEM setups. This chapter will serve as
+    the conclusion of the first section of this book. After this, we will be moving
+    on from working directly with the ELK stack. However, as we learn about additional
+    tools available in the Kali Purple distribution, you will discover that they are
+    supplementary to the ELK stack and will integrate with it. As the layers slowly
+    build, you’ll begin to see your full SOC taking shape, all based around the centerpiece
+    of what you’ve accomplished up to, and including, this chapter. So, take special
+    care here and make sure you don’t leave this chapter without a solid understanding
+    of the concepts within.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章所提供的信息将帮助你了解典型的SIEM操作是如何工作的。虽然我们在实际操作和示例中使用的是ELK堆栈，但你在这里获得的经验和知识通常可以迁移到其他SIEM设置中。本章将作为本书第一部分的结尾。在此之后，我们将不再直接与ELK堆栈进行操作。然而，当我们学习Kali
+    Purple发行版中的其他工具时，你会发现它们是ELK堆栈的补充，并会与之集成。随着层次的逐步构建，你将开始看到你的完整SOC逐渐成型，这一切都围绕着你到目前为止所完成的工作，包括本章的内容。所以，在这一章中要特别小心，确保在离开本章时，对其中的概念有扎实的理解。
+- en: 'This chapter covers the following topics:'
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章包含以下内容：
+- en: Understanding the flow of data
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解数据流动
+- en: Filebeat
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Filebeat
+- en: Types of Beats
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Beats的类型
+- en: Elastic agent
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Elastic agent
+- en: Logstash and filters
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Logstash 和过滤器
+- en: Technical requirements
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'For this chapter, you’ll require the following:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章需要以下内容：
+- en: '**Minimum requirements**: A computing device with either the *amd64 (x86_64/64-bit)*
+    or *i386 (x86/32-bit)* architecture. It should contain at least *8 GB* of RAM.'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**最低要求**：一台具有*amd64 (x86_64/64位)* 或 *i386 (x86/32位)* 架构的计算设备。它应至少包含*8 GB*的内存。'
+- en: '**Recommended requirements**: Based on feedback from cybersecurity field practitioners,
+    aim for the *amd64 (x86_64/64-bit)* architecture with *16 GB* of RAM – more is
+    better – and up to *64 GB* of additional disk space.'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**推荐要求**：根据来自网络安全领域从业者的反馈，建议使用 *amd64 (x86_64/64-bit)* 架构，并配备 *16 GB* 内存——更多内存更好——以及最多
+    *64 GB* 的额外磁盘空间。'
+- en: Understanding the data flow
+  id: totrans-15
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解数据流
+- en: You might recall from [*Chapter 1*](B21223_01.xhtml#_idTextAnchor013) that we
+    discussed one of the magical phenomena surrounding Kali Purple – folks who’ve
+    never used Linux before are finally deciding to give it a shot. The field of cybersecurity
+    has evolved to such a state that many roles exist within it where no specific
+    type of technological experience is required in advance. While having such experience
+    certainly helps and will give you an advantage, many organizations are beginning
+    to focus more on their ability to problem solve, operate under pressure, or tackle
+    challenges where no previous answer exists. Some organizations are willing to
+    teach people the technology skills they need if they possess those abilities and
+    can show a strong work ethic with the ability to be a good student. This goes
+    beyond Linux, programming, or other experience. One area where some folks are
+    short on experience as they come into the field of cybersecurity is networking.
+    By networking, we don’t mean the ability to create a robust circle of friends
+    and acquaintances. We mean cables, connections, and the flow of data between machines.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可能还记得在 [*第一章*](B21223_01.xhtml#_idTextAnchor013) 中我们讨论了围绕 Kali Purple 的一项神奇现象——从未使用过
+    Linux 的人最终决定尝试它。网络安全领域已经发展到一个新的阶段，许多职位不再要求事先具备特定类型的技术经验。尽管拥有这些经验无疑会有所帮助，并且能为你提供优势，但许多组织开始更加重视问题解决能力、在压力下操作的能力，或解决没有现成答案的挑战。一些组织愿意教会员工所需的技术技能，只要他们具备这些能力，并能展现出强烈的职业道德和作为好学生的潜力。这不仅仅局限于
+    Linux、编程或其他经验。有些人在进入网络安全领域时，缺乏的经验之一是网络技术。我们所说的“网络”并不是指建立一个强大的人脉圈子，而是指电缆、连接和机器之间的数据流动。
+- en: In this chapter, we will be migrating into the data flow as we address how the
+    ELK stack gets its information. Before doing so, however, we need to prepare our
+    connections and flow of data. Since there are an infinite number of potential
+    setups and we don’t know which tools and OS(s) you might be working with, we are
+    going to stick with our base example setup using VirtualBox on a Windows host.
+    However, the principle behind it all is the same. If you are using a different
+    virtualization tool or host OS, you should still be able to glean the necessary
+    information here.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将进入数据流的领域，讨论 ELK 堆栈如何获取信息。然而，在此之前，我们需要准备好我们的连接和数据流。由于潜在的设置方式无穷无尽，且我们无法确定你使用的工具和操作系统，我们将坚持使用我们基础的示例设置，即在
+    Windows 主机上使用 VirtualBox。但其背后的原理是相同的。如果你使用的是不同的虚拟化工具或主机操作系统，你仍然应该能够从中获取必要的信息。
+- en: Note
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Because we don’t know everyone’s financial situation and part of the magic of
+    Kali Purple is that the entire suite is free and open source, we are developing
+    this content in the simplest terms possible while still retaining proof-of-concept.
+    In fact, throughout this book, we are exploring Kali Purple from the perspective
+    of a single device. As we walk through the content, we are replicating it on a
+    tiny laptop with 32 GB of RAM and a 13-inch screen (yes, really). We want everybody
+    to enjoy the pleasures of Kali Purple.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们不了解每个人的财务状况，而 Kali Purple 的一大魅力在于整个套件是免费的且开源的，因此我们在开发本内容时力求使用最简单的术语，同时仍保留概念验证。事实上，在本书的内容中，我们将从单一设备的角度探索
+    Kali Purple。在讲解过程中，我们将在一台配备 32 GB 内存和 13 英寸屏幕的小型笔记本电脑上进行复现（是的，真的）。我们希望每个人都能享受到
+    Kali Purple 的乐趣。
+- en: That said, you should know that there are many ways to set up and deploy the
+    ELK stack even outside of Kali Purple so that it includes a cloud-based deployment.
+    We could write an entire book – more likely a series of books – just on the ELK
+    stack alone. However, this title isn’t about the ELK stack. It’s about Kali Purple
+    and we are going to keep it aligned with Kali Purple. Stick with us and by the
+    end, you will have a very robust understanding of Kali Purple that you can later
+    spread your wings to enhance in whichever ways you like.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 话虽如此，你应该知道，即使在 Kali Purple 之外，也有许多方法可以设置和部署 ELK 堆栈，其中包括基于云的部署。我们完全可以为 ELK 堆栈写一本书——更有可能是一系列书籍。
+    然而，这本书的主题并不是 ELK 堆栈，而是 Kali Purple，我们将保持与 Kali Purple 的一致性。跟随我们，到最后，你将对 Kali Purple
+    有一个非常扎实的理解，之后你可以在任何你喜欢的方式上进一步扩展。
+- en: With our base example, the first networking consideration is understanding our
+    **virtual machine** (**VM**) versus the host OS. Simply put, it is the same as
+    having two separate independently functioning personal computers. They are simply
+    sharing the same physical hardware to function. That’s the only difference between
+    our setup and having two unique devices. Therefore, we can place our endpoint
+    tools, such as a Beats data shipper or Elastic Agent, on the host machine and
+    have them report to the ELK stack hosted on Kali Purple within our VM instance.
+    Doing so will accurately simulate the process of having a customer’s devices report
+    to the tools within your company’s SOC. Adding to this complexity, we want to
+    protect the VM from outside interference from bad actors as much as possible.
+    We will do this by utilizing some networking concepts that allow data shippers
+    to report to the SIEM setup by only connecting to the host machine and having
+    the host machine pass the information along to the VM instance. While we do not
+    need external devices for Kali Purple proof-of-concept, we’ll still touch on that
+    aspect to support those of you who might want to experiment in that fashion. This
+    all has the added benefit of you only needing a single device, giving educators
+    and training managers an additional avenue for training their analysts.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以我们的基础示例为例，第一个网络考虑因素是理解我们的**虚拟机**（**VM**）与主机操作系统之间的关系。简而言之，这就像是拥有两台独立运行的个人计算机。它们只是共享相同的物理硬件来运行。这就是我们设置与拥有两台独立设备之间的唯一区别。因此，我们可以将终端工具，如
+    Beats 数据传输工具或 Elastic Agent，放在主机设备上，让它们将数据报告到托管在 Kali Purple 虚拟机实例中的 ELK 堆栈。这样做将准确模拟客户设备向公司
+    SOC 内的工具报告数据的过程。更复杂的是，我们希望尽可能地保护虚拟机不受外部恶意行为的干扰。我们将通过利用一些网络概念来实现这一点，使数据传输工具仅通过连接到主机设备来向
+    SIEM 设置报告，主机设备再将信息传递到虚拟机实例中。虽然我们不需要外部设备来验证 Kali Purple 的概念，但我们仍会触及这一方面，以支持那些希望以这种方式进行实验的朋友。这样做的另一个好处是你只需要一台设备，为教育工作者和培训经理提供了一个额外的途径来培训他们的分析师。
+- en: 'To have our networking properly established, we will need to cover two general
+    areas: we need to ensure your host device and VM can communicate with each other.
+    This requires you to either have a static IP address for your host machine, or
+    a willingness to edit your port forwarding rules within your virtualization software
+    for your Kali Purple VM instance each time your host machine updates its IP address.
+    That may or may not be tedious, depending on the business rules and operations
+    of your internet provider. That brings us to the second general area. Although
+    we are developing this content on the basis that you can do everything on a single
+    device, if you were ever to put your homemade Kali Purple SOC to legitimate use,
+    your host device will most assuredly need to be accessible to the outside world.
+    Otherwise, how would your data shippers know where to send the data?'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了确保我们的网络正确建立，我们需要覆盖两个主要领域：我们需要确保你的主机设备和虚拟机能够相互通信。这要求你为主机设备配置一个静态 IP 地址，或者愿意在每次主机设备更新其
+    IP 地址时，编辑虚拟化软件中的端口转发规则，确保 Kali Purple 虚拟机实例能够继续正常工作。根据互联网服务提供商的业务规则和操作，这可能会或可能不会很麻烦。这就引出了第二个主要领域。尽管我们开发本内容是基于你可以在单个设备上完成所有操作的假设，但如果你曾将自制的
+    Kali Purple SOC 用于合法目的，你的主机设备必然需要对外界可访问。否则，如何让你的数据传输工具知道将数据发送到哪里呢？
+- en: 'First things first: let’s see what kind of IP addresses you’re dealing with.
+    Open a command prompt on the host and type **ipconfig /all** to get a detailed
+    listing. As you examine the different network interfaces, you’ll notice an Ethernet
+    interface, which is code for *good ‘old-fashioned physical cable plugged into
+    my device*. That should be your virtualization software. Since some folks still
+    use phones with cords, believe Elvis is alive, and access computer networks through
+    ethernet connections, you will want to confirm this is your virtualization by
+    looking for a **Description** field. The value for that field should be text of
+    something referencing your virtualization software. In our example case, it is
+    **VirtualBox Host-Only Ethernet Adapter**. You should also notice a **DHCP Enabled**
+    row, which should have a value of **No** – that is a good thing. It means your
+    virtualization software has set its IP address statically. In other words, the
+    address will not change. In the same section, you will find an **IPv4 Address**
+    field. Record that value as you will want to insert it into the port forwarding
+    rules we will create in a few minutes. There may be other fields within these
+    results with an **IPv4 Address** field. Find the one that refers to your VM and
+    record the IPv4 value from that entry. It will likely be one of the first entries.
+    You may see a reference to your VM in the description, as shown in *Figure 5**.1*.
+    Record that value as the IP address of your host machine. Within that same section,
+    look for the **DHCP Enabled** field. This value may say **Yes**, which honestly
+    is a real bummer. This means your internet provider periodically renews/changes
+    your IP address. This will be reinforced with additional data in the left column
+    of the section talking about **Lease Obtained** and **Lease Expired**. If for
+    some reason the **DHCP Enabled** value says **No** like it did for your virtualization
+    interface, then chances are you already knew. You would’ve figured it out when
+    you opened the last bill from your internet provider and saw one too many zeroes
+    tacked on to the amount due.'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，先来看一下你正在处理的 IP 地址类型。在主机上打开命令提示符，输入**ipconfig /all**来获取详细的列表。查看不同的网络接口时，你会注意到一个以太网接口，这代表着*传统的物理网线插入我的设备*。这应该是你的虚拟化软件。由于有些人仍然使用有线电话、相信埃尔维斯还活着，并通过以太网连接访问计算机网络，你需要通过查找**Description**字段来确认这是你的虚拟化软件。该字段的值应该是提到虚拟化软件的文本。例如，在我们的案例中，它是**VirtualBox
+    Host-Only Ethernet Adapter**。你还应该注意到有一个**DHCP Enabled**行，值为**No**——这是好事。这意味着你的虚拟化软件已经将其
+    IP 地址设置为静态。换句话说，地址不会改变。在同一部分中，你会看到一个**IPv4 Address**字段。记录下该值，因为稍后我们将创建端口转发规则时需要用到它。结果中可能还会有其他字段带有**IPv4
+    Address**字段。找到那个与虚拟机相关的条目，并记录下该条目的 IPv4 值。它可能是列表中的第一个条目。你可能会在描述中看到与虚拟机相关的内容，如*图
+    5.1*所示。记录下该值作为主机的 IP 地址。在同一部分中，查找**DHCP Enabled**字段。这个值可能显示为**Yes**，老实说，这是个不太好的信号。这意味着你的互联网服务提供商会定期更新/更改你的
+    IP 地址。这一点可以通过该部分左列的**Lease Obtained**和**Lease Expired**字段得到进一步确认。如果出于某种原因，**DHCP
+    Enabled**值显示为**No**，就像虚拟化接口那样，那么你可能已经知道了。你会在打开互联网服务提供商的最后一张账单时发现这个信息，那时你会看到应付金额上多了几个零。
+- en: 'Look for an Ethernet interface with a description matching your virtualization
+    software:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查找与虚拟化软件匹配的以太网接口：
+- en: '![Figure 5.1 – ipconfig /all](image/B21223_05_1.jpg)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.1 – ipconfig /all](image/B21223_05_1.jpg)'
+- en: Figure 5.1 – ipconfig /all
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – ipconfig /all
+- en: If that’s the case, you’re good. You could set up a fully functioning Kali Purple
+    SOC, distribute data shippers to remote devices, and have them report back to
+    your applications once you complete port forwarding in the next step. If that’s
+    not the case, it means you have IP addresses that change, known as dynamic IPs.
+    You will have some independent study cut out for you before you can operate a
+    SOC as we just described. The reason we cannot do that for you is due to the unlimited
+    number of internet providers in the world, combined with what seems like an unlimited
+    variety of router/switch brands. The solution you need is to get a static IP address
+    on the device that is hosting your Kali Purple instance.
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果是这样的话，你就可以了。你可以设置一个完全功能的 Kali Purple SOC，分发数据发送器到远程设备，并在下一步完成端口转发后让它们将数据反馈到你的应用程序。如果不是这样的话，那就意味着你的
+    IP 地址是动态的，会发生变化。你需要在动手操作我们刚才描述的 SOC 之前，先进行一些独立学习。我们无法为你完成这部分操作的原因是，世界上有无限数量的互联网服务提供商，再加上看似无穷无尽的路由器/交换机品牌。你需要的解决方案是为托管
+    Kali Purple 实例的设备获取一个静态 IP 地址。
+- en: There are technically a variety of other alternative ways to address this because
+    the world of computer networking is vastly complex. However, folks who already
+    know all of that are highly unlikely to be reading this. What we can do is point
+    you in the right direction if you wish to set up your SOC in this manner. Before
+    you run off on that tangent though, first consider what your immediate needs are.
+    If you are simply looking to learn and/or enhance your Kali Purple knowledge,
+    it might be advisable to stick with only keeping your host machine and VM networked.
+    Depending on your virtualization type and setup, a host IP may not even be required
+    for the two to work with each other. Otherwise, we recommend checking your internet
+    provider and router/switch brands’ websites for information to see if you’re allowed
+    to set a static IP for a device, if they have resources to help you do so, and
+    if you will need additional port forwarding between your gateway device and the
+    host machine.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从技术上讲，还有其他一些替代方法可以解决这个问题，因为计算机网络的世界极其复杂。然而，已经了解这些内容的人不太可能阅读本教程。如果你希望以这种方式设置
+    SOC，我们可以为你指引方向。但在深入之前，请先考虑一下你的迫切需求。如果你只是想学习和/或提升 Kali Purple 的知识，建议只保持主机和虚拟机网络联通。根据你的虚拟化类型和设置，主机
+    IP 地址可能并不需要才能使两者正常工作。否则，我们建议你查看互联网服务提供商和路由器/交换机品牌的官方网站，了解是否允许为设备设置静态 IP 地址，是否有相关资源可以帮助你设置，是否需要在网关设备和主机之间进行额外的端口转发。
+- en: Once you have decided how you want to move forward and have addressed any IP
+    issues with your host device, you will want to network your VM with your host
+    machine. Remember a VM is the same thing as a separate physical computing device.
+    If we want it to communicate with our host device, we need to configure it to
+    do so.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦你决定了接下来的操作方式，并解决了主机设备的 IP 问题，你就需要将虚拟机与主机设备进行网络连接。记住，虚拟机就像一个独立的物理计算设备。如果我们希望它与主机设备进行通信，我们需要对其进行相应配置。
+- en: Let’s get our host machine and VM instance connected so that we can simulate
+    data shipping to our ELK stack setup. There are several possibilities to get your
+    host machine and virtualization software to communicate with each other. We are
+    going to utilize a concept known as **port forwarding**. If you are not experienced
+    with networking, think of a port as one of the wall *outlets/plugins* in your
+    home. Your home symbolizes your device. When your computer accesses the internet,
+    it’s like the electricity running through the wires in your home reaching outside
+    and traveling along the wires attached to the poles along roadways. When whatever
+    server or computing device you are accessing on the internet replies to your computer
+    with the information it is requesting – even if it’s as simple as displaying a
+    web page – it’s like that electricity coming back into your home through those
+    same wires.
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们将主机和虚拟机实例连接起来，以便模拟数据传输到我们的 ELK 堆栈设置。有几种方法可以使主机和虚拟化软件进行通信。我们将使用一个叫做**端口转发**的概念。如果你没有网络经验，可以将端口想象成你家中的墙上*插座/插口*。你的家代表你的设备。当你的计算机访问互联网时，就像电力通过你家里的电线到达外部，并沿着道路旁的电线传输。当你访问的互联网服务器或计算设备回复你计算机的信息时——即便是简单的显示一个网页——就像电力通过那些电线返回到你家里。
+- en: Have you ever wondered how your computer knows where that information that is
+    coming back – that is incoming – should be sent to? How does it know that the
+    incoming data belongs to an email client, your web browser, a game, or any other
+    application you are using? It knows this by using ports. Different applications
+    on your device will have different port numbers they operate from. Your web browser,
+    for example, will operate by connecting to port **80** for normal traffic or port
+    **443** for secured traffic on a remote web server device. In the process, it
+    will select a random open port on your device and reserve it for when the remote
+    device sends a reply. It sends that information, including the port number it
+    reserved for replies, to the remote device. That way, when the remote device sends
+    a reply, it can tell your computer where to send it. Your device, upon receiving
+    this reply, will then know which *outlet/plugin* to use. Therefore, it will know
+    that any information coming from the original remote port **80** or **443** web
+    server activity is related to your web browser and should be sent there.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你有没有想过，计算机是如何知道那些返回的信息——即传入数据——应该发送到哪里呢？它是怎么知道传入的数据属于电子邮件客户端、网页浏览器、游戏或其他你正在使用的应用程序的呢？计算机通过使用端口来知道这一点。设备上的不同应用程序会使用不同的端口号。举个例子，你的网页浏览器会通过连接到端口**80**来处理普通流量，或者通过连接到端口**443**来处理加密流量，连接到远程网页服务器设备。在这个过程中，浏览器会从设备上随机选择一个空闲端口，并为接收远程设备的回复保留该端口。它会将包括为回复保留的端口号的信息发送到远程设备。这样，当远程设备发送回复时，它就能告诉你的计算机将回复发送到哪里。你的设备在收到这个回复后，就知道该使用哪个*插座/插件*。因此，它就会知道，任何来自原始远程端口**80**或**443**网页服务器活动的信息，都是与网页浏览器相关的，应该发送到那里。
+- en: A port in your computer – also sometimes called a **plugin** – is like the electricity
+    coming into your house and going to a very specific *outlet*. Your home identifies
+    the plugins by the wiring that’s sent to the electrical panel, where there are
+    circuit breakers that should be labeled. If you go to the electrical panel in
+    your home and flip the switch that says *kitchen*, then in theory, the power in
+    your kitchen, and only your kitchen, should be turned off. It turns off all the
+    electrical *outlets* in your kitchen, not just one. A port on your computer is
+    like a single *outlet* in your kitchen. Port forwarding and mirroring are both
+    kind of like the circuit breaker switch in the control panel. You’re taking multiple
+    *plugins* and wiring them to the same control panel to be operated and controlled
+    with a single switch. When you create a rule in your device(s) to share or forward
+    ports, it’s like you’re rewiring them so that they work from the same toggle,
+    the same switch… a **virtual circuit breaker** if you will.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 计算机中的端口——有时也称为**插件**——就像是电流进入你家并到达一个非常特定的*插座*。你家通过送到电气面板的电线来识别这些插件，电气面板中有断路器，并且这些断路器应该有标签。如果你去到你家的电气面板，翻动写着*厨房*的开关，那么理论上，厨房的电力——只会是厨房的电力——应该被关闭。它会关闭厨房中的所有电气*插座*，而不仅仅是一个。你计算机中的端口就像厨房里的一个*插座*。端口转发和镜像就像控制面板中的断路器开关。你将多个*插件*连接到同一个控制面板，以便用一个开关进行操作和控制。当你在设备中创建规则来共享或转发端口时，这就像是你重新布线它们，使它们可以通过相同的开关、相同的开关来工作……可以称之为**虚拟断路器**。
+- en: To get our host machine and VM on the same circuit breaker, we will use port
+    forwarding within VirtualBox. To do that, make sure the Kali Purple VM is turned
+    off. If you have it running, you will need to shut it down before you can access
+    the port forwarding feature for that VM. Once it’s off, open your VirtualBox and
+    select the VM where you had Kali Purple running. Next, click the large gear image/icon
+    across the top that is labeled **Settings**. When the settings window opens, find
+    and select the **Networking** tab in the left column.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了让我们的主机和虚拟机在同一个电路断路器上，我们将在 VirtualBox 中使用端口转发。为此，请确保 Kali Purple 虚拟机已关闭。如果虚拟机正在运行，你需要先关闭它，然后才能访问该虚拟机的端口转发功能。虚拟机关闭后，打开
+    VirtualBox，选择你运行 Kali Purple 的虚拟机。接下来，点击顶部标有**设置**的大齿轮图标。当设置窗口打开时，找到并选择左侧栏中的**网络**选项卡。
+- en: While there are several ways to perform this next step, we are going to stick
+    with something called **Network Address Translation** (**NAT**). We need to find
+    an available network adapter. Across the top of the main window pane, there should
+    be four tabs with adapter labels on them. In most cases, the first tab will already
+    be partially set up with the following information. If you see that the **Enable
+    Network Adapter** box is checked and **NAT** from the scroll menu to the right
+    of **Attached to:** has already been selected, you can continue using this active
+    tab. Otherwise, you will want to work through the tabs at the top of the window
+    pane until you find an available network adapter. You could consider it available
+    if **Enable Network Adapter** is not selected. You can read more about NAT as
+    well as the static and dynamic IPs previously discussed in the *Further reading*
+    section at the end of this chapter. If any of these options are not available
+    or are grayed out, it likely means you forgot to turn off the VM first. Double-check
+    and make sure you turned off the correct VM and then try again. You might need
+    to close and relaunch the VirtualBox VM.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然有几种方法可以执行下一步操作，但我们将使用一种叫做**网络地址转换**（**NAT**）的方法。我们需要找到一个可用的网络适配器。在主窗口的顶部，应该有四个标签，每个标签上都有适配器的标签。在大多数情况下，第一个标签会预先设置一些信息。如果你看到**启用网络适配器**框已选中，并且在**附加到：**右侧的滚动菜单中已经选择了**NAT**，那么你可以继续使用这个活动标签。否则，你需要继续浏览窗口顶部的标签，直到找到一个可用的网络适配器。如果**启用网络适配器**未被选中，你可以认为它是可用的。你可以在本章末尾的*进一步阅读*部分中阅读更多关于NAT以及之前讨论的静态和动态IP的信息。如果这些选项不可用或被灰显，可能是你忘记先关闭虚拟机。请仔细检查并确保你已经关闭了正确的虚拟机，然后再试一次。你可能需要关闭并重新启动VirtualBox虚拟机。
+- en: 'If you forget to turn the VM off, some settings might be grayed out, as follows:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你忘记关闭虚拟机，一些设置可能会被灰显，如下所示：
+- en: '![Figure 5.2 – The Settings panel](image/B21223_05_2.jpg)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.2 – 设置面板](image/B21223_05_2.jpg)'
+- en: Figure 5.2 – The Settings panel
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2 – 设置面板
+- en: When you’re satisfied, click the triangle next to **Advanced**. You should see
+    another drop-down menu labeled **Adapter Type:**. Set this to **Paravirtualized**
+    **Network (virtio-net)**.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你满意时，点击**高级**旁边的三角形。你应该会看到另一个下拉菜单，标有**适配器类型：**。将其设置为**虚拟化网络（virtio-net）**。
+- en: Note
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意事项
+- en: The preceding step is of paramount importance. It is the cause of frustration
+    for many users within the virtualization community so, please make absolutely,
+    positively, certain that you don’t skip it. If you are using a virtualization
+    product other than VirtualBox, there may be subtle differences in how it is labeled.
+    Nevertheless, you should be able to figure it out using deductive reasoning. If
+    you’re not comfortable with that, you can search for terms about your virtualization
+    brand along with the word paravirtualization.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述步骤至关重要。这是虚拟化社区中许多用户感到沮丧的原因，所以，请确保不要跳过这一步骤。如果你使用的不是VirtualBox虚拟化产品，标签的名称可能会有所不同。但你应该能够通过推理找到相应的设置。如果你不确定，也可以搜索与你的虚拟化品牌相关的术语，再加上“paravirtualization”一词。
+- en: A few lines afterward, you should also see a button to access the **Port Forwarding**
+    feature. Go ahead and click on that button to open the **Port Forwarding Rules**
+    window. The next few pages will provide you with some further details and a visual
+    – as shown in *Figure 5**.3* – about port forwarding. Feel free to resize that
+    annoyingly small window so that you can see all the columns. If you’re using a
+    different virtualization product or host OS, you can simply try searching for
+    how to get your brands of virtualization and OS to network with each other. You
+    might also include the term *port forwarding* in your query. However, if you follow
+    this sequence of events here, it might be enough of a lead to assist you even
+    in working with other products. So, we recommend reading this section even if
+    you aren’t using VirtualBox.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来几行，你还应该会看到一个按钮，用于访问**端口转发**功能。点击该按钮打开**端口转发规则**窗口。接下来的几页将为你提供更多详细信息和一个关于端口转发的图示—如*图
+    5.3*所示。可以随意调整那个小窗口的大小，以便查看所有的列。如果你使用的是不同的虚拟化产品或宿主操作系统，可以尝试搜索如何让你的虚拟化产品和操作系统进行网络连接。你也可以在查询中加入*端口转发*一词。但是，如果你按照这里的步骤操作，即使使用其他产品，这些信息也可能对你有所帮助。所以，我们建议即使你没有使用VirtualBox，仍然阅读这一部分内容。
+- en: Now that we’re here, let’s set up port forwarding for each component of the
+    ELK stack. While Elasticsearch and Kibana both primarily use **Transmission Control
+    Protocol** (**TCP**) network traffic, Logstash works with both TCP and **User
+    Datagram Protocol** (**UDP**). Elasticsearch also has an additional port it uses
+    to receive information from the pipeline. We might configure that one twice, once
+    for each protocol. Honestly, there is no harm in setting up each component for
+    both TCP and UDP as good practice since we don’t know what the future holds for
+    our SOC/SIEM solution. Check the *Further reading* section at the end of this
+    chapter for a link to study more about these protocols if you’re interested.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们已经到达这里，让我们为 ELK 堆栈的每个组件设置端口转发。虽然 Elasticsearch 和 Kibana 主要使用**传输控制协议**（**TCP**）网络流量，Logstash
+    则同时支持 TCP 和**用户数据报协议**（**UDP**）。Elasticsearch 还使用一个额外的端口来接收来自管道的信息。我们可能会配置这个端口两次，一次用于每个协议。老实说，将每个组件都设置为
+    TCP 和 UDP 是一种良好的实践，因为我们无法预知我们的 SOC/SIEM 解决方案的未来。若你有兴趣，可以查看本章末尾的*进一步阅读*部分，里面有关于这些协议的更多学习链接。
+- en: In the top-right corner of the window that opens after you click the **Port
+    Forwarding** button, there should be a small icon with a green plus symbol on
+    it. You might need to double-click a field to gain access for input or editing
+    the values. You will create multiple port forwarding rules at this time. Click
+    on the icon with the green plus symbol to create your first port forwarding rule.
+    In the **Name** column, type **Elasticsearch - Localhost**, and in the protocol
+    column to the right, type **TCP**. In the **Host IP** column, you will be asked
+    for the IP address of the source you want to connect to your VM, which in our
+    case is the host machine itself. Type **127.0.0.1**, which represents the local
+    host of your host machine. Elasticsearch binds with Kibana on port **9200** and
+    since this rule is to cause both the host and guest to share the same port, you
+    must input **9200** into both the **Host Port** and **Guest Port** columns. For
+    each port forwarding rule you are making, input the IP you recorded earlier from
+    your VM interface – the Ethernet section when you typed **ipconfig /all** – in
+    the **Guest IP** column. In our case, it was **192.168.56.1** if you refer to
+    *Figure 5**.1*. We’re having you input that IP as a best practice since not all
+    port forwarding scenarios you will encounter in your career will involve a simple
+    Host-VM union.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在你点击**端口转发**按钮后打开的窗口右上角，应该会有一个带有绿色加号符号的小图标。你可能需要双击某个字段才能获得输入或编辑值的权限。此时你将创建多个端口转发规则。点击带有绿色加号符号的图标来创建你的第一个端口转发规则。在**名称**栏中，输入**Elasticsearch
+    - Localhost**，在右侧的协议栏中，输入**TCP**。在**主机 IP**栏中，你需要输入你想要连接到虚拟机的源的 IP 地址，在我们这个例子中就是主机机器本身。输入**127.0.0.1**，这表示主机机器的本地主机。Elasticsearch
+    和 Kibana 使用**9200**端口，因此，由于这个规则是为了让主机和虚拟机共享同一个端口，你必须在**主机端口**和**客户机端口**栏中都输入**9200**。对于你正在创建的每个端口转发规则，在**客户机
+    IP**栏中输入你从虚拟机界面记录的 IP——即你输入**ipconfig /all**时，来自以太网部分的 IP。在我们的例子中，如果参考*图 5.1*，是**192.168.56.1**。我们建议你输入这个
+    IP 作为一种最佳实践，因为并非所有的端口转发场景都会涉及简单的主机-虚拟机联合。
+- en: Note
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注
+- en: You can technically leave the **Guest IP** column blank. Some users have reported
+    issues with having an entry for the guest IP when the other endpoint is the local
+    host. If you encounter any issues, go ahead and remove that IP. It is a great
+    troubleshooting habit with any form of technology to remove all of the optional
+    settings and inputs. Then, confirm the technology works as expected minus those
+    items and slowly reintegrate them, one single item at a time, testing after each
+    step. If you develop a habit of troubleshooting in that manner, you will quickly
+    discover that most of the time, it’s one of those optional items that caused the
+    problem/issue in the first place.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从技术上讲，你可以将**客户机 IP**栏留空。有些用户报告说，当另一端点是本地主机时，若**客户机 IP**有条目会遇到问题。如果你遇到类似问题，可以尝试移除该
+    IP。无论哪种技术，去掉所有可选设置和输入是一种很好的故障排除习惯。然后，确认技术在去除这些项后能按预期工作，再慢慢地逐项重新添加，测试每一步。若你养成这样的故障排除习惯，你会很快发现，大多数情况下，正是那些可选项导致了最初的问题/故障。
+- en: 'Once you’ve finished setting up your first port forward, select **OK** to save
+    the rule and then repeat this step once for each of the following rules using
+    the same IPs for both the host and guest:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成第一个端口转发设置后，点击**确定**保存规则，然后对以下每个规则重复此步骤，使用相同的 IP 地址为主机和客户机设置：
+- en: Elasticsearch – App Data with TCP on port **9300**
+  id: totrans-47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置 Elasticsearch – 应用数据使用 **9300** 端口的 TCP
+- en: Kibana with TCP on port **5601**
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置 Kibana 使用 **5601** 端口的 TCP
+- en: Logstash with TCP on port **5044**
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置 Logstash 使用 **5044** 端口的 TCP
+- en: Logstash with UDP on port **5044**
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置 Logstash 使用 **5044** 端口的 UDP
+- en: 'The rule for setting Elasticsearch – App Data isn’t going to be used by us.
+    It’s a port that is used by Elasticsearch to communicate and transfer data between
+    nodes. However, we had you set it up as a good habit. As you grow, learn, and
+    expand your capabilities, you might decide to study and experiment with using
+    multiple Elasticsearch nodes. Now, you’ve programmed your brain to remember this
+    port exists to help. Once you’ve finished setting up your port forwarding rules,
+    they should somewhat resemble what you can see in *Figure 5**.3*, which is a screen
+    capture of the rules we have set up for running our lab example:'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设置 Elasticsearch – 应用数据的规则我们不会使用。这个端口是 Elasticsearch 用于在节点之间进行通信和数据传输的。不过，我们让你设置这个端口是为了培养一个好习惯。随着你不断成长、学习和拓展自己的能力，你可能决定研究并尝试使用多个
+    Elasticsearch 节点。现在，你已经将大脑编程成记住这个端口的存在，帮助你进行操作。一旦你完成了端口转发规则的设置，它们应该和你在*图 5.3*中看到的类似，这是我们为运行实验示例所设置的规则的截图：
+- en: '![Figure 5.3 – Port Forwarding Rules](image/B21223_05_3.jpg)'
+  id: totrans-52
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.3 – 端口转发规则](image/B21223_05_3.jpg)'
+- en: Figure 5.3 – Port Forwarding Rules
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – 端口转发规则
+- en: One final step in configuring our network for data transfer is to test our setup.
+    We will do this by trying to connect to Elasticsearch and Kibana from our host
+    machine. First, we must do some housekeeping. Click **OK** to close the **Port
+    Forwarding Rules** window and click **OK** again to close the **Settings** window.
+    Now, start up your Kali Purple VM and give it a few minutes to boot. One thing
+    we want to avoid is trying to connect prematurely or without verifying that Elasticsearch
+    and Kibana were started correctly when we booted our VM. Also, if you didn’t select
+    the option to enable these services when you installed them in [*Chapter 4*](B21223_04.xhtml#_idTextAnchor076),
+    you will need to start them up manually. If we don’t start them, we certainly
+    won’t be able to connect to them from our host machine even if we did our port
+    forwarding correctly. After your Kali Purple VM boots, log in to your instance
+    and open a command-line Terminal window. Do you remember our best practices from
+    when we installed these services in [*Chapter 4*](B21223_04.xhtml#_idTextAnchor076)?
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 配置网络进行数据传输的最后一步是测试我们的设置。我们将通过尝试从主机机器连接到 Elasticsearch 和 Kibana 来实现这一点。首先，我们需要做一些清理工作。点击
+    **确定** 关闭 **端口转发规则** 窗口，然后再次点击 **确定** 关闭 **设置** 窗口。现在，启动你的 Kali Purple 虚拟机并等待几分钟让它启动。我们要避免的一件事是过早连接，或者在没有验证
+    Elasticsearch 和 Kibana 是否在虚拟机启动时正确启动的情况下尝试连接。另外，如果你在安装这些服务时没有选择启用它们的选项，在 [*第 4
+    章*](B21223_04.xhtml#_idTextAnchor076)中，你将需要手动启动它们。如果我们没有启动它们，即使我们的端口转发设置正确，也无法从主机机器连接到它们。虚拟机启动后，登录到实例并打开命令行终端窗口。你还记得我们在安装这些服务时的最佳实践吗？这些是在
+    [*第 4 章*](B21223_04.xhtml#_idTextAnchor076) 中讲解的。
+- en: 'If not, they are to type the following commands:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有的话，他们需要输入以下命令：
+- en: '**sudo** **apt update**'
+  id: totrans-56
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**sudo** **apt update**'
+- en: '**sudo apt upgrade** if you wish to upgrade any of the options presented in
+    the update'
+  id: totrans-57
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**sudo apt upgrade** 如果你希望升级更新中呈现的任何选项'
+- en: '**sudo systemctl daemon-reload** to load any forgotten configuration changes'
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**sudo systemctl daemon-reload** 重新加载任何遗漏的配置更改'
+- en: '**sudo systemctl status elasticsearch** – it will say **Active** if it’s running'
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**sudo systemctl status elasticsearch** – 如果它正在运行，它会显示 **Active**'
+- en: '**sudo systemctl status kibana** – it also will say **Active** if it’s running'
+  id: totrans-60
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**sudo systemctl status kibana** – 如果它正在运行，也会显示 **Active**'
+- en: Press *Ctrl* + *Z* to break out the status screens when needed
+  id: totrans-61
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 按 *Ctrl* + *Z* 以便在需要时退出状态屏幕
+- en: In this case, you will want to ensure you do the upgrade if any of the options
+    returned from the update are related to the Elastic suite of products. The reason
+    is that you will acquire **Filebeat** in the next section directly from Elastic
+    and if the version you acquire is newer than your Elastic installation, you will
+    likely have issues setting it up.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，如果更新返回的任何选项与 Elastic 产品套件相关，你需要确保执行升级。原因是你将在下一节直接从 Elastic 获取 **Filebeat**，如果你获得的版本比你现有的
+    Elastic 安装版本更新，可能会在设置过程中遇到问题。
+- en: Once your Kali Purple and ELK instances are confirmed to be up and running,
+    return to your host machine to test the port forwarding rules we created. On your
+    host machine, open a web browser of your choosing. As you may recall from [*Chapter
+    4*](B21223_04.xhtml#_idTextAnchor076), we tested our Elasticsearch setup this
+    same way by connecting directly to it. In practice, we will only access Elasticsearch
+    through the Kibana interface. This is just to test and make sure our port forwarding
+    rule worked as expected! In the address bar of the browser you opened, enter [https://localhost:9200](https://localhost:9200),
+    paying particular attention to the *s* after *http*. If your port forwarding worked
+    as expected, you will be presented with an option to enter Elasticsearch login
+    credentials. These are the same credentials you use when you log in to Elasticsearch
+    from within the Kali Purple environment because this is the same Elasticsearch!
+    If you are presented with a web page showing your default Elasticsearch cluster
+    in JSON format, that’s a victory for you! Your **9200** port forwarding rule worked.
+    Let’s do the same thing for Kibana now. This time, skip the *s* after *http* and
+    enter http://localhost:5601 in your browser. You should be presented with the
+    same Kibana page you get when you log in through the VM. Since we don’t connect
+    to Logstash directly, we could probably safely assume that all your port forwards
+    were successful at this point.
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦确认你的 Kali Purple 和 ELK 实例已成功启动并运行，返回你的主机进行端口转发规则的测试。在主机上，打开你选择的网页浏览器。正如你可能从
+    [*第4章*](B21223_04.xhtml#_idTextAnchor076) 中回忆到的，我们通过直接连接来测试 Elasticsearch 设置。在实际操作中，我们只会通过
+    Kibana 界面访问 Elasticsearch。这只是为了测试并确保我们的端口转发规则按预期工作！在你打开的浏览器的地址栏中，输入 [https://localhost:9200](https://localhost:9200)，特别注意
+    *http* 后的 *s*。如果你的端口转发按预期工作，你将看到一个提示，要求你输入 Elasticsearch 登录凭证。这些凭证与你从 Kali Purple
+    环境中登录 Elasticsearch 时使用的是相同的，因为这就是同一个 Elasticsearch！如果你看到一个显示默认 Elasticsearch
+    集群的 JSON 格式网页，那么恭喜你，这就是成功！你的 **9200** 端口转发规则工作正常。现在我们对 Kibana 做同样的操作。这次，省略 *http*
+    后的 *s*，在浏览器中输入 http://localhost:5601。你应该会看到你通过虚拟机登录时所获得的相同 Kibana 页面。由于我们不直接连接到
+    Logstash，因此可以安全地假设此时所有的端口转发都已成功。
+- en: Congratulations! You’ve already won more than half the battle of data transfer.
+    Getting your network set up is the core of all data transfer – that’s why we have
+    the internet, right? In the next section, we are going to get Beats installed
+    and configured so that it can use this networking scheme to report from its installation
+    device back to our ELK stack SIEM solution.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恭喜你！你已经赢得了数据传输战斗的一半。设置好你的网络是所有数据传输的核心——这就是我们为什么有互联网，对吧？在下一节中，我们将安装并配置 Beats，使其能够使用此网络方案，将数据从安装设备报告回我们的
+    ELK 堆栈 SIEM 解决方案。
+- en: Filebeat
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Filebeat
+- en: Many folks will consider Beats part of the ELK stack because of the heavy dependence
+    the three primary ELK components used to have on it. However, with the continued
+    improvement of the Elastic agent and outside vendors developing compatibility
+    within their independent products to send data to Elasticsearch, the inclusion
+    of Beats is becoming less and less of an automatic assumption. We will explore
+    the Elastic agent also. However, Beats remains simple and lightweight. Therefore,
+    it is a very natural progression for us to transition into.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 很多人会将 Beats 视为 ELK 堆栈的一部分，因为这三个主要的 ELK 组件曾经在很大程度上依赖于 Beats。然而，随着 Elastic agent
+    的不断改进，以及外部供应商在其独立产品中开发与 Elasticsearch 兼容的功能，Beats 的包含已不再是一个自动的假设。我们也会探索 Elastic
+    agent。不过，Beats 依然简单且轻量，因此它是一个非常自然的过渡步骤。
+- en: Aside from sample datasets, which are groups of fake data that have been set
+    up to test systems such as the ELK stack before deployment, the next simplest
+    manner of data acquisition is through a family of agents, known as data shippers,
+    collectively referred to as Beats. Beats is not a singular agent or software application.
+    Rather, it is a family of applications. By separating the data collection into
+    independent agents, each with an area of emphasis or theme, Beats can deploy only
+    what is necessary and relevant to a particular endpoint. This helps to weed out
+    unnecessary processing and overhead. For this reason, Beats is considered a lightweight
+    solution for data shipping.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了示例数据集——这些是假数据，用于在部署前测试如ELK堆栈等系统——外，获取数据的下一种最简单方式是通过一系列代理，称为数据传输工具，统称为Beats。Beats并不是单一的代理或软件应用程序，而是一个应用程序家族。通过将数据收集拆分成独立的代理，每个代理都有特定的重点或主题，Beats可以只部署对特定端点必要且相关的部分。这有助于去除不必要的处理和开销。因此，Beats被认为是一个轻量级的数据传输解决方案。
+- en: Instead of looking at all the different types of Beats available, let’s select
+    just one to delve into so that we can gain the experience of setting one up and
+    therefore an understanding of what exactly a Beat is and how it works. We will
+    use the popular Filebeat as an example. There may be other beats that you might
+    find more useful for the Windows host we are using as our example. However, Filebeat
+    is one of the most universal and is, by far, the most used beat within the total
+    Beats ecosystem. Additionally, Filebeat is a very popular data shipper to be used
+    on server devices due to its focus on log collection. If you were to deploy Beats
+    within a commercial setting, odds are Filebeat will be one of the most frequently
+    used Beats you will be expected to work with.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与其查看所有可用的不同类型的Beats，不如选一个深入研究，这样我们可以通过设置它来获得经验，从而了解Beat到底是什么以及它是如何工作的。我们将以流行的Filebeat作为示例。也许还有其他你可能觉得对我们正在使用的Windows主机更有用的beats。然而，Filebeat是最具通用性的之一，迄今为止，它是Beats生态系统中使用最广泛的beat。此外，Filebeat是一个非常流行的数据传输工具，因其专注于日志收集而广泛应用于服务器设备。如果你在商业环境中部署Beats，Filebeat很可能是你最常使用的Beats之一。
+- en: Let’s simulate installing the beat on a remote endpoint by installing it on
+    our host machine instead. At this point, you should’ve already configured the
+    networking portion that’s required for us to make this happen. After installing,
+    we will have it report to the ELK stack we have running within our Kali Purple
+    VM instance. Although it’s one physical device, the process is the same as if
+    it were two separate devices. That’s the beauty of a VM. Another benefit to doing
+    it this way is that you shouldn’t need to take on any additional costs since no
+    additional hardware is needed and Beats is free open source software.
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过在主机上安装Beats来模拟在远程端点上安装它。此时，你应该已经配置好了我们实现这一目标所需的网络部分。安装后，我们将让它向我们在Kali Purple虚拟机实例中运行的ELK堆栈报告数据。虽然这是一台物理设备，但过程与使用两台独立设备时完全相同。这就是虚拟机的魅力。以这种方式操作的另一个好处是，你不需要额外的硬件，也无需承担任何额外成本，因为Beats是免费的开源软件。
+- en: 'On your host machine, enter the following into the address bar of your browser:
+    [https://www.elastic.co/downloads/beats/filebeat](https://www.elastic.co/downloads/beats/filebeat).'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在你的主机上，打开浏览器地址栏并输入以下网址：[https://www.elastic.co/downloads/beats/filebeat](https://www.elastic.co/downloads/beats/filebeat)。
+- en: 'When the page loads, select the appropriate platform package from the **Choose
+    platform:** download menu but do *not* download it yet. First, you need to select
+    the package to get the appropriate file hash. In the case of a Windows OS, there
+    are multiple options. You want to select the non-BETA option – the one with ZIP
+    in the title. The package you select from the menu should now be duplicated in
+    a blue download link underneath the menu. Once you visually confirm you have the
+    correct package, you will want to acquire the hash value – reminiscent of what
+    you did in [*Chapter 3*](B21223_03.xhtml#_idTextAnchor052). If you look just to
+    the right of the blue download box, you should see the word **sha** pre-pended
+    with the international symbol for download, as highlighted in *Figure 5**.4*.
+    Select that link and observe that the hash is sent in the form of a download.
+    If the browser you are using allows you to open the download directly, do that.
+    Otherwise, navigate to the **Downloads** folder on your device and open the hash.
+    Record it somewhere so that you can compare it to the final download:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当页面加载时，选择适合平台的包，并从**选择平台：**下载菜单中选择，但**不要**立即下载。首先，你需要选择包以获取适当的文件哈希值。如果你使用的是
+    Windows 操作系统，可能会有多个选项。你需要选择非 BETA 版本——即标题中带有 ZIP 的选项。从菜单中选择的包现在应该在菜单下方以蓝色下载链接的形式显示出来。一旦你确认所选包无误，你就可以获取哈希值——这类似于你在[*第
+    3 章*](B21223_03.xhtml#_idTextAnchor052)中做的操作。如果你查看蓝色下载框的右侧，你应该会看到带有国际下载符号的 **sha**，如*图
+    5.4* 所示。选择该链接，观察哈希值以下载的形式发送。如果你使用的浏览器允许直接打开下载文件，请直接打开。如果不行，请导航到设备的**下载**文件夹并打开哈希文件。将其记录在某个地方，以便与最终下载文件进行比较：
+- en: '![Figure 5.4 – Filebeat version selection and hash download](image/B21223_05_4.jpg)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.4 – Filebeat 版本选择和哈希下载](image/B21223_05_4.jpg)'
+- en: Figure 5.4 – Filebeat version selection and hash download
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – Filebeat 版本选择和哈希下载
+- en: 'When the download is complete, do the following:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下载完成后，请执行以下操作：
+- en: Open Windows File Explorer and navigate to your **Downloads** folder.
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开 Windows 文件资源管理器并导航到你的**下载**文件夹。
+- en: Type **Get-FileHash -Path <your downloaded filename>** to grab the file hash.
+  id: totrans-76
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **Get-FileHash -Path <your downloaded filename>** 获取文件哈希值。
+- en: Type **shasum -a 512 <your downloaded filename>** if you’re on a Mac.
+  id: totrans-77
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果你使用的是 Mac，请键入 **shasum -a 512 <your downloaded filename>**。
+- en: Type **sha512sum <your downloaded filename>** if you’re one of the cool kids
+    on the block and using Linux.
+  id: totrans-78
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果你是 Linux 用户，可以输入 **sha512sum <your downloaded filename>**。
+- en: Right-click and select **Extract All**.
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击并选择**提取全部**。
+- en: In the **Files will be extracted to this folder:** section, delete the default
+    entry.
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在**文件将解压到此文件夹：**部分，删除默认条目。
+- en: Type **C:\Program Files**, then select **Extract**.
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **C:\Program Files**，然后选择**提取**。
+- en: Navigate to the **C:\Program Files** directory when the extraction completes.
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当解压完成后，导航到**C:\Program Files**目录。
+- en: Right-click the directory and either press *F2* or select the rename icon at
+    the bottom of the dropdown. That will be the image with the letter A.
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击该目录，按下 *F2* 键或选择下拉菜单底部的重命名图标。该图标是带字母 A 的图像。
+- en: For simplicity’s sake, rename the installation to something simple and easy
+    to remember. Elastic recommends that you just rename it *Filebeat*. You’ll appreciate
+    this subtle maneuver later when you’re typing commands to access the directory.
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了简化，建议将安装目录重命名为简单且容易记住的名称。Elastic 推荐你将其重命名为*Filebeat*。当你稍后输入命令以访问该目录时，你会感谢这一巧妙的操作。
+- en: 'Select the Filebeat download and extract it to **C:\Program Files**:'
+  id: totrans-85
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择 Filebeat 下载并将其解压到**C:\Program Files**：
+- en: '![Figure 5.5 – Filebeat download](image/B21223_05_5.jpg)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.5 – Filebeat 下载](image/B21223_05_5.jpg)'
+- en: Figure 5.5 – Filebeat download
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – Filebeat 下载
+- en: Now, go to the Windows Start menu and, in the search bar, type **PowerShell**
+    to access PowerShell. You might already have the icon to access it pinned from
+    previous usage. Right-click the PowerShell icon and choose **Run as Administrator**.
+    Select **Yes** via the popup to give PowerShell the permissions it needs. You
+    can tell if you’re running as an administrator based on the background color of
+    the terminal window. If it’s black, you are running normally. If you are running
+    it as an administrator, the background will be blue. We will provide examples
+    of both in a little bit.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，打开 Windows 开始菜单，在搜索栏中输入 **PowerShell** 来访问 PowerShell。你可能已经在以前的使用中将其图标固定在任务栏上了。右键点击
+    PowerShell 图标，选择 **以管理员身份运行**。在弹出窗口中选择 **是**，以授予 PowerShell 所需的权限。你可以通过终端窗口的背景颜色来判断是否以管理员身份运行。如果背景是黑色的，则表示你是正常运行。如果是以管理员身份运行，背景将是蓝色的。我们稍后将提供两者的示例。
+- en: 'We are going to install Filebeat as a Windows service. There are several reasons
+    we want to do this:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将把 Filebeat 安装为 Windows 服务。有几个原因我们想要这样做：
+- en: It ensures Filebeat starts automatically when the system boots
+  id: totrans-90
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它确保 Filebeat 在系统启动时自动启动
+- en: It ensures immediate log collection from the boot process and throughout any
+    system failures
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它确保从启动过程开始，甚至在任何系统故障时都能立即收集日志
+- en: It allows Filebeat to be managed using standard Windows service management utilities
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它允许使用标准的 Windows 服务管理工具来管理 Filebeat
+- en: It provides a smoother integration with the Windows OS as it relates to security
+    and permissions
+  id: totrans-93
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它提供了与 Windows 操作系统在安全性和权限方面更平滑的集成
+- en: To install Filebeat as a service, you’ll want to navigate to the directory where
+    you renamed the installation from the PowerShell command line. Navigate to the
+    **Program Files** directory. Note the space in the directory’s name. Windows likes
+    to do that to us and most command-line utilities like to complain about it. If
+    you type it as you see it, you may get an error. To get around that, type **cd
+    c:\** first; then, without hitting the space bar, press the *Tab* key on your
+    keyboard. You’ll see the balance of the file path autocompleted for you. *Without*
+    pressing *Enter*, continue to press the *Tab* key until the **Program Files**
+    directory shows up. When it does, press *Enter*. At this point, you can type **ls**
+    to make sure you’re in the right place and your newly named Filebeat installation
+    is present. Continue to **cd** into that directory.
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要将 Filebeat 安装为服务，首先需要进入你在 PowerShell 命令行中重命名安装文件的目录。进入 **Program Files** 目录。注意该目录名称中的空格，Windows
+    系统喜欢这样做，而大多数命令行工具对此常常会报错。如果直接输入你看到的路径，可能会遇到错误。为了避免这个问题，先输入 **cd c:\**，然后在不按空格键的情况下，按下键盘上的
+    *Tab* 键。你会看到路径的其余部分会自动补全。*不要*按下 *Enter* 键，继续按 *Tab* 键，直到 **Program Files** 目录出现。出现后，按
+    *Enter* 键。此时，你可以输入 **ls** 来确保你进入了正确的目录，并且你的新命名的 Filebeat 安装文件在其中。接着，继续使用 **cd**
+    进入该目录。
+- en: 'Assuming your terminal does not complain about the space in the directory path,
+    type **cd ''C:\Program Files\<new_name_you_picked>''** to get there. So, if you
+    renamed the file to **Filebeat**, as Elastic recommends, you would type **cd ''C:\Program
+    Files\Filebeat''**. From this point, you can install Filebeat as a service by
+    typing **.\install-service-filebeat.ps1**. However, there’s a fair chance that
+    you might get an error that script execution is disabled on your system. So, in
+    the interest of best practices, we recommend setting the PowerShell execution
+    policy from the get-go by combining the commands to set the policy and install
+    Filebeat into one. Type **PowerShell.exe – ExecutionPolicy UnRestricted -File
+    .\install-service-filebeat.ps1**; this should invoke a security warning. That’s
+    expected and okay. We recommend that you type **R** to *Run once* and then press
+    *Enter*. You should get confirmation that Filebeat is now installed but is turned
+    off by default, as shown in *Figure 5**.6*:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你的终端没有因目录路径中的空格而报错，输入 **cd 'C:\Program Files\<new_name_you_picked>'** 来进入该目录。所以，如果你按照
+    Elastic 的推荐将文件重命名为 **Filebeat**，你需要输入 **cd 'C:\Program Files\Filebeat'**。此时，你可以通过输入
+    **.\install-service-filebeat.ps1** 将 Filebeat 安装为服务。但是，你很可能会遇到脚本执行被禁用的错误。因此，为了最佳实践，我们建议从一开始就设置
+    PowerShell 执行策略，将设置策略和安装 Filebeat 的命令合并为一个。输入 **PowerShell.exe – ExecutionPolicy
+    UnRestricted -File .\install-service-filebeat.ps1**；这应该会触发一个安全警告。这个是预期中的并且没有问题。我们建议你输入
+    **R** 以 *仅运行一次*，然后按 *Enter* 键。你应该会看到确认信息，表示 Filebeat 已成功安装，但默认情况下是关闭的，如 *图 5.6*
+    所示：
+- en: '![Figure 5.6 – Filebeat installed as a Windows service through regular PowerShell](image/B21223_05_6.jpg)'
+  id: totrans-96
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.6 – 通过常规 PowerShell 将 Filebeat 安装为 Windows 服务](image/B21223_05_6.jpg)'
+- en: Figure 5.6 – Filebeat installed as a Windows service through regular PowerShell
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – 通过常规 PowerShell 将 Filebeat 安装为 Windows 服务
+- en: 'Since we’ve installed Filebeat as a service, we have some cool tricks we can
+    use to manage it. Here are the first couple of examples: to start Filebeat from
+    within the same PowerShell instance we’re already in, simply type **Start-Service
+    -Name Filebeat** and wait a few moments until your command prompt returns. When
+    it does, there’s unfortunately no feedback to tell us if we started it successfully.
+    However, we can check its status by typing **Get-Service -Name Filebeat** It should
+    now say **Running** in the left column where it previously said **Stopped**. Sounds
+    kind of familiar, doesn’t it? By installing Filebeat as a Windows service, we
+    can now use PowerShell to manage the application in the same manner that we used
+    the Linux command line within Kali to manage the other components of the ELK stack.'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们已经将 Filebeat 安装为服务，那么我们可以使用一些很酷的技巧来管理它。以下是前几个示例：要从当前 PowerShell 实例启动 Filebeat，只需输入**Start-Service
+    -Name Filebeat**，然后等待几秒钟，直到命令提示符返回。返回后，不幸的是，我们没有任何反馈来告诉我们是否成功启动了它。然而，我们可以通过输入**Get-Service
+    -Name Filebeat**来检查其状态。此时，它应该会在左侧列中显示**Running**，而之前显示的是**Stopped**。听起来很熟悉，是不是？通过将
+    Filebeat 安装为 Windows 服务，我们现在可以像在 Kali 中使用 Linux 命令行管理 ELK 堆栈的其他组件一样，使用 PowerShell
+    来管理应用程序。
+- en: Linux and macOS download and installation
+  id: totrans-99
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Linux 和 macOS 下载与安装
+- en: Before editing the configuration file, let’s make sure our friends on Linux
+    and macOS can download and install the product. Both systems have auto-hash checking
+    built in to save you some work.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编辑配置文件之前，让我们确保 Linux 和 macOS 用户可以下载并安装该产品。这两个系统都有内置的自动哈希检查功能，可以为你节省一些工作。
+- en: Linux users can skip the browser-based download and use the command-line utility’s
+    automatic hash-checking, which is built into it. Type **sudo apt-get install filebeat**
+    or **sudo yum install filebeat** and then navigate to the **/etc/filebeat** folder,
+    where you can type **ls** to confirm that the **.yml** file is present. Use your
+    favorite editor to edit **filebeat.yml** – for most people, it’s vim or nano.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 用户可以跳过基于浏览器的下载，使用命令行工具内置的自动哈希检查。只需输入**sudo apt-get install filebeat**或**sudo
+    yum install filebeat**，然后导航到**/etc/filebeat**文件夹，在那里输入**ls**来确认**.yml**文件是否存在。使用你喜欢的编辑器编辑**filebeat.yml**
+    —— 对大多数人来说，编辑器是 vim 或 nano。
+- en: macOS users can use Homebrew by typing **brew install elastic/tap/elastic-agent**
+    and then navigating to the **/usr/local/etc/filebeat** directory. Once there,
+    they can type, look for and edit **filebeat.yml** using the same available tools
+    found in Linux, such as vim or nano.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: macOS 用户可以通过输入**brew install elastic/tap/elastic-agent**来使用 Homebrew，然后导航到**/usr/local/etc/filebeat**目录。一旦进入该目录，他们可以输入命令，查找并使用
+    Linux 中相同的工具（如 vim 或 nano）编辑**filebeat.yml**。
+- en: Now that we have completed the process of downloading and installing, let’s
+    adjust some settings for our Filebeat to work. After all, having Filebeat installed
+    is only the beginning. If we want it to do its job properly, we need to configure
+    it to connect to the ELK stack so that it knows where to send the information
+    it’s gathering. We also need to give it a nudge to tell it where we want it to
+    gather information from. There are a bunch of optional settings we can use to
+    help parse the data it collects and ships.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经完成了下载和安装过程，让我们调整一些设置，让 Filebeat 能正常工作。毕竟，安装 Filebeat 只是开始。如果我们希望它正常工作，我们需要将它配置为连接到
+    ELK 堆栈，以便它知道将收集的信息发送到哪里。我们还需要给它一个提示，告诉它我们希望它从哪里收集信息。我们可以使用许多可选的设置来帮助解析它收集并发送的数据。
+- en: Type **ls** to list the contents of the directory you’re in. You should still
+    be in the **C:\Program Files\Filebeat** directory. You’re looking for **filebeat.yml**
+    because that is the document you will edit to send data to the ELK stack. To edit
+    the file in PowerShell, type **notepad filebeat.yml**; on Linux or macOS, type
+    **sudo <editor> filebeat.yml**, where **editor** is your editor of choice – usually,
+    this is nano or vim. It should open in a text editor. In the odd chance that you
+    do not have Notepad installed, you can substitute the word **notepad** for whichever
+    text editor you do have on your system. Alternatively, you can minimize the Windows
+    you are working with and then search for, download, and install Notepad. If you
+    get a warning that you don’t have permission, take note of the color of your terminal
+    window because that usually means you didn’t select **Run as administrator** when
+    you first launched PowerShell. In that case, you can elevate your privilege from
+    within PowerShell by typing **Start-Process powershell -****Verb Runas**.
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入 **ls** 来列出当前目录的内容。你应该仍然在 **C:\Program Files\Filebeat** 目录下。你需要找到 **filebeat.yml**，因为这是你将编辑的文档，用于将数据发送到
+    ELK 堆栈。在 PowerShell 中编辑文件，输入 **notepad filebeat.yml**；在 Linux 或 macOS 上，输入 **sudo
+    <editor> filebeat.yml**，其中 **editor** 是你选择的编辑器，通常是 nano 或 vim。文件应该会在文本编辑器中打开。如果你没有安装记事本，可以用系统中已安装的任何文本编辑器替代
+    **notepad**。或者，你也可以最小化当前的 Windows 窗口，然后搜索、下载并安装记事本。如果你收到权限不足的警告，请注意终端窗口的颜色，这通常意味着你在启动
+    PowerShell 时没有选择 **以管理员身份运行**。在这种情况下，你可以在 PowerShell 中通过输入 **Start-Process powershell
+    -Verb Runas** 来提升权限。
+- en: 'Once your privileges have been set and you have the file open in a text editor,
+    you want to adjust several settings in this file before we get to reap the rewards
+    of Filebeat. We must get these settings correct; otherwise, Filebeat will either
+    not run correctly or will not report correctly to the ELK stack. Scroll down until
+    you find the section labeled **filebeat.inputs:** surrounded by a bunch of equals
+    signs, as shown in *Figure 5**.7*. Find the field labeled **enabled: false** and
+    change it to **enabled: true**.'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '一旦你设置了权限并在文本编辑器中打开了文件，就需要调整文件中的一些设置，才能让我们享受 Filebeat 的好处。我们必须确保这些设置正确，否则 Filebeat
+    将无法正确运行，或者无法正确报告到 ELK 堆栈。向下滚动，直到找到被一堆等号包围的 **filebeat.inputs:** 部分，如 *图 5.7* 所示。找到标记为
+    **enabled: false** 的字段，并将其更改为 **enabled: true**。'
+- en: 'In the **filebeat.inputs:** section, remove the **#** symbol, whether you call
+    it a hashtag, pound sign, or tic-tac-toe, from the following fields:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 **filebeat.inputs:** 部分中，移除以下字段前的 **#** 符号，不论你称之为井号、磅符号还是井字格符号：
+- en: '**filebeat.inputs:**'
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**filebeat.inputs:**'
+- en: '**-** **type: filestream**'
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**-** **type: filestream**'
+- en: '**id: my-filestream-id**'
+  id: totrans-109
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**id: my-filestream-id**'
+- en: '**enabled: true**'
+  id: totrans-110
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**enabled: true**'
+- en: '**- /****var/log/*.log**'
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**- /****var/log/*.log**'
+- en: This is referred to as uncommenting a field. It is an industry best practice
+    to do anytime you are working within a text file that contains any sort of programming
+    code.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这被称为取消注释字段。在处理包含任何编程代码的文本文件时，取消注释字段是行业最佳实践。
+- en: 'Adjust Filebeat’s inputs so that it knows where and what type of information
+    to grab:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调整 Filebeat 的输入，使其知道在哪里获取信息以及获取什么类型的信息：
+- en: '![Figure 5.7 – filebeat.yml configuration in the filebeat.inputs: section](image/B21223_05_7.jpg)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.7 – filebeat.yml 配置在 filebeat.inputs: 部分](image/B21223_05_7.jpg)'
+- en: 'Figure 5.7 – filebeat.yml configuration in the filebeat.inputs: section'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '图 5.7 – filebeat.yml 配置在 filebeat.inputs: 部分'
+- en: 'Now, scroll down to the next section labeled **filebeat.config.modules:**,
+    find the field labeled **reload.enabled: false**, and change it to **reload.enabled:
+    true**.'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '接下来，向下滚动，找到标记为 **filebeat.config.modules:** 的部分，找到 **reload.enabled: false**
+    字段，并将其更改为 **reload.enabled: true**。'
+- en: 'Make sure the following fields are uncommented:'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保以下字段没有被注释掉：
+- en: '**filebeat.config.modules:**'
+  id: totrans-118
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**filebeat.config.modules:**'
+- en: '**path: ${path.config}/modules.d/*.yml**'
+  id: totrans-119
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**path: ${path.config}/modules.d/*.yml**'
+- en: '**reload.enabled: true**'
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**reload.enabled: true**'
+- en: 'Adjust the Filebeat modules so that they accommodate supplementary features
+    we will add later:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调整 Filebeat 模块，以便它可以容纳我们稍后将添加的附加功能：
+- en: '![Figure 5.8 – filebeat.yml configuration in the filebeat.config.modules: section](image/B21223_05_8.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.8 – filebeat.yml 配置在 filebeat.config.modules: 部分](image/B21223_05_8.jpg)'
+- en: 'Figure 5.8 – filebeat.yml configuration in the filebeat.config.modules: section'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '图 5.8 – filebeat.yml 配置在 filebeat.config.modules: 部分'
+- en: 'Continue scrolling through **filebeat.yml** until you reach the **Dashboards**
+    section. Uncomment **setup.dashboards.enabled: true** and then move to the Kibana
+    part after it. Here, you will uncomment **setup.kibana:** and set the host value
+    to **localhost:5601**, ensuring that the line is also uncommented.'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '继续滚动查看**filebeat.yml**，直到到达**Dashboards**部分。取消注释**setup.dashboards.enabled:
+    true**，然后转到其后的 Kibana 部分。在这里，您将取消注释**setup.kibana:**并将主机值设置为**localhost:5601**，确保该行也被取消注释。'
+- en: 'Allow dashboard setup and configure Filebeat so that it allows Kibana:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 允许设置仪表板并配置 Filebeat 以便它可以使用 Kibana：
+- en: '![Figure 5.9 – The filebeat.yml file’s configuration dashboard and Kibana sections](image/B21223_05_9.jpg)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.9 – filebeat.yml 文件的配置仪表板和 Kibana 部分](image/B21223_05_9.jpg)'
+- en: Figure 5.9 – The filebeat.yml file’s configuration dashboard and Kibana sections
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9 – filebeat.yml 文件的配置仪表板和 Kibana 部分
+- en: 'In the **Outputs** section, you’ll see options for both Elasticsearch and Logstash.
+    This is because Filebeat can report to either application. For fun, we will set
+    up both but only use Elasticsearch at this time. Uncomment **output.elasticsearch**
+    but leave it in front of **output.logstash**. Doing this will invoke Filebeat
+    sending information to Elasticsearch but not Logstash. If you accidentally uncomment
+    both applications, you will receive an error in the next step. *So, make sure
+    the # values are in place for the Logstash option before you proceed to the* *next
+    step.*'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '在**Outputs**部分，您将看到 Elasticsearch 和 Logstash 的选项。这是因为 Filebeat 可以将数据报告到这两个应用程序中。为了演示，我们将同时设置这两个，但目前只使用
+    Elasticsearch。取消注释**output.elasticsearch**，并将其放置在**output.logstash**之前。这样做将会让
+    Filebeat 将数据发送到 Elasticsearch，而不会发送到 Logstash。如果您不小心同时取消注释了这两个选项，在下一步中将会出现错误。*因此，请确保在继续下一步之前，Logstash
+    选项的 # 值已经正确设置。*'
+- en: 'Next, you need to tell Filebeat where those applications are at. Remove the
+    symbol from the **hosts** field for each application and set the **hosts** values
+    to localhost, leaving the port numbers in place. This is a neat little security
+    hack that has Filebeat reporting to the ELK stack through the port forwarding
+    feature we set up earlier. Doing it that way means any Beats you set up outside
+    of the network your host machine is on can report their data to the ELK stack
+    without ever having direct access to the VM you are hosting Kali Purple on! Uncomment
+    the **protocol: "https"** field to maintain compatibility with Elasticsearch.'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '接下来，您需要告诉 Filebeat 这些应用程序的位置。删除每个应用程序**hosts**字段前的符号，并将**hosts**值设置为 localhost，端口号保持不变。这是一个简洁的安全技巧，它让
+    Filebeat 通过我们之前设置的端口转发功能向 ELK 堆栈报告数据。这样做的好处是，任何您在主机网络外设置的 Beats 都可以将数据报告到 ELK
+    堆栈，而不需要直接访问您托管 Kali Purple 的虚拟机！取消注释**protocol: "https"**字段以保持与 Elasticsearch
+    的兼容性。'
+- en: 'We recommend taking some time to study and set up SSL and TLS if you ever intend
+    to use the ELK stack for commercial purposes. However, because we are simply setting
+    up a proof-of-concept scenario here, we will skip the complexities of SSL and
+    TLS. To avoid configuration and starting errors, we need to add a line after the
+    **hosts** field in Elasticsearch. Add **ssl.verification_mode: none**.'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '如果您打算将 ELK 堆栈用于商业目的，我们建议您花一些时间研究和设置 SSL 和 TLS。但是，由于我们这里只是设置一个概念验证场景，因此我们将跳过
+    SSL 和 TLS 的复杂性。为了避免配置和启动错误，我们需要在 Elasticsearch 的**hosts**字段之后添加一行。添加**ssl.verification_mode:
+    none**。'
+- en: Finally, for Filebeat to properly access the Elasticsearch instance, you will
+    need to provide credentials. These are the same service account credentials we’ve
+    been using to access Elasticsearch since we first installed it. Make sure you
+    uncomment the username and password fields and add the necessary credentials.
+    Refer to *Figure 5**.10* for a working example of how this all looks.
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，为了让 Filebeat 正常访问 Elasticsearch 实例，您需要提供凭据。这些是我们自从安装 Elasticsearch 以来一直在使用的相同服务账户凭据。确保取消注释用户名和密码字段，并添加必要的凭据。请参考*图
+    5.10*，以查看如何正确配置的示例。
+- en: 'Adjust the outputs so that Filebeat knows where to send its data:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 调整输出设置，以便 Filebeat 知道将数据发送到哪里：
+- en: '![Figure 5.10 – filebeat.yml Elasticsearch and Logstash sections](image/B21223_05_10.jpg)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.10 – filebeat.yml 中的 Elasticsearch 和 Logstash 部分](image/B21223_05_10.jpg)'
+- en: Figure 5.10 – filebeat.yml Elasticsearch and Logstash sections
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10 – filebeat.yml 中的 Elasticsearch 和 Logstash 部分
+- en: When you’re finished, save the file the same way you would any text file and
+    return to the terminal to verify the changes. At the command line, type **cat
+    filebeat.yml**. This will print the contents of **filebeat.yml** to your screen
+    in a read-only format. Scroll up to view the text and verify that the changes
+    you just made are showing on your PowerShell terminal screen.
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成后，以任何文本文件的方式保存文件，然后返回终端验证更改。在命令行中，输入 **cat filebeat.yml**。这将以只读格式将 **filebeat.yml**
+    的内容打印到你的屏幕上。向上滚动以查看文本，并验证你刚刚所做的更改是否显示在 PowerShell 终端屏幕上。
+- en: Note
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: As you navigate the process of configuring the various applications in this
+    book or integrating them with other applications, you will notice many configurable
+    options that we are not discussing. Many of those options are for advanced use
+    of these applications and are generally outside the scope of this book. Rest assured,
+    we are giving you enough of the information to remain reasonably practical and
+    useful. The silver lining is the knowledge that if any specific application we
+    cover is of greater interest to you, you have so much more information to explore
+    where you can continually upskill yourself throughout your career.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在你配置本书中各种应用程序或将其与其他应用程序集成的过程中，你会注意到许多我们没有讨论的可配置选项。这些选项大多数是这些应用程序的高级用法，通常超出了本书的范围。放心，我们给你提供了足够的信息，使其在实际应用中仍然有效且有用。幸运的是，如果本书中涉及的任何特定应用程序对你更感兴趣，你有更多的信息可以探索，在整个职业生涯中不断提升自己的技能。
+- en: Reporting the data Filebeat collects to the ELK stack is only going to work
+    if we have data to report, right? There is a very large rabbit hole we can go
+    down here but for our use case’s proof of concept, we will stick to reviewing
+    **data collection modules**. You can get a list of available data collection modules
+    by typing **.\filebeat.exe modules list** in PowerShell or **./filebeat modules
+    list** in Linux or macOS. If you get an output error, that means *you missed the
+    earlier instruction to comment out the Logstash output* in **filebeat.yml** after
+    you added the information. Go back and do that, then return to perform this step
+    again. There is a link in the *Further reading* section that will take you to
+    the Elastic website, where you can study and learn what each of the modules is
+    on the list that the command line returns to you. We are going to enable three
+    of them.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将 Filebeat 收集的数据报告到 ELK 堆栈只有在我们有数据可以报告的情况下才会有效，对吧？这里有一个很大的“兔子洞”可以探讨，但对于我们使用案例的概念验证，我们将坚持审查**数据收集模块**。你可以通过在
+    PowerShell 中输入 **.\filebeat.exe modules list** 或在 Linux 或 macOS 中输入 **./filebeat
+    modules list** 来获取可用数据收集模块的列表。如果你收到输出错误，那意味着*你错过了之前的指示，忘记在添加信息后注释掉 **filebeat.yml**
+    中的 Logstash 输出*。回去做这一步，然后再返回执行此步骤。在*进一步阅读*部分有一个链接，会带你到 Elastic 网站，在那里你可以研究和了解命令行返回的每个模块的功能。我们将启用其中的三个模块。
+- en: 'Do that now by typing the following:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在执行以下操作：
+- en: '**.\filebeat.exe modules** **enable mysql**'
+  id: totrans-140
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**.\filebeat.exe modules** **enable mysql**'
+- en: '**.\filebeat.exe modules** **enable threatintel**'
+  id: totrans-141
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**.\filebeat.exe modules** **enable threatintel**'
+- en: '**.\filebeat.exe** **modules microsoft**'
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**.\filebeat.exe** **modules microsoft**'
+- en: Next, we need to establish an authorized *less privileged user* for Filebeat
+    to use. Elastic is very particular about this being done before we enable and
+    start Filebeat. First, we will create a role for the user and then we will establish
+    the actual user. Double-check and make sure you have Elasticsearch and Kibana
+    running in your Kali Purple VM. Then, on your host machine, open a web browser
+    and put the address for Kibana ([http://localhost:5601](http://localhost:5601))
+    in the address bar, making sure there’s no *s* after the *http*.
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们需要为 Filebeat 建立一个授权的*低权限用户*。Elastic 非常重视在启用和启动 Filebeat 之前完成此操作。首先，我们将为用户创建一个角色，然后再建立实际的用户。请双重检查并确保你已经在
+    Kali Purple 虚拟机中运行了 Elasticsearch 和 Kibana。然后，在主机机器上，打开一个网页浏览器并在地址栏中输入 Kibana
+    的地址（[http://localhost:5601](http://localhost:5601)），确保 *http* 后面没有 *s*。
+- en: 'The Kibana home page should load. It might take a minute or so, especially
+    if you’ve recently started the Kibana and/or Elasticsearch service in your VM.
+    The three horizontal lines in the top-left corner of the Kibana home page are
+    what we call a hamburger menu (because the lines presumably resemble a burger
+    between two buns). Click on the hamburger menu and scroll to the bottom. Click
+    **Stack Management** and, once again, scroll down the left navigation until you
+    reach the **Security** section. In that section, click on **Roles** to open the
+    **Roles** page. In the top-right corner, you’ll see a blue box labeled **Create
+    role**. Select that option; when the page loads, you’ll see an option to enter
+    a name for the role under **Role name**:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Kibana 的主页应该会加载出来。可能需要一两分钟，尤其是在你最近启动了 Kibana 和/或 Elasticsearch 服务时。Kibana 首页左上角的三条横线被我们称为汉堡菜单（因为这些线条看起来像夹在两片面包之间的汉堡）。点击汉堡菜单并向下滚动。点击
+    **Stack Management**，然后再次向下滚动左侧导航，直到你到达 **Security** 部分。在该部分中，点击 **Roles** 打开
+    **Roles** 页面。在右上角，你会看到一个标记为 **Create role** 的蓝色框。选择该选项；当页面加载时，你将看到一个输入角色名称的选项，位于
+    **Role name** 下：
+- en: '![Figure 5.11 – Creating Filebeat roles using the Kibana interface](image/B21223_05_11.jpg)'
+  id: totrans-145
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.11 – 使用 Kibana 界面创建 Filebeat 角色](image/B21223_05_11.jpg)'
+- en: Figure 5.11 – Creating Filebeat roles using the Kibana interface
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – 使用 Kibana 界面创建 Filebeat 角色
+- en: Enter something self-explanatory. For our example, we’ll put **FB-Default-Role**.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入一些自解释的内容。在我们的示例中，我们将输入**FB-Default-Role**。
+- en: Note
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Because things change over time, your experience here may have subtle differences
+    by the time you read this. Remember, search engines are your friends.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于时间的推移，你在阅读本文时的体验可能会有所不同。记住，搜索引擎是你的朋友。
+- en: One thing you might need to do if you are experiencing problems with Beats roles
+    reporting to the Kibana interface is to navigate to the directory where **kibana.yml**
+    is – it should be **/etc/kibana/** – and type **sudo nano kibana.yml** to edit
+    that file. You would use the arrow keys on your keyboard to navigate the file
+    until you find the **elasticsearch output** section. Make sure the username and
+    password are set to **elastic** for both. This is for the applications to properly
+    integrate.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你在 Beats 角色报告到 Kibana 界面时遇到问题，你可能需要做的一件事是导航到 **kibana.yml** 文件所在的目录 – 它应该在
+    **/etc/kibana/** 中 – 然后输入 **sudo nano kibana.yml** 来编辑该文件。你可以使用键盘上的箭头键在文件中导航，直到找到
+    **elasticsearch output** 部分。确保用户名和密码都设置为 **elastic**。这是为了确保应用程序能够正确集成。
+- en: Another consideration would be to make sure your host and VM have ports **80**
+    and **443** forwarded so that the web browser itself can communicate.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要考虑的事项是确保你的主机和虚拟机已将端口**80**和**443**转发，这样网页浏览器才能进行通信。
+- en: Then, return here and, in the section right afterward, click the drop-down menu
+    after **Cluster privileges**. In that field, type **monitor** and then press *Ctrl*
+    + *K* to complete the entry while allowing you to add more entries. Add **read_ilm**,
+    **manage_ilm**, **manage_index_templates**, and **read_pipeline** as additional
+    entries, pressing *Ctrl* + *K* after each entry. If you want an enhanced experience,
+    you can also add **manage_pipeline** and **manage_ingest_pipelines**. We don’t
+    recommend starting with these if you’re setting up a production scenario, however.
+    In that case, start small and add features one at a time. If you weren’t already
+    aware, you can use the *Ctrl* + *K* to autocomplete fields when entering multiple
+    email addresses or in most areas where you want to add multiple datasets while
+    remaining in place. It’s a handy shortcut to learn!
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，返回这里，在后续部分中，点击 **Cluster privileges** 后的下拉菜单。在该字段中，输入 **monitor**，然后按 *Ctrl*
+    + *K* 完成输入，同时允许你添加更多条目。作为附加条目，添加 **read_ilm**、**manage_ilm**、**manage_index_templates**
+    和 **read_pipeline**，每输入一个条目后按 *Ctrl* + *K*。如果你希望获得更好的体验，还可以添加 **manage_pipeline**
+    和 **manage_ingest_pipelines**。然而，如果你正在设置生产环境，我们不建议一开始就使用这些选项。在这种情况下，最好从小处开始，逐步添加功能。如果你之前不知道，使用
+    *Ctrl* + *K* 可以在输入多个电子邮件地址时自动完成字段，或者在大多数需要添加多个数据集的地方都可以使用。这是一个非常实用的快捷键，值得学习！
+- en: Next, go further down to the **Index privileges** section and click the **Indices**
+    dropdown. If you don’t see it, start typing **filebeat-*** and enter that value
+    for that field. Just to the right of that menu, there is another one called **Privileges**.
+    Select that drop-down menu and select or type **create_doc** for the field. Repeat
+    this process to add **create_index** and **view_index_metadata**. When all the
+    entries are in place, scroll to the bottom and click on the blue **Create role**
+    button. The page will return to the default **Roles** page, where you should now
+    see your newly created role at the top of the list!
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，向下滚动到 **索引权限** 部分，并点击 **索引** 下拉菜单。如果你没有看到它，开始输入 **filebeat-***，并将该值输入到该字段。就在那个菜单的右边，还有一个名为
+    **权限** 的菜单。选择这个下拉菜单，并选择或输入 **create_doc** 作为该字段的值。重复此过程，添加 **create_index** 和
+    **view_index_metadata**。当所有条目都填写完毕时，滚动到页面底部并点击蓝色的 **创建角色** 按钮。页面将返回到默认的 **角色**
+    页面，你现在应该能在列表顶部看到你新创建的角色！
+- en: 'Enter the appropriate fields, as displayed here, to create the role:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输入适当的字段，如这里所示，以创建角色：
+- en: '![Figure 5.12 – Entering role attributes](image/B21223_05_12.jpg)'
+  id: totrans-155
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.12 – 输入角色属性](image/B21223_05_12.jpg)'
+- en: Figure 5.12 – Entering role attributes
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.12 – 输入角色属性
+- en: 'Return to **Stack Management** | **Security** in the left navigation pane.
+    However, instead of selecting roles, select **Users** this time. In a similar
+    fashion to role creation, it will display a **Users** page with a blue **Create
+    User** button at the top right of the page. Select that button and fill out the
+    fields as appropriate. In our example, we will name our user **FB-Default-User**
+    so that it matches the default role we created. You can put whatever name you
+    like in the **Full name** section and make up any email you’d like. We’ll add
+    **tester@testing.te** for our example email. In a production scenario, you’d want
+    this to be a real authentic identity and email and you’d want to have a secure
+    password. Since we’re testing and our example will be destroyed long before we
+    go to press, we’ll just put **filebeat** in as our password. The fun part is that
+    when you click on the **Roles** dropdown, you will see the role you just created
+    as an option to select. Go ahead and select that role and then click the blue
+    **Create user** button at the bottom:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 返回到左侧导航栏的 **Stack Management** | **Security**。不过这次不要选择角色，而是选择 **用户**。与创建角色类似，系统会显示一个
+    **用户** 页面，页面右上方有一个蓝色的 **创建用户** 按钮。点击该按钮并根据需要填写字段。在我们的例子中，我们将把用户命名为 **FB-Default-User**，以便与我们创建的默认角色匹配。你可以在
+    **全名** 部分填入任何名字，并填写你想要的电子邮件。在我们的示例中，我们将使用 **tester@testing.te** 作为电子邮件。在生产环境中，你需要使用真实的身份和电子邮件，并且需要设置一个安全的密码。由于我们是在测试且示例将在发布前就被销毁，所以我们只是将
+    **filebeat** 设置为密码。有趣的部分是，当你点击 **角色** 下拉菜单时，你会看到你刚刚创建的角色作为选项。去选择那个角色，然后点击页面底部的蓝色
+    **创建用户** 按钮：
+- en: '![Figure 5.13 – Entering user attributes](image/B21223_05_13.jpg)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.13 – 输入用户属性](image/B21223_05_13.jpg)'
+- en: Figure 5.13 – Entering user attributes
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.13 – 输入用户属性
+- en: You’ll be returned to the default **Users** page, where you should see the user
+    you just created with the roles assigned to them that you also just created now
+    listed at the top. You can return to the **filebeat.yml** text we edited earlier
+    and replace the superuser credentials with those you just created, thereby putting
+    your newly created account with fewer privileges in place.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你将返回到默认的**用户**页面，在这里你应该看到你刚刚创建的用户，以及刚才为其分配的角色，这些角色会显示在页面顶部。你可以返回到之前编辑的 **filebeat.yml**
+    文本，并将超级用户凭证替换为刚才创建的凭证，从而将你新创建的具有较少权限的帐户投入使用。
+- en: Note
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: There are far more secure methods of doing this. In production, you might wish
+    to use the Filebeat keystore, which involves using an API key and environment
+    variables instead of a username and password. As you learn and develop your ELK
+    stack skillset, do pay attention to advanced security methods.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有很多更安全的方法可以做到这一点。在生产环境中，你可能希望使用 Filebeat keystore，它使用 API 密钥和环境变量，而不是用户名和密码。随着你学习并发展
+    ELK 堆栈的技能，务必关注先进的安全方法。
+- en: That said, there is a common issue when setting up the keystore where the final
+    step hangs during the setup. At the time of writing, there are no known official
+    publicly released fixes or explanations from Elastic addressing this issue. However,
+    community members have worked around this error by returning to the user profile
+    you just created and adding editor privileges from the **Roles** drop-down menu
+    within the user profile.
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 话虽如此，在设置密钥库时，常常会出现最后一步在设置过程中卡住的情况。在撰写本文时，Elastic 官方并未发布任何已知的修复或解释来解决这个问题。然而，社区成员已经通过回到你刚刚创建的用户档案并在用户档案中的
+    **Roles** 下拉菜单中添加编辑权限来绕过这个错误。
+- en: We are nearing the end of the initial ELK stack portion of this book. However,
+    if you find that you’ve developed a deep interest in this particular suite of
+    cyber defense tools, we will add a plethora of valuable links in the *Further
+    reading* section so that you can become an ELK scholar if you so choose. In the
+    meantime, let’s get this beat up and running!
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书的初步 ELK 堆栈部分即将结束。然而，如果你发现自己对这套网络防御工具产生了浓厚的兴趣，我们将在 *进一步阅读* 部分提供大量有价值的链接，帮助你如果愿意的话，成为一名
+    ELK 学者。与此同时，让我们启动并运行这个 Beat 吧！
+- en: There is one final step to complete this process. For it to work, make sure
+    your Kali Purple VM is running along with your ELK stack components. Once you’ve
+    confirmed they are all running, you can do the final setup of your Filebeat assets
+    by typing **.\filebeat.exe setup -e** (**./filebeat setup -e** for Linux and macOS)
+    and then observe the terminal for confirmation. There are a couple of potential
+    show-stopping errors you might receive here.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一步已经到了。为了使其工作，请确保你的 Kali Purple 虚拟机和 ELK 堆栈组件正在运行。一旦确认它们都在运行，你就可以通过输入 **.\filebeat.exe
+    setup -e**（对于 Linux 和 macOS 输入 **./filebeat setup -e**）来完成 Filebeat 资产的最后设置，并观察终端确认信息。此处可能会出现一些阻碍设置的错误。
+- en: 'If the setup stops with an error message that says something along the lines
+    of *x509 Certificate error* or *x509 Certificate signed by unknown authority*,
+    then that’s likely because you missed the earlier instruction to add **ssl.verification_mode:
+    none** under the **Output** section in **filebeat.yml**.'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '如果设置过程中出现类似 *x509 Certificate error* 或 *x509 Certificate signed by unknown
+    authority* 的错误信息，那很可能是因为你漏掉了在 **filebeat.yml** 文件的 **Output** 部分添加 **ssl.verification_mode:
+    none** 这一指令。'
+- en: 'If the setup stops with an error message that says it couldn’t connect to any
+    of the configured Elasticsearch hosts, then you need to go into your VM and launch
+    a command-line terminal to make a quick change to the **elasticsearch.yml** file.
+    Type **sudo nano /etc/elasticsearch/elasticsearch.yml**. Once you’re in the file,
+    scroll down until you find the **Network** section. Within that section, look
+    for the line that begins with **network.host** Edit that line by setting the value
+    to **0.0.0.0** and uncommenting the line. It should now state **network.host:
+    0.0.0.0**. This command directs Elasticsearch to accept all connections. Press
+    *Ctrl* + *X* to save and select *Y* for yes. Once you’re out of the editor, you
+    will need to restart Elasticsearch for the changes to take effect. Type **sudo
+    systemctl restart elasticsearch** to do so. Then, return to the command line on
+    your host machine and type **.\filebeat.exe setup -e** if you’re in PowerShell
+    or **./filebeat setup -e** if you’re on Linux or macOS. Be patient – this setup
+    process could take a while and PowerShell could hang occasionally, making you
+    think it’s frozen. We assure you, it’s not. It’s working hard to set up Filebeat
+    for you.'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '如果设置过程中出现错误信息，提示无法连接到任何配置的 Elasticsearch 主机，那么你需要进入虚拟机并启动命令行终端，快速修改 **elasticsearch.yml**
+    文件。输入 **sudo nano /etc/elasticsearch/elasticsearch.yml**。进入文件后，向下滚动直到找到 **Network**
+    部分。在该部分中，查找以 **network.host** 开头的行，修改该行，将值设置为 **0.0.0.0** 并取消注释。现在它应该显示为 **network.host:
+    0.0.0.0**。此命令会指示 Elasticsearch 接受所有连接。按 *Ctrl* + *X* 保存并选择 *Y* 确认。退出编辑器后，需要重新启动
+    Elasticsearch 以使更改生效。输入 **sudo systemctl restart elasticsearch** 来重新启动。然后，返回主机上的命令行，输入
+    **.\filebeat.exe setup -e**（如果你使用 PowerShell）或 **./filebeat setup -e**（如果你在 Linux
+    或 macOS 上）。耐心等待——这个设置过程可能需要一段时间，PowerShell 可能偶尔会挂起，让你以为它被冻结了。我们向你保证，它并没有冻结，而是在努力设置
+    Filebeat。'
+- en: When the auto-setup is done, your command prompt will return. You may already
+    have it running if you’ve followed the instructions thus far but in case you haven’t,
+    it’s time to start the motor. Type **Start-Service -Name Filebeat** in PowerShell
+    or **sudo systemct start filebeat** if Linux or macOS and go to a web browser
+    on your host machine.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当自动设置完成后，命令提示符会返回。如果你已经按照之前的步骤操作，那么它可能已经在运行了；如果没有，现在是启动它的时候了。请在 PowerShell 中输入
+    **Start-Service -Name Filebeat**，或者在 Linux 或 macOS 上输入 **sudo systemct start filebeat**，然后去你主机上的网页浏览器。
+- en: Return to the Kibana user interface. You should already be there but if you’re
+    not, enter [http://localhost:5601](http://localhost:5601) into your address bar.
+    Click on the hamburger menu and scroll down to the **Dashboards** link under the
+    **Analytics** section. Select **Dashboards**; if the page loads with any entries
+    at all, then at least the Kibana dashboards portion of your Filebeat installation
+    has been successful!
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 返回到 Kibana 用户界面。你应该已经在这里，如果没有，请在地址栏输入 [http://localhost:5601](http://localhost:5601)。点击汉堡菜单，滚动到**仪表板**链接下的**分析**部分。选择**仪表板**；如果页面加载时有任何条目显示，那么至少说明你的
+    Filebeat 安装中的 Kibana 仪表板部分已经成功！
+- en: Return to and select the hamburger menu again, scrolling back to the bottom,
+    click on **Stack Management**, and then click **Index Management** in the new
+    menu that loads. From there, look at the main window – you will see some tabs
+    across the top. Click on **Data Streams**; you should see your Filebeat installation
+    listed. It will be the only entry and have the word *filebeat* as part of its
+    name. Jump ahead to *Figure 5**.15* for a visualization that represents this same
+    screen with Elastic agent data streams instead of Filebeat.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次返回并选择汉堡菜单，滚动到底部，点击 **Stack Management**，然后点击新菜单中加载的 **Index Management**。从这里看主窗口——你会看到一些标签在顶部。点击
+    **Data Streams**；你应该能看到你的 Filebeat 安装列出。它将是唯一的条目，并且名字中包含 *filebeat*。请跳到 *图 5.15*，该图展示了相同屏幕的可视化，替换为
+    Elastic agent 数据流而非 Filebeat。
+- en: As you can see, Filebeat takes a little bit of work to set up but they’re all
+    simple steps. Filebeat is very efficient and doesn’t take any measurable amount
+    of computing resources. This allows you to expand your network security efficiently,
+    albeit with a little elbow grease. While it’s the most common beat of the ecosystem,
+    it’s not the only one. A few others will be listed in the next section, along
+    with the most common Beats alternative – the Elastic Agent.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，Filebeat 的设置需要一些工作，但这些步骤都很简单。Filebeat 非常高效，不会消耗可衡量的计算资源。这使得你能够高效地扩展你的网络安全，尽管过程稍微有些费劲。虽然它是生态系统中最常见的
+    Beat，但并不是唯一的。接下来的部分将列出其他一些 Beats，以及最常见的 Beats 替代品——Elastic Agent。
+- en: Types of Beats
+  id: totrans-172
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Beats 类型
+- en: Other Beats include **Metricbeat**, which is used to capture infrastructure
+    data, and **Winlogbeat**, which is used to capture Windows event logs. Winlogbeat
+    would’ve been a more appropriate beat to use on our Windows host but we wanted
+    to familiarize you with the beat you’re most likely to see when employed in the
+    field and that is most definitely Filebeat. There is also **Heartbeat**, which
+    is used to capture device uptime information, and **Auditbeat**, which focuses
+    on audit types of events.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其他 Beats 包括 **Metricbeat**，它用于捕获基础设施数据，以及 **Winlogbeat**，它用于捕获 Windows 事件日志。Winlogbeat
+    本来是我们 Windows 主机上更合适的 Beat，但我们希望让你熟悉在实际工作中最常见的 Beat，显然就是 Filebeat。还有 **Heartbeat**，用于捕获设备的运行时间信息，以及
+    **Auditbeat**，它专注于审计类型的事件。
+- en: Elastic is pushing hard for folks to move to their more inclusive – but heftier
+    – Elastic Agent, which functions as sort of a universal beat. Nevertheless, you
+    will encounter individual beats in the world for quite some time and should be
+    familiarized with them. Before we install the Elastic agent, you will want to
+    uninstall your Filebeat to prevent resource conflicts if you’re putting it on
+    the same device. Honestly, you don’t need to do that. You can have fun with it
+    and put it on the same device that’s hosting your ELK stack. You can even install
+    it on your VM. There’s no harm in doing it that way. Just make sure you have your
+    host IP correct because *localhost* won’t work in your configuration files if
+    you do it that way. Instead, you will want to type **ifconfig** inside a terminal
+    window and grab your eth0 IP address from there to put in your config files. It
+    likely will be **10.0.2.15** if you’re using VirtualBox but check this to be sure.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Elastic正在大力推动用户转向他们更加全面——但更为庞大的——Elastic Agent，它可以充当一种通用的beat。然而，在未来一段时间内，你仍然会遇到个别的beats，并且应该熟悉它们。在我们安装Elastic
+    Agent之前，如果你打算将其安装在同一台设备上，你需要卸载Filebeat，以防止资源冲突。老实说，你不必这么做。你可以尽情享受，将它安装在托管ELK堆栈的同一台设备上，甚至可以安装在你的虚拟机上。这样做没有任何害处。只是确保你正确配置了主机的IP地址，因为如果你这样做，*localhost*在配置文件中将不起作用。相反，你需要在终端窗口中输入**ifconfig**，从中获取eth0的IP地址，并将其放入配置文件中。如果你使用的是VirtualBox，它可能是**10.0.2.15**，但最好检查一下以确保准确无误。
+- en: If you’re feeling adventurous, Elastic does offer a tutorial on upgrading an
+    existing Beats package to the Elastic agent. We’ve added that information to the
+    *Further reading* section for you. In the meantime, prepare to be stunned when
+    you see how much quicker and easier it is to install the Elastic agent!
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你喜欢冒险，Elastic确实提供了一个教程，讲解如何将现有的Beats包升级到Elastic Agent。我们已经将相关信息添加到*进一步阅读*部分，供你参考。与此同时，当你看到安装Elastic
+    Agent的速度和简便性时，准备好感到震惊吧！
+- en: Elastic Agent
+  id: totrans-176
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Elastic Agent
+- en: While the Beats lightweight data shipping ecosystem is great for small projects,
+    they are quickly working their way into oblivion with the new **Elastic Agent**
+    and **Fleet Server** combination. Because we are working with a single device,
+    we will install the Elastic Agent as a standalone package and will not be working
+    with the Fleet server. However, if you are looking to marry the Elastic Agent
+    with the ELK stack in a production environment or wish to use multiple Elastic
+    agents on several devices, we recommend examining a newer product Elastic has
+    put out called the Fleet server. The Fleet server is not part of the native Kali
+    Purple distribution as of this writing but it wouldn’t be surprising if a quick
+    install package is added for package managers in the not-too-distant future. You
+    can still set it up through the Kibana dashboard. We’ve added links to the *Further
+    reading* section if you’d like to go the extra mile.
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然Beats轻量级数据传输生态系统非常适合小型项目，但随着新的**Elastic Agent**和**Fleet Server**组合的推出，它们迅速走向了消亡。由于我们只处理单个设备，我们将安装Elastic
+    Agent作为独立包，并且不会使用Fleet服务器。然而，如果你希望将Elastic Agent与ELK堆栈结合在生产环境中，或者希望在多个设备上使用多个Elastic
+    Agent，我们建议了解Elastic推出的一个新产品——Fleet server。截至目前，Fleet server并不是原生Kali Purple发行版的一部分，但如果不久的将来为软件包管理器添加一个快速安装包，也不令人惊讶。你仍然可以通过Kibana仪表板进行设置。如果你想进一步了解，我们已经在*进一步阅读*部分添加了相关链接。
+- en: Let’s grab the product itself by pointing our host machine’s web browser to
+    https://www.elastic.co/downloads/elastic-agent to grab the most recent release
+    of the product. A page will open that is nearly identical to the page we went
+    to download Filebeat. In the same manner, select the appropriate OS of your host
+    machine but don’t click **Download** yet. We are only selecting it, so the proper
+    file hash presents itself in the SHA link to the right of the blue download box.
+    Select the SHA link to grab and record the file hash. Then, select and click the
+    blue box to begin downloading the Elastic Agent.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过将主机机器的Web浏览器指向https://www.elastic.co/downloads/elastic-agent 来获取该产品的最新版本。一个页面将会打开，它几乎与我们下载Filebeat时的页面相同。以相同的方式，选择主机机器的适当操作系统，但不要点击**下载**。我们只是在选择它，以便SHA链接右侧的蓝色下载框中显示正确的文件哈希。选择SHA链接以获取并记录文件哈希。然后，选择并点击蓝色框开始下载Elastic
+    Agent。
+- en: Just as we did with Filebeat, wait for the download to complete and then open
+    Windows File Explorer to navigate to the **Downloads** directory. Once you’re
+    there and before we do anything else – including simplifying the filename – we
+    need to grab the hash to compare it with the one we grabbed from Elastic’s website,
+    just as we did the first time. Type **Get-FileHash -Path <your downloaded filename>**.
+    We cannot tell you what that is because it will not be the same for you due to
+    regular updates to the Elastic Agent. If you’re on a Mac, type **shasum -a 512
+    <your downloaded filename>**; if you’re one of the cool kids on the block and
+    using Linux, type **sha512sum <your downloaded filename>**. Once the hash is confirmed,
+    right-click and select **Extract All**. In the **Files will be extracted to this
+    folder:** section, delete the default entry and type **C:\Program Files**.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 就像我们在 Filebeat 中做的那样，等待下载完成后，打开 Windows 文件资源管理器，导航到 **Downloads** 目录。一旦到达那里，在我们做其他任何事情之前——包括简化文件名——我们需要获取哈希值，并将其与我们从
+    Elastic 网站上获取的哈希值进行比较，就像第一次那样。输入 **Get-FileHash -Path <your downloaded filename>**。我们不能告诉你具体的哈希值，因为它会因为
+    Elastic Agent 的定期更新而与你不同。如果你使用的是 Mac，输入 **shasum -a 512 <your downloaded filename>**；如果你是使用
+    Linux 的“酷小子”，输入 **sha512sum <your downloaded filename>**。哈希值确认后，右键点击并选择 **Extract
+    All**。在 **Files will be extracted to this folder:** 部分，删除默认条目并输入 **C:\Program
+    Files**。
+- en: Select **Extract** and navigate to the **C:\Program Files** directory when the
+    extraction completes. Once there, right-click the directory and either press *F2*
+    or select the rename icon at the bottom of the dropdown. That will be the image
+    with the letter A. For simplicity’s sake, rename the installation to something
+    simple and easy to remember. Let’s go with *Elastic-Agent*. Open a PowerShell
+    instance on your host machine, navigate to the **C:\Program Files\Elastic-Agent**
+    directory, and then type **notepad elastic-agent.yml** to edit the configuration
+    file. Remember, you need administrator privileges to edit this file. Type **powershell
+    Start-Process powershell -Verb Runas** to get such righteous power.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择 **Extract** 并在解压完成后导航到 **C:\Program Files** 目录。到达那里后，右键点击目录，按 *F2* 或选择下拉菜单底部的重命名图标。那是带有字母
+    A 的图标。为了简便起见，将安装目录重命名为简单且易于记住的名称，比如 *Elastic-Agent*。在你的主机上打开一个 PowerShell 实例，导航到
+    **C:\Program Files\Elastic-Agent** 目录，然后输入 **notepad elastic-agent.yml** 来编辑配置文件。记住，你需要管理员权限来编辑此文件。输入
+    **powershell Start-Process powershell -Verb Runas** 来获得此权限。
+- en: Before editing the configuration file, let’s make sure our friends on Linux
+    and macOS can download and install the product. Both systems have auto-hash checking
+    built in to save you some work.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编辑配置文件之前，先确保我们的 Linux 和 macOS 朋友可以下载并安装产品。两个系统都内建了自动哈希检查，以节省你的工作量。
+- en: Linux users can skip the browser-based download and use the command-line utility’s
+    automatic hash-checking, which is built in. Type **sudo apt-get install elastic-agent**
+    or **sudo yum install elastic-agent** and then navigate to the **/etc/elastic-agent**
+    folder, where you can type **ls** to confirm that the **.yml** file is present.
+    Use your favorite editor to edit **elastic-agent.yml** – for most people, it’s
+    vim or nano.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 用户可以跳过基于浏览器的下载，直接使用命令行工具的自动哈希检查功能。输入 **sudo apt-get install elastic-agent**
+    或 **sudo yum install elastic-agent**，然后导航到 **/etc/elastic-agent** 文件夹，在该文件夹中输入
+    **ls** 以确认 **.yml** 文件是否存在。使用你最喜欢的编辑器编辑 **elastic-agent.yml** —— 对大多数人来说，它是 vim
+    或 nano。
+- en: macOS users can use Homebrew by typing **brew install elastic/tap/elastic-agent**
+    and then navigating to the **/Library/Elastic/Agent** directory, where they can
+    look for and edit **elastic-agent.yml** using the same available tools found in
+    Linux, such as vim or nano.
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: macOS 用户可以通过 Homebrew 安装，输入 **brew install elastic/tap/elastic-agent**，然后导航到
+    **/Library/Elastic/Agent** 目录，在那里可以找到并使用 Linux 中相同的工具（如 vim 或 nano）编辑 **elastic-agent.yml**。
+- en: 'Whatever solution you are using, go ahead and open the **elastic-agent.yml**
+    file for editing. In the interest of keeping our experience moving along, we are
+    going to do a bare-bones configuration. Check the following:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论你使用什么解决方案，都可以打开 **elastic-agent.yml** 文件进行编辑。为了让我们的体验更加顺利，我们将进行最简化的配置。检查以下内容：
+- en: The **hosts** field has the correct protocol – **https** instead of **http**
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**hosts** 字段具有正确的协议——**https** 而不是 **http**'
+- en: The **hosts** field has the correct IP address and port – **localhost** for
+    most of you and **9200**
+  id: totrans-186
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**hosts** 字段具有正确的 IP 地址和端口——对于大多数人来说是 **localhost** 和 **9200**。'
+- en: 'The **hosts** field has the correct format hosts: **["IP:PORT"]**'
+  id: totrans-187
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**hosts** 字段具有正确的格式：hosts: **["IP:PORT"]**'
+- en: The **api_key** field should be commented out
+  id: totrans-188
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**api_key** 字段应被注释掉'
+- en: The **username** and **password** fields should be uncommented
+  id: totrans-189
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**用户名**和**密码**字段应取消注释'
+- en: Valid credentials should be listed after the username and password
+  id: totrans-190
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 正确的凭据应列在用户名和密码之后
+- en: 'Add the following line after **password**: **ssl.verification_mode: none**:'
+  id: totrans-191
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '在**密码**之后添加以下行：**ssl.verification_mode: none**：'
+- en: '![Figure 5.14 – elastic-agent.yml configuration settings if reporting to Elasticsearch](image/B21223_05_14.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.14 – 如果向 Elasticsearch 报告，elastic-agent.yml 配置设置](image/B21223_05_14.jpg)'
+- en: Figure 5.14 – elastic-agent.yml configuration settings if reporting to Elasticsearch
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.14 – 如果向 Elasticsearch 报告，elastic-agent.yml 配置设置
+- en: 'The final line in the preceding step is to temporarily disable SSL security
+    for training and proof-of-concept so that we can get a quick use case with results
+    to see. Alternatively, if you used the Kibana graphical environment to install
+    an Elastic Agent, which you can do by simply typing **elastic agent** in the search
+    bar and following the prompts, it will give you **ssl.ca_trusted_fingerprint**,
+    which you can add, as shown in *Figure 5**.15*:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面步骤的最后一行是临时禁用 SSL 安全性，用于培训和概念验证，以便我们能快速获得一个用例和结果来查看。或者，如果你使用 Kibana 图形界面安装
+    Elastic Agent，你可以通过在搜索栏中输入**elastic agent**并按照提示操作，它会给你**ssl.ca_trusted_fingerprint**，你可以按照*图
+    5.15*中所示进行添加：
+- en: '![Figure 5.15 – elastic-agent.yml configuration settings if installed from
+    the Kibana GUI](image/B21223_05_15.jpg)'
+  id: totrans-195
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.15 – 如果从 Kibana GUI 安装，elastic-agent.yml 配置设置](image/B21223_05_15.jpg)'
+- en: Figure 5.15 – elastic-agent.yml configuration settings if installed from the
+    Kibana GUI
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – 如果从 Kibana GUI 安装，elastic-agent.yml 配置设置
+- en: It is of paramount importance that you use proper authentication and have your
+    SSL properly set up if you are planning to deploy an Elastic Agent in a production
+    environment.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果计划在生产环境中部署 Elastic Agent，使用适当的身份验证并正确设置 SSL 是至关重要的。
+- en: So, let’s install it by typing **.\Elastic-Agent install**, substituting **Elastic-Agent**
+    for whatever other name you might have chosen if you are in PowerShell and **sudo
+    systemctl start elastic-agent** if you are in a macOS or Linux terminal. Select
+    **Y** when you’re asked if you want to continue and **N** when you’re asked if
+    you want to enroll this agent into Fleet.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 那么，让我们通过输入**.\Elastic-Agent install**来安装它，如果你在 PowerShell 中，请将**Elastic-Agent**替换为你可能选择的任何其他名称；如果你在
+    macOS 或 Linux 终端中，请使用**sudo systemctl start elastic-agent**。当系统询问你是否要继续时，选择**Y**；当询问你是否要将此代理加入
+    Fleet 时，选择**N**。
+- en: 'Let’s see our hard work in action, shall we? After making sure Elasticsearch,
+    Kibana, and your Elastic Agent are all turned on and running, open up a web browser
+    and log in to Kibana. Return to and select our tasty hamburger menu again, scrolling
+    back to the bottom before clicking **Stack Management**:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看我们的辛勤工作成果吧，好吗？在确保 Elasticsearch、Kibana 和 Elastic Agent 都已开启并正常运行后，打开一个网页浏览器并登录
+    Kibana。返回并再次选择我们美味的汉堡菜单，向下滚动到底部，然后点击**堆栈管理**：
+- en: '![Figure 5.16 – Stack Management](image/B21223_05_16.jpg)'
+  id: totrans-200
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.16 – 堆栈管理](image/B21223_05_16.jpg)'
+- en: Figure 5.16 – Stack Management
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – 堆栈管理
+- en: 'Then, click **Index Management** in the new menu that loads. From there, look
+    at the main window pane; you will see some tabs across the top. Click on **Data
+    Streams**. This is where your Filebeat installation was listed – maybe it still
+    is if you installed the Elastic Agent on a different device without removing Filebeat
+    first. Now, you will see a plethora of data that’s coming in from your Elastic
+    Agent! This is proof that your installation was successful:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，在加载的新菜单中点击**索引管理**。从这里，查看主窗口窗格；你会看到顶部有几个标签。点击**数据流**。这里是你的 Filebeat 安装位置——如果你没有先卸载
+    Filebeat，可能它现在仍在这里显示。现在，你将看到来自 Elastic Agent 的大量数据！这证明了你的安装是成功的：
+- en: '![Figure 5.17 – Index Management | Data Streams](image/B21223_05_17.jpg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.17 – 索引管理 | 数据流](image/B21223_05_17.jpg)'
+- en: Figure 5.17 – Index Management | Data Streams
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.17 – 索引管理 | 数据流
+- en: So, you can now see how incredibly simple the Elastic Agent is to install compared
+    to Beats. However, there is a trade-off between the Elastic Agent and Beats. The
+    Elastic Agent has pretty much everything from all of the different Beats combined,
+    plus more, in just one endpoint agent. However, this comes at the cost of performance.
+    There is more for your endpoint to work through. The Elastic Agent is just one
+    piece of software. So, if you only need to report on logfiles, you still have
+    to install the entire agent complete with features for measuring device uptime
+    or infrastructure data. You will have unnecessary overhead. Maybe this is a non-issue
+    for you. For many, it isn’t. If your equipment and network structure has the spare
+    room, then it’s no big deal and the Elastic Agent will be the simplest version
+    of data shipping for you.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所以，你现在可以看到，Elastic Agent 的安装相比 Beats 简直简单得多。然而，Elastic Agent 和 Beats 之间存在一定的权衡。Elastic
+    Agent 几乎包含了所有 Beats 的功能，还额外提供了一些功能，所有这些都集中在一个端点代理中。然而，这也带来了性能上的代价。你的端点需要处理更多的内容。Elastic
+    Agent 只是一个软件包。所以，如果你只需要报告日志文件，你仍然需要安装整个代理，包括测量设备正常运行时间或基础设施数据的功能。这样你将会有不必要的开销。也许对你来说这不是问题，但对很多人来说却是。如果你的设备和网络结构有足够的空间，那这不算什么问题，Elastic
+    Agent 将是最简单的数据传输版本。
+- en: Logstash and filters
+  id: totrans-206
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Logstash 和过滤器
+- en: One last item of business before we wrap up the ELK stack portion of Kali Purple.
+    We’ve been reporting to Elasticsearch to provide you with a quick and easy use
+    case. In reality, you are more likely to be setting your data shippers and endpoint
+    agents to first run the data through Logstash, where it can be enriched for clearer
+    analysis. We have two steps left to make that work.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在结束 Kali Purple 的 ELK 堆栈部分之前，还有一件事需要处理。我们一直在向 Elasticsearch 报告数据，以为你提供一个简单易懂的用例。实际上，你更可能是将数据传输器和端点代理设置为先将数据通过
+    Logstash 运行，在那里它可以得到更清晰的分析。我们还有两个步骤来使其正常工作。
+- en: 'First, we need to return to whichever process we are using to collect data.
+    In the most recent case, it’s the Elastic Agent, but it could be one of the Beats
+    or some other agent we’ve integrated with the ELK stack on one of our endpoints.
+    Edit the **.yml** or other configuration file for that process to comment out
+    the sections regarding Elasticsearch and uncomment the sections for Logstash,
+    as you might recall from earlier in this chapter. In the case of **elastic-agent.yml**,
+    you would simply change the type to Logstash, edit the **hosts** field so that
+    it’s **http** instead of **https**, and change the port number from **9200** to
+    **5044**, as seen in *Figure 5**.18*. In the case of other agents, you will want
+    to comment out the **Elasticsearch** section and uncomment the **Logstash** section,
+    making sure to set **http** instead of **https**, the port to **5044** instead
+    of **9200**, and comment out the credentials since Logstash handles the authentication
+    with Elasticsearch in the config file you will create in a moment:'
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们需要回到用于收集数据的进程。在最近的案例中，是 Elastic Agent，但它也可以是 Beats 中的一个或其他我们集成到 ELK 堆栈中的代理。编辑该进程的
+    **.yml** 或其他配置文件，注释掉与 Elasticsearch 相关的部分，并取消注释 Logstash 的部分，正如你可能从本章之前的内容中记得的那样。在
+    **elastic-agent.yml** 的情况下，你只需将类型改为 Logstash，编辑 **hosts** 字段，将其设置为 **http** 而非
+    **https**，并将端口号从 **9200** 改为 **5044**，如 *图 5.18* 所示。对于其他代理，你需要注释掉 **Elasticsearch**
+    部分并取消注释 **Logstash** 部分，确保将 **https** 改为 **http**，端口改为 **5044** 而不是 **9200**，并注释掉凭证，因为
+    Logstash 会在你稍后创建的配置文件中处理与 Elasticsearch 的认证：
+- en: '![Figure 5.18 – elastic-agent.yml configuration settings if reporting to Logstash](image/B21223_05_18.jpg)'
+  id: totrans-209
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 5.18 – 如果报告给 Logstash，elastic-agent.yml 配置设置](image/B21223_05_18.jpg)'
+- en: Figure 5.18 – elastic-agent.yml configuration settings if reporting to Logstash
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.18 – 如果报告给 Logstash，elastic-agent.yml 配置设置
+- en: Secondly, do you remember how we set up the configuration file for Logstash
+    in [*Chapter 4*](B21223_04.xhtml#_idTextAnchor076) and had Logstash report its
+    output to Elasticsearch? Now, we need to return to that file and configure it
+    so that it receives data from whichever process we are using to send data to it.
+    In our example, we will use the recent setup of the Elastic Agent. We will add
+    that information while specifying the port in the input section of the configuration
+    file. Within your Kali Purple environment, open a terminal window, navigate to
+    **/etc/logstash/conf.d**, and type **ls** to see if **logstash.conf** is present.
+    It might not be present if you haven’t used it. If a directory doesn’t allow you
+    access along the way, remember the **CHMOD** commands we spoke of in [*Chapter
+    3*](B21223_03.xhtml#_idTextAnchor052) – you can use these to adjust folder/directory
+    permissions. You can use **chmod 755 <filename>** as a quick fix but that’s not
+    the best of habits to get into. You don’t want to provide more freedom than is
+    necessary. Take some time to review the CHMOD details that were provided [*Chapter
+    3*](B21223_03.xhtml#_idTextAnchor052) and/or also do some independent research.
+    That’s an area that is fairly easy to learn and worth the skills gained.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 其次，你还记得我们在[*第4章*](B21223_04.xhtml#_idTextAnchor076)中如何为 Logstash 设置配置文件，并让 Logstash
+    将其输出报告给 Elasticsearch 吗？现在，我们需要返回到该文件并配置它，以便从我们用来发送数据的进程接收数据。在我们的示例中，我们将使用最近设置的
+    Elastic Agent。我们将在配置文件的输入部分添加相关信息，并指定端口。在你的 Kali Purple 环境中，打开一个终端窗口，导航到 **/etc/logstash/conf.d**，并输入
+    **ls** 查看 **logstash.conf** 是否存在。如果它不存在，说明你可能没有使用它。如果某个目录在路径中无法访问，记得我们在[*第3章*](B21223_03.xhtml#_idTextAnchor052)中讲过的
+    **CHMOD** 命令 – 你可以用这些命令来调整文件夹/目录权限。你可以使用 **chmod 755 <filename>** 来快速修复，但这并不是一个好习惯。你不想给出超出必要的权限。花些时间回顾一下[*第3章*](B21223_03.xhtml#_idTextAnchor052)中提供的
+    CHMOD 细节，或者自己做一些独立的研究。这个领域相对容易学习，而且掌握这些技能是很有价值的。
+- en: 'In [*Chapter 4*](B21223_04.xhtml#_idTextAnchor076), you only created a sample
+    configuration file. Here, you’re going to create a functioning Logstash configuration
+    file. Navigate to the **/etc/logstash/** directory. If it’s present, use your
+    favorite editor to open it; otherwise, type **sudo nano logstash.conf** to edit
+    it. If it isn’t present, type **touch logstash.conf** to create it. Then, **ls**
+    to verify it was created and go to your favorite editor or **sudo nano logstash.conf**
+    to edit it. Input the following information:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[*第4章*](B21223_04.xhtml#_idTextAnchor076)中，你仅创建了一个示例配置文件。在这里，你将创建一个可运行的 Logstash
+    配置文件。导航到 **/etc/logstash/** 目录。如果该目录存在，使用你喜欢的编辑器打开它；如果没有，输入 **sudo nano logstash.conf**
+    来编辑它。如果该文件不存在，输入 **touch logstash.conf** 来创建它。然后，使用 **ls** 验证文件是否已创建，并使用你喜欢的编辑器或
+    **sudo nano logstash.conf** 来编辑它。输入以下信息：
+- en: '[PRE0]'
+  id: totrans-213
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Once you’ve finished editing the file, press *Ctrl* + *X* to exit. Select *Y*
+    when you’re prompted, then type **sudo systemctl restart logstash**, and give
+    it a few minutes to restart.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编辑完文件后，按 *Ctrl* + *X* 退出。当提示时选择 *Y*，然后输入 **sudo systemctl restart logstash**，并等待几分钟以完成重启。
+- en: As before, you will want to place the IP address of where your Elasticsearch
+    instance is being hosted in the **hosts** field instead of **YOUR_ELASTICSEARCH_IP**
+    and your Elastic credentials instead of **ElasticSuperUserPassword** in the password
+    field.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，你需要在 **hosts** 字段中替换掉 **YOUR_ELASTICSEARCH_IP** 为你 Elasticsearch 实例的 IP
+    地址，并在密码字段中替换 **ElasticSuperUserPassword** 为你的 Elastic 凭证。
+- en: You’ll notice some odd data that we placed in the filters section. This is a
+    basic and very popular data enrichment filter that’s used with Logstash. It helps
+    to identify the incoming data based on the time it was generated, and the importance
+    and classification of the data before passing it on to Elasticsearch for more
+    efficient indexing.
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你会注意到我们在过滤器部分放置了一些奇怪的数据。这是一个基本且非常流行的 Logstash 数据增强过滤器。它帮助识别传入数据的生成时间、重要性和分类，然后将其传递给
+    Elasticsearch 以便更高效地索引。
+- en: 'As we did in [*Chapter 4*](B21223_04.xhtml#_idTextAnchor076), we will perform
+    a configuration validation and syntax check of our newly created file. Type the
+    following:'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如我们在[*第4章*](B21223_04.xhtml#_idTextAnchor076)中所做的，我们将对新创建的文件执行配置验证和语法检查。输入以下内容：
+- en: '[PRE1]'
+  id: totrans-218
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Be patient. As you may recall, this may take a minute or two to complete.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请耐心等待。正如你可能记得的，这可能需要一到两分钟才能完成。
+- en: Summary
+  id: totrans-220
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we dove into moving data from endpoint devices to the SIEM
+    solution we created in previous chapters – to the ELK stack. We discovered that
+    the process of moving such data has an enormous level of variable configurations
+    and we learned that independent research will likely be required by anyone who
+    wishes to set up such an environment. We created bare-bones use cases to show
+    how the data flows and discover how to set up the data shipping agents so that
+    they work with the ELK stack.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们深入探讨了如何将数据从终端设备移动到我们在前几章中创建的SIEM解决方案——ELK堆栈。我们发现，这一数据传输过程具有巨大的可变配置层次，并且我们了解到，任何想要设置这种环境的人可能需要进行独立研究。我们创建了基础用例，展示了数据流动的过程，并了解如何设置数据传输代理，使其与ELK堆栈一起工作。
+- en: We also took some time to explore the different types of data shippers, namely
+    Beats. Here, instead of there being a single agent, many smaller agents can each
+    be installed individually with greater efficiency, allowing the security team
+    to only harness what is needed most. We compared this to the much easier-to-install
+    but robust Elastic Agent, which contains more overhead to cover more potential
+    security areas but will also be more dependent on a device’s resources, as well
+    as the resources of the ELK stack. We learned how each of these agents shipped
+    the data either directly to Elasticsearch or first to Logstash and then on to
+    Elasticsearch. We provided an example of a filter, which provides data enrichment
+    through Logstash.
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还花了一些时间探讨了不同类型的数据传输工具，特别是Beats。在这里，代替一个单一的代理，许多较小的代理可以分别单独安装，从而提高效率，允许安全团队仅使用最需要的部分。我们将其与易于安装但功能强大的Elastic
+    Agent进行了对比，后者涵盖了更多潜在的安全领域，但也会更依赖设备的资源以及ELK堆栈的资源。我们了解了这些代理是如何将数据直接传输到Elasticsearch，或首先传输到Logstash再传送到Elasticsearch的。我们提供了一个过滤器的例子，它通过Logstash提供数据增强。
+- en: Now that we’ve discovered how to harvest and ship the data, in this next chapter,
+    we’ll study the data that we’ll need to grab. There, we will examine the different
+    types of data out there and the different types of formats it can be presented
+    in. We’ll get a bigger understanding of how bad actors can sometimes obfuscate
+    or otherwise maliciously alter this data to hide their activities or conduct bad
+    deeds. We will also learn how to identify such anomalous behavior so that when
+    it arrives in our SIEM environment, we will be able to respond to potential threats
+    more efficiently.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经了解了如何获取和传输数据，在接下来的章节中，我们将学习需要抓取的数据。在那里，我们将研究不同类型的数据及其可能呈现的不同格式。我们将更深入地理解恶意行为者如何有时通过混淆或恶意篡改数据来隐藏他们的活动或进行不法行为。我们还将学习如何识别这种异常行为，以便当数据进入我们的SIEM环境时，我们能够更高效地响应潜在的威胁。
+- en: Questions
+  id: totrans-224
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: 'Answer the following questions to test your knowledge of this chapter:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 回答以下问题以测试你对本章的理解：
+- en: What is port forwarding?
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 什么是端口转发？
+- en: When a marine facility redirects incoming vessels to another location
+  id: totrans-227
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当海上设施将来船重定向到另一个位置时
+- en: A computer networking technique that redirects traffic from one machine to another
+    based on communication ports
+  id: totrans-228
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一种计算机网络技术，根据通信端口将流量从一台机器重定向到另一台机器
+- en: When a user physically removes the **network interface card** (**NIC**) and
+    places it into another device
+  id: totrans-229
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 当用户物理移除**网络接口卡**（**NIC**）并将其放入另一台设备时
+- en: 'True or false: port forwarding must be the same port number on both sending
+    and receiving devices.'
+  id: totrans-230
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确还是错误：端口转发必须在发送设备和接收设备上使用相同的端口号。
+- en: 'True'
+  id: totrans-231
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: False, they must be different
+  id: totrans-232
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误，它们必须不同
+- en: False, but they may be the same
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误，但它们可能相同
+- en: How many different Beats can a user have on a single device?
+  id: totrans-234
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用户在单个设备上可以有多少不同的Beats？
+- en: As many as they like, so long as they aren’t colliding on ports or other resources
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 用户可以根据需要任意数量，只要它们不在端口或其他资源上发生冲突
+- en: No more than one at a time, ever
+  id: totrans-236
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 永远只能一次一个
+- en: Two, so long as they’re not the same Beats type
+  id: totrans-237
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 两个，只要它们不是同一类型的Beats
+- en: Pronounced *YAML*, the **.yml** files are used for what type of operation?
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '**.yml**文件发音为*YAML*，用于哪种类型的操作？'
+- en: They are used for developing hard-coded add-on instructions for the application
+  id: totrans-239
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它们用于为应用程序开发硬编码的附加指令
+- en: They provide recipes for a type of vegetable that is often served with green
+    eggs
+  id: totrans-240
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它们提供了一种蔬菜的食谱，这种蔬菜通常与绿蛋一起食用
+- en: They are used to configure variable settings for the applications to which they
+    belong
+  id: totrans-241
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它们用于配置属于它们的应用程序的可变设置
+- en: What is a filter?
+  id: totrans-242
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 过滤器是什么？
+- en: It’s a piece of code that’s designed to prevent your device from displaying
+    offensive language
+  id: totrans-243
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它是一段代码，旨在防止你的设备显示冒犯性语言
+- en: They keep the air flowing through your physical device, clean and free of debris
+  id: totrans-244
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它们保持空气流通，通过你的物理设备，保持清洁并无杂物
+- en: They provide additional tables to be applied to incoming data for parsing and
+    enriching the data
+  id: totrans-245
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 它们提供额外的表格，用于解析和丰富传入数据
+- en: An American grunge rock back from the 1990s
+  id: totrans-246
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一支来自1990年代的美国垃圾摇滚乐队
+- en: All of the above
+  id: totrans-247
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 上述所有内容
+- en: Further reading
+  id: totrans-248
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'To learn more about the topics that were covered in this chapter, take a look
+    at the following resources:'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要了解本章涵盖的主题，请查看以下资源：
+- en: '**Alternate Windows Filebeat** **installation**: [https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-installation-configuration.xhtml)'
+  id: totrans-250
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Windows Filebeat** **安装**： [https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-installation-configuration.xhtml)'
+- en: '**TCP and UDP Protocols – Explained in Plain** **English**: [https://www.freecodecamp.org/news/tcp-and-udp-protocols/](https://www.freecodecamp.org/news/tcp-and-udp-protocols/)'
+  id: totrans-251
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**TCP 和 UDP 协议——通俗易懂的解释** **英语**： [https://www.freecodecamp.org/news/tcp-and-udp-protocols/](https://www.freecodecamp.org/news/tcp-and-udp-protocols/)'
+- en: '**What computer networks are and how to actually understand** **them**: [https://www.freecodecamp.org/news/computer-networks-and-how-to-actually-understand-them-c1401908172d/](https://www.freecodecamp.org/news/computer-networks-and-how-to-actually-understand-them-c1401908172d/)'
+  id: totrans-252
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**什么是计算机网络以及如何真正理解** **它们**： [https://www.freecodecamp.org/news/computer-networks-and-how-to-actually-understand-them-c1401908172d/](https://www.freecodecamp.org/news/computer-networks-and-how-to-actually-understand-them-c1401908172d/)'
+- en: '**Filebeat listing of Data Collection** **modules**: [https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-modules.xhtml](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-modules.xhtml)'
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Filebeat 数据采集** **模块** 列表： [https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-modules.xhtml](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-modules.xhtml)'
+- en: '**Adding a Fleet Server to manage your elastic** **agents**: [https://www.elastic.co/guide/en/fleet/current/add-fleet-server-on-prem.xhtml#add-fleet-server-on-prem-add-server](https://www.elastic.co/guide/en/fleet/current/add-fleet-server-on-prem.xhtml#add-fleet-server-on-prem-add-server)'
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**添加 Fleet 服务器以管理你的 Elastic** **代理**： [https://www.elastic.co/guide/en/fleet/current/add-fleet-server-on-prem.xhtml#add-fleet-server-on-prem-add-server](https://www.elastic.co/guide/en/fleet/current/add-fleet-server-on-prem.xhtml#add-fleet-server-on-prem-add-server)'
+- en: '**Metricbeat**: [https://www.elastic.co/guide/en/beats/metricbeat/8.11/metricbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/metricbeat/8.11/metricbeat-installation-configuration.xhtml)'
+  id: totrans-255
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Metricbeat**： [https://www.elastic.co/guide/en/beats/metricbeat/8.11/metricbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/metricbeat/8.11/metricbeat-installation-configuration.xhtml)'
+- en: '**Winlogbeat**: [https://www.elastic.co/guide/en/beats/winlogbeat/8.11/winlogbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/winlogbeat/8.11/winlogbeat-installation-configuration.xhtml)'
+  id: totrans-256
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Winlogbeat**： [https://www.elastic.co/guide/en/beats/winlogbeat/8.11/winlogbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/winlogbeat/8.11/winlogbeat-installation-configuration.xhtml)'
+- en: '**Heartbeat**: [https://www.elastic.co/guide/en/beats/heartbeat/8.11/heartbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/heartbeat/8.11/heartbeat-installation-configuration.xhtml)'
+  id: totrans-257
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Heartbeat**： [https://www.elastic.co/guide/en/beats/heartbeat/8.11/heartbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/heartbeat/8.11/heartbeat-installation-configuration.xhtml)'
+- en: '**Auditbeat**: [https://www.elastic.co/guide/en/beats/auditbeat/8.11/auditbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/auditbeat/8.11/auditbeat-installation-configuration.xhtml)'
+  id: totrans-258
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Auditbeat**： [https://www.elastic.co/guide/en/beats/auditbeat/8.11/auditbeat-installation-configuration.xhtml](https://www.elastic.co/guide/en/beats/auditbeat/8.11/auditbeat-installation-configuration.xhtml)'
+- en: '**Migrate from Beats to Elastic** **Agent**: [https://www.elastic.co/guide/en/fleet/current/migrate-beats-to-agent.xhtml](https://www.elastic.co/guide/en/fleet/current/migrate-beats-to-agent.xhtml)'
+  id: totrans-259
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**从 Beats 迁移到 Elastic** **代理**： [https://www.elastic.co/guide/en/fleet/current/migrate-beats-to-agent.xhtml](https://www.elastic.co/guide/en/fleet/current/migrate-beats-to-agent.xhtml)'

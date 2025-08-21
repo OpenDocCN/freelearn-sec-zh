@@ -1,0 +1,1334 @@
+- en: '5'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '5'
+- en: Collecting Network Evidence
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 收集网络证据
+- en: The traditional focus of digital forensics has been on locating evidence on
+    a potentially compromised endpoint. More specifically, computer forensics is largely
+    focused on a system’s storage. Law enforcement officers interested in criminal
+    activity such as fraud or child exploitation can find the evidence required for
+    prosecution on a single hard drive. In the realm of incident response, however,
+    it is critical that the focus extends far beyond a suspected compromised system.
+    For example, there is a wealth of information that can be obtained within the
+    hardware and software in question, along with the flow of traffic from a compromised
+    host to an external **Command-and-Control** (**C2**) server.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数字取证的传统重点一直是在可能被攻陷的终端上寻找证据。更具体地说，计算机取证主要关注系统的存储。执法人员如果关注诈骗或儿童剥削等犯罪活动，可以通过单个硬盘找到起诉所需的证据。然而，在事件响应领域，重点必须远远超出怀疑受损的系统。例如，从受损主机到外部**指挥与控制**(**C2**)服务器的流量中，也可以获得大量有价值的信息。
+- en: This chapter focuses on the preparation, identification, and collection of evidence
+    that is commonly found among network devices and along traffic routes within an
+    internal network. This collection is critical during incidents where an external
+    threat source is in the process of commanding internal systems or stealing data
+    from the network. Network-based evidence is also useful when examining host evidence,
+    as it provides a second source of event corroboration, which is extremely useful
+    in determining the root cause of an incident.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章重点讨论在网络设备和内部网络中的流量路径中常见证据的准备、识别和收集。在外部威胁源正在指挥内部系统或从网络窃取数据的事件中，这一收集过程至关重要。基于网络的证据在检查主机证据时也非常有用，因为它提供了事件确认的第二个来源，这对确定事件的根本原因极为有用。
+- en: 'We will cover the following topics in this chapter:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: An overview of network evidence
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络证据概述
+- en: Firewall and proxy logs
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 防火墙和代理日志
+- en: NetFlow
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: NetFlow
+- en: TCPDump packet capture
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: TCPDump 数据包捕获
+- en: Wireshark packet capture
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark 数据包捕获
+- en: An overview of network evidence
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络证据概述
+- en: There are network log sources that can provide CSIRT personnel and incident
+    responders with good information. Each network device provides different evidence
+    based on its manufacturer and model. As a preparation task, CSIRT personnel should
+    become familiar with how to access these devices to obtain the necessary evidence
+    or have existing communication structures in place to engage IT personnel to assist
+    with the proper response techniques during an incident.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有一些网络日志源可以为CSIRT人员和事件响应人员提供有价值的信息。每个网络设备根据其制造商和型号提供不同的证据。作为准备工作，CSIRT人员应熟悉如何访问这些设备以获取所需证据，或建立现有的沟通结构，以便在发生事件时与IT人员合作，协助采取正确的响应措施。
+- en: 'Network devices such as switches, routers, and firewalls also have their own
+    internal logs that maintain data on who accessed the device and made changes.
+    Incident responders should become familiar with the types of network devices on
+    their organization’s network and be able to access these logs in the event of
+    an incident:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络设备，如交换机、路由器和防火墙，通常也有自己的内部日志，记录谁访问了设备并进行了更改。事件响应人员应熟悉其组织网络中的网络设备类型，并能够在发生事件时访问这些日志：
+- en: '**Switches**: These are spread throughout a network through a combination of
+    core switches that handle traffic from a range of network segments and edge switches
+    that handle traffic for individual segments. As a result, traffic that originates
+    on a host and travels out of the internal network will traverse several switches.
+    Switches have two key points of evidence that should be addressed by incident
+    responders. The first is the **Content-Addressable Memory** (**CAM**) table. This
+    CAM table maps the physical ports on the switch to the **Network Interface Card**
+    (**NIC**) on each device connected to the switch. Incident responders tracing
+    connections to specific network jacks can utilize this information. This can aid
+    the identification of possible rogue devices, such as wireless access points or
+    systems connected to the internal network by an adversary. The second way in which
+    switches can aid an incident investigation is by facilitating network traffic
+    capture.'
+  id: totrans-13
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**交换机**：这些交换机通过一系列核心交换机和边缘交换机分布在网络中，核心交换机处理来自多个网络段的流量，边缘交换机处理来自单个段的流量。因此，从主机上发出的流量将穿过多个交换机。交换机有两个关键的证据点，应该被事件响应人员关注。第一个是**内容可寻址存储器**（**CAM**）表。这个CAM表将交换机上的物理端口与每个连接到交换机的设备上的**网络接口卡**（**NIC**）进行映射。事件响应人员可以利用此信息追踪到特定网络插座的连接。这有助于识别可能的恶意设备，例如无线接入点或由攻击者连接到内部网络的系统。交换机在协助事件调查方面的第二个方式是便于捕获网络流量。'
+- en: '**Routers**: Routers allow organizations to connect multiple LANs into either
+    a **Metropolitan Area Network** (**MAN**) or a **Wide Area Network** (**WAN**).
+    As a result, they handle an extensive amount of traffic. The key piece of evidentiary
+    information that routers contain is the routing table. This table holds the information
+    for specific physical ports that map to the networks. Routers can also be configured
+    to deny specific traffic between networks and maintain logs on allowed traffic
+    and data flows. Another significant source of evidence that routers can provide
+    is NetFlow data. NetFlow provides data on IP addresses, ports, and protocols of
+    network traffic. This data can be utilized to determine the flow of traffic from
+    various segments of the network (NetFlow will be covered in greater detail later
+    in this chapter).'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**路由器**：路由器使组织能够将多个局域网（**LAN**）连接到**城域网**（**MAN**）或**广域网**（**WAN**）。因此，它们处理着大量的流量。路由器中最关键的证据是路由表。该表存储了特定物理端口与网络的映射信息。路由器也可以被配置为拒绝网络之间的特定流量，并维护允许的流量和数据流的日志。路由器可以提供的另一个重要证据来源是NetFlow数据。NetFlow提供有关IP地址、端口和协议的网络流量数据。这些数据可用于确定来自网络不同分段的流量流向（NetFlow将在本章后续部分进行更详细的介绍）。'
+- en: '**Firewalls**: Firewalls have changed significantly since the days when they
+    were simply considered to be a different type of router. Next-generation firewalls
+    contain a wide variety of features, such as intrusion detection and prevention,
+    web filtering, data loss prevention, and detailed logs about allowed and denied
+    traffic. Often, firewalls serve as a detection mechanism that alerts security
+    personnel to potential incidents. This can include alerts from features such as
+    **Intrusion Detection Systems** (**IDSs**)/**Intrusion Prevention Systems** (**IPSs**),
+    blacklists of known bad URLs or IP addresses, or alerts flagging configuration
+    changes to the firewall without the knowledge of IT personnel. Incident responders
+    should have as much insight as possible into how their organization’s firewalls
+    function and what data can be obtained prior to an incident.'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**防火墙**：防火墙自从仅仅被认为是另一种路由器的时代以来，已经发生了显著变化。下一代防火墙包含了多种功能，如入侵检测和防御、网页过滤、数据丢失防护以及关于允许和拒绝流量的详细日志。通常，防火墙作为一种检测机制，提醒安全人员潜在的事件。这可能包括来自**入侵检测系统**（**IDS**）/**入侵防御系统**（**IPS**）的警报、已知恶意URL或IP地址的黑名单，或警报提示防火墙配置变更而IT人员未曾知晓。事件响应人员应尽可能了解其组织防火墙的工作原理，以及在事件发生之前可以获取哪些数据。'
+- en: '**Network IDSs/IPSs**: These systems are purposefully designed to provide security
+    personnel and incident responders with information concerning potential malicious
+    activity on the network infrastructure. These systems utilize a combination of
+    network monitoring and rulesets to determine whether there is any malicious activity
+    or not. IDSs are often configured to alert you to a specific malicious activity,
+    while an IPS can detect, but also block, potential malicious activity. In either
+    case, both types of platform logs are an excellent place for incident responders
+    to locate specific evidence of malicious activity.'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**网络IDS/IPS**：这些系统专门设计用于向安全人员和事件响应者提供有关网络基础设施上潜在恶意活动的信息。它们结合了网络监控和规则集来判断是否存在恶意活动。IDS通常配置为在检测到特定恶意活动时发出警报，而IPS不仅可以检测到恶意活动，还能够阻止它。无论哪种情况，这两种平台的日志都是事件响应者查找恶意活动具体证据的绝佳场所。'
+- en: '**Web proxy servers**: Organizations often utilize web proxy servers to control
+    how users interact with websites and other internet-based resources. As a result,
+    these devices can give an enterprise-wide picture of web traffic that both originates
+    with and is destined for internal hosts. Web proxies also have additional features,
+    such as alerting security personnel to connections to known malware C2 servers
+    or websites that serve up malware. A review of web proxy logs in conjunction with
+    a possibly compromised host may identify a source of malicious traffic or a C2
+    server exerting control over the host.'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**Web代理服务器**：组织通常使用Web代理服务器来控制用户如何与网站及其他基于互联网的资源互动。因此，这些设备可以提供一个关于从内部主机发起的以及发往内部主机的网络流量的全局视图。Web代理还具有额外的功能，例如在连接到已知恶意软件C2服务器或提供恶意软件的网站时，提醒安全人员注意。结合可能已被攻破的主机查看Web代理日志，可以帮助识别恶意流量的来源或正在控制主机的C2服务器。'
+- en: '**Domain controllers or authentication servers**: Serving the entire network
+    domain, authentication servers are the primary location that incident responders
+    can leverage for details on successful or unsuccessful logins, credential manipulation,
+    or other credential uses.'
+  id: totrans-18
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**域控制器或认证服务器**：作为整个网络域的核心，认证服务器是事件响应者获取有关成功或失败的登录记录、凭证操作或其他凭证使用情况的主要来源。'
+- en: '**DHCP servers**: Maintaining a list of assigned IP addresses for workstations
+    or laptops within the organization requires an inordinate amount of upkeep. The
+    use of **Dynamic Host Configuration Protocol** (**DHCP**) allows for the dynamic
+    assignment of IP addresses to systems on the LAN. DHCP servers often contain logs
+    on the assignment of IP addresses mapped to the MAC address of the host’s NIC.
+    This becomes important if an incident responder has to track down a specific workstation
+    or laptop that was connected to the network at a specific date and time.'
+  id: totrans-19
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**DHCP服务器**：在组织内维护分配给工作站或笔记本电脑的IP地址列表需要大量的管理工作。**动态主机配置协议**（**DHCP**）的使用允许在局域网（LAN）上动态分配IP地址给系统。DHCP服务器通常包含将IP地址分配给主机NIC的MAC地址的日志。如果事件响应者需要追踪特定日期和时间连接到网络的工作站或笔记本电脑，这些日志非常重要。'
+- en: '**Application servers**: A wide range of applications from email to web applications
+    is housed on network servers. Each of these can provide logs that are specific
+    to the type of application. Also of interest during an incident investigation
+    are any logs pertaining to remote connections. Adversaries will often pivot from
+    a compromised system to servers to gain access to confidential data or for other
+    follow-up activities.'
+  id: totrans-20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**应用服务器**：网络服务器上托管着从电子邮件到Web应用程序等各种应用程序。每种应用程序都可以提供与其类型相关的特定日志。在事件调查过程中，任何涉及远程连接的日志也很重要。攻击者通常会从被攻破的系统跳转到服务器，以获取机密数据或进行其他后续活动。'
+- en: Preparation
+  id: totrans-21
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: As covered in the previous section, there is a wide range of network devices,
+    each with its own method of aggregating and reporting relevant data. The ability
+    to acquire network-based evidence is largely dependent on the preparations that
+    are undertaken by an organization prior to an incident. Without some of the critical
+    components of a proper infrastructure security program, key pieces of evidence
+    will not be readily available to incident responders. The result is that evidence
+    may be lost while CSIRT members hunt down critical pieces of information. In terms
+    of preparation, organizations can aid the CSIRT by having proper network documentation,
+    up-to-date configurations of network devices, and a central log management solution,
+    such as a SIEM, in place.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如前一节所述，网络设备种类繁多，每种设备都有自己汇总和报告相关数据的方法。获取基于网络的证据的能力在很大程度上取决于组织在事件发生之前所做的准备工作。如果没有适当的基础设施安全计划中的关键组成部分，事件响应人员将无法轻松获得关键信息。这将导致证据在CSIRT成员寻找关键信息时丢失。为了准备工作，组织可以通过提供适当的网络文档、更新的网络设备配置和中央日志管理解决方案（如SIEM）来协助CSIRT。
+- en: Another consideration in terms of preparation is to incorporate the specific
+    tasks that need to be performed for proper network evidence collection into the
+    incident response playbooks. For example, firewall logs that are not sent to a
+    central log management solution, such as a SIEM, are stored on the device itself.
+    Playbooks that involve acquiring network evidence should be verbose enough to
+    walk through the process of gathering these logs.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个需要考虑的准备事项是，将执行适当网络证据收集所需的具体任务纳入事件响应手册。例如，没有发送到中央日志管理解决方案（如SIEM）的防火墙日志，会保存在设备本身。涉及收集网络证据的手册应详细到能够指导整个日志收集过程。
+- en: Aside from the technical preparation for network evidence collection, CSIRT
+    personnel needs to be aware of any legal or regulatory issues with regard to collecting
+    network evidence. Additionally, CSIRT personnel needs to be aware that capturing
+    network traffic can be considered an invasion of privacy if there is no policy
+    clearly stating that network monitoring may take place. Therefore, the legal representative
+    of the CSIRT should ensure that all employees of the organization understand that
+    their use of the information system will be monitored. This should be expressly
+    stated in policy prior to any evidence collection taking place.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了为网络证据收集做的技术准备外，CSIRT人员还需要了解与收集网络证据相关的法律或监管问题。此外，CSIRT人员还需要意识到，如果没有明确的政策说明可以进行网络监控，捕获网络流量可能被视为侵犯隐私。因此，CSIRT的法律代表应确保组织内的所有员工都理解其信息系统的使用将被监控。此项应在任何证据收集开始之前在政策中明确说明。
+- en: A network diagram
+  id: totrans-25
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 网络拓扑图
+- en: 'To identify potential sources of evidence, incident responders need to have
+    a solid understanding of what the internal network infrastructure looks like.
+    One method that can be employed by organizations is to create and maintain an
+    up-to-date network diagram. This diagram should be detailed enough that incident
+    responders can identify individual network components such as switches, routers,
+    or wireless access points. This diagram should also contain internal IP addresses
+    so that incident responders can immediately access those systems through remote
+    methods. For instance, examine the following simple network diagram:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了识别潜在的证据来源，事件响应人员需要对内部网络基础设施有深入的了解。组织可以采用的一种方法是创建并维护一份最新的网络拓扑图。该拓扑图应该足够详细，以便事件响应人员能够识别出个别网络组件，例如交换机、路由器或无线接入点。该拓扑图还应包含内部IP地址，便于事件响应人员通过远程方式立即访问这些系统。例如，查看以下简单的网络拓扑图：
+- en: '![](img/Image_B18571_05_01.jpg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_01.jpg)'
+- en: Figure 5.1 – A sample network diagram
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1 – 一个示例网络拓扑图
+- en: This diagram allows for the quick identification of potential evidence sources.
+    For example, suppose that the laptop connected to the switch at `192.168.2.1`
+    is identified as communicating with a known malware C2 server. A CSIRT analyst
+    could examine the network diagram and ascertain that the C2 traffic would have
+    to traverse several network hardware components on its way out of the internal
+    network. For example, there would be traffic traversing the switch at `192.168.10.1`,
+    through the firewall at `192.168.0.1`, and, finally, from the router out to the
+    internet.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该图示有助于快速识别潜在的证据来源。例如，假设连接到`192.168.2.1`交换机的笔记本电脑被识别为与已知的恶意软件C2服务器通信。CSIRT分析员可以检查网络图，并确定C2流量必须穿越多个网络硬件组件才能从内部网络出去。例如，流量会穿越位于`192.168.10.1`的交换机，通过位于`192.168.0.1`的防火墙，最后从路由器到达互联网。
+- en: Configuration
+  id: totrans-30
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 配置
+- en: Determining whether an attacker has made modifications to a network device such
+    as a switch or a router can be made easier if the CSIRT has a standard configuration
+    immediately available. Organizations should already have configurations for network
+    devices stored for disaster recovery purposes but they should also have these
+    available to CSIRT members in the event that there is an incident.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果CSIRT能够立即获得标准配置，确定攻击者是否对网络设备（如交换机或路由器）进行了修改将变得更加容易。组织应该已经存储了用于灾难恢复的网络设备配置，但他们还应确保在发生事件时，CSIRT成员可以访问这些配置。
+- en: Firewalls and proxy logs
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 防火墙和代理日志
+- en: Two main sources of evidence available while investigating an incident are ingress/egress
+    points into the network from the internet. Modern malware and other exploits will
+    often require the ability to reach internet-based resources. This may be for the
+    purpose of downloading additional malware or to exploit code. Other attacks that
+    involve data exfiltration will require access to the internet. Finally, adversaries
+    will often have to establish C2 over compromised systems. In these cases, traffic
+    from various protocols will traverse the perimeter of the victim network. Depending
+    on the victim, this traffic will have to traverse a firewall, internet proxy,
+    or both. As a result, both technologies provide incident response personnel with
+    a major source of evidence.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在调查事件时，有两个主要的证据来源是进出网络的互联网入口/出口点。现代恶意软件和其他漏洞通常需要能够访问基于互联网的资源。这可能是为了下载额外的恶意软件或利用代码。其他涉及数据外泄的攻击将需要访问互联网。最后，攻击者通常需要通过被攻破的系统建立C2。在这些情况下，各种协议的流量将穿越受害者网络的边界。根据受害者的情况，这些流量可能需要穿越防火墙、互联网代理或两者。因此，这两种技术为事件响应人员提供了重要的证据来源。
+- en: Firewalls
+  id: totrans-34
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 防火墙
+- en: Firewalls have evolved from a simplified routing and blocking technology into
+    platforms that provide a significant insight into the traffic coming into and
+    leaving the network. Next-generation firewalls often combine the deny/allow ruleset
+    with IDSs or IPSs, as well as controlling network access to applications. This
+    creates a significant source of evidence that can be leveraged during an incident.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 防火墙已经从一种简化的路由和阻塞技术，发展为提供对进出网络流量进行深入分析的平台。下一代防火墙通常将拒绝/允许规则集与入侵检测系统（IDS）或入侵防御系统（IPS）结合起来，并控制网络访问应用程序。这为事件响应过程中提供了一个重要的证据来源。
+- en: 'Acquiring evidence from firewalls is largely dependent on the manufacturer
+    and the specific model that is used. Incident responders should thoroughly understand
+    the feature set and specific data that can be obtained as part of their preparation.
+    Although features differ between vendors and models, there are some key evidence
+    points that are near-universal:'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从防火墙获取证据在很大程度上依赖于制造商和使用的具体型号。事件响应人员应充分了解所使用防火墙的功能集和可以获取的特定数据，这是他们准备工作的一部分。尽管不同厂商和型号之间的功能有所不同，但有一些关键证据点几乎是通用的：
+- en: '**A connection log**: The connection log provides the source and destination
+    IP addresses and protocols of connections between internal and external systems.
+    This is critical when determining whether any internal systems may have had contact
+    with an adversary-controlled system or are possibly being controlled. In addition
+    to allowed connections, the logs may also provide an insight into connections
+    that were denied. One technique that is often used by adversaries is to use tools
+    to attempt to connect to well-known ports that are commonly in use. If these ports
+    are closed to external connections, there will be a deny entry in the logs. Successive
+    denies across a range of ports are indicative of reconnaissance activity.'
+  id: totrans-37
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**连接日志**：连接日志提供了内部和外部系统之间连接的源 IP 地址、目标 IP 地址和协议信息。这在确定内部系统是否曾与对手控制的系统接触或可能被控制时至关重要。除了被允许的连接外，日志还可能提供被拒绝连接的情况。对手常用的一个技巧是使用工具尝试连接常用的知名端口。如果这些端口对外部连接关闭，日志中会显示拒绝条目。连续的拒绝事件跨越多个端口，通常表明存在侦察活动。'
+- en: '**Remote access logs**: Firewalls often serve as the **Virtual Private Network**
+    (**VPN**) concentrator for remote access. If a remote user becomes infected via
+    malware, they can introduce that infection into the internal network through the
+    VPN. Remote access logs will show systems that are connected and at what time
+    they connected. This may allow incident responders to correlate activities and
+    determine whether a remote user was the source of the infection.'
+  id: totrans-38
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**远程访问日志**：防火墙通常作为**虚拟私人网络**（**VPN**）的集中器，用于远程访问。如果远程用户通过恶意软件感染，他们可以通过 VPN
+    将感染带入内部网络。远程访问日志会显示连接的系统及其连接时间。这可能帮助事件响应者关联活动，确定是否是远程用户成为感染源。'
+- en: Web application firewalls
+  id: totrans-39
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Web 应用防火墙
+- en: A special type of firewall is the **Web Application Firewall** (**WAF**). This
+    device or software sits between the public internet and a web application. This
+    allows an organization to protect the application from the public. WAF policies
+    can be changed very quickly to respond to attacks such as **Denial-of-Service**
+    (**DoS**) or adversaries attempting to compromise the web application infrastructure.
+    From an evidentiary standpoint, WAFs provide analysts with log files of connections
+    made from the internet, along with other data points such as the type of HTTP
+    requests made and information on the systems that access resources. This is a
+    good source of evidence of attempted or successful exploitation of web servers
+    and web applications.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种特殊类型的防火墙是**Web 应用防火墙**（**WAF**）。该设备或软件位于公共互联网和 Web 应用程序之间，帮助组织保护应用程序免受外部攻击。WAF
+    策略可以非常迅速地进行更改，以应对诸如**拒绝服务攻击**（**DoS**）或对手试图破坏 Web 应用程序基础设施的攻击。从证据角度来看，WAF 提供了来自互联网的连接日志文件，并包含如
+    HTTP 请求类型和访问资源的系统信息等数据点。这是尝试或成功利用 Web 服务器和 Web 应用程序的一个良好证据来源。
+- en: Web proxy servers
+  id: totrans-41
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Web 代理服务器
+- en: Adversaries often make use of scripting such as Microsoft Visual Basic or PowerShell
+    to download secondary exploit packages or malware. These scripts will often contain
+    a URL that points to the exploit or malware. Adversaries make use of URLs as opposed
+    to IP addresses, as the IP addresses can be easily changed via domain name registration,
+    allowing them to change their infrastructure without having to change their scripts.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对手经常利用脚本语言，如 Microsoft Visual Basic 或 PowerShell，下载次级漏洞包或恶意软件。这些脚本通常包含指向漏洞或恶意软件的
+    URL。对手使用 URL 而非 IP 地址，因为 IP 地址可以通过域名注册轻松更改，这使他们能够在不更改脚本的情况下更改基础设施。
+- en: Organizations that make use of web proxy servers for HTTP and HTTPS requests
+    will have a record of any system on the internal network that reached out to an
+    external site. From here, they may be able to identify the location and, potentially,
+    the malware or exploit that has been downloaded. Additional insight may be gained
+    from C2 traffic that makes use of similar tactics to malware.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Web 代理服务器进行 HTTP 和 HTTPS 请求的组织将会记录内部网络上任何访问外部网站的系统。从这里，他们可能能够识别出被下载的恶意软件或漏洞包的位置。通过
+    C2 流量，他们可能会获得更多的洞察，C2 流量也可能采用与恶意软件相似的战术。
+- en: As detecting attacks often takes months, it is imperative that incident responders
+    can view the history of an activity that has happened over the span of weeks or
+    even months. Given the relatively small size of proxy requests, even just the
+    date, time, requesting system, and the URL that was visited can provide a significant
+    piece of evidence that might not be available otherwise.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于攻击的检测通常需要数月时间，因此事故响应人员必须能够查看跨越几周甚至几个月的活动历史记录。鉴于代理请求的相对较小，即便只是日期、时间、请求系统和访问的网址，也能提供一项重要的证据，这些证据可能是其他方式无法获得的。
+- en: NetFlow
+  id: totrans-45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: NetFlow
+- en: First designed by Cisco Systems in 1996, NetFlow is a feature found in network
+    devices such as switches and routers that allows network administrators to monitor
+    traffic within the network. NetFlow is not strictly a security tool but it does
+    provide a good deal of data to incident responders in the event of an incident.
+    NetFlow is sent by network devices via the UDP protocol to a central collection
+    point, often called the **NetFlow Collector**.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NetFlow由思科系统公司（Cisco Systems）于1996年首次设计，是一种出现在网络设备（如交换机和路由器）中的功能，允许网络管理员监控网络内的流量。NetFlow并非严格意义上的安全工具，但在发生安全事件时，它能为事故响应人员提供大量数据。NetFlow通过UDP协议由网络设备发送到一个集中收集点，通常称为**NetFlow收集器**。
+- en: 'In a security context, NetFlow provides deep insights into the internal traffic
+    of systems as they communicate with each other. This is often referred to as `10.10.2.0/24`
+    subnet. From there, they may attempt to pivot to a file server on the `10.10.1.0/24`
+    subnet. Once there, they can acquire confidential data and move it back to the
+    compromised system for exfiltration. The switches forward the NetFlow data to
+    the collector, which includes the IP addresses, protocols, and data size. This
+    data is critical for providing incident response analysts with details that they
+    may not normally otherwise acquire:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在安全背景下，NetFlow提供了深入了解系统内部流量的视角，揭示了它们如何相互通信。这通常被称为`10.10.2.0/24`子网。从那里，它们可能会尝试跳转到`10.10.1.0/24`子网上的文件服务器。一旦到达那里，它们就可以获取机密数据并将其传回被攻陷的系统进行外泄。交换机将NetFlow数据转发给收集器，其中包括IP地址、协议和数据大小。这些数据对于为事件响应分析员提供他们通常无法获取的详细信息至关重要：
+- en: '![](img/Image_B18571_05_02.jpg)'
+  id: totrans-48
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_02.jpg)'
+- en: Figure 5.2 – A NetFlow diagram
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.2 – NetFlow图示
+- en: NetFlow data is limited and depends on the types of devices that are configured
+    to send data to the NetFlow server. Generally, NetFlow contains the source and
+    destination IP addresses, the source and destination ports, the protocol, and
+    finally, the amount of traffic sent. Even with this limited information, analysts
+    gain insight into adversary activities, such as potential lateral movement or
+    data exfiltration.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NetFlow数据是有限的，取决于配置为向NetFlow服务器发送数据的设备类型。通常，NetFlow包含源和目标IP地址、源和目标端口、协议以及最终发送的流量大小。即使只有这些有限的信息，分析师也能获得有关对手活动的洞察，如潜在的横向移动或数据外泄。
+- en: Configuring NetFlow is dependent on the type and manufacturer of the network
+    components. Moreover, there is a wide range of collectors and analysis tools that
+    can be leveraged depending on the budget and other resources. One of the advantages
+    of including NetFlow analysis in the overall network operations is that it not
+    only provides data to the incident response team, but it is also highly useful
+    in day-to-day network operations in terms of hunting down latency or other communication
+    issues. This dual purpose makes including it as part of the overall network operations
+    easier to justify.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 配置NetFlow取决于网络组件的类型和制造商。此外，根据预算和其他资源的不同，可以利用各种收集器和分析工具。将NetFlow分析纳入整体网络操作的一个优势在于，它不仅为事件响应团队提供数据，而且在日常网络操作中也非常有用，尤其是在追踪延迟或其他通信问题方面。由于其双重用途，作为整体网络操作的一部分更容易为其辩护。
+- en: Packet capture
+  id: totrans-52
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 数据包捕获
+- en: Capturing network traffic is critical to having a full understanding of an incident.
+    Being able to identify potential C2 IP address traffic may provide further information
+    about the type of malware that has infected a host. In other types of incidents,
+    CSIRT members may be able to identify potential exfiltration methods that an external
+    threat actor is utilizing.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 捕获网络流量对于全面理解事件至关重要。能够识别潜在的C2 IP地址流量可能会提供有关感染主机的恶意软件类型的更多信息。在其他类型的事件中，CSIRT成员可能能够识别外部威胁行为者利用的潜在数据外泄方法。
+- en: One method is to set up what is referred to as a `192.168.1.0/24` subnet, the
+    tap should be placed in between the host and the switch. This often involves placing
+    a system in between the host and the switch.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一种方法是设置名为`192.168.1.0/24`的子网，tap应放置在主机和交换机之间。这通常涉及在主机和交换机之间放置一个系统。
+- en: Another option is to configure a **Switched Port Analyzer** (**SPAN**) port.
+    In this configuration, the switch closest to the compromised host will have port
+    mirroring enabled. This then sends the traffic from the entire segment the switch
+    is on to the system that is on the mirrored port.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种选择是配置**交换端口分析器**（**SPAN**）端口。在这种配置中，离受损主机最近的交换机会启用端口镜像。这样，交换机所在整个段的流量将被发送到镜像端口上的系统。
+- en: Finally, some network devices have built-in applications, such as `tcpdump`,
+    that can be utilized to capture traffic for further analysis. This may be the
+    quickest option, as it does not require physical access to the network or the
+    switch and can be set up remotely. The drawback to this method is that storage
+    on the switch may not support a large capture file and the added strain may increase
+    the chances of some packets not being captured.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，一些网络设备有内建的应用程序，如`tcpdump`，可以用来捕获流量以供进一步分析。这可能是最快的选择，因为它不需要物理访问网络或交换机，并且可以远程设置。但这种方法的缺点是交换机上的存储可能无法支持大容量的捕获文件，且额外的负载可能增加未捕获某些数据包的可能性。
+- en: tcpdump
+  id: totrans-57
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: tcpdump
+- en: '`tcpdump` is a command-line tool specifically designed for packet capture.
+    `tcpdump` is often included with Linux distributions and is found on many network
+    devices. For many of these devices, `tcpdump` has to be run as a root user or
+    with root privileges, as it will be monitoring network traffic. The relevant documentation
+    is available at [http://www.tcpdump.org/](http://www.tcpdump.org/). To perform
+    a packet capture with `tcpdump`, the following process can be used:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tcpdump`是一个专门设计用于数据包捕获的命令行工具。`tcpdump`通常包含在Linux发行版中，并且在许多网络设备上都能找到。对于这些设备中的许多，`tcpdump`必须以root用户或具有root权限的身份运行，因为它需要监控网络流量。相关文档可以在[http://www.tcpdump.org/](http://www.tcpdump.org/)找到。要使用`tcpdump`进行数据包捕获，可以按照以下步骤操作：'
+- en: 'To access the basic help menu, type the following into Command Prompt:'
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要访问基本帮助菜单，请在命令提示符中输入以下内容：
+- en: '[PRE0]'
+  id: totrans-60
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'The command will produce the following help menu:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令将产生以下帮助菜单：
+- en: '![](img/Image_B18571_05_03.jpg)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_03.jpg)'
+- en: Figure 5.3 – The tcpdump help menu
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3 – tcpdump帮助菜单
+- en: 'The default `tcpdump` setting is to capture traffic on all available interfaces.
+    Running the following command produces a list of all the interfaces that `tcpdump`
+    can capture traffic on:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，`tcpdump`会捕获所有可用接口上的流量。运行以下命令可以列出`tcpdump`能够捕获流量的所有接口：
+- en: '[PRE1]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The following screenshot shows that in this case, the `ens160` (Ethernet) interface
+    and the `lo` (loopback) interface are available for capturing traffic:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示，在此情况下，`ens160`（以太网）接口和`lo`（回环）接口可以用于捕获流量：
+- en: '![](img/Image_B18571_05_04.jpg)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_04.jpg)'
+- en: Figure 5.4 – tcpdump capture interfaces
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4 – tcpdump捕获接口
+- en: 'To configure a basic capture on the Ethernet interface located at `ens33` with
+    normal verbosity, type the following command:'
+  id: totrans-69
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要在位于`ens33`的以太网接口上进行基本捕获，并使用普通的详细程度，请输入以下命令：
+- en: '[PRE2]'
+  id: totrans-70
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The `-i` switch tells `tcpdump` which interface to perform the packet capture
+    on. In this case, it is on the following Ethernet interface: `ens160`. The `-v`
+    switch sets the verbosity of the packet capture. In this case, the verbosity is
+    set rather low. For additional data, the switch can be set to `-vvv` for a more
+    detailed look at the packets. The following screenshot shows what information
+    is displayed by the command:'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`-i`选项告诉`tcpdump`在哪个接口上执行数据包捕获。在这种情况下，它是在以下以太网接口上：`ens160`。`-v`选项设置数据包捕获的详细程度。在这个例子中，详细程度设置得比较低。若要查看更多数据，可以将该选项设置为`-vvv`，以获得更详细的数据包信息。以下截图显示了命令显示的信息：'
+- en: '![](img/Image_B18571_05_05.jpg)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_05.jpg)'
+- en: Figure 5.5 – The tcpdump command output
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5 – tcpdump命令输出
+- en: While this method determines whether traffic is traversing that interface or
+    not, the individual packet information is useless to an analyst due to the speed
+    with which the individual packets appear on the screen. For the packet capture
+    to be of any use, it is recommended that you output the file so that a later examination
+    can be performed with a packet analysis tool such as **Wireshark**. Wireshark
+    will be reviewed later in this chapter and in greater detail in [*Chapter 9*](B18571_09.xhtml#_idTextAnchor156).
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然这种方法可以确定流量是否经过该接口，但由于数据包出现在屏幕上的速度非常快，单个数据包信息对分析师来说是无用的。为了使数据包捕获有用，建议将文件输出，以便稍后使用数据包分析工具（如**Wireshark**）进行检查。本章稍后会详细讨论
+    Wireshark，并在[第 *9 章*](B18571_09.xhtml#_idTextAnchor156)中更详细地介绍。
+- en: 'To configure `tcpdump` to output the packet capture to a file, the following
+    command is used:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要配置 `tcpdump` 将数据包捕获输出到文件，可以使用以下命令：
+- en: '[PRE3]'
+  id: totrans-76
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: PING command
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PING 命令
+- en: '`8.8.8.8` is being performed.'
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正在执行`8.8.8.8`。
+- en: The command tells `tcpdump` to capture network traffic and write the file out
+    to capture. Unlike the previous capture, there is no traffic indicated on the
+    screen.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令告诉 `tcpdump` 捕获网络流量并将文件写入捕获。与之前的捕获不同，屏幕上不会显示任何流量。
+- en: 'To stop the capture, press *Ctrl* + *C*, which produces the following information:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要停止捕获，按 *Ctrl* + *C*，这将生成以下信息：
+- en: '![](img/Image_B18571_05_06.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_06.jpg)'
+- en: Figure 5.6 – The tcpdump output
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6 – tcpdump 输出
+- en: 'After navigating to the root directory, the file can then be opened via a network
+    analysis tool such as Wireshark, as shown:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 导航到根目录后，文件可以通过 Wireshark 等网络分析工具打开，如下所示：
+- en: '![](img/Image_B18571_05_07.jpg)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_07.jpg)'
+- en: Figure 5.7 – Wireshark packet capture analysis
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.7 – Wireshark 数据包捕获分析
+- en: '`tcpdump` can also be configured to focus the capture on specific sources or
+    destination IP addresses and ports. For example, if an incident response analyst
+    needs to collect packets leaving a specific host at the `192.168.10.54` IP address,
+    the following `tcpdump` command will produce the desired results:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tcpdump` 还可以配置为将捕获集中在特定的源或目标 IP 地址和端口上。例如，如果事故响应分析师需要收集来自特定主机（IP 地址为 `192.168.10.54`）的数据包，以下
+    `tcpdump` 命令将产生所需结果：'
+- en: '[PRE4]'
+  id: totrans-87
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Packets going to a destination such as a known C2 server at the IP address
+    can also be separated from the background network traffic with the following command:'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以使用以下命令将发送到某个目标地址（如已知的 C2 服务器的 IP 地址）的数据包与后台网络流量分开：
+- en: '[PRE5]'
+  id: totrans-89
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '`tcpdump` is a powerful tool and has plenty of options. Incident response analysts
+    are advised to examine and incorporate its various features into their toolkit.'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tcpdump` 是一个强大的工具，拥有许多选项。建议事故响应分析师检查并将其各种功能整合到他们的工具包中。'
+- en: WinPcap and RawCap
+  id: totrans-91
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: WinPcap 和 RawCap
+- en: During an incident, it may become necessary to obtain a packet capture from
+    a Windows system. In incidents such as a compromised web server or application
+    server, a Windows system will not have a native application with which to conduct
+    a packet capture. There are several packet capture tools available on Windows
+    systems. The first tool that can be utilized is **WinPcap**. This tool is generally
+    recognized as the standard for packet capture on Windows systems and is available
+    for free download at [https://www.winpcap.org/](https://www.winpcap.org/). The
+    drawback to this tool from a forensics perspective is that it must be installed
+    on the system. This can complicate a forensic analysis, as any changes to the
+    system have to be thoroughly documented. For this reason, it is a good preparatory
+    step to ensure that high-risk systems such as web servers, file servers, and application
+    servers already have WinPcap installed.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在发生事故时，可能需要从 Windows 系统中获取数据包捕获。在像被攻破的 web 服务器或应用服务器这样的事件中，Windows 系统本身没有原生的应用程序来进行数据包捕获。Windows
+    系统上有几种数据包捕获工具。可以使用的第一个工具是**WinPcap**。这个工具通常被认为是 Windows 系统上数据包捕获的标准，并可以在[https://www.winpcap.org/](https://www.winpcap.org/)免费下载。这个工具从取证角度来看，缺点是必须在系统上安装。这可能会使取证分析复杂化，因为系统的任何更改都必须彻底记录。出于这个原因，确保高风险系统（如
+    web 服务器、文件服务器和应用服务器）已经安装 WinPcap，是一个好的预备步骤。
+- en: 'Another option available to incident response analysts is the use of tools
+    such as **RawCap**. RawCap has the same basic capability as WinPcap without the
+    need to install it on the local system. RawCap can be easily run from a USB device
+    attached to the system. To perform a packet capture with RawCap, the following
+    process is used:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个供事件响应分析员使用的选项是像**RawCap**这样的工具。RawCap 具有与 WinPcap 相同的基本功能，但不需要在本地系统上安装它。RawCap
+    可以轻松地从连接到系统的 USB 设备上运行。使用 RawCap 执行数据包捕获的过程如下：
+- en: Start Windows Command Prompt as an administrator.
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以管理员身份启动 Windows 命令提示符。
+- en: 'In Command Prompt, navigate to the folder containing the `RawCap.exe` file.
+    For a list of options, type the following:'
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在命令提示符中，导航到包含 `RawCap.exe` 文件的文件夹。若要查看可用选项，输入以下命令：
+- en: '[PRE6]'
+  id: totrans-96
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'The command will produce the following output:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令将生成以下输出：
+- en: '![](img/Image_B18571_05_08.jpg)'
+  id: totrans-98
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_08.jpg)'
+- en: Figure 5.8 – The Rawcap.exe menu
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.8 – Rawcap.exe 菜单
+- en: The output produces a list of interfaces. One of the advantages of RawCap is
+    that, even from a USB device, the incident response analyst can perform a packet
+    capture on each of the interfaces. In this example, the capture will be performed
+    on the Ethernet interface indicated by the number 0.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 输出会显示一个接口列表。RawCap 的一个优势是，即使从 USB 设备上运行，事件响应分析员也可以在每个接口上执行数据包捕获。在此示例中，捕获将会在标有数字
+    0 的以太网接口上执行。
+- en: 'To start the packet capture, RawCap requires the network interface where the
+    traffic should be captured, and an output file to output the packet capture. To
+    capture the traffic on the wireless interface and output it to a file called `RawCap.pcap`,
+    the following command is used:'
+  id: totrans-101
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要开始数据包捕获，RawCap 需要指定流量应捕获的网络接口，以及输出捕获数据包的输出文件。要捕获无线接口上的流量并将其输出到名为 `RawCap.pcap`
+    的文件中，使用以下命令：
+- en: '[PRE7]'
+  id: totrans-102
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'The command produces the following output:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令会产生以下输出：
+- en: '![](img/Image_B18571_05_09.jpg)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_09.jpg)'
+- en: Figure 5.9 – The output of a RawCap packet capture
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9 – RawCap 数据包捕获的输出
+- en: 'Pressing *Ctrl* + *C* will stop the capture. The capture file, `RawCap.pcap`,
+    is saved to the same directory as the `RawCap.exe` file. This file can then be
+    opened with tools such as Wireshark for further analysis:'
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按下 *Ctrl* + *C* 将停止捕获。捕获文件 `RawCap.pcap` 会保存到与 `RawCap.exe` 文件相同的目录中。然后，这个文件可以通过像
+    Wireshark 这样的工具打开进行进一步分析：
+- en: '![](img/Image_B18571_05_10.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_10.jpg)'
+- en: Figure 5.10 – Analysis of the RawCap file in Wireshark
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10 – 在 Wireshark 中分析 RawCap 文件
+- en: Now that we have introduced Wireshark, we will examine how the tool can also
+    be used to capture network traffic.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经介绍了 Wireshark，我们将探讨该工具如何用于捕获网络流量。
+- en: Wireshark
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Wireshark
+- en: '`tcpdump` or tools such as RawCap, Wireshark is a GUI-based tool and includes
+    not only packet capture but also analysis features. As a result, Wireshark may
+    be difficult to deploy rapidly during an incident, as the program has to be installed.
+    Furthermore, the tool is only supported on Windows or macOS. Installing Wireshark
+    on a Linux system requires a bit more effort. The one distinct advantage that
+    Wireshark has over command-line options is that incident response analysts can
+    perform a detailed inspection of the traffic as it is being captured. Wireshark
+    can be run on the system itself or on a USB drive. Once installed, it must be
+    run as an administrator. To perform a packet capture with Wireshark, the following
+    process is used:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`tcpdump` 或像 RawCap、Wireshark 这样的工具是基于图形界面的工具，除了数据包捕获外，还包括分析功能。因此，Wireshark
+    在事件发生时可能不容易快速部署，因为该程序必须先安装。此外，Wireshark 仅支持 Windows 或 macOS 系统。在 Linux 系统上安装 Wireshark
+    需要更多的努力。Wireshark 相较于命令行工具的一个明显优势是，事件响应分析员可以在捕获数据包时对流量进行详细检查。Wireshark 可以在系统本身或
+    USB 驱动器上运行。安装后，必须以管理员身份运行。使用 Wireshark 执行数据包捕获的过程如下：'
+- en: 'The first step is to select an interface where Wireshark will capture traffic:'
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第一步是选择一个 Wireshark 将捕获流量的接口：
+- en: '![](img/Image_B18571_05_11.jpg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_11.jpg)'
+- en: Figure 5.11 – Wireshark Capture interfaces
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.11 – Wireshark 捕获接口
+- en: In the screenshot, there is only one interface that appears to be handling traffic.
+    The capture will be performed on the **Ethernet0** interface.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在截图中，只有一个接口似乎在处理流量。捕获将会在 **Ethernet0** 接口上执行。
+- en: 'Double-clicking on the interface will start a packet capture. As was stated
+    before, unlike **tcpdump** or RawCap, the actual capture is outputted to the screen
+    for immediate analysis:'
+  id: totrans-116
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 双击接口将启动数据包捕获。如前所述，与 **tcpdump** 或 RawCap 不同，实际捕获的内容将输出到屏幕上，便于立即分析：
+- en: '![](img/Image_B18571_05_12.jpg)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_12.jpg)'
+- en: Figure 5.12 – A Wireshark capture view
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.12 – Wireshark捕获视图
+- en: To stop the capture, click the red box in the upper-left corner of the pane.
+    The file can then be saved for further analysis.
+  id: totrans-119
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要停止捕获，请点击面板左上角的红色框。然后可以保存文件以供进一步分析。
+- en: 'Another tool that is included with Wireshark and is useful during evidence
+    acquisition is `tcpdump`, or RawCap. This is extremely useful in situations where
+    incident response analysts obtain packet captures from several sources but want
+    to check for traffic to a specific host. To access the menu for mergecap, type
+    the following into Command Prompt:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一个Wireshark附带的工具，且在证据收集过程中非常有用的是`tcpdump`，或RawCap。它在事件响应分析员从多个来源获取数据包捕获时非常有用，特别是当他们需要检查特定主机的流量时。要访问mergecap的菜单，请在命令提示符中输入以下内容：
+- en: '[PRE8]'
+  id: totrans-121
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'That command produces the following help information:'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该命令产生以下帮助信息：
+- en: '![](img/Image_B18571_05_13.jpg)'
+  id: totrans-123
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_13.jpg)'
+- en: Figure 5.13 – The mergecap help menu
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.13 – mergecap帮助菜单
+- en: 'To merge several packet capture files, the following command is used:'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要合并多个数据包捕获文件，可以使用以下命令：
+- en: '[PRE9]'
+  id: totrans-126
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: By combining the output of three packet captures into one file, the incident
+    response analyst can examine a wider range of activities across multiple network
+    paths. If, for example, the analyst is searching for traffic coming from an unknown
+    host to an external C2 server, they would be able to combine captures over the
+    entire span of the network and then search for that IP, rather than individually
+    picking through each packet capture.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过将三次数据包捕获的输出合并成一个文件，事件响应分析员可以检查跨多个网络路径的更广泛活动。例如，如果分析员正在寻找来自未知主机到外部C2服务器的流量，他们可以合并整个网络范围内的捕获记录，然后搜索该IP地址，而不是单独检查每个数据包捕获。
+- en: Evidence collection
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 证据收集
+- en: In order to conduct a proper examination of log files and other network data
+    such as packet captures, they often have to be moved from the log source and examined
+    offline. As with any source of evidence, log files or packet captures have to
+    be handled with due care to ensure that they are not corrupted or modified during
+    the transfer. One simple solution is to transfer the evidence immediately to a
+    USB drive or similar removable medium. From there, a hash can be created for the
+    evidence prior to any examination.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了正确检查日志文件和其他网络数据（如数据包捕获），通常需要将它们从日志源移走并离线检查。与任何证据来源一样，日志文件或数据包捕获在转移过程中必须小心处理，以确保不会被破坏或修改。一个简单的解决方案是立即将证据传输到USB驱动器或类似的可移动介质上。然后，可以在检查之前为证据创建哈希值。
+- en: 'The acquisition of network evidence such as a packet capture or a log file
+    should be thoroughly documented. Incident response personnel may be acquiring
+    log files and packet captures from several sources over the entire network. As
+    a result, they should ensure that they can trace back every separate piece of
+    evidence to its source, as well as the date and time that the evidence was collected.
+    This can be recorded on a network evidence log sheet and entries can be completed
+    for each piece of evidence. For example, see the following entry:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 网络证据的获取，如数据包捕获或日志文件，应该进行详细记录。事件响应人员可能会从整个网络的多个来源获取日志文件和数据包捕获。因此，他们应确保能够追溯每一项证据的来源，以及收集证据的日期和时间。可以在网络证据日志表上记录这些信息，并为每一项证据填写条目。例如，参见以下条目：
+- en: '![](img/Image_B18571_05_14.jpg)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_14.jpg)'
+- en: Figure 5.14 – A network evidence collection entry
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.14 – 网络证据收集条目
+- en: 'The log entry captures the following necessary information:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 日志条目记录了以下必要信息：
+- en: '**File Name**: Each log file or packet capture should have its own unique name.
+    Within the procedures in use by the CSIRT, there should be a naming convention
+    for different types of evidence files.'
+  id: totrans-134
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**文件名**：每个日志文件或数据包捕获文件应具有唯一的名称。在CSIRT使用的程序中，应有一个不同类型证据文件的命名约定。'
+- en: '**Description**: A brief description of the file. There does not need to be
+    too much detail unless it is a particularly unique file and a detailed description
+    is called for.'
+  id: totrans-135
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**描述**：文件的简要描述。除非文件特别独特且需要详细描述，否则无需提供过多细节。'
+- en: '**Hash**: A comprehensive overview of hashing will be covered in later chapters.
+    For now, it suffices to say that a hash is a one-way algorithm that is utilized
+    to provide a digital fingerprint for a file. This hash will be recorded at the
+    collection phase and after analysis to demonstrate that the file was not modified
+    during the analysis phase. There are several ways to compute the hash. In this
+    case, the MD5 hash can be computed using the **md5sum** installed hashing program
+    on Ubuntu. **md5sum** has several different options that can be accessed via the
+    command line. For the help menu, type the following:'
+  id: totrans-136
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**哈希**：关于哈希的全面概述将在后面的章节中讨论。目前，简而言之，哈希是一种单向算法，用于为文件提供数字指纹。这个哈希将在收集阶段和分析阶段后记录，以证明文件在分析过程中没有被修改。计算哈希有几种方法。在本例中，可以使用在
+    Ubuntu 上安装的 **md5sum** 哈希程序计算 MD5 哈希。**md5sum** 有几个不同的选项，可以通过命令行访问。要查看帮助菜单，请输入以下命令：'
+- en: '[PRE10]'
+  id: totrans-137
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'That produces the following help menu:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将产生以下帮助菜单：
+- en: '![](img/Image_B18571_05_15.jpg)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_15.jpg)'
+- en: Figure 5.15 – The md5sum help menu
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.15 – md5sum 帮助菜单
+- en: 'The MD5 hash can be calculated for the packet capture from the switch by simply
+    entering the following command:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过输入以下命令，可以计算来自交换机的数据包捕获的 MD5 哈希值：
+- en: '[PRE11]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'This produces the following output:'
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将产生以下输出：
+- en: '![](img/Image_B18571_05_16.jpg)'
+  id: totrans-144
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/Image_B18571_05_16.jpg)'
+- en: Figure 5.16 – A md5sum file calculation
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.16 – md5sum 文件计算
+- en: '`192.168.0.110` IP address.'
+  id: totrans-146
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`192.168.0.110` IP 地址。'
+- en: '**Date / Time Acquired**: Record the date and time that the file was captured.
+    Usually, this is the same as the date and time that the capture was stopped. If
+    it is a long packet capture, the start and stop times of the capture can be noted.'
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**采集日期/时间**：记录文件被捕获的日期和时间。通常，这与停止捕获的日期和时间相同。如果是长时间的数据包捕获，可以记录捕获的开始和结束时间。'
+- en: Setting the time standard
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 设置时间标准
+- en: Prior to an incident, it is important to identify what time zone will be in
+    use. From an evidentiary standpoint, the time zone does not really matter as long
+    as it is consistent throughout the entire incident investigation.
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在事件发生前，确定使用的时区非常重要。从证据的角度来看，只要在整个事件调查过程中时区保持一致，时区本身并不重要。
+- en: '**Captured By**: Ensure that the person collecting the file is identified.'
+  id: totrans-150
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**采集者**：确保标明采集文件的人员。'
+- en: '**Method**: Indicate what tool was used to capture the file.'
+  id: totrans-151
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**方法**：指明用于捕获文件的工具。'
+- en: '**Storage Drive**: Once the evidence has been captured, transfer it to an evidence
+    storage drive. This should also be documented.'
+  id: totrans-152
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '**存储驱动器**：一旦证据被捕获，将其转移到证据存储驱动器。这也应该被记录。'
+- en: Once the collection is complete, a chain of custody form should also be filled
+    out for the external medium that contains the evidence files. From here, the files
+    can be analyzed.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦收集完成，应填写包含证据文件的外部介质的交接单。接下来，可以对这些文件进行分析。
+- en: Summary
+  id: totrans-154
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: Evidence that is pertinent to incident responders is not just located on the
+    hard drive of a compromised host. There is a wealth of information available from
+    network devices spread throughout the environment. With proper preparation, a
+    CSIRT may be able to leverage the evidence provided by these devices using solutions
+    such as a SIEM. CSIRT personnel also has the ability to capture network traffic
+    for later analysis through a variety of methods and tools. However, all these
+    techniques are influenced by the legal and policy implications that CSIRT personnel
+    and the organization at large need to navigate. By preparing for the legal and
+    technical challenges of network evidence collection, CSIRT members can leverage
+    this evidence and move closer to the goal of determining the root cause of an
+    incident and bringing the organization back to its full operation.
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与事件响应者相关的证据不仅仅位于被入侵主机的硬盘上。环境中分布着许多网络设备提供的丰富信息。通过适当的准备，CSIRT 可以利用这些设备提供的证据，使用诸如
+    SIEM 这样的解决方案。CSIRT 人员还可以通过各种方法和工具捕获网络流量，以供后续分析。然而，所有这些技术都受到法律和政策影响，CSIRT 人员以及整个组织需要应对这些问题。通过为网络证据收集的法律和技术挑战做好准备，CSIRT
+    成员可以利用这些证据，进一步接近确定事件根本原因并让组织恢复到正常运作的目标。
+- en: This chapter discussed several sources of evidence available to incident response
+    analysts. Logs from network devices, whether they report to a SIEM or through
+    other methods, can give you an insight into what has transpired in the network.
+    Packet captures provide details about the exact nature of network traffic. Finally,
+    analysts must be prepared to acquire these sources of evidence in a forensically
+    sound manner.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章讨论了几个可供事件响应分析员使用的证据来源。网络设备的日志，无论是报告给 SIEM 还是通过其他方法，都能让你了解网络中发生了什么。数据包捕获提供了网络流量确切性质的详细信息。最后，分析员必须准备以法医可靠的方式获取这些证据来源。
+- en: In the next chapter, the focus will shift from network evidence acquisition
+    to acquiring volatile data from host-based systems.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一章的重点将从网络证据获取转向从基于主机的系统中获取易失性数据。
+- en: Questions
+  id: totrans-158
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Which of these items are potential sources of network evidence?
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下哪些项目可能是网络证据的来源？
+- en: Switches
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 交换机
+- en: Routers
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 路由器
+- en: Firewalls
+  id: totrans-162
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 防火墙
+- en: All of the above
+  id: totrans-163
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 上述所有
+- en: Network diagrams are important in identifying potential areas where network
+    evidence can be acquired.
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 网络图在识别可以获取网络证据的潜在区域中非常重要。
+- en: 'True'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-166
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: Which of the following is not a network forensic evidence capture tool?
+  id: totrans-167
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以下哪项不是网络取证证据采集工具？
+- en: RawCap
+  id: totrans-168
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: RawCap
+- en: Wireshark
+  id: totrans-169
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: Wireshark
+- en: WinPcap
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: WinPcap
+- en: LogBeat
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: LogBeat
+- en: When conducting evidence acquisition, it is not important to record the hash
+    value of the file.
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在进行证据获取时，记录文件的哈希值并不重要。
+- en: 'True'
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 正确
+- en: 'False'
+  id: totrans-174
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 错误
+- en: Further reading
+  id: totrans-175
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'Wireshark training: [https://www.chappell-university.com/](https://www.chappell-university.com/)'
+  id: totrans-176
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Wireshark 培训：[https://www.chappell-university.com/](https://www.chappell-university.com/)
+- en: '*Introduction to Cisco IOS NetFlow – A Technical Overview*: [https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-netflow/prod_white_paper0900aecd80406232.html](https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-netflow/prod_white_paper0900aecd80406232.html)'
+  id: totrans-177
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*思科 IOS NetFlow 介绍 - 技术概述*：[https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-netflow/prod_white_paper0900aecd80406232.html](https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-netflow/prod_white_paper0900aecd80406232.html)'

@@ -1,0 +1,2179 @@
+- en: Chapter 1.  Point-to-Point Networks
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第1章。点对点网络
+- en: 'In this chapter, we will cover the following:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下内容：
+- en: The shortest setup possible
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最简配置
+- en: OpenVPN secret keys
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: OpenVPN 秘密密钥
+- en: Multiple secret keys
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 多个秘密密钥
+- en: Plaintext tunnel
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 明文隧道
+- en: Routing
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 路由
+- en: Configuration files versus the command line
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 配置文件与命令行
+- en: IP-less configurations
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无IP配置
+- en: Complete site-to-site setup
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完整的站点对站点配置
+- en: Three-way routing
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三路路由
+- en: Using IPv6
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 IPv6
+- en: Introduction
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 简介
+- en: The recipes in this chapter will provide an introduction to configuring OpenVPN.
+    They are based on a point-to-point type of network, meaning that only a single
+    client can connect at a given time.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的教程将介绍如何配置 OpenVPN。它们基于点对点类型的网络，这意味着每次只能连接一个客户端。
+- en: A point-to-point network is very useful when connecting to a small number of
+    sites or clients. It is easier to set up, as no certificates or **public key infrastructure**
+    (**PKI**) is required. Also, routing is slightly easier to configure as no client-specific
+    configuration files containing `--iroute` statements are required.
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点对点网络在连接少数站点或客户端时非常有用。它的设置比较简单，因为不需要证书或**公钥基础设施**（**PKI**）。此外，由于不需要包含 `--iroute`
+    语句的特定客户端配置文件，路由配置也稍微简单一些。
+- en: 'The drawbacks of a point-to-point network are as follows:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点对点网络的缺点如下：
+- en: The lack of having perfect forward secrecy-a key compromise may result in a
+    total disclosure of previous sessions
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 缺乏完美前向保密性——密钥泄露可能导致之前的会话完全泄露
+- en: The secret key must exist in plaintext form on each VPN peer
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 秘密密钥必须以明文形式存在于每个VPN对等端
+- en: The shortest setup possible
+  id: totrans-18
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 最简配置
+- en: This recipe will explain the shortest setup possible when using OpenVPN. For
+    this setup, you require two computers that are connected over a network (LAN or
+    Internet). We will use both a TUN-style network and a TAP-style network and will
+    focus on the differences between them. A TUN device is used mostly for VPN tunnels
+    where only IP traffic is used. A TAP device allows all the Ethernet frames to
+    be passed over the OpenVPN tunnel, hence providing support for non-IP based protocols,
+    such as IPX and AppleTalk.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本教程将解释使用 OpenVPN 时可能的最简配置。在此配置中，您需要两台通过网络（LAN 或 Internet）连接的计算机。我们将同时使用 TUN
+    类型网络和 TAP 类型网络，并重点关注它们之间的差异。TUN 设备主要用于仅传输 IP 流量的 VPN 隧道。而 TAP 设备则允许通过 OpenVPN
+    隧道传递所有以太网帧，因此支持非基于 IP 的协议，如 IPX 和 AppleTalk。
+- en: While this may seem useless at first glance, it can be very useful to quickly
+    test whether OpenVPN can connect to a remote system.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然乍一看这似乎没什么用，但它在快速测试 OpenVPN 是否能连接到远程系统时非常有用。
+- en: Getting ready
+  id: totrans-21
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Windows 7 Pro 64bit and OpenVPN
+    2.3.10.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保计算机已通过网络连接。在本教程中，服务器计算机运行的是 CentOS 6 Linux 和
+    OpenVPN 2.3.9，而客户端运行的是 Windows 7 Pro 64位和 OpenVPN 2.3.10。
+- en: How to do it...
+  id: totrans-23
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Here are the steps that you need to follow:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是你需要遵循的步骤：
+- en: 'Launch the server-side (listening) OpenVPN process for the TUN-style network:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器端（监听）OpenVPN 进程，用于TUN类型网络：
+- en: '[PRE0]'
+  id: totrans-26
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: Note
+  id: totrans-27
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: The preceding command should be entered as a single line. The character `\`
+    is used to denote the fact that the command continues on the next line.
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 前述命令应该作为一行输入。字符 `\` 用于表示命令将在下一行继续。
+- en: 'Then, launch the client-side OpenVPN process:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，启动客户端 OpenVPN 进程：
+- en: '[PRE1]'
+  id: totrans-30
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The following screenshot shows how a connection is established:'
+  id: totrans-31
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 以下截图显示了如何建立连接：
+- en: '![How to do it...](img/image00329.jpeg)'
+  id: totrans-32
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+  zh: '![如何操作...](img/image00329.jpeg)'
+- en: As soon as the connection is established, we can ping the other end of the tunnel.
+  id: totrans-33
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 一旦连接建立，我们就可以ping通隧道的另一端。
+- en: Next, stop the tunnel by pressing the ***F4*** function key in the command window
+    and restart both ends of the tunnel using the TAP device.
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，通过按下命令窗口中的 ***F4*** 功能键停止隧道，并使用TAP设备重启隧道的两端。
+- en: 'Launch the server-side (listening) OpenVPN process for the TAP-style network:'
+  id: totrans-35
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器端（监听）OpenVPN 进程，用于TAP类型网络：
+- en: '[PRE2]'
+  id: totrans-36
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Then launch the client-side OpenVPN process:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后启动客户端 OpenVPN 进程：
+- en: '[PRE3]'
+  id: totrans-38
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The connection will now be established and we can again ping the other end of
+    the tunnel.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接现在已经建立，我们可以再次ping通隧道的另一端。
+- en: How it works...
+  id: totrans-40
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: The server listens on UDP port `1194`, which is the OpenVPN default port for
+    incoming connections. The client connects to the server on this port. After the
+    initial handshake, the server configures the first available TUN device with the
+    IP address `10.200.0.1` and it expects the remote end (the Peer address) to be `10.200.0.2`.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 服务器监听 UDP 端口 `1194`，这是 OpenVPN 的默认端口，用于接收连接。客户端通过此端口连接到服务器。初始握手后，服务器将第一个可用的
+    TUN 设备配置为 IP 地址 `10.200.0.1`，并期望远端（对等地址）为 `10.200.0.2`。
+- en: 'The client does the opposite: after the initial handshake, the first TUN or
+    TAP-Win32 device is configured with the IP address `10.200.0.2`. It expects the
+    remote end (the Peer address) to be `10.200.0.1`. After this, the VPN is established.'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端则执行相反的操作：在初始握手后，第一个 TUN 或 TAP-Win32 设备被配置为 IP 地址 `10.200.0.2`，并期望远端（对等地址）为
+    `10.200.0.1`。之后，VPN 被建立。
+- en: Note
+  id: totrans-43
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: 'Notice the warning:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意警告：
+- en: '********* WARNING *******: all encryption and authentication features disabled
+    -- all data will be tunnelled as cleartext**'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '********* 警告 *******：所有加密和认证功能已禁用——所有数据将以明文方式传输**'
+- en: 'Here, the data is not secure: all of the data that is sent over the VPN tunnel
+    can be read!'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，数据并不安全：所有通过 VPN 隧道发送的数据都可以被读取！
+- en: There's more...
+  id: totrans-47
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: Let's look at a couple of different scenarios and check whether they would modify
+    the process.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们来看一下几种不同的场景，并检查它们是否会修改过程。
+- en: Using the TCP protocol
+  id: totrans-49
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 使用 TCP 协议
+- en: 'In the previous example, we chose the UDP protocol. It would not have made
+    any difference if we had chosen the TCP protocol, provided that we had done that
+    on the server side (the side without `--remote`) as well as the client side. The
+    following is the code for doing this on the server side:'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，我们选择了 UDP 协议。如果我们选择了 TCP 协议，实际上并不会有任何区别，前提是我们在服务器端（没有 `--remote` 的一方）和客户端都做了相同的设置。以下是服务器端实现该操作的代码：
+- en: '[PRE4]'
+  id: totrans-51
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Here''s the code for the client side:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是客户端的代码：
+- en: '[PRE5]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: Forwarding non-IP traffic over the tunnel
+  id: totrans-54
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 在隧道中转发非 IP 流量
+- en: 'With the TAP-style interface, it is possible to run non-IP traffic over the
+    tunnel. For example, if AppleTalk is configured correctly on both sides, we can
+    query a remote host using the `aecho` command:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 TAP 风格接口，可以在隧道中运行非 IP 流量。例如，如果 AppleTalk 在两端正确配置，我们可以使用 `aecho` 命令查询远程主机：
+- en: '[PRE6]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: A `tcpdump -nnel -i tap0` command shows that the type of traffic is indeed non-IP-based
+    AppleTalk.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 `tcpdump -nnel -i tap0` 命令显示，流量类型确实是基于非 IP 的 AppleTalk。
+- en: OpenVPN secret keys
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: OpenVPN 秘密密钥
+- en: This recipe uses OpenVPN secret keys to secure the VPN tunnel. It is very similar
+    to the previous recipe, but this time, we will use a shared secret key to encrypt
+    the traffic between the client and the server.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个示例使用 OpenVPN 秘密密钥来保护 VPN 隧道。它与之前的示例非常相似，但这次我们将使用共享密钥来加密客户端和服务器之间的流量。
+- en: Getting ready
+  id: totrans-60
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Windows 7 64 bit and OpenVPN
+    2.3.10.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保两台计算机通过网络连接。在这个示例中，服务器计算机运行 CentOS 6 Linux 和
+    OpenVPN 2.3.9，而客户端运行 Windows 7 64 位和 OpenVPN 2.3.10。
+- en: How to do it...
+  id: totrans-62
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'First, generate a secret key on the server (listener):'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，在服务器端（监听端）生成一个密钥：
+- en: '[PRE7]'
+  id: totrans-64
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: Transfer this key to the client side over a secure channel (for example, using `scp`).
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将此密钥通过安全通道（例如使用 `scp`）传输到客户端。
+- en: 'Next, launch the server-side (listening) OpenVPN process:'
+  id: totrans-66
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，启动服务器端（监听端）的 OpenVPN 进程：
+- en: '[PRE8]'
+  id: totrans-67
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Then, launch the client-side OpenVPN process:'
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，启动客户端的 OpenVPN 进程：
+- en: '[PRE9]'
+  id: totrans-69
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'The connection is now established, as shown in the following screenshot:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接已经建立，如下截图所示：
+- en: '![How to do it...](img/image00330.jpeg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![如何操作...](img/image00330.jpeg)'
+- en: How it works...
+  id: totrans-72
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'This example works exactly as the first one: the server listens to the incoming
+    connections on UDP port `1194`. The client connects to the server on this port.
+    After the initial handshake, the server configures the first available TUN device
+    with the IP address `10.200.0.1` and it expects the remote end (Peer address)
+    to be `10.200.0.2`. The client does the opposite.'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个示例与第一个完全相同：服务器监听 UDP 端口 `1194` 上的传入连接，客户端通过该端口连接到服务器。初始握手后，服务器将第一个可用的 TUN
+    设备配置为 IP 地址 `10.200.0.1`，并期望远端（对等地址）为 `10.200.0.2`。客户端则执行相反的操作。
+- en: There's more...
+  id: totrans-74
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'By default, OpenVPN uses two symmetric keys when setting up a point-to-point
+    connection:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，OpenVPN 在建立点对点连接时使用两个对称密钥：
+- en: A cipher key to encrypt the contents of the packets being exchanged.
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用于加密交换数据包内容的加密密钥。
+- en: An HMAC key to sign packets. When packets arrive that are not signed using the
+    appropriate HMAC key, they are dropped immediately. This is the first line of
+    defense against a "denial-of-service" attack.
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 用于签署数据包的 HMAC 密钥。未使用适当 HMAC 密钥签署的数据包将立即被丢弃。这是防御“拒绝服务”攻击的第一道防线。
+- en: The same set of keys are used on both ends and both keys are derived from the
+    file specified using the `--secret` parameter.
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 两端使用相同的密钥集，并且这两个密钥都是使用 `--secret` 参数指定的文件派生的。
+- en: 'An OpenVPN secret key file is formatted as follows:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 秘密密钥文件格式如下：
+- en: '[PRE10]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: From the random bytes, the OpenVPN Cipher and HMAC keys are derived. Note that
+    these keys are the same for each session.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从随机字节中派生出 OpenVPN 加密和 HMAC 密钥。请注意，这些密钥对每个会话都是相同的。
+- en: See also
+  id: totrans-82
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: The next recipe, *Multiple secret keys*, will explain the format of secret keys
+    in detail
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下一个配方 *多个秘密密钥* 将详细解释秘密密钥的格式
+- en: Multiple secret keys
+  id: totrans-84
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 多个秘密密钥
+- en: 'As stated in the previous recipe, OpenVPN uses two symmetric keys when setting
+    up a point-to-point connection. However, it is also possible to use shared yet
+    asymmetric keys in point-to-point mode. OpenVPN will use four keys in this case:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前一配方所述，当建立点对点连接时，OpenVPN 使用两个对称密钥。但是，在点对点模式下也可以使用共享但非对称密钥。在这种情况下，OpenVPN 将使用四个密钥：
+- en: A cipher key on the client side
+  id: totrans-86
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 客户端的加密密钥
+- en: An HMAC key on the client side
+  id: totrans-87
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 客户端的 HMAC 密钥
+- en: A cipher key on the server side
+  id: totrans-88
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 服务器端的加密密钥
+- en: An HMAC key on the server side
+  id: totrans-89
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 服务器端的 HMAC 密钥
+- en: The same keying material is shared by both sides of the point-to-point connection,
+    but the keys that are derived for encrypting and signing the data are different
+    for each side. This recipe explains how to set up OpenVPN in this manner and how
+    the keys can be made visible.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 两端的点对点连接共享相同的密钥材料，但用于加密和签名数据的密钥在每一端是不同的。本配方解释了如何按此方式设置 OpenVPN，以及如何使密钥可见。
+- en: Getting ready
+  id: totrans-91
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: For this recipe, we use the `secret.key` file from the previous recipe. Install
+    OpenVPN 2.3.9 or higher on two computers. Make sure the computers are connected
+    over a network. For this recipe, the server computer was running CentOS 6 Linux
+    and OpenVPN 2.3.9 and the client was running Windows 7 64 bit and OpenVPN 2.3.10\.
+    We'll use the `secret.key` file from the *OpenVPN secret keys* recipe here.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于此配方，我们使用上一个配方中的 `secret.key` 文件。在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保计算机通过网络连接。对于此配方，服务器计算机运行
+    CentOS 6 Linux 和 OpenVPN 2.3.9，客户端运行 Windows 7 64 位和 OpenVPN 2.3.10。我们将在此处使用 *OpenVPN
+    秘密密钥* 配方的 `secret.key` 文件。
+- en: How to do it...
+  id: totrans-93
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何实现...
+- en: 'Launch the server-side (listening) OpenVPN process with an extra option to
+    the `--secret` parameter and with more verbose logging:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器端（监听）OpenVPN 进程时，使用额外的选项 `--secret` 参数和更详细的日志记录：
+- en: '[PRE11]'
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'Then launch the client-side OpenVPN process:'
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后启动客户端 OpenVPN 进程：
+- en: '[PRE12]'
+  id: totrans-97
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: The connection will be established with a lot of debugging messages.
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接将建立并显示大量调试消息。
+- en: 'If we look through the server-side messages (searching for `crypt`), we can
+    find the negotiated keys on the server side. Note that the output has been reformatted
+    for clarity:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们仔细查看服务器端消息（搜索 `crypt`），我们可以找到服务器端协商的密钥。请注意，输出已经重新格式化以增加清晰度：
+- en: '[PRE13]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'On the client side, we will find the same keys but the "Encrypt" and "Decrypt"
+    keys would have been reversed:'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在客户端，我们将找到相同的密钥，但是“加密”和“解密”密钥将被反转：
+- en: '[PRE14]'
+  id: totrans-102
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: If you look at the keys carefully, you will see that each one of them is mirrored
+    on the client and the server side.
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果仔细查看密钥，您会发现每个密钥在客户端和服务器端都是镜像的。
+- en: How it works...
+  id: totrans-104
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'OpenVPN derives all the keys from the `static.key` file, provided there is
+    enough entropy (randomness) in the file to reliably generate four keys. All the
+    keys generated using the following will have enough entropy:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 从 `static.key` 文件中派生所有密钥，前提是文件中有足够的熵（随机性）可靠地生成四个密钥。使用以下生成的所有密钥将具有足够的熵：
+- en: '[PRE15]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: An OpenVPN static key file is 2,048 bits in size. The cipher keys are each 128
+    bits, whereas the HMAC keys are 160 bits each, for a total of 776 bits. This allows
+    OpenVPN to easily generate four random keys from the static key file, even if
+    a cipher is chosen that requires a larger initialization key.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 静态密钥文件大小为 2,048 位。加密密钥每个为 128 位，而 HMAC 密钥每个为 160 位，总共为 776 位。这使得 OpenVPN
+    可以轻松地从静态密钥文件生成四个随机密钥，即使选择的加密方式需要更大的初始化密钥。
+- en: There's more...
+  id: totrans-108
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 更多信息...
+- en: The same secret key files are used in a client/server setup when the `tls-auth
+    ta.key` parameter is used.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用相同的秘密密钥文件，在客户端/服务器设置中，当使用 `tls-auth ta.key` 参数时。
+- en: See also
+  id: totrans-110
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 参见
+- en: The *Setting up the public and private keys* recipe from [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*,
+    in which the `tls-auth` key is generated in a very similar manner
+  id: totrans-111
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 来自 [第二章](part0025.xhtml#aid-NQU21 "第二章. 客户端-服务器 IP-only 网络") 的 *设置公钥和私钥* 配方，其中
+    `tls-auth` 密钥的生成方式与此非常相似。
+- en: Plaintext tunnel
+  id: totrans-112
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 明文隧道
+- en: In the very first recipe, we created a tunnel in which the data traffic was
+    not encrypted. To create a completely plain text tunnel, we also disable the HMAC
+    authentication. This can be useful when debugging a bad connection, as all traffic
+    over the tunnel can now easily be monitored. In this recipe, we will look at how
+    to do this. This type of tunnel is also useful when doing performance measurements,
+    as it is the least CPU-intensive tunnel that can be established.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第一个示例中，我们创建了一个没有加密的数据流隧道。为了创建一个完全的明文隧道，我们还禁用了 HMAC 身份验证。这在调试连接问题时非常有用，因为现在可以轻松监控所有通过隧道的流量。在本例中，我们将看看如何做到这一点。这种隧道也在进行性能测量时非常有用，因为它是最不消耗
+    CPU 的隧道。
+- en: Getting ready
+  id: totrans-114
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Fedora 22 Linux and OpenVPN
+    2.3.10.
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保计算机通过网络连接。对于本例，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN
+    2.3.9，客户端计算机运行的是 Fedora 22 Linux 和 OpenVPN 2.3.10。
+- en: As we are not using any encryption, no secret keys are needed.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们没有使用任何加密，因此不需要秘密密钥。
+- en: How to do it...
+  id: totrans-117
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Launch the server-side (listening) OpenVPN process:'
+  id: totrans-118
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动服务器端（监听）OpenVPN 进程：
+- en: '[PRE16]'
+  id: totrans-119
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Then launch the client-side OpenVPN process:'
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后启动客户端 OpenVPN 进程：
+- en: '[PRE17]'
+  id: totrans-121
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'The connection will be established with the following two warning messages
+    as the output:'
+  id: totrans-122
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 连接将以以下两个警告消息作为输出：
+- en: '[PRE18]'
+  id: totrans-123
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: How it works...
+  id: totrans-124
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: With this setup, absolutely no encryption is performed. All of the traffic that
+    is sent over the tunnel is encapsulated in an OpenVPN packet and then sent as
+    is.
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此设置下，完全不进行加密。所有通过隧道发送的流量都封装在 OpenVPN 数据包中，然后按原样发送。
+- en: There's more...
+  id: totrans-126
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: 'To actually view the traffic, we can use `tcpdump`; follow these steps:'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要实际查看流量，我们可以使用 `tcpdump`；按照以下步骤操作：
+- en: Set up the connection as outlined.
+  id: totrans-128
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按照概要设置连接。
+- en: 'Start `tcpdump` and listen on the network interface, not the tunnel interface
+    itself:'
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 `tcpdump`，并监听网络接口，而不是隧道接口本身：
+- en: '[PRE19]'
+  id: totrans-130
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'Now, send some text across the tunnel, using something like `nc` (Netcat).
+    First, launch `nc` on the server side:'
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，使用类似 `nc`（Netcat）这样的工具发送一些文本通过隧道。首先，在服务器端启动 `nc`：
+- en: '[PRE20]'
+  id: totrans-132
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'On the client side, launch the `nc` command in client mode and type `hello`
+    and `goodbye`:'
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在客户端，启动 `nc` 命令的客户端模式并输入 `hello` 和 `goodbye`：
+- en: '[PRE21]'
+  id: totrans-134
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: In the `tcpdump` window, you should now see the following:![There's more...](img/image00331.jpeg)
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 `tcpdump` 窗口中，你现在应该能看到以下内容：![更多内容...](img/image00331.jpeg)
+- en: Press *Ctrl* + *C* to terminate `tcpdump` as well as `nc`.
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 按 *Ctrl* + *C* 终止 `tcpdump` 和 `nc`。
+- en: Routing
+  id: totrans-137
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 路由
+- en: The point-to-point type of networks are great if you want to connect two networks
+    together over a static, encrypted tunnel. If you only have a small number of endpoints
+    (fewer than four), then routing is far easier than using a client/server setup
+    as described in [Chapter 2](part0025.xhtml#aid-NQU21 "Chapter 2.  Client-server
+    IP-only Networks"), *Client-server IP-only Networks*.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点对点类型的网络非常适合如果你想通过静态、加密的隧道连接两个网络。如果你只有少数终端（少于四个），那么路由比使用 [第二章](part0025.xhtml#aid-NQU21
+    "第二章. 客户端-服务器 IP-only 网络") 中描述的客户端/服务器设置要简单得多，*客户端-服务器 IP-only 网络*。
+- en: Getting ready
+  id: totrans-139
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'For this recipe, we will use the following network layout:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于本例，我们将使用以下网络布局：
+- en: '![Getting ready](img/image00332.jpeg)'
+  id: totrans-141
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00332.jpeg)'
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Windows 7 64 bit and OpenVPN
+    2.3.10\. We'll use the `secret.key` file from the *OpenVPN secret keys* recipe
+    here.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保计算机通过网络连接。对于本例，服务器计算机运行的是 CentOS 6 Linux 和 OpenVPN
+    2.3.9，客户端计算机运行的是 Windows 7 64 位和 OpenVPN 2.3.10。我们将在这里使用来自 *OpenVPN 秘密密钥* 配方的
+    `secret.key` 文件。
+- en: How to do it...
+  id: totrans-143
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'First, establish the connection, but also make sure OpenVPN has daemonized
+    itself:'
+  id: totrans-144
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，建立连接，但也要确保 OpenVPN 已经将自己作为守护进程启动：
+- en: '[PRE22]'
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'Then, launch the client-side OpenVPN process:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，启动客户端 OpenVPN 进程：
+- en: '[PRE23]'
+  id: totrans-147
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'The connection is established:'
+  id: totrans-148
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 连接已经建立：
+- en: '[PRE24]'
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: 'Now we add routing:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们添加路由：
+- en: 'On the server side, we add a static route:'
+  id: totrans-151
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在服务器端，我们添加静态路由：
+- en: '[PRE25]'
+  id: totrans-152
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'On the client side, we need to do two things:'
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在客户端，我们需要做两件事：
+- en: 'Make sure that you have the IP traffic forwarding enabled. On Linux, this can
+    be achieved using the following:'
+  id: totrans-154
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 确保已启用 IP 流量转发。在 Linux 上，可以通过以下方式实现：
+- en: '[PRE26]'
+  id: totrans-155
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Note
+  id: totrans-156
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Note that this setting does not survive a reboot of the system.
+  id: totrans-157
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 请注意，这个设置在系统重启后不会保存。
+- en: 'On the Windows client on the client-side LAN, make sure there is a route back
+    to the OpenVPN server:'
+  id: totrans-158
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在客户端局域网的 Windows 客户端上，确保有一条返回 OpenVPN 服务器的路由：
+- en: '[PRE27]'
+  id: totrans-159
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: Note
+  id: totrans-160
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 注意
+- en: Here, `192.168.4.5` is the LAN IP address of the OpenVPN client.
+  id: totrans-161
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在这里，`192.168.4.5` 是 OpenVPN 客户端的局域网 IP 地址。
+- en: 'From the server, we can now ping machines on the client LAN. First, ping the
+    LAN IP of the OpenVPN client:'
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从服务器端，我们现在可以 ping 客户端局域网中的机器。首先，ping OpenVPN 客户端的局域网 IP 地址：
+- en: '[PRE28]'
+  id: totrans-163
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'Then, ping the LAN IP of a machine on the OpenVPN client LAN:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后，ping OpenVPN 客户端局域网中某台机器的局域网 IP 地址：
+- en: '[PRE29]'
+  id: totrans-165
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: How it works...
+  id: totrans-166
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'In our network setup, the LAN we want to reach is behind the OpenVPN client,
+    so we have to add a route to the server:'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的网络设置中，我们要到达的局域网位于 OpenVPN 客户端之后，所以我们必须添加到服务器的路由：
+- en: '[PRE30]'
+  id: totrans-168
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'On the client side, we need to do two things:'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在客户端，我们需要做两件事：
+- en: 'Make sure that the routing is enabled. If you want routing to remain enabled
+    after a reboot, edit the `/etc/sysctl.cnf` file:'
+  id: totrans-170
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 确保启用了路由。如果你希望在重启后路由保持启用，请编辑`/etc/sysctl.cnf` 文件：
+- en: '[PRE31]'
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'We also need to make sure that there is a route back to the OpenVPN server
+    on the client LAN. This can be done by adding a route to the LAN gateway or by
+    adding a static route to each of the machines on the client LAN. In this recipe,
+    we added a route to a Windows client that is in the same LAN as the OpenVPN client:'
+  id: totrans-172
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们还需要确保在客户端局域网中有一条返回 OpenVPN 服务器的路由。这可以通过添加到局域网网关的路由或为客户端局域网中的每台机器添加静态路由来完成。在这个例子中，我们为与
+    OpenVPN 客户端位于同一局域网的 Windows 客户端添加了一条路由：
+- en: '[PRE32]'
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: Here, `192.168.4.5` is the LAN IP address of the OpenVPN client.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这里，`192.168.4.5` 是 OpenVPN 客户端的局域网 IP 地址。
+- en: There's more...
+  id: totrans-175
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: Let's discuss a bit about routing issues and how to automate the setup.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们讨论一下路由问题以及如何自动化设置。
+- en: Routing issues
+  id: totrans-177
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 路由问题
+- en: On the OpenVPN users mailing list, a large number of the problems that are reported
+    have something to do with routing issues. Most of them have little to do with
+    OpenVPN itself, but more with understanding the routing and the flow of packets
+    over the network. [Chapter 7](part0082.xhtml#aid-2E6E41 "Chapter 7. Troubleshooting
+    OpenVPN - Routing"), *Troubleshooting OpenVPN - Routing*, provides some recipes
+    to diagnose and fix the most common routing problems.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 OpenVPN 用户邮件列表中，报告的许多问题都与路由问题有关。大多数问题与 OpenVPN 本身关系不大，而更多的是与理解路由和网络中数据包流动相关。[第七章](part0082.xhtml#aid-2E6E41
+    "第七章。排除 OpenVPN 故障 - 路由")，*排除 OpenVPN 故障 - 路由* 提供了一些解决最常见路由问题的方案。
+- en: Automating the setup
+  id: totrans-179
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 自动化设置
+- en: 'It is also possible to add the appropriate routes when the tunnel first comes
+    up. This can be done using the `--route` statement:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 也可以在隧道首次建立时添加适当的路由。这可以通过使用 `--route` 语句来完成：
+- en: '[PRE33]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: Note that on the client LAN, the route back to the server still has to be set
+    manually.
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，在客户端局域网中，返回服务器的路由仍然需要手动设置。
+- en: See also
+  id: totrans-183
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另见
+- en: The *Three-way routing* recipe, later on in this chapter, where a more complicated
+    setup using three remote sites is explained
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本章后面会介绍*三路路由*方案，涉及使用三个远程站点的更复杂设置。
+- en: '[Chapter 7](part0082.xhtml#aid-2E6E41 "Chapter 7. Troubleshooting OpenVPN -
+    Routing"), *Troubleshooting OpenVPN - Routing*'
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第七章](part0082.xhtml#aid-2E6E41 "第七章。排除 OpenVPN 故障 - 路由")，*排除 OpenVPN 故障 -
+    路由*'
+- en: Configuration files versus the command line
+  id: totrans-186
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 配置文件与命令行
+- en: Most recipes in this book can be carried out without using configuration files.
+    However, in most real-life cases, a configuration file is much easier to use than
+    a lengthy command line. It is important to know that OpenVPN actually treats configuration
+    file entries and command-line parameters identically. The only difference is that
+    all command-line parameters start with a double dash (`--`) whereas the configuration
+    file entries do not. This makes it very easy to overrule the configuration file
+    entries using an extra command-line parameter.
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本书中的大多数食谱可以在不使用配置文件的情况下完成。然而，在大多数实际情况中，配置文件比冗长的命令行更易于使用。重要的是要知道，OpenVPN 实际上将配置文件条目和命令行参数视为相同。唯一的区别是，所有命令行参数都以双短划线（`--`）开头，而配置文件条目则没有。这使得通过额外的命令行参数覆盖配置文件条目变得非常容易。
+- en: Getting ready
+  id: totrans-188
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Windows 7 64 bit and OpenVPN
+    2.3.10\. In this recipe, we'll use the `secret.key` file from the *OpenVPN secret
+    keys* recipe.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保这两台计算机通过网络连接。在这个食谱中，服务器计算机运行的是 CentOS 6 Linux
+    和 OpenVPN 2.3.9，客户端运行的是 Windows 7 64 位和 OpenVPN 2.3.10。在本食谱中，我们将使用来自 *OpenVPN
+    秘密密钥* 食谱的 `secret.key` 文件。
+- en: How to do it...
+  id: totrans-190
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做...
+- en: 'Create a configuration file based on an earlier recipe:'
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 基于之前的食谱创建一个配置文件：
+- en: '[PRE34]'
+  id: totrans-192
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Save this file as `example1-6-client.conf`.
+  id: totrans-193
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将此文件保存为 `example1-6-client.conf`。
+- en: 'Launch the server-side (listening) OpenVPN process on a non-standard port:'
+  id: totrans-194
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在非标准端口上启动服务器端（监听）OpenVPN 进程：
+- en: '[PRE35]'
+  id: totrans-195
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: 'Then launch the client-side OpenVPN process and add an extra command-line parameter:'
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后启动客户端 OpenVPN 进程并添加一个额外的命令行参数：
+- en: '[PRE36]'
+  id: totrans-197
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: 'The connection is established:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 连接已建立：
+- en: '[PRE37]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: How it works...
+  id: totrans-200
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: 'The command line and the configuration file are read and parsed from left to
+    right and top to bottom. This means that most options that are specified before
+    the configuration file can be overruled by the entries in that file. Similarly,
+    the options specified after the following directive overrule the entries in that
+    file:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 命令行和配置文件是从左到右、从上到下读取和解析的。这意味着在配置文件之前指定的大多数选项可以被文件中的条目覆盖。类似地，在以下指令之后指定的选项将覆盖文件中的条目：
+- en: '[PRE38]'
+  id: totrans-202
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: 'Hence, the following option overruled the line "`port 1194`" from the configuration
+    file:'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，以下选项覆盖了配置文件中的 "`port 1194`" 行：
+- en: '[PRE39]'
+  id: totrans-204
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: However, some options can be specified multiple times, in which case, the first
+    occurrence "wins." In such a case, it is also possible to specify the option before
+    specifying the `--config` directive.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，一些选项可以指定多次，在这种情况下，第一个出现的“获胜”。在这种情况下，也可以在指定`--config`指令之前先指定该选项。
+- en: There's more...
+  id: totrans-206
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: 'Here is another example that shows the importance of the ordering of the command-line
+    parameters:'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是另一个示例，展示了命令行参数顺序的重要性：
+- en: '[PRE40]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: 'This produces the exact same connection log as shown before. The `verb 3` command
+    from the `client.conf` configuration file overruled `--verb 0`, as specified on
+    the command line. However, refer to the following command line:'
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将产生与之前所示完全相同的连接日志。来自`client.conf`配置文件中的`verb 3`命令覆盖了命令行中指定的`--verb 0`。然而，请参阅以下命令行：
+- en: '[PRE41]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: Using this command line, the connection log will remain entirely empty, yet
+    the VPN connection will be in functioning mode.
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用此命令行，连接日志将保持完全为空，但 VPN 连接将处于正常工作状态。
+- en: Exceptions to the rule
+  id: totrans-212
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 规则的例外
+- en: 'Some of the newer features of OpenVPN deviate slightly from this principle,
+    most notably the `<connection>` blocks and the inline certificates. Some people
+    prefer to write the following command:'
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 的一些新特性略微偏离了这一原则，最显著的是`<connection>`块和内联证书。有些人更喜欢写下以下命令：
+- en: '[PRE42]'
+  id: totrans-214
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: 'They prefer this instead of the following command:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 他们更喜欢这样，而不是以下命令：
+- en: '[PRE43]'
+  id: totrans-216
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: The downside of this notation is that this is translated as a connection block
+    by OpenVPN. For connection blocks, it is not possible to overrule the port using
+    `--port 11000`.
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种表示法的缺点是，OpenVPN 将其解释为连接块。对于连接块，不能通过`--port 11000`来覆盖端口。
+- en: Complete site-to-site setup
+  id: totrans-218
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 完整的站点到站点设置
+- en: In this recipe, we set up a complete site-to-site network, using most of the
+    built-in security features that OpenVPN offers. It is intended as a "one-stop-shop"
+    example of how to set up a point-to-point network.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个食谱中，我们设置了一个完整的站点到站点网络，使用了 OpenVPN 提供的大多数内置安全功能。它旨在作为一个“全方位”的示例，展示如何设置点对点网络。
+- en: Getting ready
+  id: totrans-220
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Fedora 22 Linux and OpenVPN
+    2.3.10\. We'll use the `secret.key` file from the *OpenVPN secret keys* recipe
+    here.
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3.9或更高版本。确保计算机通过网络连接。对于此配方，服务器计算机运行的是CentOS 6 Linux和OpenVPN
+    2.3.9，客户端运行的是Fedora 22 Linux和OpenVPN 2.3.10。我们将在这里使用`secret.key`文件，从*OpenVPN密钥*配方中获取。
+- en: 'We will use the following network layout:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用以下网络布局：
+- en: '![Getting ready](img/image00333.jpeg)'
+  id: totrans-223
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00333.jpeg)'
+- en: Make sure routing (IP forwarding) is configured on both the server and client.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保在服务器和客户端上配置了路由（IP转发）。
+- en: How to do it...
+  id: totrans-225
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何做到...
+- en: 'Create the server configuration file:'
+  id: totrans-226
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE44]'
+  id: totrans-227
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: Save it as `example1-7-server.conf`.
+  id: totrans-228
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example1-7-server.conf`。
+- en: 'On the client side, create the configuration file:'
+  id: totrans-229
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在客户端上，创建配置文件：
+- en: '[PRE45]'
+  id: totrans-230
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: Save it as `example1-7-client.conf`.
+  id: totrans-231
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example1-7-client.conf`。
+- en: 'Then start the tunnel on both ends. The following is for the server end:'
+  id: totrans-232
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后在两端启动隧道。以下是服务器端的操作：
+- en: '[PRE46]'
+  id: totrans-233
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: 'Here''s the code for the client end:'
+  id: totrans-234
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这是客户端端的代码：
+- en: '[PRE47]'
+  id: totrans-235
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: Now our site-to-site tunnel is established.
+  id: totrans-236
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 现在我们的站点到站点隧道已建立。
+- en: Check the log files on both the client and server to verify that the connection
+    has been established.
+  id: totrans-237
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 检查客户端和服务器的日志文件，以验证连接是否已建立。
+- en: After the connection comes up, the machines on the LANs behind both the end
+    points can be reached over the OpenVPN tunnel. For example, when we ping a machine
+    on the client-side LAN from the server, we will see the following:![How to do
+    it...](img/image00334.jpeg)
+  id: totrans-238
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 连接建立后，可以通过OpenVPN隧道访问两端后面的LAN上的计算机。例如，当我们从服务器上ping客户端侧LAN上的一台机器时，我们将看到以下内容：![如何做到...](img/image00334.jpeg)
+- en: How it works...
+  id: totrans-239
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'The client and server configuration files are very similar:'
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端和服务器配置文件非常相似：
+- en: The server listens only on one interface and one UDP port
+  id: totrans-241
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 服务器仅在一个接口和一个UDP端口上侦听
+- en: The server accepts connections only from a single IP address and port
+  id: totrans-242
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 服务器仅接受来自单个IP地址和端口的连接
+- en: The client has these options mirrored
+  id: totrans-243
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 客户端也有这些选项镜像
+- en: 'Here is the set of configuration options:'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里是一组配置选项：
+- en: '[PRE48]'
+  id: totrans-245
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'These options are used to make the connection more robust and secure, as follows:'
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些选项用于使连接更加健壮和安全，如下所示：
+- en: The OpenVPN process runs as user `nobody` and group `nobody` after the initial
+    connection is established. Even if somebody is able to take control of the OpenVPN
+    process itself, he or she would still only be `nobody` and not `root`. Note that
+    on some Linux distributions, `nogroup` is used instead.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在初始连接建立后，OpenVPN进程以用户`nobody`和组`nobody`运行。即使有人能够控制OpenVPN进程本身，他或她仍然只能是`nobody`，而不是`root`。请注意，在某些Linux发行版上，使用的是`nogroup`而不是`nobody`。
+- en: The `persist-tun` and `persist-key` options are used to ensure that the connection
+    comes back automatically if the underlying network is disrupted. These options
+    are necessary when using `user nobody` and `group nobody` (or `group nogroup`).
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`persist-tun`和`persist-key`选项用于确保如果底层网络中断，连接会自动恢复。在使用`user nobody`和`group nobody`（或`group
+    nogroup`）时，这些选项是必需的。'
+- en: The `keepalive` and `ping-timer-rem` options cause OpenVPN to send a periodic
+    "ping" message over the tunnel to ensure that both ends of the tunnel remain up
+    and running.
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`keepalive`和`ping-timer-rem`选项使OpenVPN定期通过隧道发送“ping”消息，以确保隧道的两端保持运行状态。'
+- en: There's more...
+  id: totrans-250
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: This point-to-point setup can also be used to evade restrictive firewalls. The
+    data stream between the two endpoints is not recognizable and very hard to decipher.
+    When OpenVPN is run in client/server (see [Chapter 2](part0025.xhtml#aid-NQU21
+    "Chapter 2.  Client-server IP-only Networks"), *Client-server IP-only Networks*),
+    the traffic is recognizable as OpenVPN traffic due to the initial TLS handshake.
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这种点对点设置也可以用来规避严格的防火墙。两个端点之间的数据流是不可识别的，而且非常难以解密。当OpenVPN在客户端/服务器模式下运行（参见[第2章](part0025.xhtml#aid-NQU21
+    "第2章。客户端-服务器IP-only网络")，*客户端-服务器IP-only网络*）时，由于初始的TLS握手，流量是可识别的作为OpenVPN流量。
+- en: See also
+  id: totrans-252
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: The last recipe in this chapter, *Using IPv6*, which builds upon this recipe
+    by adding support for IPv6 traffic
+  id: totrans-253
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本章中的最后一个配方，*使用IPv6*，它在此基础上增加了对IPv6流量的支持。
+- en: '[Chapter 7](part0082.xhtml#aid-2E6E41 "Chapter 7. Troubleshooting OpenVPN -
+    Routing"), *Troubleshooting OpenVPN - Routing*, in which the most common routing
+    issues are explained'
+  id: totrans-254
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第7章](part0082.xhtml#aid-2E6E41 "第7章。OpenVPN故障排除 - 路由")，*OpenVPN故障排除 - 路由*，其中解释了最常见的路由问题'
+- en: Three-way routing
+  id: totrans-255
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 三向路由
+- en: For a small number (less than four) of fixed endpoints, a point-to-point setup
+    is very flexible. In this recipe, we set up three OpenVPN tunnels between three
+    sites, including routing between the endpoints. By setting up three tunnels, we
+    create redundant routing so that all the sites are connected even if one of the
+    tunnels is disrupted.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于少量（少于四个）固定端点，点对点设置非常灵活。在本示例中，我们在三个站点之间设置了三条 OpenVPN 隧道，包括端点之间的路由。通过设置三条隧道，我们创建了冗余路由，从而确保即使其中一条隧道中断，所有站点仍然能够连接。
+- en: Getting ready
+  id: totrans-257
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Fedora 22 Linux and OpenVPN
+    2.3.10.
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装 OpenVPN 2.3.9 或更高版本。确保这两台计算机通过网络连接。在本示例中，服务器计算机运行 CentOS 6 Linux 和
+    OpenVPN 2.3.9，客户端计算机运行 Fedora 22 Linux 和 OpenVPN 2.3.10。
+- en: 'We will use the following network layout:'
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用以下网络布局：
+- en: '![Getting ready](img/image00335.jpeg)'
+  id: totrans-260
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00335.jpeg)'
+- en: Make sure that the routing (IP forwarding) is configured on all the OpenVPN
+    endpoints.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确保在所有 OpenVPN 端点上配置了路由（IP 转发）。
+- en: How to do it...
+  id: totrans-262
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'We generate three static keys:'
+  id: totrans-263
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们生成了三个静态密钥：
+- en: '[PRE49]'
+  id: totrans-264
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: Transfer these keys to all the endpoints over a secure channel (for example,
+    using `scp`).
+  id: totrans-265
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过安全通道（例如，使用 `scp`）将这些密钥传输到所有端点。
+- en: 'Create the server (listener) configuration file named `example1-8-serverBtoA.conf`:'
+  id: totrans-266
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建名为 `example1-8-serverBtoA.conf` 的服务器（监听器）配置文件：
+- en: '[PRE50]'
+  id: totrans-267
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: 'Next, create an `example1-8-serverCtoA.conf` file:'
+  id: totrans-268
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，创建一个 `example1-8-serverCtoA.conf` 文件：
+- en: '[PRE51]'
+  id: totrans-269
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE51]'
+- en: 'Also, create an `example1-8-serverBtoC.conf` file:'
+  id: totrans-270
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 另外，创建一个 `example1-8-serverBtoC.conf` 文件：
+- en: '[PRE52]'
+  id: totrans-271
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE52]'
+- en: 'Now, create the client (connector) configuration files, `example1-8-clientAtoB.conf`:'
+  id: totrans-272
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，创建客户端（连接器）配置文件，`example1-8-clientAtoB.conf`：
+- en: '[PRE53]'
+  id: totrans-273
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE53]'
+- en: 'Also, create an `example1-8-clientAtoC.conf` file:'
+  id: totrans-274
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 另外，创建一个 `example1-8-clientAtoC.conf` 文件：
+- en: '[PRE54]'
+  id: totrans-275
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE54]'
+- en: 'And finally, create `example1-8-clientCtoB.conf`:'
+  id: totrans-276
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，创建 `example1-8-clientCtoB.conf` 文件：
+- en: '[PRE55]'
+  id: totrans-277
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE55]'
+- en: 'First, we start all the listener tunnels:'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们启动所有监听隧道：
+- en: '[PRE56]'
+  id: totrans-279
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE56]'
+- en: 'These are followed by the connector tunnels:'
+  id: totrans-280
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来是连接器隧道：
+- en: '[PRE57]'
+  id: totrans-281
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE57]'
+- en: And with that, our three-way site-to-site network is established.
+  id: totrans-282
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到此为止，我们建立了一个三方站点到站点的网络。
+- en: How it works...
+  id: totrans-283
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: It can be clearly seen that the number of configuration files gets out of hand
+    too quickly. In principle, two tunnels would have been sufficient to connect three
+    remote sites, but then there would have been no redundancy.
+  id: totrans-284
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可以明显看到，配置文件的数量很快就会失控。原则上，两个隧道足以连接三个远程站点，但那样就没有冗余了。
+- en: 'With the third tunnel and with the configuration options, there are always
+    two routes available for each remote network:'
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用第三条隧道和配置选项，每个远程网络始终有两条可用路由：
+- en: '[PRE58]'
+  id: totrans-286
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE58]'
+- en: 'For example, site A has two routes to site B (LAN `192.168.5.0`/`24`), as seen
+    from the following routing table:'
+  id: totrans-287
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，站点 A 有两条通往站点 B 的路由（LAN `192.168.5.0`/`24`），如下所示的路由表所示：
+- en: '[PRE59]'
+  id: totrans-288
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE59]'
+- en: 'These are the two routes to site A:'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是通往站点 A 的两条路由：
+- en: Via the "direct" tunnel to site B; this route has the lowest metric
+  id: totrans-290
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过“直接”隧道到站点 B；此路由的度量值最低。
+- en: 'Via an indirect tunnel: first to site C and then to site B; this route has
+    a higher metric and is not chosen until the first route is down'
+  id: totrans-291
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过间接隧道：首先到站点 C，然后到站点 B；此路由的度量值较高，直到第一条路由断开才会被选择。
+- en: This setup has the advantage that if one tunnel fails, then after 60 seconds,
+    the connection and its corresponding routes are dropped and restarted. The backup
+    route to the other network then automatically takes over and all three sites can
+    reach each other again.
+  id: totrans-292
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个设置的优点是，如果一条隧道失败，60 秒后，连接及其相应路由会被丢弃并重新启动。然后，通往另一个网络的备份路由会自动接管，所有三个站点可以重新互通。
+- en: When the direct tunnel is restored, the direct routes are also restored and
+    the network traffic will automatically choose the best path to the remote site.
+  id: totrans-293
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当直接隧道恢复时，直接路由也会恢复，网络流量将自动选择通往远程站点的最佳路径。
+- en: There's more...
+  id: totrans-294
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多内容...
+- en: Let's discuss a bit about scalability and routing protocols.
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们讨论一下可扩展性和路由协议。
+- en: Scalability
+  id: totrans-296
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 可扩展性
+- en: In this recipe, we connect three remote sites. This results in six different
+    configuration files that provide the limitations of the point-to-point setup.
+    In general, to connect *n* number of possible sites with full redundancy, you
+    will have *n * ( n - 1 )* configuration files. This is manageable for up to four
+    sites, but after that, a server/multiple-client setup, as described in the next
+    chapters, is much easier.
+  id: totrans-297
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此配方中，我们连接三个远程站点。这导致提供点对点设置限制的六个不同配置文件。一般来说，要连接*n*个可能的站点并实现完全冗余，您将需要*n * ( n
+    - 1 )*个配置文件。对于最多四个站点，这是可以管理的，但在那之后，如下一章节所述的服务器/多客户端设置要容易得多。
+- en: Routing protocols
+  id: totrans-298
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 路由协议
+- en: To increase the availability of the networks, it is better to run a routing
+    protocol, such as RIPv2 or OSPF. Using a routing protocol, the failing routes
+    are discovered much faster, resulting in less network downtime.
+  id: totrans-299
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为增加网络的可用性，最好运行路由协议，如RIPv2或OSPF。使用路由协议，故障路由被发现得更快，从而减少网络停机时间。
+- en: See also
+  id: totrans-300
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: '[Chapter 7](part0082.xhtml#aid-2E6E41 "Chapter 7. Troubleshooting OpenVPN -
+    Routing"), *Troubleshooting OpenVPN - Routing*, in which the most common routing
+    issues are explained'
+  id: totrans-301
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '[第7章](part0082.xhtml#aid-2E6E41 "第7章。OpenVPN故障排除 - 路由"), *OpenVPN故障排除 - 路由*，其中解释了最常见的路由问题'
+- en: Using IPv6
+  id: totrans-302
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用IPv6
+- en: In this recipe, we extend the complete site-to-site network recipe to include
+    support for IPv6.
+  id: totrans-303
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在此配方中，我们将完整的站点到站点网络配方扩展到支持IPv6。
+- en: Getting ready
+  id: totrans-304
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Install OpenVPN 2.3.9 or higher on two computers. Make sure the computers are
+    connected over a network. For this recipe, the server computer was running CentOS
+    6 Linux and OpenVPN 2.3.9 and the client was running Fedora 22 Linux and OpenVPN
+    2.3.10\. We'll use the `secret.key` file from the *OpenVPN secret keys* recipe
+    here.
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在两台计算机上安装OpenVPN 2.3.9或更高版本。确保计算机通过网络连接。对于此配方，服务器计算机运行CentOS 6 Linux和OpenVPN
+    2.3.9，客户端运行Fedora 22 Linux和OpenVPN 2.3.10。我们将在此处使用*OpenVPN秘密密钥*配方中的`secret.key`文件。
+- en: 'We will use the following network layout:'
+  id: totrans-306
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用以下网络布局：
+- en: '![Getting ready](img/image00336.jpeg)'
+  id: totrans-307
+  prefs: []
+  type: TYPE_IMG
+  zh: '![准备就绪](img/image00336.jpeg)'
+- en: How to do it...
+  id: totrans-308
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 操作步骤...
+- en: 'Create the server configuration file:'
+  id: totrans-309
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 创建服务器配置文件：
+- en: '[PRE60]'
+  id: totrans-310
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE60]'
+- en: Save it as `example1-9-server.conf`.
+  id: totrans-311
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example1-9-server.conf`。
+- en: 'On the client side, create the configuration file:'
+  id: totrans-312
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在客户端上，创建配置文件：
+- en: '[PRE61]'
+  id: totrans-313
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE61]'
+- en: Save it as `example1-9-client.conf`.
+  id: totrans-314
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将其保存为`example1-9-client.conf`。
+- en: 'Then start the tunnel on both ends The following is for the server end:'
+  id: totrans-315
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后在两端启动隧道。以下是服务器端的操作：
+- en: '[PRE62]'
+  id: totrans-316
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE62]'
+- en: 'This is the code for the client end:'
+  id: totrans-317
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这是客户端端的代码：
+- en: '[PRE63]'
+  id: totrans-318
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE63]'
+- en: Now our site-to-site tunnel is established.
+  id: totrans-319
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 现在我们的站点到站点隧道已建立。
+- en: After the connection comes up, the machines on the LANs behind both end points
+    can be reached over the OpenVPN tunnel. Notice that the client OpenVPN session
+    is running in the foreground.
+  id: totrans-320
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 连接建立后，可以通过OpenVPN隧道访问两端后面的LAN上的机器。请注意，客户端OpenVPN会话在前台运行。
+- en: 'Next, ping the IPv6 address of the server endpoint to verify that IPv6 traffic
+    over the tunnel is working:'
+  id: totrans-321
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，ping服务器端点的IPv6地址，以验证隧道上的IPv6流量是否正常工作：
+- en: '[PRE64]'
+  id: totrans-322
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE64]'
+- en: Finally, abort the client-side session by pressing *Ctrl* + *C*. The following
+    screenshot lists the full client-side log:![How to do it...](img/image00337.jpeg)
+  id: totrans-323
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 最后，通过按下*Ctrl* + *C* 中止客户端会话。以下截图列出了完整的客户端日志：![如何操作...](img/image00337.jpeg)
+- en: How it works...
+  id: totrans-324
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'Both client and server configuration files are very similar to the ones from
+    the *Complete site-to-site setup* recipe, with the addition of the following two
+    lines:'
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 客户端和服务器配置文件与*完整站点到站点设置*配方中的配置文件非常相似，只是添加了以下两行：
+- en: '[PRE65]'
+  id: totrans-326
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE65]'
+- en: This enables IPv6 support, next to the default IPv4 support.
+  id: totrans-327
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这使得IPv6支持成为可能，除了默认的IPv4支持。
+- en: Also, in the client configuration, the options `daemon` and `log-append` are
+    not present, hence all of the OpenVPN output is sent to the screen and the process
+    continues running in the foreground.
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，在客户端配置中，选项`daemon`和`log-append`不存在，因此所有OpenVPN输出都发送到屏幕上，进程继续在前台运行。
+- en: There's more...
+  id: totrans-329
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 还有更多...
+- en: Let's talk a bit about log file errors and the IPv6-only tunnel.
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们稍微谈谈日志文件错误和仅IPv6隧道。
+- en: Log file errors
+  id: totrans-331
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: 记录文件错误
+- en: 'If we take a closer look at the client-side connection output, we will see
+    a few error messages after pressing ***Ctrl*** +  ***C*** , most notably the following:'
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们仔细查看客户端连接输出，我们将在按下***Ctrl*** + ***C***后看到一些错误消息，尤其是以下内容：
+- en: '[PRE66]'
+  id: totrans-333
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE66]'
+- en: 'This is a side-effect when you use the `user nobody` option to protect an OpenVPN
+    setup, and it often confuses new users. What happens is this:'
+  id: totrans-334
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当您使用`user nobody`选项保护OpenVPN设置时，这是一个副作用，它经常让新用户感到困惑。发生的情况是：
+- en: OpenVPN starts as `root`, opens the appropriate `tun` device, and sets the right
+    IPv4 and IPv6 addresses on this `tun` interface.
+  id: totrans-335
+  prefs: []
+  type: TYPE_NORMAL
+  zh: OpenVPN 以 `root` 身份启动，打开适当的 `tun` 设备，并在该 `tun` 接口上设置正确的 IPv4 和 IPv6 地址。
+- en: For extra security, OpenVPN then switches to `nobody`, dropping all the privileges
+    associated with `root`.
+  id: totrans-336
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了额外的安全性，OpenVPN 然后切换到 `nobody`，放弃与 `root` 关联的所有特权。
+- en: When OpenVPN terminates (in our case, by pressing  ***Ctrl*** +  ***C*** ),
+    it closes the access to the `tun` device and tries to remove the IPv4 and IPv6
+    addresses assigned to that device. At this point, the error messages appear, as `nobody`
+    is not allowed to perform these operations.
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当 OpenVPN 终止时（在我们的情况下，通过按下 ***Ctrl*** +  ***C***），它关闭了对 `tun` 设备的访问，并尝试移除分配给该设备的
+    IPv4 和 IPv6 地址。此时，错误消息会出现，因为 `nobody` 没有权限执行这些操作。
+- en: Upon termination of the OpenVPN process, the Linux kernel closes the `tun` device
+    and all the configuration settings are removed.
+  id: totrans-338
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 OpenVPN 进程终止时，Linux 内核关闭了 `tun` 设备，并移除了所有配置设置。
+- en: In this case, these error messages are harmless, but in general, one should
+    pay close attention to the warning and error messages that are printed by OpenVPN.
+  id: totrans-339
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，这些错误消息是无害的，但一般来说，应该密切关注 OpenVPN 打印的警告和错误消息。
+- en: IPv6-only tunnel
+  id: totrans-340
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+  zh: IPv6-only 隧道
+- en: With OpenVPN 2.3, the IPv6-only tunnel is required to always enable IPv4 support.
+    From OpenVPN 2.4 on, it is possible to set up an IPv6-only connection.
+  id: totrans-341
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 OpenVPN 2.3，IPv6-only 隧道需要始终启用 IPv4 支持。从 OpenVPN 2.4 开始，可以设置一个仅支持 IPv6 的连接。
+- en: See also
+  id: totrans-342
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: The recipe *Complete site-to-site setup*, earlier in this chapter, in which
+    an IPv4-only site-to-site setup is explained in detail.
+  id: totrans-343
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章前面的配方 *完整的站点到站点设置*，其中详细解释了 IPv4-only 站点到站点设置。
+- en: The last recipe of [Chapter 6](part0071.xhtml#aid-23MNU1 "Chapter 6. Troubleshooting
+    OpenVPN - Configurations"), *Troubleshooting OpenVPN - Configurations*, which
+    explains how to interpret the OpenVPN log files in detail.
+  id: totrans-344
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[第 6 章](part0071.xhtml#aid-23MNU1 "第 6 章。OpenVPN 故障排除 - 配置") 的最后一个配方，*OpenVPN
+    故障排除 - 配置*，详细解释了如何解释 OpenVPN 日志文件。'

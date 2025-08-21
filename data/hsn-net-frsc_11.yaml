@@ -1,0 +1,813 @@
+- en: Investigating and Analyzing Logs
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查和分析日志
+- en: So far, we have worked primarily on the network packets that are acquired through
+    network sniffing and monitoring. However, there are situations where packet analysis
+    itself may not be enough, and we are required to fetch inputs from logs. On a
+    typical network, logs can be present anywhere and everywhere. Consider that, when
+    you are browsing the internet, you are leaving behind logs on your system, network
+    switch, router, primary DNS, ISP, proxy servers, server of the requested resource,
+    and in many other places that you may not typically imagine. In this chapter,
+    we will work with a variety of log types and will gather inputs to aid our network
+    forensics exercise.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们主要处理的是通过网络嗅探和监控获取的网络数据包。然而，也有一些情况下，单纯的数据包分析可能不够，我们需要从日志中获取输入。在典型的网络中，日志可以无处不在。考虑到，当你浏览互联网时，你会在系统、网络交换机、路由器、主DNS、ISP、代理服务器、请求资源的服务器以及其他许多地方留下日志，这些地方可能是你通常不会想到的。本章中，我们将处理多种日志类型，并收集输入以帮助我们的网络取证练习。
+- en: 'Throughout this chapter, we will cover the following key topics:'
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将覆盖以下关键主题：
+- en: Network intrusions and footprints
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 网络入侵与足迹
+- en: Case study—defaced servers
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案例研究——篡改的服务器
+- en: However, before moving further, let's understand the need for log analysis and
+    its use in a network forensics scenario by analyzing the `ssh_cap.pcap` file in
+    the next section.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在继续之前，让我们通过分析`ssh_cap.pcap`文件，了解日志分析的需求以及它在网络取证场景中的应用。
+- en: Technical requirements
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'To follow the exercises covered in this chapter, we will require the following:'
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了跟随本章中的练习，我们将需要以下内容：
+- en: Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))
+    installed on Windows 10 OS/ Ubuntu 14.04.
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在Windows 10操作系统/ Ubuntu 14.04上安装Wireshark v3.0.0 ([https://www.wireshark.org/download.html](https://www.wireshark.org/download.html))。
+- en: You can download the codes and PCAP files used in this chapter from [https://github.com/nipunjaswal/networkforensics/tree/master/Ch8](https://github.com/nipunjaswal/networkforensics/tree/master/Ch8).
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你可以从[https://github.com/nipunjaswal/networkforensics/tree/master/Ch8](https://github.com/nipunjaswal/networkforensics/tree/master/Ch8)下载本章中使用的代码和PCAP文件。
+- en: VMWare Player/VirtualBox installation with Kali Operating system installed.
+    You can download it from [https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/).
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 在VMWare Player/VirtualBox上安装Kali操作系统。你可以从[https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/](https://www.offensive-security.com/kali-linux-vm-vmware-virtualbox-image-download/)下载。
+- en: Python (already installed on Kali Linux).
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Python（已安装在Kali Linux上）。
+- en: Network intrusions and footprints
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 网络入侵与足迹
+- en: 'Consider a scenario where we have received a PCAP file for analysis and some
+    logs from a Linux server. By analyzing the file in Wireshark, we get the following
+    packet data:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们已经收到一个PCAP文件用于分析，并且收到了来自Linux服务器的一些日志。通过在Wireshark中分析该文件，我们得到以下数据包信息：
+- en: '![](img/9462b319-f398-414b-b7bd-335789133d6d.png)'
+  id: totrans-14
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9462b319-f398-414b-b7bd-335789133d6d.png)'
+- en: 'It looks like the data belongs to the **Secure Shell** (**SSH**), and, by browsing
+    through the **Statistics** | **Conversations** in Wireshark, we get the following:'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来数据属于**安全外壳协议**（**SSH**），通过浏览Wireshark中的**统计** | **会话**，我们得到以下信息：
+- en: '![](img/005cdf1b-7b85-4769-8314-60e316f21769.png)'
+  id: totrans-16
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/005cdf1b-7b85-4769-8314-60e316f21769.png)'
+- en: There are mainly two hosts present on the PCAP file, which are `192.168.153.130`
+    and `192.168.153.141`. We can see that the destination port is `22`, which is
+    a commonly used port for SSH. However, this doesn't look like a standard SSH connection,
+    as the source port is different and are in plenty. Moreover, the port numbers
+    are not from the well-known (`1`-`1024`) and registered set of ports (`1024`-`41951`). This
+    behavior is quite common for a example for brute force attacks.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PCAP文件中主要有两个主机，分别是`192.168.153.130`和`192.168.153.141`。我们可以看到目标端口是`22`，这是一个常用于SSH的端口。然而，这看起来不像标准的SSH连接，因为源端口不同且数量很多。此外，端口号不属于知名端口（`1`-`1024`）和已注册端口（`1024`-`41951`）范围内。这种行为对于暴力破解攻击的例子来说是很常见的。
+- en: 'However, we are currently not sure. Let''s scroll through the PCAP and investigate
+    more, as follows:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，我们目前并不确定。让我们继续滚动PCAP并进一步调查，具体如下：
+- en: '![](img/40f9d7b2-ec3f-4e09-8c48-2265d6a34b48.png)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/40f9d7b2-ec3f-4e09-8c48-2265d6a34b48.png)'
+- en: Plenty of key exchanges are happening, as we can see from the preceding screenshot.
+    However, there isn't a sure shot way to figure out whether the attacker succeeded
+    in conducting a brute-force attack or not.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的截图我们可以看到有大量的密钥交换发生。然而，目前没有一个可靠的方式来判断攻击者是否成功进行了暴力破解攻击。
+- en: We can compare lengths, but different servers may send out different information,
+    so it won't be that reliable.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以比较长度，但不同的服务器可能发送不同的信息，因此这样做并不那么可靠。
+- en: Investigating SSH logs
+  id: totrans-22
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查 SSH 日志
+- en: We just saw a problem statement where we can't figure out the difference between
+    brute force attempts through PCAP analysis. One reason for this failure is that
+    there is an encryption in place, and we can't make out the encrypted content differences.
+    Let's investigate the SSH login logs from the server and see if we can understand
+    what happened.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们刚才看到一个问题，我们无法通过 PCAP 分析区分暴力破解尝试。导致这种失败的原因之一是存在加密，且我们无法看出加密内容的差异。我们来检查一下服务器上的
+    SSH 登录日志，看看能否了解发生了什么。
+- en: SSH authentication logs in Linux are generally stored in the `/var/log/access.log`
+    file.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux 中的 SSH 认证日志通常存储在 `/var/log/access.log` 文件中。
+- en: 'Let''s open the `raw access.log` file and check whether or not we can get something
+    of interest:'
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们来打开 `raw access.log` 文件，看看是否能发现一些有趣的信息：
+- en: '![](img/640bdb98-1a50-47ac-8b83-1f119aa70992.png)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/640bdb98-1a50-47ac-8b83-1f119aa70992.png)'
+- en: 'Oops! There are just too many authentication failures. It was a brute force
+    attack. Let''s check whether the attacker was able to gain access to the server
+    or not:'
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哎呀！认证失败次数太多了。这是一次暴力破解攻击。我们来检查一下攻击者是否成功访问了服务器：
+- en: '![](img/c828fede-77f1-4515-bf8b-840243bd9f23.png)'
+  id: totrans-28
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c828fede-77f1-4515-bf8b-840243bd9f23.png)'
+- en: 'A simple text search over the log file to find `"Accepted"` anywhere in the
+    log file prints out that a password was accepted by the SSH service, suggesting
+    that the authentication took place successfully. Looking at the successful authentication
+    within the `auth.log` file, we have the following:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对日志文件进行简单的文本搜索，查找 `"Accepted"`，即可显示出 SSH 服务接受了密码，表示认证成功。查看 `auth.log` 文件中的成功认证记录，我们得到以下信息：
+- en: '![](img/86b8dc48-83f9-4022-a89b-a6c26043b1d6.png)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/86b8dc48-83f9-4022-a89b-a6c26043b1d6.png)'
+- en: We can see that a successful session was opened for the root user, but was disconnected
+    immediately, and the attack continued. The attacker used an automated brute force
+    tool that didn't stop at finding the correct password.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到一个成功的会话为 root 用户打开，但随即被断开，攻击继续进行。攻击者使用了一个自动化的暴力破解工具，破解密码后并没有停止。
+- en: 'There is one additional thing to notice if you haven''t already—there is a
+    time difference between the packets in the PCAP file and the logs. This might
+    have occurred because time on the SSH server and time on the monitoring system
+    (system where the PCAP is being recorded) are different. Let''s correct the time
+    of packet arrival using `editcap`, as follows:'
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你还没有注意到，有一件事需要留意——PCAP 文件中的数据包和日志之间存在时间差。这可能是由于 SSH 服务器的时间和监控系统的时间（PCAP 文件被记录的系统）不一致导致的。我们来使用
+    `editcap` 修正数据包到达的时间，如下所示：
+- en: '![](img/f943a9d0-ce2e-4587-8452-fcbafcf9c6e5.png)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f943a9d0-ce2e-4587-8452-fcbafcf9c6e5.png)'
+- en: You can edit time in Wireshark via **Edit** | **Time Shift...** menu entry as
+    well
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你也可以通过 **编辑** | **时间偏移...** 菜单项在 Wireshark 中编辑时间
+- en: 'Since the time in the very first screenshot of this chapter and the one present
+    in the logs have a difference of exactly +2:30 hours, we will need to adjust this
+    time. As we can see in the preceding screenshot, we are using `editcap` to edit
+    the current time by adding `9000` seconds (2:30 hours in seconds). We created
+    a new file with the adjusted time as `ssh_adjusted.pcap`. Let''s open it up in
+    Wireshark, as follows:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于本章第一张截图中的时间和日志中时间相差正好 +2:30 小时，我们需要调整这个时间。正如前面截图所示，我们正在使用 `editcap` 通过添加 `9000`
+    秒（2:30 小时的秒数）来编辑当前时间。我们创建了一个新文件 `ssh_adjusted.pcap`，并调整了时间。我们来在 Wireshark 中打开它，如下所示：
+- en: '![](img/b389104e-3415-410b-8047-5d429d70684a.png)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/b389104e-3415-410b-8047-5d429d70684a.png)'
+- en: 'We can now see the adjusted time according to the logs and can see exactly
+    what was going on at that particular time. We can see that on the `53100` port,
+    there are plenty of packets communicating over the SSH. By filtering out the stream,
+    we get the following:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们现在可以看到根据日志调整后的时间，准确地看到在特定时间发生了什么。我们看到在 `53100` 端口上，SSH 的数据包有大量通信。通过过滤流，我们可以得到以下内容：
+- en: '![](img/dfec8572-9b7e-40b1-a12c-77f0ff724169.png)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/dfec8572-9b7e-40b1-a12c-77f0ff724169.png)'
+- en: 'The TCP streams 35, 36, and 37 have 25 packets individually, while for the
+    others they have 42\. Let''s open the conversations, as follows:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TCP流35、36和37各自有25个数据包，而其他流有42个数据包。让我们打开对话，具体如下：
+- en: '![](img/0fee95bd-40a9-46f8-8ad7-52393737836a.png)'
+  id: totrans-40
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/0fee95bd-40a9-46f8-8ad7-52393737836a.png)'
+- en: We can see that for most of the streams, the relative number of packets was
+    42, while during the time frame that we got from the SSH logs, the number of packets
+    is different, denoting a change that is a successful attempt.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，对于大多数流，数据包的相对数量是42，而在我们从SSH日志获得的时间框架内，数据包的数量不同，表示成功尝试时的变化。
+- en: We can see that by learning the insights of log analysis along with network
+    packet analysis, we can make much more sense of the network evidence that we otherwise
+    wouldn't have. Along with SSH, the use of HTTP proxies such as HaProxy and Squid
+    is quite widespread in the industry, which makes them a great candidate for log
+    analysis as well. Let's see some examples of this in the following sections.
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，通过学习日志分析的洞察力以及网络数据包分析，我们可以更好地理解本来无法获得的网络证据。除了SSH，HTTP代理（如HaProxy和Squid）在行业中的使用非常广泛，这使得它们也成为日志分析的理想选择。让我们在接下来的章节中查看一些示例。
+- en: Investigating web proxy logs
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查网页代理日志
+- en: 'We saw a few examples of web proxies in the first half of this book. Let''s
+    investigate some more. In the upcoming example, we will try to decipher what could
+    have happened while we were learning about the log analysis. We will be investigating
+    the `prox_access.log` file generated by Squid proxy server, as follows:'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本书的前半部分，我们已经看过了一些网页代理的例子。让我们继续深入研究。在接下来的示例中，我们将尝试解读在学习日志分析时可能发生的情况。我们将分析由Squid代理服务器生成的`prox_access.log`文件，具体如下：
+- en: '[PRE0]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'We can see from the preceding logs that `192.168.153.1` is making many requests
+    to the Squid proxy server. However, to analyze the Squid logs efficiently, we
+    should be concerned about the following tags:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从之前的日志中我们可以看到，`192.168.153.1`正在向Squid代理服务器发送大量请求。然而，为了高效分析Squid日志，我们应关注以下标签：
+- en: '| **Type** | **Details** |'
+  id: totrans-47
+  prefs: []
+  type: TYPE_TB
+  zh: '| **类型** | **详情** |'
+- en: '| HIT | The response was generated from the cache. |'
+  id: totrans-48
+  prefs: []
+  type: TYPE_TB
+  zh: '| HIT | 响应是从缓存中生成的。 |'
+- en: '| MEM | An additional tag indicating that the response object came from the
+    memory cache, avoiding disk accesses. Only seen on HIT responses. |'
+  id: totrans-49
+  prefs: []
+  type: TYPE_TB
+  zh: '| MEM | 一个附加标签，表示响应对象来自内存缓存，避免了磁盘访问。仅在HIT响应中看到。 |'
+- en: '| MISS | The response came directly from the network. |'
+  id: totrans-50
+  prefs: []
+  type: TYPE_TB
+  zh: '| MISS | 响应直接来自网络。 |'
+- en: '| DENIED | The request was denied. |'
+  id: totrans-51
+  prefs: []
+  type: TYPE_TB
+  zh: '| DENIED | 请求被拒绝。 |'
+- en: '| TUNNEL | The request was fulfilled with a binary tunnel. |'
+  id: totrans-52
+  prefs: []
+  type: TYPE_TB
+  zh: '| TUNNEL | 请求通过二进制隧道完成。 |'
+- en: 'Additionally, we can have the following error conditions as well:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，我们还可以遇到以下错误条件：
+- en: '| **Type** | **Details** |'
+  id: totrans-54
+  prefs: []
+  type: TYPE_TB
+  zh: '| **类型** | **详情** |'
+- en: '| ABORTED | The response was not completed, since the connection was aborted.
+    |'
+  id: totrans-55
+  prefs: []
+  type: TYPE_TB
+  zh: '| ABORTED | 由于连接被中止，响应未完成。 |'
+- en: '| TIMEOUT | The response was not completed due to a connection timeout. |'
+  id: totrans-56
+  prefs: []
+  type: TYPE_TB
+  zh: '| TIMEOUT | 由于连接超时，响应未完成。 |'
+- en: '| IGNORED | The response was ignored because it was older than what is present
+    in the cache. |'
+  id: totrans-57
+  prefs: []
+  type: TYPE_TB
+  zh: '| IGNORED | 响应被忽略，因为它比缓存中的内容要旧。 |'
+- en: Squid proxy codes are explained beautifully at [https://wiki.squid-cache.org/SquidFaq/SquidLogs](https://wiki.squid-cache.org/SquidFaq/SquidLogs).
+    Refer to these additional codes for explanations of example codes like `HIER_DIRECT`
+    which means that the object was fetched directly from the origin server. Also,
+    HIER means Hierarchy codes.
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Squid代理代码在[https://wiki.squid-cache.org/SquidFaq/SquidLogs](https://wiki.squid-cache.org/SquidFaq/SquidLogs)中有很好的解释。参考这些附加代码，以便解释像`HIER_DIRECT`这样的示例代码，表示对象是直接从源服务器获取的。同时，HIER表示层次结构代码。
+- en: 'Having gained knowledge of these responses, let''s analyze the log file manually
+    and find some interesting facts:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解了这些响应后，让我们手动分析日志文件并找出一些有趣的事实：
+- en: '![](img/72235745-39cc-442f-a027-bd723192f153.png)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/72235745-39cc-442f-a027-bd723192f153.png)'
+- en: We can see that the first entry from the preceding screenshot is `TCP_MISS_ABORTED`,
+    which states that the response was to be generated from the network, but was aborted
+    since the request was canceled.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到，从上面的截图中，第一个条目是`TCP_MISS_ABORTED`，这表示响应原本应该从网络中生成，但由于请求被取消，因此被中止。
+- en: The third entry to `detectportal.firefox.com` was `TCP_MISS`, which means that
+    the response was generated directly from the network, and not from the proxy cache.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第三次访问`detectportal.firefox.com`是`TCP_MISS`，这意味着响应是直接从网络生成的，而不是从代理缓存中获取的。
+- en: 'We can also see `TCP_TUNNEL` for HTTPS-based requests. Let''s investigate some
+    more logs:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以看到`TCP_TUNNEL`用于基于HTTPS的请求。让我们再查看一些日志：
+- en: '![](img/a7e44470-bba6-4fa0-a3b1-a584ec6ce3ba.png)'
+  id: totrans-64
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a7e44470-bba6-4fa0-a3b1-a584ec6ce3ba.png)'
+- en: Wow! We can see a `TCP_DENIED` request from `192.168.153.141` to `192.168.153.146`
+    on the `4444` and `80` ports. The `4444` port is commonly used by exploitation
+    tools, such as Metasploit, and what we understand from these entries is that `192.168.153.141`
+    tried to connect back to `192.168.153.146` initially on the `4444` port and then
+    on the `80` port. The condition is an indication of a reverse shell, where the
+    exploited service is trying to connect back. Noting down the timestamps, we can
+    start making matches in the PCAP evidence or the system evidence.
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哇！我们可以看到一个来自`192.168.153.141`到`192.168.153.146`的`TCP_DENIED`请求，端口是`4444`和`80`。`4444`端口通常被利用工具如Metasploit使用，从这些日志条目我们可以推断，`192.168.153.141`最初尝试通过`4444`端口连接回`192.168.153.146`，然后切换到`80`端口。这种情况是反向Shell的标志，说明被利用的服务正在尝试连接回去。记下时间戳后，我们可以开始在PCAP证据或系统证据中进行匹配。
+- en: We can always use automated log analyzers, such as Sawmill, to parse various
+    kinds of log formats and don't have to worry about manually converting the timestamps
+    as well.
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们始终可以使用自动化日志分析器，如Sawmill，来解析各种日志格式，而且不必担心手动转换时间戳。
+- en: Investigating firewall logs
+  id: totrans-67
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调查防火墙日志
+- en: 'Industrial grade firewalls provide a lot of insights into network activities,
+    not only the raw logs, and they tend to provide exceptional results. Firewalls,
+    such as Fortinet, Check Point, and many others, provide deep analysis of the traffic
+    daily to the administrators. Let''s look at an example report generated by Fortinet''s
+    Firewall, as follows:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工业级防火墙为网络活动提供了大量的见解，不仅仅是原始日志，它们通常能提供卓越的结果。像Fortinet、Check Point等防火墙每天都会向管理员提供深度流量分析。让我们看一下Fortinet防火墙生成的报告，如下所示：
+- en: '![](img/4aae56e1-6c7e-4787-998c-1ec8739fcaef.png)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4aae56e1-6c7e-4787-998c-1ec8739fcaef.png)'
+- en: 'We have a variety of threats in the preceding screenshot. There are many failed
+    attempts that were blocked by the firewall, including HTTP XXE attacks, proxies,
+    mimikatz, and various malicious websites visited. Let''s see some more details:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在前面的截图中看到各种威胁。有很多失败的攻击尝试被防火墙拦截，包括HTTP XXE攻击、代理、mimikatz和访问的各种恶意网站。让我们看一些更详细的信息：
+- en: '![](img/e9be6958-39e7-48dd-aef2-11abd5ad7021.png)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e9be6958-39e7-48dd-aef2-11abd5ad7021.png)'
+- en: 'We can see from the preceding screenshot that we have the top virus infections,
+    top virus victims, and the top attacks on the network. Additionally, we can also
+    see where the attacks are going, as follows:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们从前面的截图中可以看到，列出了网络中的病毒感染排行、病毒受害者排行以及攻击排行。此外，我们还可以看到攻击的方向，如下所示：
+- en: '![](img/e4bd5896-1556-43f8-afb6-ed47c1685713.png)'
+  id: totrans-73
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/e4bd5896-1556-43f8-afb6-ed47c1685713.png)'
+- en: 'The Fortinet firewall generated the preceding log report. Along with providing
+    details related to the attacks and malware, the firewall also provides trends
+    in the traffic stats, as shown in the following screenshot:'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述日志报告是由Fortinet防火墙生成的。除了提供与攻击和恶意软件相关的详细信息外，防火墙还提供了流量统计的趋势，如下图所示：
+- en: '![](img/7931d66b-0e94-40e8-92c0-426d9de554e4.png)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7931d66b-0e94-40e8-92c0-426d9de554e4.png)'
+- en: 'We can see plenty of stats in the report in the preceding screenshot. The logs
+    can be drilled down further from the web panels. The idea of showing you the previous
+    report is to demonstrate that sometimes you don''t have to re-invent the wheel
+    and carry out deep analysis in situations where you have reports for your perusal,
+    thus revealing plenty of information. Additionally, the raw format for Fortinet''s
+    FortiGate logs is as follows:'
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以在前面的截图中看到报告中的大量统计数据。这些日志可以从网页面板进一步分析。展示前述报告的目的是说明，有时你不需要重新发明轮子，也不需要在有报告可供查看的情况下进行深入分析，从而揭示大量信息。此外，Fortinet的FortiGate日志的原始格式如下：
+- en: '![](img/a5abf847-e066-4c18-920d-7f8844d395d8.png)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a5abf847-e066-4c18-920d-7f8844d395d8.png)'
+- en: We can see that FortiGate logs provide enough information, such as source IP,
+    destination IP, ports, attack type, and a variety of other information.
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到FortiGate日志提供了足够的信息，如源IP、目的IP、端口、攻击类型以及其他各种信息。
+- en: A case study – defaced servers
+  id: totrans-79
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 案例研究 – 被篡改的服务器
+- en: 'Consider a scenario where we have been tasked to investigate a server that
+    was compromised and defaced by the attackers. The administration team has all
+    the practices, such as logging and full packet capturing, in place. However, it
+    seems that someone also cleared out logs, as suggested by its **Modified, Accessed,
+    Created, Executed** (**MACE**) properties. There are very few entries in the Apache
+    logs, as shown in the following log set:'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设我们需要调查一台被攻击者入侵并篡改的服务器。管理团队已经实施了所有的措施，如日志记录和完整的数据包捕获。然而，似乎有人也清除了日志，从其**修改时间、访问时间、创建时间、执行时间**（**MACE**）属性来看是这样的。正如以下日志集所示，Apache日志中的条目非常少：
+- en: '[PRE1]'
+  id: totrans-81
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: It looks like the attack came from the `192.168.153.1` IP address. However,
+    looking at the details in the preceding logs, we can see that there is no user-agent
+    in most of the requests. Additionally, no data is posted on the hacked server
+    since the request is of the `GET` type, and there are no parameters involved as
+    well. Strange, right? There had to be something in the parameters.
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 看起来攻击来自`192.168.153.1`这个IP地址。然而，通过查看前面的日志细节，我们可以看到大多数请求中没有用户代理信息。此外，由于请求类型是`GET`，并且没有涉及任何参数，所以在被黑服务器上也没有数据被提交。很奇怪，对吧？参数里一定有什么东西。
+- en: 'As of now, most of the logs look like legitimate requests to access the file.
+    Nothing out of the box. But why would an attacker send that many `GET` requests
+    to a resource page with no parameters? Maybe because we aren''t looking at it
+    right. Let''s open the PCAP file for the capture as well:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，大多数日志看起来像是合法的文件访问请求。没什么特别的。但是，为什么攻击者会向没有参数的资源页面发送这么多`GET`请求呢？也许是因为我们看得不对。让我们打开PCAP文件看一下捕获的数据：
+- en: '![](img/a2cc42a9-9501-43a4-80f4-05d91037d457.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a2cc42a9-9501-43a4-80f4-05d91037d457.png)'
+- en: 'This seems like a normal HTTP GET request. However, scrolling down a little
+    further, we can see that we have few entries:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这看起来像是一个正常的HTTP GET请求。然而，向下滚动一点，我们可以看到只有几个条目：
+- en: '![](img/d47c99d0-cd9b-4679-863f-0cead75f9a86.png)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d47c99d0-cd9b-4679-863f-0cead75f9a86.png)'
+- en: 'We can see a request that was generated from the compromised `192.168.153.130`
+    server to `192.168.153.142`. The user-agent is `wget`, so we can assume that a
+    file was downloaded to the server. Let''s investigate this as follows:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以看到从被攻击的`192.168.153.130`服务器发出的请求到达了`192.168.153.142`。用户代理是`wget`，所以我们可以假设文件已经被下载到该服务器。接下来，我们将按以下方式调查此事：
+- en: '![](img/46ebd477-5720-4ecd-974d-28713e484f6d.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/46ebd477-5720-4ecd-974d-28713e484f6d.png)'
+- en: 'Looking the HTTP stream, it seems like an ELF file was downloaded to the compromised
+    server. We will investigate this file in detail. But first, let''s see what those
+    simple looking `GET` requests reveal:'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从HTTP流中看，似乎一个ELF文件被下载到了被攻陷的服务器。我们将详细调查这个文件。但首先，让我们看看那些看似简单的`GET`请求揭示了什么：
+- en: '![](img/f9dcee3f-e797-4578-acae-6320d664ed80.png)'
+  id: totrans-90
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f9dcee3f-e797-4578-acae-6320d664ed80.png)'
+- en: 'Oh! It looks like the backdoor code was in the cookie, and that was the reason
+    it didn''t show up in the Apache logs. We can see that it looks like the output
+    of a `dir` command. Could this be the reason there was a download of a file on
+    the server? Let''s check by decoding the cookie values, as follows:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 哦！看起来后门代码就藏在cookie里，这就是它为什么没有出现在Apache日志中的原因。我们可以看到它看起来像是`dir`命令的输出。这是不是就是服务器上文件被下载的原因呢？让我们通过解码cookie值来检查一下，具体操作如下：
+- en: '![](img/4b847218-3567-45ae-aad4-9fae232b54d6.png)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4b847218-3567-45ae-aad4-9fae232b54d6.png)'
+- en: 'Decoding the value by Base64, we can get the clear text commands that were
+    used. However, we would like to see all the commands executed by the attacker.
+    We can accomplish this task using tshark, as follows:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过Base64解码这个值，我们可以得到明文的命令。然而，我们希望看到攻击者执行的所有命令。我们可以使用tshark来完成这项任务，如下所示：
+- en: '![](img/7af7de80-0dce-4210-ba3d-22e404c8580f.png)'
+  id: totrans-94
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7af7de80-0dce-4210-ba3d-22e404c8580f.png)'
+- en: The first command filters out all the cookies since we used `-R` with `http.cookie`
+    as the filter. The output contained unwanted `'z='` characters, so we stripped
+    it off using the Linux `cut` command. We stored the output of tshark in a file
+    called `base`.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个命令过滤掉了所有的cookies，因为我们在`http.cookie`过滤器中使用了`-R`选项。输出中包含了不需要的`'z='`字符，所以我们通过Linux的`cut`命令去除了它。我们将tshark的输出保存到一个名为`base`的文件中。
+- en: 'In the next command, we used a `while` loop to read and print every line individually,
+    and, while doing so, should be decoded with Base64\. We can see that we got the
+    results showing that the attacker did the following:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一个命令中，我们使用了`while`循环逐行读取并打印每一行，同时这些行应当经过Base64解码。我们可以看到结果显示攻击者执行了以下操作：
+- en: Printed `1`
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输出`1`
+- en: Listed the command to see the directory's contents
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 列出了查看目录内容的命令
+- en: Ran the `whoami` command to see the current user
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 运行了`whoami`命令以查看当前用户
+- en: Issued a `ls -la` command to view all files, including the hidden ones
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 发出了`ls -la`命令以查看所有文件，包括隐藏文件
+- en: Issued a `wget` command to download a file from another server that might be
+    a backdoor as well
+  id: totrans-101
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 发出了`wget`命令，从另一个服务器下载一个文件，这个文件可能也是后门
+- en: Again tried the same after printed some 1's and again listed the directory
+  id: totrans-102
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次尝试相同的操作，打印了一些1并再次列出目录
+- en: Tried to download the file again, but this time to a file called `shell.txt`,
+    and repeated it for `shell.txt`
+  id: totrans-103
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次尝试下载该文件，但这次将其保存为`shell.txt`，并对`shell.txt`进行了重复操作
+- en: Tried to download the `shell.e` file
+  id: totrans-104
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试下载`shell.e`文件
+- en: Again tried to download the `shell.zip` file
+  id: totrans-105
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 再次尝试下载`shell.zip`文件
+- en: Tried to print out IP addresses, PHP version, disabled PHP functions, and much
+    more
+  id: totrans-106
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试打印出IP地址、PHP版本、禁用的PHP函数等信息
+- en: 'A point to note here is that the attacker has not executed the shellcode file
+    that might be a local exploit to gain high privileges. Additionally, it looks
+    like their download attempts failed. However, we saw a file being transferred
+    in the PCAP. Let''s investigate this as well:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要注意的一点是，攻击者并没有执行可能是本地漏洞的shellcode文件来获得高权限。此外，看起来他们的下载尝试失败了。然而，我们在PCAP中看到有文件被传输。让我们进一步调查一下：
+- en: '![](img/4f218bd7-bc45-4eae-a7f2-1188349fae42.png)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4f218bd7-bc45-4eae-a7f2-1188349fae42.png)'
+- en: 'We have selected only the response from this packet. Let''s save it by selecting
+    raw from the **Show and save data as** option, and then clicking the **Save**
+    button, as follows:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们只选择了这个数据包的响应。通过从**显示并保存数据为**选项中选择原始（raw），然后点击**保存**按钮，我们可以将其保存，如下所示：
+- en: '![](img/50943289-2751-48b8-8f56-5caa4fbfafc6.png)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/50943289-2751-48b8-8f56-5caa4fbfafc6.png)'
+- en: 'Additionally, we have to remove everything before the ELF magic header for
+    the file to be recreated successfully. After saving the file, open it up in Notepad
+    and remove the server headers and save the file as follows:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，为了成功重建文件，我们必须移除ELF魔术头之前的所有内容。保存文件后，在记事本中打开它，删除服务器头部，并按如下所示保存文件：
+- en: '![](img/d16c7ed2-70bb-4ed3-9397-b0936f5af7d8.png)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/d16c7ed2-70bb-4ed3-9397-b0936f5af7d8.png)'
+- en: 'Now that we''ve removed the additional header, we have the executable file
+    for our malware analysis teams to analyze. However, when we tried analyzing it
+    on Hybrid Analysis, we got nothing, as shown in the following screenshot:'
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经移除了额外的头部信息，我们有了可供恶意软件分析团队分析的可执行文件。然而，当我们尝试在Hybrid Analysis上进行分析时，我们什么也没得到，如下图所示：
+- en: '![](img/c6209985-8d97-484b-a847-9ad190a4890e.png)'
+  id: totrans-114
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c6209985-8d97-484b-a847-9ad190a4890e.png)'
+- en: The link to the file analysis is [https://www.hybrid-analysis.com/sample/d8fbd529d730901f7beff5c4a8057fd19057eb7c7a0447264babca573c4c75d5](https://www.hybrid-analysis.com/sample/d8fbd529d730901f7beff5c4a8057fd19057eb7c7a0447264babca573c4c75d5).
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件分析链接为[https://www.hybrid-analysis.com/sample/d8fbd529d730901f7beff5c4a8057fd19057eb7c7a0447264babca573c4c75d5](https://www.hybrid-analysis.com/sample/d8fbd529d730901f7beff5c4a8057fd19057eb7c7a0447264babca573c4c75d5)。
+- en: We can see that we got nothing from the file. However, we got a good number
+    of inputs and strong evidence based on log analysis and PCAP analysis. We have
+    seen throughout this chapter that log analysis and PCAP analysis are dependent
+    on each other. We also saw that SSH logs are dependent on logs and that server
+    logs are dependent on PCAPs to be able to reveal more about attacks.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们看到从文件中什么也没得到。然而，通过日志分析和PCAP分析，我们得到了大量的输入和强有力的证据。我们在本章中一直看到，日志分析和PCAP分析是相互依赖的。我们还看到SSH日志依赖于日志，服务器日志依赖于PCAP，才能揭示更多攻击信息。
+- en: Summary
+  id: totrans-117
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, we worked with a variety of log types and gathered inputs to
+    aid our network forensics exercise. In the next chapter, we will learn how we
+    can identify rogue access points, which can allow an attacker to view all your
+    communication logs, and we will also look at strategies to identify and physically
+    find those rogue devices.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们处理了各种日志类型并收集了输入，帮助我们进行网络取证练习。在下一章中，我们将学习如何识别恶意接入点，攻击者可以通过它查看你所有的通信日志，我们还将研究如何识别并物理找到这些恶意设备的策略。
+- en: Questions and exercises
+  id: totrans-119
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题与练习
+- en: Repeat the exercises covered in the chapter
+  id: totrans-120
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 重复本章中涵盖的练习
+- en: Try investigating your home router for logs
+  id: totrans-121
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 尝试调查你的家庭路由器的日志
+- en: Complete log analysis challenge 5 from the Git repository
+  id: totrans-122
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 完成Git仓库中的日志分析挑战5
+- en: Further reading
+  id: totrans-123
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 进一步阅读
+- en: 'To gain the most out of this chapter, read the following tutorials:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了最大限度地利用本章内容，请阅读以下教程：
+- en: For more on Apache log analysis, refer to [https://www.keycdn.com/support/apache-access-log](https://www.keycdn.com/support/apache-access-log)
+  id: totrans-125
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 欲了解更多关于 Apache 日志分析的信息，请参见[https://www.keycdn.com/support/apache-access-log](https://www.keycdn.com/support/apache-access-log)
+- en: For more on log aggregation, refer to [https://stackify.com/log-aggregation-101/](https://stackify.com/log-aggregation-101/)
+  id: totrans-126
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 欲了解更多关于日志聚合的信息，请参见[https://stackify.com/log-aggregation-101/](https://stackify.com/log-aggregation-101/)

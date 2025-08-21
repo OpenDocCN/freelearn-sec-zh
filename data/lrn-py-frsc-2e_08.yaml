@@ -1,0 +1,1537 @@
+- en: The Media Age
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 媒体时代
+- en: Metadata, or data describing data, is a powerful artifact an examiner can leverage
+    to answer investigative questions. Broadly speaking, metadata can be found through
+    examination of filesystems and embedded elements. File permissions, MAC timestamps,
+    and file size are recorded at the filesystem level. However, for specific file
+    types, such as JPEGs, additional metadata is embedded within the file itself.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 元数据，或描述数据的数据，是调查员可以利用的强大工具，帮助回答调查问题。广义来说，元数据可以通过检查文件系统和嵌入的元素来找到。文件权限、MAC 时间戳和文件大小记录在文件系统级别。然而，对于特定的文件类型，如
+    JPEG，额外的元数据会嵌入到文件本身中。
+- en: Embedded metadata is more specific to the object in question. This embedded
+    metadata can provide additional sources of timestamps, the author of a particular
+    document, or even GPS coordinates for a photo. Entire software applications, such
+    as Phil Harvey's ExifTool, exist to extract embedded metadata from files and collate
+    it with filesystem metadata.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 嵌入式元数据更特定于相关对象。这个嵌入式元数据可以提供额外的时间戳、特定文档的作者，甚至是照片的 GPS 坐标。像 Phil Harvey 的 ExifTool
+    这样的完整软件应用程序存在，用于从文件中提取嵌入式元数据，并将其与文件系统元数据合并。
+- en: 'This chapter will cover the following topics:'
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Using first- and third-party libraries to extract metadata from files
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用第一方和第三方库从文件中提取元数据
+- en: Understanding **Exchangeable Image File Format** (**EXIF**), ID3, and Microsoft
+    Office embedded metadata
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 理解 **可交换图像文件格式**（**EXIF**）、ID3 和 Microsoft Office 嵌入式元数据
+- en: Learning to build frameworks to facilitate rapid development and integration
+    of scripts
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 学习构建框架以促进脚本的快速开发和集成
+- en: The code for this chapter was developed and tested using Python 2.7.15 and Python
+    3.7.1.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章的代码在 Python 2.7.15 和 Python 3.7.1 上开发和测试。
+- en: Creating frameworks in Python
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 在 Python 中创建框架
+- en: Frameworks are incredibly useful for large-scale projects in Python. We previously
+    called the `UserAssist` script a framework in [Chapter 6](59414e87-5820-4942-bd47-aba762dd9f14.xhtml),
+    *Extracting Artifacts from Binary Files*; however, it doesn't really fit that
+    model. The frameworks we build will have an abstract top layer, which will act
+    as the controller of the program. This controller will be responsible for executing
+    plugins and writers.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 框架对于大型 Python 项目非常有用。我们在[第六章](59414e87-5820-4942-bd47-aba762dd9f14.xhtml)中曾提到过
+    `UserAssist` 脚本是一个框架，*从二进制文件中提取数据*；然而，它实际上并不完全符合这个模型。我们将构建的框架将有一个抽象的顶层，这个顶层将作为程序的控制器。这个控制器将负责执行插件和写入程序。
+- en: A plugin is code contained in a separate script that adds a specific feature
+    to the framework. Once developed, a plugin should be easily integrated into an
+    existing framework in a few lines of code. A plugin should also execute standalone
+    functionality and not require modification of the controller to operate. For example,
+    we'll write one plugin to specifically process EXIF metadata and another to process
+    Office metadata. An advantage of the framework model is that it allows us to group
+    many plugins together in an organized manner and execute them all for a shared
+    objective, such as extracting various types of embedded metadata from files.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 插件是包含在单独脚本中的代码，它为框架添加特定功能。开发完成后，插件应该能够通过几行代码轻松集成到现有框架中。插件还应该能够执行独立的功能，而不需要修改控制器来操作。例如，我们将编写一个插件专门处理
+    EXIF 元数据，另一个插件处理 Office 元数据。框架模型的一个优点是，它允许我们以有组织的方式将多个插件组合在一起，并为共同的目标执行它们，例如从文件中提取各种类型的嵌入式元数据。
+- en: Building out frameworks requires some forethought and planning. It's vital to
+    plan out and test the types of data structures you want to use for your framework.
+    Some data structures are better suited for different tasks. Consider the types
+    of input and output your framework will handle and let that guide your decision
+    to the appropriate data type. Having to rewrite your framework after discovering
+    a more optimal data structure can be a frustrating and time-consuming task.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 构建框架需要一些前瞻性思维和规划。规划和测试你希望在框架中使用的数据结构类型是至关重要的。不同的数据结构适合不同的任务。考虑框架将处理的输入和输出类型，并以此为依据，选择合适的数据类型。发现更优的数据结构后重新编写框架可能是一个令人沮丧且耗时的任务。
+- en: Without this step, a framework can rapidly get out of hand and become an absolute
+    bogged down mess. Imagine scenario where each plugin requires its own unique arguments,
+    and worse, returns different types of data that require special handling. For
+    example, one plugin might return a list of dictionaries and another plugin may
+    return a dictionary of dictionaries. Most of your code would be written to convert
+    these data types into a common form for your writers. For your sanity, we recommend
+    creating standardized input and output that each plugin adheres to. This will
+    have the benefit of making your framework much easier to understand and more stable
+    from unnecessary conversion errors.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有这一步，框架可能会迅速变得无法控制，变成一团糟。想象一下每个插件都需要自己独特的参数，更糟糕的是，返回不同类型的数据，需要特殊处理。例如，一个插件可能返回一个字典的列表，而另一个插件可能返回一个字典中的字典。你的代码大部分会写成将这些数据类型转换为一个通用格式，以供编写器使用。为了保持理智，我们建议创建标准化的输入输出，每个插件都应遵循。这将使你的框架更容易理解，并避免不必要的转换错误，从而使其更稳定。
+- en: Writers take processed data from the plugins and write them to output files.
+    An example of a writer we're familiar with is a CSV writer. In previous chapters,
+    our CSV writers take processed data input and write it to a file. In larger projects,
+    such as this, we might have writers for various types of output. For example,
+    in this chapter, we'll develop a Google Earth KML writer to plot GPS data we extract
+    from embedded EXIF metadata.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 编写器从插件获取处理后的数据，并将其写入输出文件。我们熟悉的一种编写器是CSV编写器。在前面的章节中，我们的CSV编写器将处理后的数据输入并写入文件。在更大的项目中，比如这个项目，我们可能会有多种类型的编写器用于输出。例如，在本章中，我们将开发一个Google
+    Earth KML编写器，以绘制我们从嵌入式EXIF元数据中提取的GPS数据。
+- en: Introduction to EXIF metadata
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: EXIF元数据介绍
+- en: EXIF metadata is a standard that's used for image and audio file tags that are
+    created by devices and applications. Most commonly, this kind of embedded metadata
+    is associated with JPEG files. However, EXIF metadata is also present in TIFF,
+    WAV, and other files. In JPEG files, EXIF metadata can contain technical camera
+    settings used to take the photo such as the shutter speed, F-stop, and ISO values.
+    These may not be inherently useful to an examiner, but tags containing the make,
+    model, and GPS location of the photo can be used for attributing an individual
+    to a crime. Each of these elements are associated with a tag. For example, the
+    make metadata is EXIF tag 271 or `0x010F`. A list of tags can be found at [http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html).
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: EXIF元数据是一种标准，用于图像和音频文件标签，这些标签由设备和应用程序创建。最常见的，这种嵌入式元数据与JPEG文件相关联。然而，EXIF元数据也存在于TIFF、WAV和其他文件中。在JPEG文件中，EXIF元数据可以包含用于拍摄照片的技术相机设置，如快门速度、光圈值和ISO值。这些可能对检查员没有直接用处，但包含照片的制造商、型号和GPS位置的标签可以用于将某个人与犯罪联系起来。每个元素都与一个标签相关联。例如，制造商元数据是EXIF标签271或`0x010F`。标签的完整列表可以在[http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html)找到。
+- en: 'EXIF metadata is stored at the beginning of JPEG images and, if present, is
+    located at byte offset 24\. The EXIF header begins with the hex `0x45786966`,
+    which is Exif in ASCII. The following is a hex dump of the first 52 bytes of a
+    JPEG image:'
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: EXIF元数据存储在JPEG图像的开头，如果存在，它位于字节偏移量24处。EXIF头以十六进制`0x45786966`开始，这是“Exif”在ASCII中的表示。以下是JPEG图像前52个字节的十六进制转储：
+- en: '![](img/33d72819-5c38-454c-a051-a310b140a4f1.png)'
+  id: totrans-17
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/33d72819-5c38-454c-a051-a310b140a4f1.png)'
+- en: 'Note the EXIF header starting at offset 24\. The hex `0x4D4D` following it
+    represents Motorola or big-endian byte alignment. The `0x010F` tag ID at byte
+    offset 40 is the EXIF `Make` metadata tag. Each tag is made up of four components:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，从偏移量24开始的EXIF头。跟随其后的十六进制`0x4D4D`代表摩托罗拉或大端字节对齐。位于字节偏移40的`0x010F`标签ID是EXIF的`Make`元数据标签。每个标签由四个组件组成：
+- en: '| **Byte offset** | **Name** | **Description** |'
+  id: totrans-19
+  prefs: []
+  type: TYPE_TB
+  zh: '| **字节偏移量** | **名称** | **描述** |'
+- en: '| 0-1 | ID | The tag ID representing a specific EXIF metadata element |'
+  id: totrans-20
+  prefs: []
+  type: TYPE_TB
+  zh: '| 0-1 | ID | 代表特定EXIF元数据元素的标签ID |'
+- en: '| 2-3 | Type | Type of data (integer,+ string, and so on) |'
+  id: totrans-21
+  prefs: []
+  type: TYPE_TB
+  zh: '| 2-3 | 类型 | 数据类型（整数、字符串等） |'
+- en: '| 4-7 | Length | The length of the data |'
+  id: totrans-22
+  prefs: []
+  type: TYPE_TB
+  zh: '| 4-7 | 长度 | 数据的长度 |'
+- en: '| 8-11 | Offset | The offset from the byte alignment value |'
+  id: totrans-23
+  prefs: []
+  type: TYPE_TB
+  zh: '| 8-11 | 偏移量 | 从字节对齐值的偏移量 |'
+- en: 'In the preceding table, the `Make` tag has a data type of 2, equating to an
+    ASCII string, is 6 bytes long, and is located 2,206 bytes from the byte alignment
+    value of `0x4D4D`. The second screenshot shows a 52 byte slice of data `2206`
+    bytes from the beginning of the file. Here, we can see Nokia, the make of the
+    phone that was used to take the photograph, as a 6 byte long ASCII string:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的表格中，`Make` 标签的数据类型为 2，对应于 ASCII 字符串，长度为 6 字节，位于字节对齐值 `0x4D4D` 之后 2206 字节的位置。第二个截图显示了从文件开始
+    2206 字节位置开始的 52 字节数据切片。在这里，我们可以看到 Nokia，这是拍摄该照片时使用的手机品牌，作为一个长 6 字节的 ASCII 字符串：
+- en: '![](img/58d35dd2-900d-4b52-96b2-a43e6b902e3d.png)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/58d35dd2-900d-4b52-96b2-a43e6b902e3d.png)'
+- en: If we were so inclined, we could use `struct` and parse through the header and
+    grab the pertinent EXIF metadata. Fortunately, the third-party **Python Imaging
+    Library**, PIL, module already supports EXIF metadata and makes this task much
+    simpler.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们有兴趣，也可以使用 `struct` 解析头部并获取相关的 EXIF 元数据。幸运的是，第三方 **Python Imaging Library**（PIL）模块已经支持
+    EXIF 元数据，并且使得这项任务变得更加简便。
+- en: Introducing the Pillow module
+  id: totrans-27
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍 Pillow 模块
+- en: 'Pillow (version 5.3.0) is an actively maintained fork of the Python Imaging
+    Library and is an extensive module that can archive, display, and process image
+    files. A full description of this module can be read at [http://www.pillow.readthedocs.io](https://pillow.readthedocs.io).
+    This library can be installed using `pip` as follows:'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Pillow（版本 5.3.0）是一个活跃维护的 Python 图像库的分支，是一个功能强大的模块，可以存档、显示和处理图像文件。可以在 [http://www.pillow.readthedocs.io](https://pillow.readthedocs.io)
+    阅读该模块的详细说明。可以使用 `pip` 如下安装此库：
+- en: '[PRE0]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'PIL provides a function named `_getexif()`, which returns a dictionary of tags
+    and their values. Tags are stored in their decimal format rather than hexadecimal.
+    Interpreting `0x010F` in big-endian corresponds to the decimal value 271 for the
+    `Make` tag. Rather than doing this the hard way with `struct`, we can simply query
+    whether a tag exists and, if it does, then process the value:'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PIL 提供一个名为 `_getexif()` 的函数，它返回一个标签及其值的字典。标签以十进制格式存储，而不是十六进制格式。将大端格式的 `0x010F`
+    解释为十进制值 271 对应于 `Make` 标签。我们无需通过 `struct` 繁琐地操作，只需简单地查询某个标签是否存在，如果存在，则处理其值：
+- en: '[PRE1]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: Introduction to ID3 metadata
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: ID3 元数据介绍
+- en: 'The ID3 metadata container is often associated with MP3 files. There are two
+    versions of the embedded structure: ID3v1 and ID3v2\. The ID3v1 version is the
+    final 128 bytes of the file and has a different structure from the updated format.
+    The newer version, which we''ll focus on, is located at the beginning of the file
+    and is variable in length.'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ID3 元数据容器通常与 MP3 文件相关联。嵌入结构有两个版本：ID3v1 和 ID3v2。ID3v1 版本是文件的最后 128 字节，其结构与更新格式不同。我们将重点介绍的新版位于文件的开头，长度是可变的。
+- en: 'An ID3 tag has a simpler structure compared with EXIF tags. The first 16 bytes
+    are evenly split between the tag ID and the length of the metadata. Following
+    that is the metadata itself. The following screenshot contains the first 144 bytes
+    of an MP3 file:'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与 EXIF 标签相比，ID3 标签具有更简单的结构。前 16 字节均匀地分配在标签 ID 和元数据的长度之间。之后是元数据本身。以下截图显示了一个 MP3
+    文件的前 144 字节：
+- en: '![](img/a6599dbf-35ca-49ae-a9d0-c880ba3ca339.png)'
+  id: totrans-35
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a6599dbf-35ca-49ae-a9d0-c880ba3ca339.png)'
+- en: The file signature of MP3 files is the ASCII ID3\. Shortly after the signature,
+    we can see different tags, such as TP1, TP2, and TCM. These are metadata tags
+    for the artist, band, and composer, respectively. The next 8 bytes following TP1
+    is the length represented by the hex `0x0B` or 11\. Following the 2 byte buffer
+    is the data for the artist formerly known as `The Artist`. `The Artist` is 10
+    bytes long with an additional single null byte (0x00) prepended to the data for
+    a total of 11 bytes. We'll use a module named Mutagen to load the file and read
+    any ID3 tags that are present.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MP3 文件的文件签名是 ASCII ID3。紧接着签名后，我们可以看到不同的标签，如 TP1、TP2 和 TCM。这些分别是艺术家、乐队和作曲家的元数据标签。紧接在
+    TP1 后的 8 字节表示由十六进制 `0x0B` 或 11 表示的长度。接下来是 2 字节的缓冲区，之后是曾用名为 `The Artist` 的艺术家的数据。`The
+    Artist` 长度为 10 字节，并且在数据前加上一个空字节（0x00），总长度为 11 字节。我们将使用名为 Mutagen 的模块来加载文件并读取任何存在的
+    ID3 标签。
+- en: Some MP3 files may not have embedded ID3 metadata. In this case, the tags we
+    can see in the previous screenshot may not be present.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些 MP3 文件可能没有嵌入 ID3 元数据。在这种情况下，我们在前面截图中看到的标签可能并不存在。
+- en: Introducing the Mutagen module
+  id: totrans-38
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍 Mutagen 模块
+- en: 'Mutagen (version 1.41.1) is capable of reading and writing different audio
+    metadata formats. Mutagen supports a wide variety of embedded audio formats, such
+    as ASF, FLAC, M4A, and MP3 (ID3). The full documentation for this module can be
+    found at[ http://www.mutagen.readthedocs.io](http://www.mutagen.readthedocs.io).
+    We can install this module with `pip` as follows:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Mutagen（版本1.41.1）能够读取和写入不同的音频元数据格式。Mutagen支持多种嵌入式音频格式，如ASF、FLAC、M4A和MP3（ID3）。该模块的完整文档可以在[http://www.mutagen.readthedocs.io](http://www.mutagen.readthedocs.io)找到。我们可以通过以下方式使用`pip`安装该模块：
+- en: '[PRE2]'
+  id: totrans-40
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'Using Mutagen is straightforward. We need to create an ID3 object by opening
+    our MP3 file and then, as with PIL, look for specific tags in a dictionary, as
+    follows:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用Mutagen非常简单。我们需要通过打开MP3文件创建一个ID3对象，然后像使用PIL一样，在字典中查找特定的标签，如下所示：
+- en: '[PRE3]'
+  id: totrans-42
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: Introduction to Office metadata
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Office元数据简介
+- en: With the launch of Office 2007, Microsoft introduced a new proprietary format
+    for their office products, such as `.docx`, `.pptx`, and `.xlsx` files. These
+    documents are actually a zipped directory consisting of XML and binary files.
+    These documents have a great deal of embedded metadata stored in the XML files
+    within the document. The two XML files we'll look at are `core.xml` and `app.xml`,
+    which store different types of metadata.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随着Office 2007的发布，微软为其Office产品引入了一种新的专有格式，如`.docx`、`.pptx`和`.xlsx`文件。这些文档实际上是一个包含XML和二进制文件的压缩目录。这些文档包含大量嵌入的元数据，存储在文档中的XML文件中。我们将要查看的两个XML文件是`core.xml`和`app.xml`，它们存储不同类型的元数据。
+- en: The `core.xml` file stores metadata related to the document such as author,
+    the revision number, and who last modified the document. The `app.xml` file stores
+    metadata that's more specific to the contents of the file. For example, Word documents
+    store page, paragraph, line, word, and character counts, whereas a PowerPoint
+    presentation stores information related to slides, hidden slides, and note count,
+    among others.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`core.xml`文件存储与文档相关的元数据，例如作者、修订号以及最后修改文档的人。`app.xml`文件存储更具体的文件内容相关的元数据。例如，Word文档存储页面、段落、行、单词和字符计数，而PowerPoint演示文稿存储与幻灯片、隐藏幻灯片和注释计数等相关的信息。'
+- en: 'To view this data, use an archive utility of your choice and unzip an existing
+    2007 or higher version Office document. You may need to add a `.zip` extension
+    to the end of your file to get the option to unzip the archive with your tool
+    of choice. The following is a screenshot of the contents of an unzipped Word document:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要查看这些数据，使用你选择的归档工具解压现有的2007或更高版本的Office文档。你可能需要在文件末尾添加`.zip`扩展名，以便使用你选择的工具解压该归档文件。以下是解压后的Word文档内容的截图：
+- en: '![](img/25a35a59-7a76-4ff5-977a-013e38a4242d.png)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/25a35a59-7a76-4ff5-977a-013e38a4242d.png)'
+- en: 'In the `docProps` folder, we can see our two XML files, which contain the metadata
+    related to our specific word document. The word directory contains the actual
+    word document itself in `document.xml` and any inserted media stored in the media
+    subdirectory. Now, let''s take a look at the `core.xml` file:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在`docProps`文件夹中，我们可以看到两个XML文件，它们包含与我们特定Word文档相关的元数据。Word目录包含实际的Word文档本身，存储在`document.xml`中，以及任何插入的媒体，存储在媒体子目录中。现在，让我们来看一下`core.xml`文件：
+- en: '![](img/115bd8be-b47b-45cd-b39a-0e4e90401a78.png)'
+  id: totrans-49
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/115bd8be-b47b-45cd-b39a-0e4e90401a78.png)'
+- en: In [Chapter 4](a7837b20-94b0-4a49-a096-42a2a8620423.xhtml), *Working with Serialized
+    Data Structures*, we discussed serialized data and mentioned that XML was a popular
+    format for data serialization. XML works on the concept of directives, namespaces,
+    and tags and is similar to another popular markup language, HTML. Most XML files
+    begin with header directives detailing the version, encoding, and any instructions
+    to parsers.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[第4章](a7837b20-94b0-4a49-a096-42a2a8620423.xhtml)，*处理序列化数据结构*中，我们讨论了序列化数据，并提到XML是一种流行的数据序列化格式。XML基于指令、命名空间和标签的概念，与另一种流行的标记语言HTML类似。大多数XML文件以头部指令开始，详细说明版本、编码和解析器的任何指令。
+- en: The `core.xml` file also contains five namespaces that are declared only once
+    at the beginning of the file and are then referred to by their assigned namespace
+    variable thereafter. The primary purpose of namespaces is to avoid name conflict
+    resolutions and are created using the `xmlns` attribute.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`core.xml`文件还包含五个命名空间，这些命名空间只在文件开始时声明一次，之后通过它们分配的命名空间变量进行引用。命名空间的主要目的是避免名称冲突，它们是通过`xmlns`属性创建的。'
+- en: After the namespaces, we have a variety of tags, similar to HTML, such as the
+    title, subject, and creator. We can use an XML parser, such as `lxml`, to iterate
+    through these tags and process them.
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在命名空间之后，我们有各种标签，类似于 HTML，如标题、主题和创建者。我们可以使用 XML 解析器，如 `lxml`，来遍历这些标签并处理它们。
+- en: Introducing the lxml module
+  id: totrans-53
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍 lxml 模块
+- en: 'The `lxml` (version 4.2.5) third-party module has Python bindings to the C
+    `libxml2` and `libxslt` libraries. This module is a very popular XML parser for
+    its speed and can be used to parse HTML files. We''ll use this module to walk
+    through each `child` tag and print out those of interest. Full documentation for
+    this library can be found at [http://www.lxml.de](http://www.lxml.de). Once again,
+    installing a library is made simple using `pip`:'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`lxml`（版本 4.2.5）是一个第三方模块，提供了对 C 语言 `libxml2` 和 `libxslt` 库的 Python 绑定。这个模块由于其速度快，是非常流行的
+    XML 解析器，并且可以用来解析 HTML 文件。我们将使用该模块遍历每个 `child` 标签，并打印出我们感兴趣的内容。该库的完整文档可以在 [http://www.lxml.de](http://www.lxml.de)
+    找到。再次提醒，使用 `pip` 安装库非常简单：'
+- en: '[PRE4]'
+  id: totrans-55
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'Let''s take a look at how to iterate through the `core.xml` file in the interactive
+    prompt. The `etree` or element tree API provides a simple mechanism of iterating
+    through children in the XML file. First, we need to parse an XML file into an
+    element tree. Next, we get the root-level element in the tree. With the root,
+    we can walk through each child using the `root.iter()` function and print out
+    the tag and text values. Note that the tag contains the fully expanded namespace.
+    In just a few lines of code, we can now parse basic XML files with ease using
+    `lxml`:'
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们来看看如何在交互式提示符中遍历 `core.xml` 文件。`etree` 或元素树 API 提供了一种简单的机制来遍历 XML 文件中的子元素。首先，我们需要将
+    XML 文件解析为元素树。接下来，我们获取树中的根元素。通过根元素，我们可以使用 `root.iter()` 函数遍历每个子元素，并打印出标签和文本值。请注意，标签包含了完整展开的命名空间。在短短几行代码中，我们就可以轻松使用
+    `lxml` 解析基本的 XML 文件：
+- en: '[PRE5]'
+  id: totrans-57
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The Metadata_Parser framework overview
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Metadata_Parser 框架概述
+- en: 'Now that we understand the concept of frameworks and what kind of data we''re
+    dealing with, we can examine the specifics of our framework implementation. Rather
+    than a flow diagram, we use a high-level diagram to show how the scripts interact
+    with each other:'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经理解了框架的概念以及我们所处理的数据类型，我们可以详细探讨框架实现的具体内容。与流程图不同，我们使用高级图示来展示脚本之间如何相互作用：
+- en: '![](img/41d06044-4d8e-46f0-8eb2-e042ff464511.png)'
+  id: totrans-60
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/41d06044-4d8e-46f0-8eb2-e042ff464511.png)'
+- en: This framework is going to be controlled by the `metadata_parser.py` script.
+    This script will be responsible for launching our three plugin scripts and then
+    shuttling the returned data to the appropriate writer plugins. During processing,
+    the plugins make calls to processors to help validate data or perform other processing
+    functions. We have two writer plugins, one for CSV output and another to plot
+    geotagged data using Google Earth's KML format.
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该框架将由 `metadata_parser.py` 脚本控制。这个脚本将负责启动我们的三个插件脚本，然后将返回的数据传递给相应的写入插件。在处理过程中，插件会调用处理器来帮助验证数据或执行其他处理功能。我们有两个写入插件，一个用于
+    CSV 输出，另一个用于使用 Google Earth 的 KML 格式绘制带地理标记的数据。
+- en: Each plugin will take an individual file as its input and store the parsed metadata
+    tags in a dictionary. This dictionary is then returned to `metadata_parser.py`
+    and is appended to a list. Once all of our input files are processed, we send
+    these lists of dictionaries to writers. We use the `DictWriter` from the `csv`
+    module to write our dictionary output to a CSV file.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个插件将以一个单独的文件作为输入，并将解析后的元数据标签存储在字典中。然后，这个字典会返回到 `metadata_parser.py` 中，并附加到一个列表中。一旦所有输入文件处理完毕，我们将这些字典列表发送给写入插件。我们使用
+    `csv` 模块中的 `DictWriter` 来将字典输出写入到 CSV 文件中。
+- en: 'Similar to [Chapter 6](59414e87-5820-4942-bd47-aba762dd9f14.xhtml), *Extracting
+    Artifacts from Binary Files*, we''ll have multiple Python directories to organize
+    our code in a logical manner. To use these packages, we need to make the directory
+    searchable with an `__init__.py` script and then import the directory in the code:'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似于 [第6章](59414e87-5820-4942-bd47-aba762dd9f14.xhtml)，*从二进制文件中提取文档*，我们将有多个 Python
+    目录来以逻辑的方式组织我们的代码。为了使用这些包，我们需要通过 `__init__.py` 脚本使目录可搜索，然后在代码中导入该目录：
+- en: '[PRE6]'
+  id: totrans-64
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Our main framework controller – metadata_parser.py
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我们的主要框架控制器 – metadata_parser.py
+- en: 'The `metadata_parser.py` script contains a single function, `main()`, on line
+    45 that handles coordinating logic between our plugins and writers. At the top
+    of the script, we call our imports we will use for this chapter. On lines 8 and
+    9, we specifically import our plugins and writers directories that we''ve created
+    as follows:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`metadata_parser.py`脚本包含一个单独的函数`main()`，位于第45行，该函数负责协调我们插件和写入器之间的逻辑。在脚本顶部，我们调用了本章将要使用的导入内容。在第8行和第9行，我们特别导入了我们创建的插件和写入器目录，如下所示：'
+- en: '[PRE7]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'On line 133, we set up the arguments for our program. This script takes two
+    positional arguments, an input and output directory, and an optional log argument
+    to change the directory and name of the log file. Lines 142 through 154 focus
+    on setting up the log, as in previous chapters. The lines are as follows:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第133行，我们为程序设置参数。此脚本接受两个位置参数，一个输入目录和一个输出目录，还有一个可选的日志参数，用于更改日志文件的目录和名称。第142到154行专注于设置日志，和前面章节一样。代码如下：
+- en: '[PRE8]'
+  id: totrans-69
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'On line 156, we create our output directory if the supplied output directory
+    doesn''t exist. This output directory is created with the `makedirs()` function.
+    This function accepts a string representing the file path to a directory and creates
+    the directory and any intermediate directories that don''t exist in the file path.
+    On line 159, we check whether the supplied input is a directory and whether it
+    exists. If so, on line 161, the `main()` function is called, and the input and
+    output directory arguments are passed. If the input doesn''t exist or isn''t a
+    directory, we log and print the error and exit with status code 1\. We have the
+    following code:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第156行，如果提供的输出目录不存在，我们将创建该输出目录。这个输出目录是通过`makedirs()`函数创建的。该函数接受一个表示文件路径的字符串，并创建目录以及路径中不存在的任何中间目录。在第159行，我们检查提供的输入是否是一个目录并且是否存在。如果是的话，在第161行，调用`main()`函数，并传入输入和输出目录的参数。如果输入不存在或不是一个目录，我们将记录并打印错误，并以状态码1退出。我们有以下代码：
+- en: '[PRE9]'
+  id: totrans-71
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: Controlling our framework with the main() function
+  id: totrans-72
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用`main()`函数控制我们的框架
+- en: 'On lines 57 through 59, we create our lists that will store the returned dictionaries
+    from our plugin calls. But before we can call our plugins, we need to generate
+    a file listing from the user''s input directory argument. We do this on line 65
+    with the `os.walk()` function, which we used in previous chapters. A new argument,
+    `topdown`, is passed to our directory walking loop. This allows us to control
+    the flow of the iteration and step through the directory from the top level down
+    to the furthest level. This is the default behavior, though it can be specified
+    to ensure the anticipated behavior. For each file, we need to `join()` it with
+    the root to generate the full path to the file:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第57到59行，我们创建了列表，用来存储从插件调用中返回的字典。但在我们调用插件之前，需要从用户的输入目录参数生成文件列表。我们在第65行使用了`os.walk()`函数，这在前面的章节中已经使用过。一个新的参数`topdown`被传递到我们的目录遍历循环中。这使我们能够控制迭代的流程，从顶级目录到最深层级逐步遍历。虽然这是默认行为，但也可以指定以确保预期行为。对于每个文件，我们需要使用`join()`函数将其与根路径连接，生成文件的完整路径：
+- en: '[PRE10]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'Finally, on line 68, we separate the extension from the full path using the
+    `os.path.splitext()` function. The `splitext()` function takes a string representing
+    a file path and returns a list with the path as the first element and the extension
+    as the second element. We could have also used the `split()` function, splitting
+    on the period and accessing the last element of the newly formed list:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在第68行，我们使用`os.path.splitext()`函数将扩展名与完整路径分离。`splitext()`函数接受一个表示文件路径的字符串，并返回一个列表，列表的第一个元素是路径，第二个元素是扩展名。我们也可以使用`split()`函数，通过分割点来拆分路径，并获取新列表中的最后一个元素：
+- en: '[PRE11]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'After we have `current_file`, we look at its extension on lines 71, 83, and
+    96 to determine whether any of our existing plugins are appropriate. If our file
+    is a JPEG image, then the conditional on line 71 will evaluate to `True`. On line 73,
+    we call our `exif_parser()` function, which is found in the `exif_parser.py` script
+    within the plugins subdirectory. Because we''re only matching on extension, this
+    function call is wrapped around `try` and `except` to handle situations where
+    we raise an error in the `exif_parser()` function due to mismatching file signatures:'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在获得 `current_file` 之后，我们会在第 71、83 和 96 行查看其扩展名，以确定我们现有的插件是否合适。如果文件是 JPEG 图像，那么第
+    71 行的条件将评估为 `True`。在第 73 行，我们调用我们的 `exif_parser()` 函数，该函数位于插件子目录中的 `exif_parser.py`
+    脚本中。因为我们只匹配扩展名，所以这个函数调用被包装在 `try` 和 `except` 中，以处理由于文件签名不匹配而在 `exif_parser()`
+    函数中引发错误的情况：
+- en: '[PRE12]'
+  id: totrans-78
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'If the function doesn''t raise an error, it''ll return the EXIF metadata for
+    that particular file and the headers for the CSV writer. On line 75, we append
+    the EXIF metadata results to our `exif_metadata` list and continue processing
+    the other input files:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果函数没有引发错误，它将返回该特定文件的 EXIF 元数据以及 CSV 写入器的头信息。在第 75 行，我们将 EXIF 元数据结果附加到我们的 `exif_metadata`
+    列表，并继续处理其他输入文件：
+- en: '[PRE13]'
+  id: totrans-80
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: Note the similar structure employed for the other two plugins. All plugins take
+    only one input, `current_file`, and return two output values, the metadata dictionary
+    and CSV headers. Only eight lines of code are required to properly call and then
+    store the results of each plugin. A few more lines of code are required to write
+    the stored data to an output file.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，其他两个插件采用了相似的结构。所有插件只接受一个输入 `current_file`，并返回两个输出值：元数据字典和 CSV 头信息。仅需要八行代码来正确调用并存储每个插件的结果。还需要多写几行代码，将存储的数据写入输出文件。
+- en: 'Once we''ve iterated through all of the files, we can begin writing any necessary
+    output. On lines 113, 119, and 123, we check to see whether any of the metadata
+    lists contain dictionaries. If they do, we call the `csv_writer()` function in
+    the `csv_writer.py` script under the writers subdirectory. For EXIF metadata,
+    we also call the `kml_writer()` function on line 114 to plot GPS coordinates:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦遍历了所有文件，我们就可以开始写入必要的输出。在第 113、119 和 123 行，我们检查元数据列表中是否包含字典。如果包含，我们会调用 `csv_writer()`
+    函数，该函数位于 `writers` 子目录中的 `csv_writer.py` 脚本中。对于 EXIF 元数据，我们还会在第 114 行调用 `kml_writer()`
+    函数以绘制 GPS 坐标：
+- en: '[PRE14]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: This completes the controller logic for our framework. The main processing occurs
+    in each individual plugin file. Now, let's look at our first plugin.
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这完成了我们框架的控制器逻辑。主要的处理发生在每个独立的插件文件中。现在，让我们看看第一个插件。
+- en: Parsing EXIF metadata – exif_parser.py
+  id: totrans-85
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析 EXIF 元数据 – exif_parser.py
+- en: 'The `exif_parser` plugin is the first we''ll develop and is relatively simple
+    due to our reliance on the PIL module. There are three functions within this script:
+    `exif_parser()`, `get_tags()`, and `dms_to_decimal()`. The `exif_parser()` function,
+    on line 39, is the entry point into this plugin and takes a string representing
+    a filename as its only input. This function primarily serves as coordinating logic
+    for the plugin.'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`exif_parser` 插件是我们首先开发的插件，由于依赖 PIL 模块，它相对简单。该脚本中有三个函数：`exif_parser()`、`get_tags()`
+    和 `dms_to_decimal()`。第 39 行的 `exif_parser()` 函数是该插件的入口点，它唯一的输入是一个表示文件名的字符串。此函数主要充当插件的协调逻辑。'
+- en: 'The `get_tags()` function on line 62 is responsible for parsing the EXIF tags
+    from our input file. Finally, the `dms_to_decimal()` function on line 172 is a
+    small helper function, which is responsible for converting GPS coordinates into
+    decimal format. Take a look at the following code:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第 62 行的 `get_tags()` 函数负责解析输入文件的 EXIF 标签。最后，第 172 行的 `dms_to_decimal()` 函数是一个小助手函数，负责将
+    GPS 坐标转换为十进制格式。请看以下代码：
+- en: '[PRE15]'
+  id: totrans-88
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: Understanding the exif_parser() function
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 `exif_parser()` 函数
+- en: 'This function serves three purposes: it validates the input file, extracts
+    the tags, and returns the processed data to `metadata_parser.py`. To validate
+    an input value, we''ll evaluate its file signature against known signatures. Rather
+    than relying on the extension of a file, which can be incorrect, we check the
+    signature to avoid any additional sources of error.'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数有三个用途：验证输入文件、提取标签并将处理后的数据返回给 `metadata_parser.py`。为了验证输入值，我们会根据已知签名评估其文件签名。我们不依赖文件的扩展名，因为它可能不正确，而是检查签名，以避免其他错误来源。
+- en: 'Checking a file''s signature, sometimes referred to as its magic number, typically
+    consists of examining the first couple of bytes of a file and comparing that with
+    known signatures for that file type. Gary Kessler has a great list of file signatures
+    documented on his website, [https://www.garykessler.net/library/file_sigs.html](https://www.garykessler.net/library/file_sigs.html):'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 检查文件签名，有时被称为文件的魔术数字，通常是通过检查文件的前几个字节，并将其与该文件类型的已知签名进行比较。Gary Kessler在他的网站上有一份详细的文件签名列表，网址是[https://www.garykessler.net/library/file_sigs.html](https://www.garykessler.net/library/file_sigs.html)：
+- en: '[PRE16]'
+  id: totrans-92
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'On line 50, we create a list of known file signatures for JPEG images. On line
+    52, we call the `check_header()` function in the `utility.py` script in the processors
+    subdirectory. This function will evaluate to `True` if the header of the file
+    matches one of the supplied known signatures:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第50行，我们创建了一个已知的JPEG图像文件签名列表。在第52行，我们调用了位于`processors`子目录下的`utility.py`脚本中的`check_header()`函数。如果文件的头部与提供的已知签名之一匹配，该函数将返回`True`：
+- en: '[PRE17]'
+  id: totrans-94
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: If we do have a legitimate JPEG file, we call and return the results of the
+    `get_tags()` function on line 54\. Alternatively, if `check_header()` returns
+    `False`, then we have a mismatch and we raise a `TypeError` exception to our parent
+    script, `metadata_parser.py`, to handle the situation appropriately.
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们确实拥有一个合法的JPEG文件，我们将在第54行调用并返回`get_tags()`函数的结果。或者，如果`check_header()`返回`False`，则说明存在不匹配的情况，我们会向父脚本`metadata_parser.py`引发一个`TypeError`异常，以便适当处理这种情况。
+- en: Developing the get_tags() function
+  id: totrans-96
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发`get_tags()`函数
+- en: 'The `get_tags()` function, with the help of the PIL module, parses EXIF metadata
+    tags from our JPEG image. On line 72, we create a list of headers for our CSV
+    output. This list contains all of the possible keys that might be created in our
+    EXIF dictionary in the order we want them to be displayed in a CSV file. As all
+    JPEG images may not have the same or any embedded EXIF tags, we''ll run into the
+    scenario where some dictionaries have more tags than others. By supplying the
+    writer with the list of ordered keys, we''ll ensure that the fields are written
+    in the appropriate order and columns:'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`get_tags()`函数借助PIL模块，从我们的JPEG图像中解析EXIF元数据标签。在第72行，我们创建了一个CSV输出的标题列表。这个列表包含所有可能在EXIF字典中创建的键，并按照我们希望它们在CSV文件中显示的顺序排列。由于并非所有JPEG图像都包含相同或任何嵌入的EXIF标签，我们会遇到某些字典标签比其他字典更多的情况。通过向写入器提供按顺序排列的键列表，我们可以确保字段按照适当的顺序和列顺序写入：'
+- en: '[PRE18]'
+  id: totrans-98
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'On line 77, we open the JPEG file using the `Image.open()` function. Once again,
+    we perform one final validation step using the `verify()` function. This function
+    checks for any file corruption and raises errors if encountered. Otherwise, on
+    line 84, we call the `_getexif()` function, which returns a dictionary of EXIF
+    metadata:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第77行，我们使用`Image.open()`函数打开JPEG文件。再次执行最后一步验证，使用`verify()`函数。如果文件损坏，它将引发错误。如果没有问题，在第84行，我们调用`_getexif()`函数，该函数返回一个EXIF元数据字典：
+- en: '[PRE19]'
+  id: totrans-100
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: On line 86, we create our dictionary, `tags`, which will store metadata about
+    our file object. On lines 87 through 94, we populate the dictionary with some
+    filesystem metadata, such as the full path, name, size, and create and modify
+    timestamps. The `os.path.basename()` function takes the full pathname and returns
+    the filename. For example, `os.path.basename('Users/LPF/Desktop/myfile.txt')`
+    would simply return `myfile.txt`.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第86行，我们创建了一个字典`tags`，用于存储关于文件对象的元数据。在第87行到第94行，我们向字典中填充了一些文件系统元数据，如完整路径、名称、大小以及创建和修改时间戳。`os.path.basename()`函数获取完整路径名并返回文件名。例如，`os.path.basename('Users/LPF/Desktop/myfile.txt')`将简单地返回`myfile.txt`。
+- en: Using the `getsize()` function will return the file size in bytes. The larger
+    the number, the less useful it is for humans. We're more accustomed to seeing
+    sizes with common prefixes, such as MB, GB, and TB. The `convert_size()` processor
+    function does just this to make the data more useful for the human analyst.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用`getsize()`函数将返回文件的字节大小。数字越大，对人类越不直观。我们更习惯于看到带有常见前缀的大小，如MB、GB和TB。`convert_size()`处理函数正是为了这个目的，使数据对人类分析师更加有用。
+- en: 'On lines 91 and 93, we convert the integer returned by `os.path.getctime()`,
+    representing the creation time expressed in seconds since the epoch. The epoch,
+    `01/01/1970 00:00:00`, can be confirmed by calling `time.gmtime(0)`. We use the
+    `gmtime()` function to convert these seconds into a time-structured object (similar
+    to `datetime`). We use the `strftime` to format the time object into our desired
+    date string:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 91 行和第 93 行，我们将 `os.path.getctime()` 返回的整数值转换为表示自纪元以来以秒为单位的创建时间。纪元 `01/01/1970
+    00:00:00` 可以通过调用 `time.gmtime(0)` 来确认。我们使用 `gmtime()` 函数将这些秒数转换为时间结构对象（类似于 `datetime`）。我们使用
+    `strftime` 来将时间对象格式化为我们所需的日期字符串：
+- en: '[PRE20]'
+  id: totrans-104
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: On line 95, we check whether there are any keys in the `exif` dictionary. If
+    there are, we iterate through each key and check its value. The values we're querying
+    for are from the EXIF tags described at [http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html).
+    There are many potential EXIF tags, but we're going to query for only some of
+    the more forensically relevant ones.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 95 行，我们检查 `exif` 字典中是否存在任何键。如果存在，我们遍历每个键并检查其值。我们查询的值来自于 [http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html)
+    中描述的 EXIF 标签。EXIF 标签有很多，但我们只查询一些与法医分析相关的标签。
+- en: 'If the particular tag does exist in the `exif` dictionary, then we transfer
+    the value to our tags dictionary. Some tags require some additional processing,
+    such as timestamp, scene, flash, and GPS tags. The timestamp tags are displayed
+    in a format that''s inconsistent with how we''re representing other timestamps.
+    For example, the time from tag 36867 on line 99 is separated by colons and in
+    a different order:'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果 `exif` 字典中确实存在某个特定标签，那么我们会将该值转移到我们的标签字典中。某些标签需要额外处理，例如时间戳、场景、闪光和 GPS 标签。时间戳标签的显示格式与我们表示其他时间戳的格式不一致。例如，第
+    99 行的标签 36867 所代表的时间，使用冒号分隔，并且顺序不同：
+- en: '[PRE21]'
+  id: totrans-107
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'In line 100, we use the `strptime` function to convert our existing time string
+    into a `datetime` object. In the very next line, we use the `strftime` function
+    to convert it into our desired date string format:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 100 行，我们使用 `strptime` 函数将现有的时间字符串转换为 `datetime` 对象。在接下来的下一行，我们使用 `strftime`
+    函数将其转换为我们所需的日期字符串格式：
+- en: '[PRE22]'
+  id: totrans-109
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: 'The scene (`41990`) and flash (`37385`) tags have an integer value rather than
+    a string. As we mentioned previously, the online documentation ([http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html))
+    explains what these integers represent. In these two scenarios, we create a dictionary
+    containing the potential integers as keys and their descriptions as values. We
+    check whether the tag''s value is a key in our dictionary. If it''s present, we
+    store the description in the tags dictionary rather than the integer. Again, this
+    is for the purpose of making analysis easier on the examiner. Seeing a string
+    explanation of the scene or flash tag is more valuable than a number representing
+    that explanation:'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 场景标签（`41990`）和闪光标签（`37385`）具有整数值，而不是字符串。如前所述，在线文档 ([http://www.exiv2.org/tags.html](http://www.exiv2.org/tags.html))
+    解释了这些整数代表什么。在这两种情况下，我们创建一个字典，包含潜在的整数作为键，以及它们的描述作为值。我们检查标签的值是否是字典中的键。如果存在，我们将描述存储在标签字典中，而不是存储整数。同样，这样做是为了便于分析人员的分析。看到场景或闪光标签的字符串描述比看到代表该描述的数字更有价值：
+- en: '[PRE23]'
+  id: totrans-111
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'Finally, on line 155, we look for the GPS tags that are stored as a nested
+    dictionary under the key 34853\. If the latitude and longitude tags exist, we
+    pass them to the `dms_to_decimal()` function to convert them into a more suitable
+    manner for the KML writer:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，在第 155 行，我们查找存储在键 34853 下的 GPS 标签，这些标签是作为嵌套字典存储的。如果纬度和经度标签存在，我们将它们传递给 `dms_to_decimal()`
+    函数，以将其转换为更适合 KML 写入器的格式：
+- en: '[PRE24]'
+  id: totrans-113
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: Adding the dms_to_decimal() function
+  id: totrans-114
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 添加 `dms_to_decimal()` 函数
+- en: 'The `dms_to_decimal()` function converts GPS coordinates from degree minute
+    second format into decimal. A simple formula exists to convert between the two
+    formats. The GPS data we extract from our EXIF metadata contains three tuples
+    within another tuple. Each interior tuple represents the numerator and denominator
+    of the degree, minute, or second. First, we need to separate the individual degree,
+    min, and second numerators from their denominators in the nested tuples. The following
+    diagram highlights how we can convert our extracted GPS data into decimal format:'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`dms_to_decimal()` 函数将 GPS 坐标从度分秒格式转换为十进制格式。存在一个简单的公式可以在这两种格式之间进行转换。我们从 EXIF
+    元数据中提取的 GPS 数据包含三个元组，位于另一个元组内。每个内部元组表示度、分或秒的分子和分母。首先，我们需要将嵌套元组中的度、分、秒的分子与分母分开。下图展示了如何将提取的
+    GPS 数据转换为十进制格式：'
+- en: '![](img/f06fd0dd-c6be-440b-b2a6-5d509011cf7d.png)'
+  id: totrans-116
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f06fd0dd-c6be-440b-b2a6-5d509011cf7d.png)'
+- en: 'On line 178, we use list comprehension to create a list containing the first
+    element of every element in the tuple. We then unpack this list into the three
+    elements: `deg`, `min`, and `sec`. The formula we use is dependent on whether
+    the degree value is positive or negative.'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 178 行，我们使用列表推导式创建一个包含元组中每个元素第一个元素的列表。然后，我们将这个列表解包为三个元素：`deg`、`min` 和 `sec`。我们使用的公式依赖于度数值是正数还是负数。
+- en: 'If `deg` is positive, then we add the minutes and seconds. We divide seconds
+    by 360,0000 rather than 3,600 because originally we did not divide the seconds''
+    value by its denominator. If `deg` is negative, we instead subtract the minutes
+    and seconds as follows:'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果 `deg` 为正，则我们将加上分钟和秒数。我们将秒数除以 360,0000 而不是 3,600，因为最初我们没有将秒数值除以其分母。如果 `deg`
+    为负，我们则按如下方式减去分钟和秒数：
+- en: '[PRE25]'
+  id: totrans-119
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: Parsing ID3 metdata – id3_parser.py
+  id: totrans-120
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析 ID3 元数据 – `id3_parser.py`
+- en: '`id3_parser` is similar to `exif_parser` we''ve previously discussed. The `id3_parser()`
+    function defined on line 37 checks the file signature and then calls the `get_tags()`
+    function. The `get_tags()` function relies on the `mutagen` module to parse MP3
+    and ID3 tags:'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`id3_parser` 与我们之前讨论的 `exif_parser` 类似。第 37 行定义的 `id3_parser()` 函数检查文件签名，然后调用
+    `get_tags()` 函数。`get_tags()` 函数依赖于 `mutagen` 模块来解析 MP3 和 ID3 标签：'
+- en: '[PRE26]'
+  id: totrans-122
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: Understanding the id3_parser() function
+  id: totrans-123
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 理解 `id3_parser()` 函数
+- en: 'This function is identical to the `exif_parser()` function, with the exception
+    of the signature that''s used to check file headers. The MP3 format has only one
+    file signature, `0x494433`, unlike the JPEG format. When we call the `check_header()`
+    function, we supply the file, known signature, and the number of bytes to read
+    from the header. If the signatures match, we call and return the results of the
+    `get_tags()` function, as follows:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 该函数与 `exif_parser()` 函数相同，唯一的区别是用于检查文件头的签名。MP3 格式只有一个文件签名 `0x494433`，与 JPEG
+    格式不同。当我们调用 `check_header()` 函数时，我们需要提供文件、已知签名和要读取的头部字节数。如果签名匹配，我们就会调用并返回 `get_tags()`
+    函数的结果，如下所示：
+- en: '[PRE27]'
+  id: totrans-125
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'Although it might be boring to see the same type of logic in each plugin, this
+    greatly simplifies the logic of our framework. In scenarios with larger frameworks,
+    creating things in the same uniform manner helps those maintaining the code sane.
+    Copying and pasting a pre-existing plugin and working from there is often a good
+    way to ensure that things are developed in the same manner. See the following
+    code:'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管每个插件中看到相同类型的逻辑可能很无聊，但这大大简化了我们框架的逻辑。在大型框架的场景中，以相同的统一方式创建内容有助于那些维护代码的人保持理智。复制和粘贴现有插件并从中进行工作，通常是一种确保开发方式一致的好方法。请查看以下代码：
+- en: '[PRE28]'
+  id: totrans-127
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: Revisiting the get_tags() function
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 重新审视 `get_tags()` 函数
+- en: 'The `get_tags()` function follows the same logic we used for our EXIF plugin.
+    Like any good programmer, we copied that script and made a few modifications to
+    fit ID3 metadata. In the `get_tags()` function, we first need to create our CSV
+    headers on line 69\. These headers represent the possible keys our dictionary
+    might possess and the order we want to see them in our CSV output:'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`get_tags()` 函数遵循了我们为 EXIF 插件使用的相同逻辑。像所有好的程序员一样，我们复制了那个脚本，并做了一些修改以适应 ID3 元数据。在
+    `get_tags()` 函数中，我们首先需要在第 69 行创建我们的 CSV 表头。这些表头代表我们的字典可能拥有的键以及我们希望它们在 CSV 输出中出现的顺序：'
+- en: '[PRE29]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: 'On line 74, we create our tags dictionary and populate it with some filesystem
+    metadata in the same manner as the EXIF plugin, as follows:'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 74 行，我们创建了我们的标签字典，并以与 EXIF 插件相同的方式填充一些文件系统元数据，如下所示：
+- en: '[PRE30]'
+  id: totrans-132
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Mutagen has two classes that we can use to extract metadata from MP3 files.
+    The first class, `MP3`, has some standard metadata stored in MP3 files, such as
+    the bitrate, channels, and length in seconds. Mutagen has built-in functions to
+    access this information. First, we need to create an MP3 object, which is accomplished
+    on line 85, using the `mp3.MP3()` function. Next, we can use the `info.bitrate()`
+    function, for example, to return the bitrate of the MP3 file. We store these values
+    in our tags dictionary in lines 88 through 92, as follows:'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Mutagen 有两个类可以用来从 MP3 文件中提取元数据。第一个类 `MP3` 存储了一些常见的 MP3 文件元数据，例如比特率、声道和时长（秒）。Mutagen
+    提供了内置函数来访问这些信息。首先，我们需要创建一个 MP3 对象，这可以通过第 85 行使用 `mp3.MP3()` 函数来完成。接下来，我们可以使用 `info.bitrate()`
+    函数，例如，来返回 MP3 文件的比特率。我们将在第 88 行至第 92 行将这些值存储在我们的标签字典中，如下所示：
+- en: '[PRE31]'
+  id: totrans-134
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'The second class, `ID3`, extracts ID3 tags from an MP3 file. We need to first
+    create an ID3 object using the `id3.ID3()` function. This will return a dictionary
+    of ID3 tags as keys. Sound familiar? This is what we were presented with in the
+    previous plugin. The only difference is that the value in the dictionaries are
+    stored in a slightly different format:'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第二个类 `ID3` 从 MP3 文件中提取 ID3 标签。我们需要首先使用 `id3.ID3()` 函数创建一个 ID3 对象。这将返回一个字典，其中
+    ID3 标签作为键。听起来很熟悉吧？这正是我们在前一个插件中看到的。唯一的区别是，字典中的值以稍有不同的格式存储：
+- en: '[PRE32]'
+  id: totrans-136
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: To access the value, `The Artist`, we need to treat the value as a list and
+    specify the element in the zeroth index.
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要访问 `The Artist` 的值，我们需要将其作为列表处理，并指定第零索引处的元素。
+- en: 'In a similar manner, we look for each of our tags of interest and store the
+    first element in the value in the tags dictionary. At the end of this process,
+    we return the tags and header objects back to `id3_parser()`, which in turn returns
+    it to the `metadata_parser.py` script:'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以类似的方式，我们查找每个感兴趣的标签，并将第一个元素存储在标签字典的值中。经过这一过程后，我们将标签和头信息对象返回给 `id3_parser()`，然后它再返回给
+    `metadata_parser.py` 脚本：
+- en: '[PRE33]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: Parsing Office metadata – office_parser.py
+  id: totrans-140
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 解析 Office 元数据 – `office_parser.py`
+- en: 'The last of the plugins, `office_parser.py`, parses DOCX, PPTX, and XLSX files,
+    extracting embedded metadata in XML files. We use the `zipfile` module, which
+    is part of the standard library, to unzip and access the contents of the Office
+    document. This script has two functions, `office_parser()` and `get_tags()`:'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后一个插件 `office_parser.py` 解析 DOCX、PPTX 和 XLSX 文件，提取嵌入的元数据 XML 文件。我们使用标准库中的 `zipfile`
+    模块解压并访问 Office 文档的内容。此脚本有两个函数，`office_parser()` 和 `get_tags()`：
+- en: '[PRE34]'
+  id: totrans-142
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: Evaluating the office_parser() function
+  id: totrans-143
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 评估 `office_parser()` 函数
+- en: 'The `office_parser()` function first checks the input file against the known
+    file signature. All Office documents share the same file signature, `0x504b0304140006000`,
+    and if the input file matches, it''s then further processed by the `get_tags()`
+    function, as follows:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`office_parser()` 函数首先检查输入文件是否符合已知的文件签名。所有 Office 文档共享相同的文件签名 `0x504b0304140006000`，如果输入文件匹配，则由
+    `get_tags()` 函数进一步处理，具体如下：'
+- en: '[PRE35]'
+  id: totrans-145
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: The get_tags() function for the last time
+  id: totrans-146
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 最后一次调用 `get_tags()` 函数
+- en: 'On line 70, we create the list of headers for our potential dictionary. Line
+    81 is where the proverbial magic happens. The built-in `zipfile` library is used
+    to read, write, append, and list files in a ZIP archive. On line 81, we create
+    our ZIP file object, allowing us to read the documents contained within it. See
+    the following code:'
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 70 行，我们为潜在的字典创建标题列表。第 81 行是所谓的“魔法发生”的地方。内置的 `zipfile` 库用于读取、写入、追加和列出 ZIP
+    文件中的内容。在第 81 行，我们创建了一个 ZIP 文件对象，允许我们读取其中包含的文档。见下列代码：
+- en: '[PRE36]'
+  id: totrans-148
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: 'Specifically, on lines 86 and 87, we read the core and app XML files and then
+    convert them into an XML element tree. The `etree.fromstring()` method allows
+    us to build an element tree from a string and is a different method of accomplishing
+    the same task we described earlier in this chapter, which used the `ElementTree.parse()`
+    function:'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 具体来说，在第 86 和 87 行，我们读取核心和应用程序 XML 文件，并将其转换为 XML 元素树。`etree.fromstring()` 方法允许我们从字符串构建元素树，这是完成本章早些时候描述的相同任务的另一种方法，后者使用了
+    `ElementTree.parse()` 函数：
+- en: '[PRE37]'
+  id: totrans-150
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: 'As in the previous sections, we create the tags dictionary and populate it
+    with some filesystem metadata:'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与前面的部分一样，我们创建了标签字典，并用一些文件系统元数据填充它：
+- en: '[PRE38]'
+  id: totrans-152
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE38]'
+- en: Starting on line 104, we begin to parse the core XML document by iterating through
+    its children using the `iterchildren()` function. As we iterate through each child,
+    we look for various keywords in the `child.tag` string. If found, the `child.text`
+    string is associated with the appropriate key in the tags dictionary.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从第 104 行开始，我们通过使用 `iterchildren()` 函数迭代核心 XML 文档的子元素。每当我们迭代一个子元素时，我们会在 `child.tag`
+    字符串中查找各种关键词。如果找到了，我们将 `child.text` 字符串与标签字典中的适当键关联起来。
+- en: 'These tags in the `core.xml` and `app.xml` files aren''t always present and
+    this is the reason we have to first check whether they are there before we can
+    extract them. Some tags, such as the revision tag, are only present in specific
+    Office documents. We''ll see much more of that with the `app.xml` file:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`core.xml` 和 `app.xml` 文件中的这些标签并不总是存在，这就是为什么我们必须先检查它们是否存在才能提取它们的原因。某些标签，例如修订标签，仅存在于特定的
+    Office 文档中。我们将在 `app.xml` 文件中看到更多这种情况：'
+- en: '[PRE39]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE39]'
+- en: The `app.xml` file contains metadata more specific to a given application. On
+    line 133, when we iterate through the children of the element tree, we're only
+    checking tags for specific extensions.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`app.xml` 文件包含特定于给定应用程序的元数据。在第 133 行，当我们遍历元素树的子元素时，我们仅检查特定扩展名的标签。'
+- en: 'For example, DOCX files contain page and line count metadata that doesn''t
+    make sense for PPTX and XLSX files. Therefore, we separate the tags we look for
+    based on the extension of the file. The `TotalTime` tag is particularly insightful
+    and is the time spent editing the document in minutes. See the following code:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，DOCX 文件包含页面和行数的元数据，这对 PPTX 和 XLSX 文件没有意义。因此，我们根据文件扩展名来区分我们需要查找的标签。`TotalTime`
+    标签特别有用，它表示编辑文档所花费的时间（以分钟为单位）。请参见以下代码：
+- en: '[PRE40]'
+  id: totrans-158
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE40]'
+- en: Moving on to our writers
+  id: totrans-159
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 接下来是我们的写入器
+- en: 'Within the writers directory, we have two scripts: `csv_writer.py` and `kml_writer.py`.
+    Both of these writers are called depending on the types of data being processed
+    in the `metadata_parser.py` framework.'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 writers 目录下，我们有两个脚本：`csv_writer.py` 和 `kml_writer.py`。这两个写入器根据在 `metadata_parser.py`
+    框架中处理的数据类型来调用。
+- en: Writing spreadsheets – csv_writer.py
+  id: totrans-161
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 编写电子表格 – csv_writer.py
+- en: In this chapter, we'll use `csv.DictWriter` instead of `csv.writer`, just like
+    we did in [Chapter 5](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml), *Databases
+    in Python*, and [Chapter 6](59414e87-5820-4942-bd47-aba762dd9f14.xhtml), *Extracting
+    Artifacts from Binary Files*. As a reminder, the difference is that the `DictWriter`
+    writes dictionary objects to a CSV file and the `csv.writer` function is more
+    suited for writing lists.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将使用 `csv.DictWriter` 代替 `csv.writer`，就像在 [第 5 章](a4ae250a-8aa8-49b9-8fd6-0cac51975f11.xhtml)，*Python
+    中的数据库* 和 [第 6 章](59414e87-5820-4942-bd47-aba762dd9f14.xhtml)，*从二进制文件中提取文档* 中做的那样。提醒一下，区别在于
+    `DictWriter` 将字典对象写入 CSV 文件，而 `csv.writer` 函数更适合写入列表。
+- en: 'The great thing about `csv.DictWriter` is that it requires an argument, `fieldnames`,
+    when creating the writer object. The `fieldnames` argument should be a list that
+    represents the desired order of columns in the output. In addition, all possible
+    keys must be included in the `fieldnames` list. If a key exists that isn''t contained
+    in the list, an exception will be raised. On the other hand, if a key isn''t present
+    in the dictionary but is in the `fieldnames` list, then that column will simply
+    be skipped for that entry:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`csv.DictWriter` 的优点在于，在创建写入器对象时，它需要一个参数 `fieldnames`。`fieldnames` 参数应该是一个列表，表示输出列的期望顺序。此外，所有可能的键必须包含在
+    `fieldnames` 列表中。如果某个键存在，但不在列表中，则会引发异常。另一方面，如果某个键不在字典中，但在 `fieldnames` 列表中，那么该列将被跳过：'
+- en: '[PRE41]'
+  id: totrans-164
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE41]'
+- en: 'On line 69, we create our `csv.DictWriter` function, passing in the output
+    file and the headers as a list of `fieldnames` from our plugin function. To write
+    the headers for our CSV file, we can simply call the `writeheader` function, which
+    uses the `fieldnames` list as its list of headers. Finally, we need to iterate
+    through each dictionary in our metadata container list and write them using the
+    `writerow()` function in line 76, as follows:'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 69 行，我们创建了 `csv.DictWriter` 函数，传入输出文件和作为 `fieldnames` 列表的头部信息，这个列表来自我们的插件函数。为了写入
+    CSV 文件的头部，我们可以简单地调用 `writeheader` 函数，它使用 `fieldnames` 列表作为头部信息。最后，我们需要遍历元数据容器列表中的每个字典，并使用第
+    76 行的 `writerow()` 函数写入它们，如下所示：
+- en: '[PRE42]'
+  id: totrans-166
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE42]'
+- en: Plotting GPS data with Google Earth – kml_writer.py
+  id: totrans-167
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Google Earth 绘制 GPS 数据 – kml_writer.py
+- en: 'The `kml_writer.py` script uses the `simplekml` module (version 1.3.1) to quickly
+    create our KML output. Full documentation for this module can be found at [http://simplekml.com](https://simplekml.readthedocs.io/en/latest/). This
+    module can be installed with `pip`:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`kml_writer.py` 脚本使用 `simplekml` 模块（版本 1.3.1）快速生成我们的 KML 输出。此模块的完整文档可以在 [http://simplekml.com](https://simplekml.readthedocs.io/en/latest/)
+    找到。可以使用 `pip` 安装此模块：'
+- en: '[PRE43]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE43]'
+- en: 'With this module, we can create and add a geotagged point and save KML in three
+    lines of code:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这个模块，我们可以通过三行代码创建并添加地理标记点并保存 KML 文件：
+- en: '[PRE44]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE44]'
+- en: 'In line 51, we create our KML object using the `simplekml.Kml()` call. This
+    function takes an optional keyword argument name that represents the name of the
+    KML file. Lines 52-71 check whether the original date key is present and prepares
+    our GPS points to be entered into the KML object:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第 51 行，我们使用 `simplekml.Kml()` 调用创建了 KML 对象。此函数接受一个可选的关键字参数 name，表示 KML 文件的名称。第
+    52-71 行检查是否存在原始的日期键，并准备将我们的 GPS 点添加到 KML 对象中：
+- en: '[PRE45]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE45]'
+- en: Our GPS coordinates are in decimal format from the `exif_parser.py` script.
+    However, in this script, we didn't account for the reference point. The reference
+    point determines the sign of the GPS coordinate. A south latitude reference makes
+    the latitude negative. Likewise, west makes the longitude negative.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的GPS坐标来自`exif_parser.py`脚本，格式为十进制。然而，在这个脚本中，我们没有考虑参考点的问题。参考点决定了GPS坐标的符号。南纬参考会使纬度为负数，同样，西经参考会使经度为负数。
+- en: 'Once that has been accounted for, we can create our geotagged point passing
+    the name, description, and coordinates of the point. The else statement on lines
+    76 and 77 is executed if the conditional checking of the latitude and longitude
+    EXIF tags that exist return `False`. Although these two lines could be omitted,
+    they should be implemented as a reminder of the implemented logic. Once we''ve
+    created all of our points, we can save the KML file by calling the `kml.save()`
+    function and passing along the desired output path and the name of the file. The
+    following are lines 73 through 78:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦这些问题解决，我们就可以创建带有地理标签的点，传入点的名称、描述和坐标。如果纬度和经度的EXIF标签检查返回`False`，那么第76行和77行的`else`语句会被执行。虽然这两行代码可以省略，但它们应该被保留下来，作为实现逻辑的提示。创建所有点之后，我们可以通过调用`kml.save()`函数，传入所需的输出路径和文件名，保存KML文件。以下是第73行到78行的代码：
+- en: '[PRE46]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE46]'
+- en: Supporting our framework with processors
+  id: totrans-177
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用处理器支持我们的框架
+- en: The processors directory contains one script, `utility.py`. This script has
+    some helper functions that are used by all current plugins. Rather than writing
+    the functions for each separate plugin, we gathered them under one script.
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`processors`目录包含一个脚本，`utility.py`。这个脚本包含一些辅助函数，当前所有插件都在使用这些函数。我们将这些函数集中在一个脚本中，而不是为每个插件分别编写。'
+- en: Creating framework-wide utility functions – utility.py
+  id: totrans-179
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 创建框架级别的工具函数 – utility.py
+- en: 'This script has two functions, `check_header()` and `convert_size()`. The former
+    performs file signature matching, whereas the latter converts an integer representing
+    the byte size of a file into a human-readable format, as follows:'
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个脚本包含两个函数，`check_header()`和`convert_size()`。前者执行文件签名匹配，而后者将表示文件字节大小的整数转换为人类可读的格式，如下所示：
+- en: '[PRE47]'
+  id: totrans-181
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE47]'
+- en: 'The `check_header()` function, defined on line 33, takes a filename, list of
+    known signatures, and the amount of data to read from the file as arguments. On
+    line 46, we open the input file and then read the first few bytes based on the
+    value passed in as the size argument. On line 48, we convert the ASCII representation
+    of the data into a hex string. On line 49, we iterate through each known signature
+    and compare it with `hex_header`. If they match, we return `True` and otherwise,
+    we return `False` and log the warning, as follows:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`check_header()`函数定义在第33行，它接受文件名、已知签名的列表以及读取文件的字节数作为参数。在第46行，我们打开输入文件，然后根据传入的大小参数读取前几个字节。在第48行，我们将数据的ASCII表示转换为十六进制字符串。在第49行，我们遍历每个已知签名并将其与`hex_header`进行比较。如果匹配，我们返回`True`，否则返回`False`并记录警告，具体如下：'
+- en: '[PRE48]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE48]'
+- en: 'The `convert_size()` function is a useful utility function that converts byte-size
+    integers into human-readable format. On line 66, we create our list of potential
+    prefixes. Note, we''re assuming that the user won''t encounter any file requiring
+    more than a `TB` prefix, at least for a few years:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`convert_size()`函数是一个有用的工具函数，它将字节大小的整数转换为人类可读的格式。在第66行，我们创建了一个潜在前缀的列表。注意，我们假设用户在未来几年内不会遇到需要`TB`前缀的文件：'
+- en: '[PRE49]'
+  id: totrans-185
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE49]'
+- en: We use a `while` loop to continually divide the size by 1024 until it's less
+    than 1024\. Every time we make a division, we add one to the index. When the size
+    is less than 1024, the index is the location in the sizes list of the appropriate
+    prefix.
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用`while`循环不断将大小除以1024，直到结果小于1024为止。每次除法操作后，我们将索引加一。当大小小于1024时，索引指向`size`列表中适当前缀的位置。
+- en: 'On line 71, we use the string formatting function, `format`, to return our
+    float and prefix in the desired way. `{:.2f}` tells the format function that this
+    first argument is a float and we want to round up to two decimal places:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在第71行，我们使用字符串格式化函数`format`，以所需的方式返回浮点数和前缀。`{:.2f}`告诉格式化函数，第一个参数是浮点数，并且我们希望四舍五入到小数点后两位：
+- en: '[PRE50]'
+  id: totrans-188
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE50]'
+- en: As seen in the below screenshot, we can run our framework across a directory
+    and gather an output report for our review. In this case, we've run the code against
+    a folder containing an image with geolocation data.
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如下图所示，我们可以在目录中运行框架，并生成一个输出报告供我们审查。在这个例子中，我们对一个包含地理位置信息的图像文件夹运行了代码。
+- en: '![](img/4e8004b2-ac33-435a-bf1a-24dc6f68e422.png)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/4e8004b2-ac33-435a-bf1a-24dc6f68e422.png)'
+- en: Our output report is shown below, though we've wrapped the columns to ensure
+    it fits on one page.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的输出报告如下所示，尽管我们已将列进行换行，以确保其适合一页。
+- en: '![](img/373a91e2-6212-49e5-95ae-17f24e8612c5.png)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/373a91e2-6212-49e5-95ae-17f24e8612c5.png)'
+- en: 'Our script also generated KML output viewable in Google Earth as shown below:'
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的脚本还生成了可在 Google Earth 中查看的 KML 输出，如下所示：
+- en: '![](img/bed99712-e9ee-4794-b294-10ccb6d9864b.png)'
+  id: totrans-194
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bed99712-e9ee-4794-b294-10ccb6d9864b.png)'
+- en: Framework summary
+  id: totrans-195
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 框架总结
+- en: Frameworks are incredibly useful to organize multiple collections of scripts
+    under one roof, so to speak. There are challenges that come with frameworks; mainly
+    keeping standardized operations through the growth of the project. Our `metadata_parser.py`
+    framework is in its first iteration and, if we continue to develop it, we may
+    find that the current setup is only suitable on a smaller level.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 框架在组织多个脚本集合方面非常有用，可以将它们集中在一个地方。使用框架也会面临一些挑战，主要是在项目发展过程中保持标准化的操作。我们的 `metadata_parser.py`
+    框架处于第一版本，如果我们继续开发它，可能会发现当前的设置只适用于较小的规模。
+- en: For example, as we implement more and more features, we might realize that the
+    efficiency of our framework starts to lag. At that point, we would need to go
+    back to the drawing board and determine whether we're using the correct data type
+    or the best way to write our plugins and writers.
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，随着我们实现越来越多的功能，我们可能会意识到框架的效率开始下降。到那时，我们需要回到设计阶段，确定是否正在使用正确的数据类型，或者是否选择了最佳的方法来编写插件和编写器。
+- en: Additional challenges
+  id: totrans-198
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 额外挑战
+- en: We had difficulties deciding between two main challenges for this chapter. We
+    could add additional plugins or refine what currently exists. In actual development,
+    your time would be spent balancing these two objectives as the framework continues
+    to grow. For this chapter, we propose a recursive-based challenge.
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在决定本章的两个主要挑战之间遇到了困难。我们可以添加额外的插件，或者完善当前已存在的功能。在实际开发中，您的时间将花费在平衡这两个目标上，随着框架的不断发展。对于本章，我们提出了一个基于递归的挑战。
+- en: Remember that, while explaining the post Office 2007 format of documents, we
+    determined that attached media is stored in the media subdirectory of the document.
+    In its current incarnation, when an Office document is encountered, that media
+    subdirectory, which might have copies of files containing embedded metadata themselves,
+    isn't processed. The challenge here is to add the newly discovered files to the
+    current file listing.
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请记住，在解释 Office 2007 文档格式时，我们曾确定附加的媒体文件存储在文档的媒体子目录中。在当前版本中，当遇到一个 Office 文档时，那个媒体子目录（它可能包含嵌入的元数据文件的副本）不会被处理。这里的挑战是将新发现的文件添加到当前的文件列表中。
+- en: We might do that by returning a list of newly discovered files back to `metadata_parser.py`.
+    Another route might be to check the file extensions in the `office_parser.py`
+    script and pass them immediately onto the appropriate plugins. The latter method
+    would be easier to implement but not ideal as it removes some of the control from
+    the `metadata_parser.py` script. Ultimately, it's up to the developer to determine
+    the most efficient and logical method of completing this challenge.
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可能通过将新发现的文件列表返回到 `metadata_parser.py` 来解决这个问题。另一种方法是在 `office_parser.py` 脚本中检查文件扩展名，并立即将它们传递给适当的插件。后者方法虽然更容易实现，但并不理想，因为它从
+    `metadata_parser.py` 脚本中移除了一些控制权。最终，开发人员需要确定完成此挑战的最有效和最合理的方法。
+- en: Beyond this, some other efficiency achievements can be made. For example, we
+    don't need to return the headers for the plugin each and every time the plugin
+    is called. Since the headers will always be the same, we only need to have them
+    created/returned once. Alternatively, this framework is limited by the types of
+    writers it supports. Consider adding a writer for Excel spreadsheets to create
+    more useful reports.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除此之外，还可以取得一些其他的效率成就。例如，我们不需要每次调用插件时都返回插件的头信息。由于头信息始终相同，我们只需要创建/返回一次即可。或者，该框架受到它支持的编写器类型的限制。可以考虑为
+    Excel 电子表格添加一个编写器，以创建更有用的报告。
+- en: Summary
+  id: totrans-203
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned how to handle some of the popular embedded metadata
+    formats, perform basic file signature analysis, and create frameworks in Python.
+    Frameworks become a normal programming solution as programs increase in complexity.
+    The code for this project can be downloaded from GitHub or Packt, as described
+    in the *Preface*.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何处理一些流行的嵌入式元数据格式，执行基本的文件签名分析，并在 Python 中创建框架。随着程序复杂性的增加，框架成为一种常见的编程解决方案。这个项目的代码可以从
+    GitHub 或 Packt 下载，如在*前言*中所述。
+- en: In the next chapter, you'll learn how to develop a basic graphical user interface,
+    or GUI, in Python using the first-party TkInter module. This GUI will be responsible
+    for converting timestamps of various types into a human-readable format.
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下一章中，你将学习如何使用 Python 中的 TkInter 模块开发一个基本的图形用户界面（GUI）。这个 GUI 将负责将各种类型的时间戳转换为人类可读的格式。

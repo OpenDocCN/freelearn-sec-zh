@@ -1,0 +1,1274 @@
+- en: '11'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '11'
+- en: Artifact, Malware, and Ransomware Analysis
+  id: totrans-1
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 痕迹、恶意软件和勒索软件分析
+- en: In this chapter, we’ll cover several different tools to uncover various digital
+    artifacts, malware, and ransomware, some of which reside in RAM and the swap file,
+    which, as we learned in the previous chapter, can be quite useful in our DFIR
+    investigations.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍几种不同的工具，用于揭示各种数字痕迹、恶意软件和勒索软件，其中一些驻留在RAM和交换文件中，正如我们在上一章中学到的，这在DFIR调查中非常有用。
+- en: To start things off, we will look into artifact analysis using tools such as
+    p0f to identify devices and operating systems, use swap_digger for swap file analysis,
+    and then use MimiPenguin for password dumping. Following this, we will dive into
+    malware analysis using pdf-parser and PDFiD for PDF malware analysis, use Hybrid
+    Analysis for malicious file analysis, and then end things off by using Volatility
+    3 for ransomware analysis.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 首先，我们将探讨使用像p0f这样的工具进行痕迹分析，以识别设备和操作系统，使用swap_digger进行交换文件分析，然后使用MimiPenguin进行密码转储。接下来，我们将深入了解使用pdf-parser和PDFiD进行PDF恶意软件分析，使用混合分析进行恶意文件分析，最后通过使用Volatility
+    3进行勒索软件分析来结束。
+- en: 'The following topics will be covered in this chapter:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将涵盖以下主题：
+- en: Identifying devices and operating systems with p0f
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用p0f识别设备和操作系统
+- en: Looking at the swap_digger tool to explore Linux artifacts
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 查看swap_digger工具以探索Linux痕迹
+- en: Password dumping with MimiPenguin
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用MimiPenguin进行密码转储
+- en: PDF malware analysis
+  id: totrans-8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PDF恶意软件分析
+- en: Using Hybrid Analysis for malicious file analysis
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用混合分析进行恶意文件分析
+- en: Ransomware analysis using Volatility 3
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用Volatility 3进行勒索软件分析
+- en: Identifying devices and operating systems with p0f
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用p0f识别设备和操作系统
+- en: Let’s get started with **p0f**. p0f is a small tool that can be used to passively
+    scan and detect operating systems within a network. This scanning tool is considered
+    passive because it does not send data to other hosts apart from **Synchronize**
+    (**SYN**) packets. This is very useful when trying to quietly collect information
+    about other hosts on a network in DFIR investigations.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从**p0f**开始。p0f是一个小工具，可以用于被动扫描和检测网络中的操作系统。此扫描工具被认为是被动的，因为它不会向其他主机发送数据，除非**同步**（**SYN**）数据包。这在DFIR调查中静默收集其他主机信息时非常有用。
+- en: 'Let’s look at how to install and use p0f to detect other host operating systems
+    on the network:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看看如何安装并使用p0f来检测网络上的其他主机操作系统：
+- en: Depending on the version of Kali you are running (2019.3 – 2023.1), you can
+    run the **p0f –h** command to determine whether it is preinstalled. If not, Kali
+    will ask whether you would like to install it. Press *y* to accept and install
+    it, as seen in the following screenshot.
+  id: totrans-14
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 根据您运行的Kali版本（2019.3 – 2023.1），您可以运行**p0f –h**命令以确定是否已预安装该工具。如果没有，Kali会询问您是否要安装它。按*y*接受并安装，如以下截图所示。
+- en: '![Figure 11.1 – Installing p0f in Kali](image/Figure_11.01_B19441.jpg)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.1 – 在Kali中安装p0f](image/Figure_11.01_B19441.jpg)'
+- en: Figure 11.1 – Installing p0f in Kali
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.1 – 在Kali中安装p0f
+- en: Run the **p0f –h** command again after installation. This displays the network
+    interface options, operating mode, output settings, and performance-related options.
+  id: totrans-17
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 安装后再次运行**p0f –h**命令。此命令将显示网络接口选项、操作模式、输出设置和性能相关选项。
+- en: '![Figure 11.2 – p0f usage options](image/Figure_11.02_B19441.jpg)'
+  id: totrans-18
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.2 – p0f 使用选项](image/Figure_11.02_B19441.jpg)'
+- en: Figure 11.2 – p0f usage options
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.2 – p0f 使用选项
+- en: 'Once the installation is verified, you may specify an interface if you know
+    which one you would like to use. Check your network interfaces by typing the following:'
+  id: totrans-20
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦确认安装，您可以指定要使用的接口（如果您知道选择哪个接口）。通过输入以下命令来检查您的网络接口：
+- en: '[PRE0]'
+  id: totrans-21
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: The following screenshot shows the output of the preceding **ifconfig** command.
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前面提到的**ifconfig**命令的输出。
+- en: '![Figure 11.3 – ipconfig command output](image/Figure_11.03_B19441.jpg)'
+  id: totrans-23
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.3 – ipconfig命令输出](image/Figure_11.03_B19441.jpg)'
+- en: Figure 11.3 – ipconfig command output
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.3 – ipconfig命令输出
+- en: Note
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注意
+- en: You may also use the **p0f –L** command to list all the interfaces.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您还可以使用**p0f –L**命令列出所有接口。
+- en: 'The output in *Figure 11**.3* shows that I have two interfaces with **eth0**
+    being my Ethernet/LAN interface with an IP of **172.16.77.159** and a default
+    **127.0.0.1** loopback address. I’ll be using the **eth0** interface with **p0f**
+    by typing the following:'
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: '*图 11.3*中的输出显示我有两个接口，其中**eth0**是我的以太网/LAN接口，IP为**172.16.77.159**，默认**127.0.0.1**环回地址。我将使用**eth0**接口和**p0f**，通过输入以下命令：'
+- en: '[PRE1]'
+  id: totrans-28
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前面命令的输出。
+- en: '![Figure 11.4 – p0f eth0 output](image/Figure_11.04_B19441.jpg)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.4 – p0f eth0 输出](image/Figure_11.04_B19441.jpg)'
+- en: Figure 11.4 – p0f eth0 output
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.4 – p0f eth0 输出
+- en: This may take a short while to run, but in the following screenshot, we can
+    see that the output returns client details such as the IP address and operating
+    system.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可能需要一些时间来运行，但在以下截图中，我们可以看到输出返回了客户端的详细信息，如 IP 地址和操作系统。
+- en: '![Figure 11.5 – p0f result output](image/Figure_11.05_B19441.jpg)'
+  id: totrans-33
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.5 – p0f 结果输出](image/Figure_11.05_B19441.jpg)'
+- en: Figure 11.5 – p0f result output
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.5 – p0f 结果输出
+- en: Let’s go a bit further by opening a browser to detect what other hosts we may
+    be communicating with.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们进一步探索，通过打开浏览器检测我们可能正在与哪些其他主机进行通信。
+- en: Open the web browser in Kali and you’ll see the Terminal being populated with
+    more IP information. By default, the Firefox web browser’s home page carries us
+    to the Offensive Security site and so p0f shows information about the connections
+    and network hops to the server and information about the server.
+  id: totrans-36
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Kali 中打开 web 浏览器，你将看到终端窗口显示更多的 IP 信息。默认情况下，Firefox 浏览器的主页会将我们引导至 Offensive
+    Security 网站，因此 p0f 会显示关于连接和网络跳转到服务器的信息，以及关于服务器的信息。
+- en: 'Try browsing a site. I’ve opened [www.cfsi.co](http://www.cfsi.co) in the browser.
+    **p0f** updates the information in the terminal in real time and the first entry
+    displayed shows a SYN request from **172.16.77.159** (my Kali machine) to **185.230.60.211**
+    via port **80**. I can also see information about my Kali machine, such as the
+    operating system (**Linux 2.2-3.x**), as fingerprinted by p0f:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试浏览一个网站。我已经在浏览器中打开了 [www.cfsi.co](http://www.cfsi.co)。**p0f** 会实时更新终端中的信息，显示的第一条记录显示了来自
+    **172.16.77.159**（我的 Kali 机器）到 **185.230.60.211** 通过端口 **80** 的 SYN 请求。我还可以看到关于我的
+    Kali 机器的信息，比如操作系统（**Linux 2.2-3.x**），这是 p0f 识别出的指纹：
+- en: '![Figure 11.6 – Updated p0f output after browsing](image/Figure_11.06_B19441.jpg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.6 – 浏览后更新的 p0f 输出](image/Figure_11.06_B19441.jpg)'
+- en: Figure 11.6 – Updated p0f output after browsing
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.6 – 浏览后更新的 p0f 输出
+- en: 'Let’s get more information about the IP address **185.230.60.211**. In the
+    terminal window, click on **File** | **New Tab**. In the new tab, type the following:'
+  id: totrans-40
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们获取有关 IP 地址 **185.230.60.211** 的更多信息。在终端窗口中，点击 **文件** | **新建标签页**。在新标签页中，输入以下内容：
+- en: '[PRE2]'
+  id: totrans-41
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'In the following **whois** output, we can see that the IP points to **wix.com**,
+    which is the host for the [www.cfsi.co](http://www.cfsi.co) website:'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下 **whois** 输出中，我们可以看到该 IP 地址指向 **wix.com**，这是 [www.cfsi.co](http://www.cfsi.co)
+    网站的主机：
+- en: '![Figure 11.7 – whois output](image/Figure_11.07_B19441.jpg)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.7 – whois 输出](image/Figure_11.07_B19441.jpg)'
+- en: Figure 11.7 – whois output
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.7 – whois 输出
+- en: 'Scroll through the **p0f** output to see several other pieces of information,
+    including the uptime of the server and other IP addresses and hops along the way:'
+  id: totrans-45
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 滚动查看 **p0f** 输出，查看其他一些信息，包括服务器的正常运行时间及其他 IP 地址和中转节点：
+- en: '![Figure 11.8 – Additional p0f output](image/Figure_11.08_B19441.jpg)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.8 – 额外的 p0f 输出](image/Figure_11.08_B19441.jpg)'
+- en: Figure 11.8 – Additional p0f output
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.8 – 额外的 p0f 输出
+- en: Now that we’ve learned how to install and use p0f to detect other operating
+    systems that our device is communicating with, let’s move on to another tool called
+    **swap_digger** to explore Linux artifacts.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经学会了如何安装并使用 p0f 来检测我们的设备正在与哪些操作系统通信，接下来让我们了解另一个工具 **swap_digger**，用于探索
+    Linux 工件。
+- en: Looking at the swap_digger tool to explore Linux artifacts
+  id: totrans-49
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查看 swap_digger 工具以探索 Linux 工件
+- en: The **swap_digger** tool performs an automated analysis of the Linux swap file
+    and can retrieve artifacts such as system passwords, usernames, and form credentials,
+    and even Wi-Fi information such as SSIDs and perhaps even passwords if stored
+    in the swap file.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**swap_digger** 工具对 Linux 交换文件进行自动化分析，能够提取如系统密码、用户名、表单凭证等工件，甚至是 Wi-Fi 信息，如
+    SSID，甚至可能是存储在交换文件中的密码。'
+- en: Installing and using swap_digger
+  id: totrans-51
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装和使用 swap_digger
+- en: 'Follow these steps to install and use **swap_digger** for swap analysis:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按照以下步骤安装并使用 **swap_digger** 进行交换分析：
+- en: 'Change directories to the desktop in the terminal and clone **swap_digger**
+    to the desktop by typing the following:'
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在终端中切换到桌面目录，并通过输入以下命令将 **swap_digger** 克隆到桌面：
+- en: '[PRE3]'
+  id: totrans-54
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: The following screenshot shows the output of the preceding command for installing
+    swap_digger.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了安装 swap_digger 命令的输出。
+- en: '![Figure 11.9 – Installing swap_digger](image/Figure_11.09_B19441.jpg)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.9 – 安装 swap_digger](image/Figure_11.09_B19441.jpg)'
+- en: Figure 11.9 – Installing swap_digger
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.9 – 安装 swap_digger
+- en: 'Change to the **swap_digger** directory by typing **cd swap_digger** and type
+    the following command to ensure swap_digger will have the required access permissions:'
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **cd swap_digger** 切换到 **swap_digger** 目录，然后输入以下命令以确保 swap_digger 拥有所需的访问权限：
+- en: '[PRE4]'
+  id: totrans-59
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'To view all **swap_digger** usage options, type the following:'
+  id: totrans-60
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要查看所有 **swap_digger** 使用选项，输入以下命令：
+- en: '[PRE5]'
+  id: totrans-61
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图显示了前述命令的输出。
+- en: '![Figure 11.10 – swap_digger usage options](image/Figure_11.10_B19441.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.10 – swap_digger 使用选项](image/Figure_11.10_B19441.jpg)'
+- en: Figure 11.10 – swap_digger usage options
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.10 – swap_digger 使用选项
+- en: 'To try searching for passwords in the swap file, enter the following command:'
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 要尝试在交换文件中查找密码，输入以下命令：
+- en: '[PRE6]'
+  id: totrans-66
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图显示了前述命令的输出。
+- en: '![Figure 11.11 – Using swap_digger to find passwords](image/Figure_11.11_B19441.jpg)'
+  id: totrans-68
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.11 – 使用 swap_digger 查找密码](image/Figure_11.11_B19441.jpg)'
+- en: Figure 11.11 – Using swap_digger to find passwords
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.11 – 使用 swap_digger 查找密码
+- en: Feel free to try the other available options in **swap_digger** to discover
+    other artifacts within the swap file of your Linux system.
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 随时尝试 **swap_digger** 中的其他可用选项，发现 Linux 系统交换文件中的其他工件。
+- en: Next, let’s look at password dumping using the **MimiPenguin** tool.
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，让我们看看如何使用 **MimiPenguin** 工具进行密码转储。
+- en: Password dumping with MimiPenguin
+  id: totrans-72
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 MimiPenguin 进行密码转储
+- en: 'The **MimiPenguin** tool is based on the very popular password-cracking tool
+    called Mimikatz. Much like **swap_digger**, **MimiPenguin** can also retrieve
+    artifacts running in memory by dumping memory processes that may contain unencrypted
+    passwords in plaintext, as shown in the following steps:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**MimiPenguin** 工具基于非常流行的密码破解工具 Mimikatz。与 **swap_digger** 类似，**MimiPenguin**
+    也可以通过转储内存进程来检索在内存中运行的工件，这些工件可能包含未加密的明文密码，如以下步骤所示：'
+- en: 'Let’s start by changing to the **Desktop** folder from our current location,
+    and then clone **MimiPenguin** to the desktop by typing the following into a new
+    terminal:'
+  id: totrans-74
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，我们从当前位置切换到 **Desktop** 文件夹，然后在新的终端中输入以下命令，将 **MimiPenguin** 克隆到桌面：
+- en: '[PRE7]'
+  id: totrans-75
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: The following screenshot shows the output of the preceding command when installing
+    MimiPenguin.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图显示了安装 MimiPenguin 时前述命令的输出。
+- en: '![Figure 11.12 – Installing MimiPenguin](image/Figure_11.12_B19441.jpg)'
+  id: totrans-77
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.12 – 安装 MimiPenguin](image/Figure_11.12_B19441.jpg)'
+- en: Figure 11.12 – Installing MimiPenguin
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.12 – 安装 MimiPenguin
+- en: Change to the **mimipenguin** directory by typing **cd mimipenguin** and then
+    show the files within by typing **ls**.
+  id: totrans-79
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入 **cd mimipenguin** 切换到 **mimipenguin** 目录，然后输入 **ls** 显示其中的文件。
+- en: The following screenshot shows the output of the preceding **ls** command.
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下屏幕截图显示了前述 **ls** 命令的输出。
+- en: '![Figure 11.13 – Viewing contents of the mimipenguin folder](image/Figure_11.13_B19441.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.13 – 查看 mimipenguin 文件夹内容](image/Figure_11.13_B19441.jpg)'
+- en: Figure 11.13 – Viewing contents of the mimipenguin folder
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.13 – 查看 mimipenguin 文件夹内容
+- en: 'Run MimiPenguin by typing the following:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入以下命令运行 MimiPenguin：
+- en: '[PRE8]'
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'It may take a while for the password to be found. I’ve changed my password
+    to something very simple for the purpose of saving time:'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 可能需要一些时间才能找到密码。为了节省时间，我已经将密码更改为一个非常简单的密码：
+- en: '![Figure 11.14 – MimiPenguin output displaying the password](image/Figure_11.14_B19441.jpg)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.14 – MimiPenguin 输出显示密码](image/Figure_11.14_B19441.jpg)'
+- en: Figure 11.14 – MimiPenguin output displaying the password
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.14 – MimiPenguin 输出显示密码
+- en: Now that we’ve learned how to dump a password using MimiPenguin, let’s go even
+    deeper and manually analyze PDF documents for embedded malware.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经学会了如何使用 MimiPenguin 转储密码，让我们更进一步，手动分析 PDF 文档中的嵌入式恶意软件。
+- en: PDF malware analysis
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: PDF 恶意软件分析
+- en: In this section, we’ll have a look at PDF malware forensics and analysis. PDFs
+    are possibly the most common form of document when sharing information as many
+    people would rather open a PDF than an Office document, such as one in **.docx**
+    or **.xls** format, as they are more likely to contain macros and even viruses.
+    While PDFs are more trusted document types, it is still common to come across
+    some that have been infected with malware or contain hidden information.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一部分，我们将看看 PDF 恶意软件取证和分析。PDF 可能是最常见的共享信息文档格式，因为很多人宁愿打开 PDF 文件而不是 Office 文档，如
+    **.docx** 或 **.xls** 格式的文件，因为后者更可能包含宏甚至病毒。尽管 PDF 是更受信任的文档类型，但仍然常见一些被恶意软件感染或包含隐藏信息的文件。
+- en: Although we won’t be analyzing malicious PDFs as it may result in your system
+    becoming infected or experiencing some adverse effects, I will still introduce
+    you to a tool called **pdf-parser**, which can be used to inspect elements of
+    a PDF document and pinpoint malicious code and other suspect elements.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 虽然我们不会分析恶意 PDF 文件，因为这可能导致系统感染或出现不良后果，但我仍然会向你介绍一个叫做 **pdf-parser** 的工具，它可以用来检查
+    PDF 文档的元素并找出恶意代码和其他可疑元素。
+- en: This may be considered an advanced tool as people with programming experience
+    typically use it to identify shellcode, streams, and filters. However, even beginners
+    will be able to analyze the output and identify embedded executable (**.exe**)
+    files. There are several PDF malware samples roaming the web and on Twitter. However,
+    I urge you to not attempt to download these unless you are a professional and
+    are doing so in an isolated environment on a sandboxed machine that if infected
+    will not cause harm to your data or network.
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这可能被认为是一个高级工具，因为通常只有具有编程经验的人才会使用它来识别 shellcode、流和过滤器。然而，即使是初学者也能够分析输出结果并识别嵌入的可执行文件
+    (**.exe**) 文件。网络上和 Twitter 上有一些 PDF 恶意软件样本在流传，但我还是建议你不要尝试下载这些文件，除非你是专业人士，并且是在隔离环境下的沙盒机器上进行操作，确保如果感染，数据或网络不会受到损害。
+- en: 'Let’s get started with learning how to analyze PDF documents using pdf-parser:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们开始学习如何使用 pdf-parser 分析 PDF 文档：
+- en: 'Let’s first view the usage and available options of pdf-parser by typing the
+    following:'
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，让我们通过输入以下命令查看 pdf-parser 的使用方法和可用选项：
+- en: '[PRE9]'
+  id: totrans-95
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了前述命令的输出结果。
+- en: '![Figure 11.15 – pdf-parser usage options](image/Figure_11.15_B19441.jpg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.15 – pdf-parser 使用选项](image/Figure_11.15_B19441.jpg)'
+- en: Figure 11.15 – pdf-parser usage options
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.15 – pdf-parser 使用选项
+- en: 'Now, let’s look at the associated statistics of a test file created by Didier
+    Stevens ([https://blog.didierstevens.com/about/](https://blog.didierstevens.com/about/)),
+    which I’ve renamed **testpdf.pdf** and saved to my desktop. We can analyze this
+    file to determine whether it contains any embedded code or hidden malware by typing
+    the following command:'
+  id: totrans-99
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 接下来，让我们查看 Didier Stevens（[https://blog.didierstevens.com/about/](https://blog.didierstevens.com/about/)）创建的测试文件的相关统计信息，我将该文件重命名为
+    **testpdf.pdf** 并保存在桌面上。我们可以通过输入以下命令分析这个文件，判断它是否包含嵌入代码或隐藏的恶意软件：
+- en: '[PRE10]'
+  id: totrans-100
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: In the following screenshot, we can see that there is in fact an embedded file,
+    which could also be a JavaScript file.
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，我们可以看到，实际上确实有一个嵌入文件，这个文件也可能是一个 JavaScript 文件。
+- en: '![Figure 11.16 – pdf-parser results](image/Figure_11.16_B19441.jpg)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.16 – pdf-parser 结果](image/Figure_11.16_B19441.jpg)'
+- en: Figure 11.16 – pdf-parser results
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.16 – pdf-parser 结果
+- en: 'Let’s apply filters using the **-f** option to dig a bit deeper and see whether
+    **pdf-parser** can identify the embedded file using the following options:'
+  id: totrans-104
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们使用 **-f** 选项应用过滤器，深入挖掘，看看 **pdf-parser** 是否能够识别嵌入的文件，使用以下选项：
+- en: '[PRE11]'
+  id: totrans-105
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: In the following screenshot, we have confirmation that it is an embedded file.
+    This file is a Word document called **eicar-dropper.doc**, which was embedded
+    within the PDF file.
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，我们可以确认这确实是一个嵌入文件。这个文件是一个名为 **eicar-dropper.doc** 的 Word 文档，它被嵌入在 PDF
+    文件中。
+- en: '![Figure 11.17 – Embedded file discovered by pdf-parser](image/Figure_11.17_B19441.jpg)'
+  id: totrans-107
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.17 – pdf-parser 发现的嵌入文件](image/Figure_11.17_B19441.jpg)'
+- en: Figure 11.17 – Embedded file discovered by pdf-parser
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.17 – pdf-parser 发现的嵌入文件
+- en: 'We can also confirm the presence of a JavaScript file by using the PDFiD tool,
+    running the following command:'
+  id: totrans-109
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们也可以通过使用 PDFiD 工具确认 JavaScript 文件的存在，运行以下命令：
+- en: '[PRE12]'
+  id: totrans-110
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图展示了前述命令的输出结果。
+- en: '![Figure 11.18 – Discovering embedded files using PDFiD](image/Figure_11.18_B19441.jpg)'
+  id: totrans-112
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.18 – 使用 PDFiD 发现嵌入文件](image/Figure_11.18_B19441.jpg)'
+- en: Figure 11.18 – Discovering embedded files using PDFiD
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.18 – 使用 PDFiD 发现嵌入文件
+- en: Now that we have learned how to manually inspect and analyze a PDF file that
+    may contain malware, let’s look at an online tool for automated malware analysis.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经学习了如何手动检查和分析可能包含恶意软件的 PDF 文件，接下来让我们看一下一个在线工具，用于自动化恶意软件分析。
+- en: Using Hybrid Analysis for malicious file analysis
+  id: totrans-115
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Hybrid Analysis 进行恶意文件分析
+- en: You can also use an online tool such as **Hybrid Analysis** ([https://www.hybrid-analysis.com/](https://www.hybrid-analysis.com/))
+    to analyze suspicious files of all types. If you suspect that a link or URL may
+    be suspicious within an email, you can also paste the link into this site for
+    analysis.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你也可以使用像**Hybrid Analysis**这样的在线工具([https://www.hybrid-analysis.com/](https://www.hybrid-analysis.com/))来分析各种类型的可疑文件。如果你怀疑某个电子邮件中的链接或
+    URL 可能存在问题，你也可以将链接粘贴到该网站进行分析。
+- en: As an example, I’ll use the very same **testpdf.pdf** file that I analyzed using
+    **pdf-parse** and **PDFiD** in the previous section. I’ll first visit the [https://www.hybrid-analysis.com](https://www.hybrid-analysis.com)
+    website and drag the suspect file into the upload area and click on **Analyze**,
+    as seen in the following screenshot.
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为示例，我将使用我在前一节中分析过的**testpdf.pdf**文件，这个文件是通过**pdf-parse**和**PDFiD**分析的。我将首先访问[https://www.hybrid-analysis.com](https://www.hybrid-analysis.com)网站，然后将可疑文件拖到上传区域并点击**Analyze**，如下面的截图所示。
+- en: '![Figure 11.19 – hybrid-analysis.com website](image/Figure_11.19_B19441.jpg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.19 – hybrid-analysis.com 网站](image/Figure_11.19_B19441.jpg)'
+- en: Figure 11.19 – hybrid-analysis.com website
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.19 – hybrid-analysis.com 网站
+- en: 'After submitting the PDF file, the results show the file to be possibly malicious,
+    as seen in the following screenshot:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 提交 PDF 文件后，结果显示该文件可能是恶意的，如下截图所示：
+- en: '![Figure 11.20 – hybrid-analysis.com file analysis and results](image/Figure_11.20_B19441.jpg)'
+  id: totrans-121
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.20 – hybrid-analysis.com 文件分析和结果](image/Figure_11.20_B19441.jpg)'
+- en: Figure 11.20 – hybrid-analysis.com file analysis and results
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.20 – hybrid-analysis.com 文件分析和结果
+- en: 'The details on the file’s unusual characteristics and suspicious indicators
+    are also provided, as displayed in the following screenshot:'
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 文件的异常特征和可疑指示符的详细信息也已提供，如下截图所示：
+- en: '![Figure 11.21 – hybrid-analysis.com results page displaying a malicious indicator](image/Figure_11.21_B19441.jpg)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.21 – hybrid-analysis.com 结果页面显示恶意指示符](image/Figure_11.21_B19441.jpg)'
+- en: Figure 11.21 – hybrid-analysis.com results page displaying a malicious indicator
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.21 – hybrid-analysis.com 结果页面显示恶意指示符
+- en: I hope you had fun learning about PDF and document malware forensics and analysis.
+    For our last tool, we will revisit Volatility 3 to perform ransomware analysis.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我希望你在学习 PDF 和文档恶意软件取证与分析方面玩得开心。对于我们的最后一个工具，我们将再次回顾 Volatility 3 来进行勒索软件分析。
+- en: Ransomware analysis using Volatility 3
+  id: totrans-127
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Volatility 3 进行勒索软件分析
+- en: For our last section, let’s revisit the very powerful RAM analysis tool called
+    Volatility 3, which we covered in [*Chapter 10*](B19441_10.xhtml#_idTextAnchor191),
+    *Memory Forensics and Analysis with Volatility 3*. Feel free to take a moment
+    to review that chapter before moving ahead.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们最后一节中，让我们回顾一下非常强大的 RAM 分析工具 Volatility 3，这个工具我们在[*第10章*](B19441_10.xhtml#_idTextAnchor191)《使用
+    Volatility 3 进行内存取证与分析》中有讲解。在继续之前，可以花点时间复习一下那一章。
+- en: In this lab, we’ll be using a memory dump called **wcry.raw**, which contains
+    information about a WannaCry ransomware infection on a Windows system. We will
+    be analyzing it using a variety of Volatility 3 plugins.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个实验中，我们将使用一个名为**wcry.raw**的内存转储文件，里面包含关于 Windows 系统中 WannaCry 勒索软件感染的信息。我们将使用多种
+    Volatility 3 插件对其进行分析。
+- en: 'Let’s first download and extract our sample memory dump, which we will later
+    move to our Volatility installation folder for analysis:'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们首先下载并解压样本内存转储，稍后我们将其移到 Volatility 安装文件夹中进行分析：
+- en: The WannaCry memory dump file can be downloaded from [https://mega.nz/file/7Z1ySZBT#KX5ZJKYzQgDHSa72lPFwqKL6CsZS7oQGbyyQrMTH9XY](https://mega.nz/file/7Z1ySZBT#KX5ZJKYzQgDHSa72lPFwqKL6CsZS7oQGbyyQrMTH9XY).
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: WannaCry 内存转储文件可以从[https://mega.nz/file/7Z1ySZBT#KX5ZJKYzQgDHSa72lPFwqKL6CsZS7oQGbyyQrMTH9XY](https://mega.nz/file/7Z1ySZBT#KX5ZJKYzQgDHSa72lPFwqKL6CsZS7oQGbyyQrMTH9XY)下载。
+- en: I’ve downloaded the WannaCry memory dump file to my **Downloads** folder, which
+    is named **wannacry** **pw- infected.7z**.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我已将 WannaCry 内存转储文件下载到我的**Downloads**文件夹中，文件名为**wannacry pw- infected.7z**。
+- en: To extract the file, right-click on the **.7z** file and click on **Extract
+    Here** as you have done with previously downloaded files.
+  id: totrans-133
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了解压文件，右键点击**.7z**文件，并像之前下载的文件那样点击**Extract Here**。
+- en: The file is password protected and you will have to type the word **infected**
+    when prompted for the password. Once extracted, you should now have a folder within
+    your **Downloads** folder called **wannacry pw- infected**. Double-click on the
+    folder and you should see the **wcry.raw** memory dump file.
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 文件是加密保护的，当系统提示输入密码时，你需要输入**infected**这个词。解压后，你应该会在**Downloads**文件夹中看到一个名为**wannacry
+    pw- infected**的文件夹。双击该文件夹，你应该可以看到**wcry.raw**内存转储文件。
+- en: Before we begin the analysis of our downloaded **wcry.raw** sample memory dump
+    file, let’s copy the file from its current **wannacry pw- infected** directory
+    and paste it into the **volatility3** folder, which we used in [*Chapter 5*](B19441_05.xhtml#_idTextAnchor085),
+    *Installing Wine in Kali Linux*, for analysis of the **cridex.vmem** memory dump.
+    This again makes access to our memory dump file easier by not having to specify
+    a lengthy path to the file each time we need to use a different plugin.
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在我们开始分析下载的**wcry.raw**样本内存转储文件之前，先将文件从当前的**wannacry pw- infected**目录复制并粘贴到我们在[*第5章*](B19441_05.xhtml#_idTextAnchor085)中使用过的**volatility3**文件夹中，分析**cridex.vmem**内存转储。这么做使得访问内存转储文件更为简便，无需每次使用不同插件时都指定一个冗长的文件路径。
+- en: 'To ensure all our Volatility 3 files and **wcry.raw** files are in the correct
+    folder, let’s open a new terminal and change directories to our **volatility3**
+    folder, and then issue the **ls** command, as seen in the following screenshot:'
+  id: totrans-136
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为确保我们的Volatility 3文件和**wcry.raw**文件都在正确的文件夹中，让我们打开一个新终端并切换目录到我们的**volatility3**文件夹，然后执行**ls**命令，如下截图所示：
+- en: '![Figure 11.22 – Contents of the volatility3 directory](image/Figure_11.22_B19441.jpg)'
+  id: totrans-137
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.22 – volatility3目录的内容](image/Figure_11.22_B19441.jpg)'
+- en: Figure 11.22 – Contents of the volatility3 directory
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.22 – volatility3目录的内容
+- en: 'Now for the exciting part. Let’s do some ransomware DFIR analysis using Volatility
+    3 and see what we can find:'
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在进入激动人心的部分。让我们使用Volatility 3进行一些勒索软件DFIR分析，看看能找到什么：
+- en: 'Let’s find out what operating system was running on the system by using the
+    **info** plugin:'
+  id: totrans-140
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们使用**info**插件找出系统运行的操作系统：
+- en: '[PRE13]'
+  id: totrans-141
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前面命令的输出结果。
+- en: '![Figure 11.23 – Volatility 3 info plugin output](image/Figure_11.23_B19441.jpg)'
+  id: totrans-143
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.23 – Volatility 3 info插件输出](image/Figure_11.23_B19441.jpg)'
+- en: Figure 11.23 – Volatility 3 info plugin output
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.23 – Volatility 3 info插件输出
+- en: The output for the **info** plugin is lengthy; however, I’ve included a snippet
+    of the output as follows, where we can see that this memory dump was taken from
+    a Windows XP Service Pack 3 machine.
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**info**插件的输出很长；不过，我已将输出的一部分列出，如下所示，可以看到该内存转储文件来自一台Windows XP Service Pack
+    3机器。'
+- en: '![Figure 11.24 – info plugin snippet](image/Figure_11.24_B19441.jpg)'
+  id: totrans-146
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.24 – info插件输出片段](image/Figure_11.24_B19441.jpg)'
+- en: Figure 11.24 – info plugin snippet
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.24 – info插件输出片段
+- en: As done in the previous chapter, let’s again do some process identification
+    and analysis using the **pslist**, **pstree**, and **psscan** plugins individually.
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前一章所做的那样，让我们再次使用**pslist**、**pstree**和**psscan**插件分别进行一些进程识别与分析。
+- en: The pslist plugin
+  id: totrans-149
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: pslist插件
+- en: 'Let’s get the list of all running processes, using the **pslist** plugin:'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用**pslist**插件获取所有正在运行的进程列表：
+- en: '[PRE14]'
+  id: totrans-151
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'In the following screenshot, we can see the **System**, **smss**, **csrss**,
+    **winlogon.exe**, **services.exe**, **lsass.exe**, **svchost.exe**, and **explorer.exe**
+    services were all started first and then followed by a few others:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，我们可以看到**System**、**smss**、**csrss**、**winlogon.exe**、**services.exe**、**lsass.exe**、**svchost.exe**和**explorer.exe**服务首先被启动，然后是其他一些服务：
+- en: '![Figure 11.25 – plslist plugin output](image/Figure_11.25_B19441.jpg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.25 – pslist插件输出](image/Figure_11.25_B19441.jpg)'
+- en: Figure 11.25 – plslist plugin output
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.25 – pslist插件输出
+- en: 'Immediately, just using the **pslist** plugin, we can see a suspicious entry
+    (fourth from last) called **@WanaDecryptor@** with a PID of **740** and a PPID
+    of **1940**. To make things easy, I’ve included a snippet of the entry as follows:'
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 立即使用**pslist**插件，我们可以看到一个可疑条目（倒数第四个）叫做**@WanaDecryptor@**，它的PID是**740**，PPID是**1940**。为了方便，我将该条目的片段列出如下：
+- en: '![Figure 11.26 – Snippet of the pslist plugin showing the @WanaDecryptor@ process](image/Figure_11.26_B19441.jpg)'
+  id: totrans-156
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.26 – pslist插件输出片段，显示@WanaDecryptor@进程](image/Figure_11.26_B19441.jpg)'
+- en: Figure 11.26 – Snippet of the pslist plugin showing the @WanaDecryptor@ process
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.26 – pslist插件输出片段，显示@WanaDecryptor@进程
+- en: Looking at the **pslist** output, we can see that the **winlogon.exe** process
+    in *Figure 11**.25* has a PID of **620** and a PPID of **348**. The PPIDs of the
+    **services.exe** and **lsass.exe** processes (directly after the **winlogon.exe**
+    process) are both **620**, indicating that **winlogon.exe** is in fact the PPID
+    for both **services.exe** and **lsass.exe**.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查看**pslist**输出后，我们可以看到**winlogon.exe**进程（图11**.25**）的PID为**620**，PPID为**348**。**services.exe**和**lsass.exe**进程（紧接在**winlogon.exe**进程后）的PPID都是**620**，这表明**winlogon.exe**实际上是**services.exe**和**lsass.exe**的PPID。
+- en: We can also tell that **explorer.exe** with a PID of **1636** is the PPID of
+    **tasksche.exe** and **ctfmon.exe**.
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还可以看到**explorer.exe**（PID为**1636**）是**tasksche.exe**和**ctfmon.exe**的父进程（PPID）。
+- en: Further down, we see that **tasksche.exe** (Task Scheduler) with a PID of **1940**
+    is the PPID of **@WanaDecryptor@**.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进一步查看，我们看到**tasksche.exe**（任务计划程序）PID为**1940**，是**@WanaDecryptor@**的父进程（PPID）。
+- en: 'Let’s view this a bit differently using the **pstree** plugin:'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们使用**pstree**插件以不同的方式查看这个问题：
+- en: '[PRE15]'
+  id: totrans-162
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'In the following screenshot, it is easier to see that **explorer.exe** is the
+    parent process of **ctfmon**, **tasksche**, and **@WanaDecryptor@**:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下截图中，我们更容易看到**explorer.exe**是**ctfmon**、**tasksche**和**@WanaDecryptor@**的父进程：
+- en: '![Figure 11.27 – pstree plugin output](image/Figure_11.27_B19441.jpg)'
+  id: totrans-164
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.27 – pstree插件输出](image/Figure_11.27_B19441.jpg)'
+- en: Figure 11.27 – pstree plugin output
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.27 – pstree插件输出
+- en: 'Let’s now use the **psscan** plugin to display processes that can be used by
+    malware, such as rootkits, and are well known for doing just that to evade discovery
+    by users and antivirus programs:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们现在使用**psscan**插件来显示恶意软件可以使用的进程，例如rootkit，这些进程通常用来逃避用户和杀毒程序的发现：
+- en: '[PRE16]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前一个命令的输出。
+- en: '![Figure 11.28 – psscan plugin output](image/Figure_11.28_B19441.jpg)'
+  id: totrans-169
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.28 – psscan插件输出](image/Figure_11.28_B19441.jpg)'
+- en: Figure 11.28 – psscan plugin output
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.28 – psscan插件输出
+- en: The output of both the **pslist** and **psscan** commands should be compared
+    to note similarities.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**pslist**和**psscan**命令的输出应进行比较，以注意它们的相似之处。'
+- en: 'Let’s run the **cmdline** plugin to map and view the paths to processes and
+    executables:'
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们运行**cmdline**插件来映射并查看进程和可执行文件的路径：
+- en: '[PRE17]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'In the following screenshot, we can now be certain that there is an **@WanaDecryptor@**
+    executable on the system that was executed at some point by a user:'
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下图中，我们现在可以确认系统上有一个**@WanaDecryptor@**可执行文件，且某个时刻已被用户执行：
+- en: '![Figure 11.29 – cmdline plugin output](image/Figure_11.29_B19441.jpg)'
+  id: totrans-175
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.29 – cmdline插件输出](image/Figure_11.29_B19441.jpg)'
+- en: Figure 11.29 – cmdline plugin output
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.29 – cmdline插件输出
+- en: 'Let’s attempt to find more information on **@WanaDecryptor@.exe** to map the
+    infection to a user using the **envars** plugin:'
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们尝试使用**envars**插件查找更多关于**@WanaDecryptor@.exe**的信息，以将感染与用户关联：
+- en: '[PRE18]'
+  id: totrans-178
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: The following screenshot shows the output of the preceding command.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前一个命令的输出。
+- en: '![Figure 11.30 – envars plugin output](image/Figure_11.30_B19441.jpg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.30 – envars插件输出](image/Figure_11.30_B19441.jpg)'
+- en: Figure 11.30 – envars plugin output
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.30 – envars插件输出
+- en: 'The **envars** plugin is lengthy, so I’ve scrolled down and taken a snippet
+    of the **@WanaDecryptor@** processes in the following screenshot:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '**envars**插件输出较长，因此我已经向下滚动并截取了以下截图中的**@WanaDecryptor@**进程：'
+- en: '![Figure 11.31 – Additional envars plugin output](image/Figure_11.31_B19441.jpg)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.31 – 额外的envars插件输出](image/Figure_11.31_B19441.jpg)'
+- en: Figure 11.31 – Additional envars plugin output
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.31 – 额外的envars插件输出
+- en: In the **envars** output in *Figure 11**.31*, we’ve found some very useful information.
+    We can now tell that the user Donny’s files have been infected with **WannaCry**/
+    **@WanaDecryptor@**, and we know all paths of infection.
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在**envars**输出的*图11.31*中，我们发现了一些非常有用的信息。现在我们可以确定用户Donny的文件已被**WannaCry**/**@WanaDecryptor@**感染，并且我们知道所有感染路径。
+- en: 'Let’s now use the **getsids** plugins to view the privileges of the processes:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们使用**getsids**插件查看进程的权限：
+- en: '[PRE19]'
+  id: totrans-187
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'The following screenshot shows the output of the **getsids** plugin command:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了**getsids**插件命令的输出：
+- en: '![Figure 11.32 – getsids plugin output](image/Figure_11.32_B19441.jpg)'
+  id: totrans-189
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.32 – getsids插件输出](image/Figure_11.32_B19441.jpg)'
+- en: Figure 11.32 – getsids plugin output
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.32 – getsids插件输出
+- en: If we scroll down a bit, we can see that the **@WanaDecryptor@** process with
+    a PID of **740** has local and administrator user privileges.
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们向下滚动一点，就能看到**@WanaDecryptor@**进程（PID为**740**）具有本地用户和管理员权限。
+- en: '![Figure 11.33 – getsids plugin output continued](image/Figure_11.33_B19441.jpg)'
+  id: totrans-192
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.33 – getsids插件输出继续](image/Figure_11.33_B19441.jpg)'
+- en: Figure 11.33 – getsids plugin output continued
+  id: totrans-193
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图11.33 – getsids插件输出继续
+- en: 'Let’s verify this by running the **privileges** plugin to see what access **@****WanaDecryptor@**
+    has:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过运行**privileges**插件来验证这一点，查看**@WanaDecryptor@**的访问权限：
+- en: '[PRE20]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: As seen previously, the **@WanaDecryptor@** process can perform several tasks
+    and may also have read/write access.
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前所述，**@WanaDecryptor@**进程可以执行多个任务，可能还具有读/写访问权限。
+- en: '![Figure 11.34 – Additional privileges plugin output](image/Figure_11.34_B19441.jpg)'
+  id: totrans-197
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图11.34 – 额外的权限插件输出](image/Figure_11.34_B19441.jpg)'
+- en: Figure 11.34 – Additional privileges plugin output
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.34 – 额外权限插件输出
+- en: 'We can confirm this and also find specific instances of the **@WanaDecryptor@**
+    malware using the **malfind** plugin, which will also pinpoint other processes,
+    such as **winlogon**, that may be compromised:'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以确认这一点，并且通过使用**@WanaDecryptor@**恶意软件的**malfind**插件找到具体的实例，该插件还会指出其他可能已被入侵的进程，如**winlogon**：
+- en: '[PRE21]'
+  id: totrans-200
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'The following screenshot shows the output of the preceding command:'
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下截图显示了前述命令的输出：
+- en: '![Figure 11.35 – malfind plugin output](image/Figure_11.35_B19441.jpg)'
+  id: totrans-202
+  prefs: []
+  type: TYPE_IMG
+  zh: '![图 11.35 – malfind 插件输出](image/Figure_11.35_B19441.jpg)'
+- en: Figure 11.35 – malfind plugin output
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 11.35 – malfind 插件输出
+- en: I hope you enjoyed analyzing and finding the WannaCry ransomware using Volatility.
+    It involves a lot of work, but with a little practice, you can easily master this
+    very important DFIR tool.
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望你喜欢使用 Volatility 分析并发现 WannaCry 勒索病毒。这确实需要很多工作，但只要稍加练习，你就能轻松掌握这一非常重要的 DFIR
+    工具。
+- en: Summary
+  id: totrans-205
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 小结
+- en: This was certainly an intense chapter! We learned how to detect running processes
+    and connections using **p0f** and also did some investigation using **swap_digger**,
+    which revealed useful artifacts such as passwords within the paging file of a
+    live Linux system. We then also used **MimiPenguin** to try dumping the current
+    password of the system.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这一章真是紧张刺激！我们学习了如何使用**p0f**检测正在运行的进程和连接，并且还使用**swap_digger**进行了调查，揭示了许多有用的文件碎片，比如在活动的
+    Linux 系统的分页文件中存储的密码。然后，我们还使用**MimiPenguin**尝试提取系统当前的密码。
+- en: We then moved on to the very exciting topic of malware analysis where we discovered
+    embedded malicious files within a PDF using **pdf-parser** and **PDFiD**, and
+    I also introduced you to an online tool at [hybrid-analysis.com](http://hybrid-analysis.com),
+    which I frequently use to analyze suspicious files and URLs.
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接着，我们进入了一个非常激动人心的话题——恶意软件分析，我们通过使用**pdf-parser**和**PDFiD**发现了嵌入在 PDF 文件中的恶意文件，我还向你介绍了一个我经常用来分析可疑文件和网址的在线工具，[hybrid-analysis.com](http://hybrid-analysis.com)。
+- en: Finally, we carried out an exciting lab, performing ransomware analysis using
+    the incredibly useful Volatility 3 tool, where we found processes belonging to
+    the WannaCry ransomware and, upon further analysis, were able to pinpoint the
+    infected user, paths, documents, and other processes.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，我们进行了一个令人兴奋的实验室，使用非常有用的 Volatility 3 工具进行勒索软件分析，发现了属于 WannaCry 勒索病毒的进程，并通过进一步分析，成功定位了被感染的用户、路径、文件和其他进程。
+- en: Next up, we will delve a bit more into automated file analysis using the Autopsy
+    browser within Kali Linux. See you in the next chapter!
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接下来，我们将深入探讨使用 Kali Linux 中的 Autopsy 浏览器进行自动化文件分析。下章见！

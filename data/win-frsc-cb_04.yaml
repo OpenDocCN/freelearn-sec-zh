@@ -1,0 +1,1117 @@
+- en: Windows File System Analysis
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows 文件系统分析
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将讨论以下步骤：
+- en: NTFS analysis with The Sleuth Kit
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 The Sleuth Kit 进行 NTFS 分析
+- en: Undeleting files from NTFS with Autopsy
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Autopsy 从 NTFS 恢复文件
+- en: Undeleting files from ReFS with ReclaiMe File Recovery
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 ReclaiMe 文件恢复从 ReFS 恢复文件
+- en: File carving with PhotoRec
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 PhotoRec 进行文件切割
+- en: Introduction
+  id: totrans-6
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 引言
+- en: As mentioned in the introductory section, Windows machines run on NTFS (**New
+    Technology File System**).
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如前言部分所述，Windows 机器使用 NTFS（**新技术文件系统**）。
+- en: Using the tools that we will discuss in this chapter, you will be able to uncover
+    information not only about the files, but also about the layout of the disk itself,
+    including deleted files and unallocated space. This can be of the utmost importance
+    in a forensic investigation, particularly in cases where a user may have tried
+    to cover up their actions using anti-forensic methods.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用我们将在本章讨论的工具，你不仅能揭示文件信息，还能了解磁盘布局，包括已删除的文件和未分配的空间。在法医调查中，这可能至关重要，尤其是在用户可能尝试使用反取证方法掩盖其行为的情况下。
+- en: Some tools allow you to undelete files as well, thus restoring them, in whole
+    or in part, to how they looked before they were deleted. This does, of course,
+    depend on the extent to which a file has been overwritten, however it can be a
+    useful way to find out about things a suspect doesn't want you to see.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一些工具还允许你恢复已删除的文件，恢复它们的完整或部分内容，就像它们被删除前的样子。这当然取决于文件被覆盖的程度，但它仍然是发现嫌疑人不希望你看到的内容的一个有用方法。
+- en: In cases where the metadata about the files has been deleted, file carving is
+    employed as a method of trying to recover the data within the files. This requires
+    several steps, most of which will be performed by your investigative tool set
+    of choice. Generally, it will begin by working out what type of file the item
+    was (usually by looking at the headers), and then building up fragments of the
+    file to form a more accurate picture of what used to be stored on the machine.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在文件的元数据被删除的情况下，文件切割被用作尝试恢复文件内数据的一种方法。这需要多个步骤，大部分步骤将由你选择的调查工具集来执行。通常，首先会通过查看文件头来确定文件类型，然后通过拼接文件碎片来构建出一个更准确的文件内容，重现原本存储在机器上的信息。
+- en: There are several solutions which deal with file system analysis, file carving,
+    and the undeleting of files. In this chapter, we will be looking specifically
+    at Autopsy, The Sleuth Kit, ReclaiMe, and PhotoRec.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有几种解决方案可以处理文件系统分析、文件切割以及文件恢复。在本章中，我们将重点讨论 Autopsy、The Sleuth Kit、ReclaiMe 和
+    PhotoRec。
+- en: NTFS Analysis with The Sleuth Kit
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 The Sleuth Kit 进行 NTFS 分析
+- en: 'The Sleuth Kit is a collection of command-line tools (and also a library) for
+    the forensic analysis of drive images. These tools can help you with analysis
+    of both volume and file system data (in a non-intrusive fashion, of course). It''s
+    cross-platform, so you can use any operating system you like to work with this
+    toolkit. It supports both RAW and E01 images, so you can use any image that you
+    acquired while following the previous recipes. This collection of tools will be
+    very useful in your future digital forensic examinations: it supports a wide range
+    of file systems, including NTFS, FAT, ExFAT, EXT2, EXT3, EXT4, HFS, and so on.'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: The Sleuth Kit 是一组命令行工具（同时也包含一个库），用于磁盘映像的法医分析。这些工具可以帮助你分析卷和文件系统数据（当然是以非侵入性方式）。它是跨平台的，因此你可以使用任何操作系统来使用这个工具集。它支持
+    RAW 和 E01 格式的磁盘映像，因此你可以使用你在之前步骤中获取的任何映像。这些工具将在你未来的数字取证工作中非常有用：它支持多种文件系统，包括 NTFS、FAT、ExFAT、EXT2、EXT3、EXT4、HFS
+    等。
+- en: Getting ready
+  id: totrans-14
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'You can download Windows binaries from The Sleuth Kit''s official website.
+    Go to The Sleuth Kit section and click on the Download hyperlink. Now, click on
+    Windows Binaries and the downloading will start. At the time of writing, the most
+    recent version of The Sleuth Kit is 4.4.0, so the archive we downloaded has the
+    name: sleuthkit-4.4.0.tar.gz. So, now all you need to do is to unpack it and you
+    are ready to go.'
+  id: totrans-15
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以从 The Sleuth Kit 的官方网站下载 Windows 二进制文件。进入 The Sleuth Kit 部分，点击下载超链接。然后点击
+    Windows Binaries，下载将开始。目前为止，The Sleuth Kit 的最新版本是 4.4.0，因此我们下载的归档文件名为：sleuthkit-4.4.0.tar.gz。现在，你只需要解压它，就可以开始使用了。
+- en: How to do it...
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'Open Windows Command Prompt and change the directory to **bin** (you can find
+    it in the folder where you unpacked the archive you downloaded). Let''s start
+    from the Media Management Layer Tools:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 打开Windows命令提示符并切换到**bin**目录（你可以在你解压下载的文件夹中找到它）。让我们从媒体管理层工具开始：
+- en: 'The first thing you should do is to figure out which system volume type you
+    have. Of course, there is a tool for this in The Sleuth Kit. It''s called `mmstat`.
+    Let''s use it on one of the images we acquired in the previous recipes:'
+  id: totrans-18
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你应该做的第一件事是弄清楚你的系统卷类型。当然，Sleuth Kit中有一个工具可以做到这一点，叫做`mmstat`。我们来在之前获取的一个镜像上使用它：
+- en: '[PRE0]'
+  id: totrans-19
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '![](img/4e34db5a-4573-4c53-9cb3-689e751425d4.png)*Figure 4.1\. mmstat output*'
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/4e34db5a-4573-4c53-9cb3-689e751425d4.png)*图4.1\. mmstat 输出*'
+- en: 'We now know the system volume type and are ready to use the next tool `mmls`.
+    This tool can help an examiner to determine the layout of a disk, including the
+    unallocated space. Let''s use it:'
+  id: totrans-21
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们现在已经知道系统卷类型，准备使用下一个工具`mmls`。这个工具可以帮助检查员确定磁盘的布局，包括未分配的空间。我们来使用一下它：
+- en: '[PRE1]'
+  id: totrans-22
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: 'The output of the preceding command is as follows:'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令的输出如下：
+- en: '![](img/3fe31d50-907d-44a2-8e1e-177f126bcf82.png)'
+  id: totrans-24
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/3fe31d50-907d-44a2-8e1e-177f126bcf82.png)'
+- en: Figure 4.2\. mmls output
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图4.2\. mmls 输出
+- en: As you can see, we have gathered a lot of valuable information about our disk
+    (as you remember, we imaged a drive in the previous recipes). Now you know the
+    starting sectors, ending sectors, and lengths of all partitions and unallocated
+    spaces.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们收集了大量关于磁盘的有价值信息（如你记得，我们在之前的教程中对硬盘进行了镜像）。现在你已经知道了所有分区和未分配空间的起始扇区、结束扇区和长度。
+- en: 'Let''s change to File System Layer Tools. To learn more about each of the partitions,
+    we have the `fsstat` tool. To use it, we need the partition offset. You can get
+    it from the `mmls` output. Let''s learn more about the largest partition we have,
+    which starts at sector 1435658:'
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们切换到文件系统层工具。为了更好地了解每个分区，我们有`fsstat`工具。要使用它，我们需要分区偏移量。你可以从`mmls`的输出中获取它。让我们更深入了解我们拥有的最大分区，它从第1435658个扇区开始：
+- en: '[PRE2]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: 'The output of the preceding command is as follows:'
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令的输出如下：
+- en: '![](img/d7fe328f-e31e-465b-8235-603f975760d3.png)**Figure 4.3\. fsstat output**'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/d7fe328f-e31e-465b-8235-603f975760d3.png)**图4.3\. fsstat 输出**'
+- en: 'As you can see in the preceding figure, `fsstat` collects lots of useful information
+    about a partition: Volume Serial Number, Cluster Size, First Cluster of MFT, First
+    Cluster of MFT mirror, and so on.'
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你在前面的图中所见，`fsstat`收集了有关分区的大量有用信息：卷序列号、簇大小、MFT的第一个簇、MFT镜像的第一个簇等等。
+- en: The MFT, or Master File Table, contains information about all files, directories,
+    and metafiles in NTFS, including their names, creation timestamps, sizes, and
+    access permissions.
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MFT（主文件表）包含有关NTFS中所有文件、目录和元文件的信息，包括它们的名称、创建时间戳、大小和访问权限。
+- en: 'Let''s now look at FileName Layer Tools. For example, the `fls` tool allows
+    examiners to list allocated and deleted file names in a directory. Again, we need
+    the partition offset to use this tool:'
+  id: totrans-33
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们来看一下文件名层工具。例如，`fls`工具允许检查员列出目录中已分配和已删除的文件名。同样，我们需要分区偏移量来使用此工具：
+- en: '[PRE3]'
+  id: totrans-34
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'The output for the preceding command is as follows:'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令的输出如下：
+- en: '![](img/7f676dfc-6b34-4a26-900a-19672cbb8e10.png)**Figure 4.4\. A part of fls
+    output**'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/7f676dfc-6b34-4a26-900a-19672cbb8e10.png)**图4.4\. fls 输出的一部分**'
+- en: 'Let''s go further and create a `bodyfile` with `fls`. It''s truly an amazing
+    feature that helps Windows forensic examiners to create timelines of file activity.
+    Here is how we create it:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们更进一步，使用`fls`创建一个`bodyfile`。这是一个非常棒的功能，帮助Windows取证检查员创建文件活动的时间线。我们来看看怎么创建它：
+- en: '[PRE4]'
+  id: totrans-38
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'The output for the preceding command is as follows:'
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述命令的输出如下：
+- en: '![](img/95dfa63d-f040-446d-a53e-0a131e9f868e.png)*Figure 4.5\. A part of bodyfile
+    created with fls*'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/95dfa63d-f040-446d-a53e-0a131e9f868e.png)*图4.5\. 使用fls创建的bodyfile部分内容*'
+- en: 'As you can see, we added two switches in the command: `-r` and `-m`. The first
+    one tells `fls` to recurse the directory entries. The second tells it to use `mactime`
+    input format with */* as the mount point.'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，我们在命令中添加了两个开关：`-r`和`-m`。第一个告诉`fls`递归目录条目。第二个告诉它使用`mactime`输入格式，挂载点为*/*。
+- en: 'We now have the body file, so we are ready to run `mactime` and create a timeline
+    of file activity. Such timelines are very useful in Windows forensic examinations,
+    especially in cases involving malware incidents. Here is how to create it:'
+  id: totrans-42
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们现在已经有了bodyfile，可以运行`mactime`并创建文件活动的时间线。这样的时间线在Windows取证检查中非常有用，尤其是在涉及恶意软件事件的案件中。这里是如何创建它的：
+- en: '[PRE5]'
+  id: totrans-43
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '![](img/afcd1357-e82d-4c62-8aee-f2823c89ace6.png)*Figure 4.6\. The timeline
+    file opened in Microsoft Excel*'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/afcd1357-e82d-4c62-8aee-f2823c89ace6.png)*图 4.6\. 在 Microsoft Excel
+    中打开的时间线文件*'
+- en: Again, in the last command we have two switches which need to be explained.
+    The first one, `-b`, points to the bodyfile for `mactime` to use. The second,
+    `-d`, stands for delimited output and means we can save it as a CSV file and use
+    Microsoft Excel or OpenOffice Spreadsheets to work with it later (see the figure
+    above). Also, if you want to specify the time zone, you can use the `-z` switch.
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次，在最后一个命令中，我们有两个需要解释的开关。第一个 `-b` 指向 `mactime` 要使用的主体文件。第二个 `-d` 表示分隔输出，意味着我们可以将其保存为
+    CSV 文件，并使用 Microsoft Excel 或 OpenOffice Spreadsheets 后续处理（见上图）。此外，如果您想指定时区，可以使用
+    `-z` 开关。
+- en: How it works...
+  id: totrans-46
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: 'Below is a list of the main commands used and their functions:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是主要命令及其功能的列表：
+- en: '`mmstat`:extracts information about the system volume type'
+  id: totrans-48
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`mmstat`: 提取系统卷类型的信息'
+- en: '`mmls`: extracts information about disk layout, including unallocated spaces'
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`mmls`: 提取磁盘布局信息，包括未分配的空间'
+- en: '`fsstat`: extracts information about a file system, including volume serial
+    number, cluster size, and so on'
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`fsstat`: 提取文件系统的信息，包括卷序列号、簇大小等'
+- en: '`fls`: extracts information about both allocated and deleted file names in
+    a directory'
+  id: totrans-51
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`fls`: 提取目录中已分配和已删除文件名的信息'
+- en: '`mactime`: creates a timeline of file activity based on a body file created
+    with `fls`'
+  id: totrans-52
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`mactime`: 基于由 `fls` 创建的主体文件创建文件活动时间线'
+- en: See also
+  id: totrans-53
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另请参阅
+- en: 'The Sleuth Kit download page: [https://www.sleuthkit.org/sleuthkit/download.php](https://www.sleuthkit.org/sleuthkit/download.php)'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Sleuth Kit 下载页面：[https://www.sleuthkit.org/sleuthkit/download.php](https://www.sleuthkit.org/sleuthkit/download.php)
+- en: 'The Sleuth Kit wiki: [http://wiki.sleuthkit.org/index.php?title=Main_Page](http://wiki.sleuthkit.org/index.php?title=Main_Page)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Sleuth Kit wiki：[http://wiki.sleuthkit.org/index.php?title=Main_Page](http://wiki.sleuthkit.org/index.php?title=Main_Page)
+- en: Undeleting files from NTFS with Autopsy
+  id: totrans-56
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Autopsy 从 NTFS 恢复删除的文件
+- en: Originally,**Autopsy** was just a graphical interface for The Sleuth Kit. You
+    have already learnt about the collection of command-line tools for file system
+    forensic analysis in the previous recipe. Since the third version however, it
+    has been totally rewritten and is now available as a standalone digital forensics
+    platform. It is very widely used and forms part of the digital forensic toolkit
+    of both law enforcement and corporate examiners. Why? It's easy to use, fast,
+    and free. Also, if you enjoy programming, you can write your own modules for Autopsy
+    - all the documentation you will need is freely available online, on The Sleuth
+    Kit's website. Basis Technology even holds Autopsy module writing contests, so
+    feel free to participate.
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最初，**Autopsy** 只是 The Sleuth Kit 的图形界面。在之前的教程中，您已经了解了用于文件系统取证分析的命令行工具的收集。然而，自第三个版本以来，它已完全重写，并作为一个独立的数字取证平台提供。它被广泛应用，并成为执法和企业检查员的数字取证工具包的一部分。为什么呢？它易于使用、快速且免费。此外，如果您喜欢编程，可以为
+    Autopsy 编写自己的模块 - 所需的所有文档都可以在 Sleuth Kit 的网站上免费获得。Basis Technology 还举办了 Autopsy
+    模块编写比赛，欢迎参与。
+- en: Getting ready...
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作...
+- en: Go to The Sleuth Kit's website again, but now choose Autopsy, and after that,
+    Download. The most recent version at the time of writing is 4.3.0\. Both 32- and
+    64-bit versions are available; you should choose the right one according to your
+    system (we have already shown you how to collect this piece of information in
+    one of the previous recipes). You will be redirected to SourceForge, and the downloading
+    process will start automatically. In our case, the file we downloaded is named
+    **autopsy-4.3.0-64bit.msi.** All you need now is to double-click it and follow
+    the installation instructions, which are quite straightforward. Once the installation
+    process is complete, you are ready to go.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 再次访问 Sleuth Kit 网站，选择 Autopsy，然后选择下载。目前写作时的最新版本是 4.3.0。提供了 32 位和 64 位版本，您应根据您的系统选择正确的版本（我们已经在之前的一篇教程中向您展示了如何收集此信息）。您将被重定向到
+    SourceForge，并且下载过程将自动开始。在我们的情况下，我们下载的文件名为 **autopsy-4.3.0-64bit.msi**。现在您只需双击它并按照相当简单的安装说明进行操作。一旦安装过程完成，您就可以开始使用了。
+- en: How to do it...
+  id: totrans-60
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何做...
+- en: 'After starting your freshly installed digital forensics tool, the first window
+    you see is Welcome. Here we have three main options:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在启动您新安装的数字取证工具后，您会看到的第一个窗口是欢迎界面。这里有三个主要选项：
+- en: Create New Case - this option will create a new case for you
+  id: totrans-62
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 创建新案例 - 此选项将为您创建一个新案例
+- en: Open Recent Case - this option will open the last case you worked on
+  id: totrans-63
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打开最近的案件 - 此选项将打开您上次处理的案件
+- en: Open Existing Case - this option allows you to choose one of the cases present
+    on your workstation
+  id: totrans-64
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 打开现有案件 - 此选项允许您选择工作站上已有的案件之一
+- en: '![](img/35ca9cea-7cc2-4d80-aec1-463cfd28a4a8.png)'
+  id: totrans-65
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/35ca9cea-7cc2-4d80-aec1-463cfd28a4a8.png)'
+- en: Figure 4.7\. Autopsy Welcome window
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.7\. Autopsy 欢迎窗口
+- en: As we just installed Autopsy, we don't have any cases, so our choice is the
+    Create New Case option. Now you will see a New Case Information window.
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们刚刚安装了Autopsy，因此没有任何案件，所以我们的选择是创建新案件选项。现在您将看到一个新建案件信息窗口。
+- en: In the first step, Case Info, we have two fields to fill in; the third will
+    be completed automatically. You should type your case number or name in the first
+    field, Case Name, and choose the directory for your case files in the second,
+    Base Directory (use the Browse button). The third field will show the path to
+    your case files (base directory + case name).
+  id: totrans-68
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在第一步案件信息中，我们有两个字段需要填写；第三个字段会自动完成。您应在第一个字段“案件名称”中输入案件编号或名称，在第二个字段“基础目录”中选择案件文件的目录（使用浏览按钮）。第三个字段会显示案件文件的路径（基础目录+案件名称）。
+- en: '![](img/386c3276-523c-483b-8c99-c63e06ec419c.png)'
+  id: totrans-69
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/386c3276-523c-483b-8c99-c63e06ec419c.png)'
+- en: Figure 4.8\. Autopsy New Case Information (Case Info) window
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.8\. Autopsy 新建案件信息（案件信息）窗口
+- en: 'The second step, Additional Information, is optional: you can leave both fields
+    blank. However, it is usually better to fill them in. The first field should contain
+    your case number, the second your name.'
+  id: totrans-71
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 第二步，附加信息，是可选的：您可以将两个字段留空。但是，通常最好填写它们。第一个字段应包含您的案件编号，第二个字段填写您的姓名。
+- en: '![](img/ccc30c2b-19ea-4dea-bb9e-0f9968d0ebf4.png)'
+  id: totrans-72
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ccc30c2b-19ea-4dea-bb9e-0f9968d0ebf4.png)'
+- en: Figure 4.9\. Autopsy New Case Information (Additional Information) window
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.9\. Autopsy 新建案件信息（附加信息）窗口
+- en: Click Finish and the case will be created.
+  id: totrans-74
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 单击完成，案件将被创建。
+- en: 'It''s time to select the data source, here is the **Add Data Source** window.
+    The first thing you should do is select the data source type. Three options are
+    available:'
+  id: totrans-75
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在是选择数据源的时机，这里是**添加数据源**窗口。您首先应该做的是选择数据源类型。有三种可选项：
+- en: Image or VM File - this option allows you to choose a forensic image in one
+    of the supported formats, or a virtual machine disk, for example, that was found
+    during the examination of an image
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 镜像或虚拟机文件 - 此选项允许您选择支持格式的取证镜像，或在镜像检查过程中发现的虚拟机磁盘
+- en: Local Disk - this option allows you to choose a physical drive connected to
+    your workstation, or a mounted logical drive (for example, D:)
+  id: totrans-77
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本地磁盘 - 此选项允许您选择连接到工作站的物理驱动器或已挂载的逻辑驱动器（例如，D:）
+- en: Logical Files - this option allows you to choose files and folders for analysis,
+    for example, from a mounted forensic image
+  id: totrans-78
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 逻辑文件 - 此选项允许您选择用于分析的文件和文件夹，例如，从挂载的取证镜像中选择
+- en: '![](img/68d9a3a6-8daa-48e9-957c-128ea4b409ab.png)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/68d9a3a6-8daa-48e9-957c-128ea4b409ab.png)'
+- en: Figure 4.10\. Autopsy Select Data Source window
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.10\. Autopsy 选择数据源窗口
+- en: Don't forget to choose the right time zone.
+  id: totrans-81
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 别忘了选择正确的时区。
+- en: 'In the next step, you should choose ingest modules to run. Autopsy ingest modules
+    analyze the files on the data source and parse their contents. As the main aim
+    of this recipe is to show you how to undelete files from NTFS, we have chosen
+    just a few modules, including:'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在接下来的步骤中，您应选择要运行的导入模块。Autopsy导入模块分析数据源中的文件并解析其内容。由于本教程的主要目的是展示如何从NTFS恢复已删除文件，因此我们只选择了一些模块，包括：
+- en: File type identification - identifies files based not on their extensions, but
+    their internal signatures
+  id: totrans-83
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件类型识别 - 基于文件的内部签名而非扩展名来识别文件
+- en: Extension mismatch detector - uses File Type Identification Module results to
+    flag the files with an extension that is not usually associated with the detected
+    file type
+  id: totrans-84
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 扩展名不匹配检测器 - 利用文件类型识别模块的结果标记那些扩展名与检测到的文件类型不符的文件
+- en: Embedded file extractor - extracts data from different archive formats, including
+    DOCX, XLSX, PPTX, and others
+  id: totrans-85
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 嵌入式文件提取器 - 提取不同归档格式的数据，包括DOCX、XLSX、PPTX等
+- en: '![](img/92bfdb33-897d-4ff5-88a0-cfea658d1752.png)'
+  id: totrans-86
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/92bfdb33-897d-4ff5-88a0-cfea658d1752.png)'
+- en: Figure 4.11\. Autopsy Select Data Source (Configure Ingest Modules) window
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.11\. Autopsy 选择数据源（配置导入模块）窗口
+- en: Click Next and data source processing will start.
+  id: totrans-88
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 单击“下一步”，数据源处理将开始。
+- en: 'After some time, depending on the size of the data source, the Finish button
+    will become active: click it and you are ready to analyze the file system(s).'
+  id: totrans-89
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一段时间后，根据数据源的大小，“完成”按钮将变为可用：点击它，您就可以开始分析文件系统。
+- en: 'The point of this recipe is to teach you how to undelete files from NTFS. The
+    thing is, when a file is deleted, it''s not erased; it is simply marked as deleted
+    in the MFT entry for the file. So, until the file is overwritten, it can be recovered,
+    and Autopsy can help digital forensic examiners with this. It even sorts out all
+    the deleted files for you: just go to Views - Deleted Files on the left pane (the
+    Tree Viewer).'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本教程的重点是教您如何从 NTFS 中恢复已删除的文件。关键是，当文件被删除时，它并没有被擦除，而只是被标记为在文件的 MFT 条目中已删除。因此，直到文件被覆盖之前，它是可以恢复的，而
+    Autopsy 可以帮助数字取证专家完成这项工作。它甚至会帮您整理出所有已删除的文件：只需进入视图 - 左侧窗格中的已删除文件（树视图）。
+- en: '![](img/73cde85e-21e6-46fb-a77a-90a0c1bb71ce.png)'
+  id: totrans-91
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/73cde85e-21e6-46fb-a77a-90a0c1bb71ce.png)'
+- en: Figure 4.12\. Deleted Files option in the Tree Viewer
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.12\. 树视图中的已删除文件选项
+- en: 'You can use this option to recover files, or browse the file system(s) via
+    the Data Sources option. Deleted files have red cross icons on the left. To recover
+    a file or files:'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您可以使用此选项来恢复文件，或通过数据源选项浏览文件系统。已删除的文件在左侧有红色叉号图标。要恢复文件：
+- en: Right-click on the file or files (mark all the files you want to recover beforehand)
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击文件或文件（预先标记所有您想要恢复的文件）
+- en: Choose **Extract File(s)**
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择**提取文件**
+- en: Choose the destination folder
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择目标文件夹
+- en: Click Save
+  id: totrans-97
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击保存
+- en: Yes, it is that easy!
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 是的，就是这么简单！
+- en: How it works...
+  id: totrans-99
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: Autopsy detects files marked as deleted in the MFT and sorts them all out, so
+    a digital forensic examiner can locate such files and recover them.
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 会检测到 MFT 中标记为已删除的文件，并将它们分类出来，这样数字取证检查员可以找到这些文件并恢复它们。
+- en: See also
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'Autopsy download page: [http://sleuthkit.org/autopsy/download.php](http://sleuthkit.org/autopsy/download.php)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 下载页面：[http://sleuthkit.org/autopsy/download.php](http://sleuthkit.org/autopsy/download.php)
+- en: 'Autopsy User''s Guide: [http://sleuthkit.org/autopsy/docs/user-docs/3.1/index.html](http://sleuthkit.org/autopsy/docs/user-docs/3.1/index.html)'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Autopsy 用户指南：[http://sleuthkit.org/autopsy/docs/user-docs/3.1/index.html](http://sleuthkit.org/autopsy/docs/user-docs/3.1/index.html)
+- en: Undeleting files from ReFS with ReclaiMe File Recovery
+  id: totrans-104
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 ReclaiMe 文件恢复从 ReFS 恢复已删除的文件
+- en: ReclaiMe File Recovery is a piece of data recovery software capable of undeleting
+    files from a wide range of devices including hard drives, memory cards, RAID arrays,
+    and multi-disk NAS devices. Also, it supports data recovery from most file systems,
+    including the latest Windows file systems - **ReFS** or the **Resilient File System**.
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ReclaiMe 文件恢复是一款数据恢复软件，能够从多种设备（包括硬盘、内存卡、RAID 阵列和多磁盘 NAS 设备）中恢复已删除的文件。此外，它还支持从大多数文件系统中恢复数据，包括最新的
+    Windows 文件系统——**ReFS** 或 **弹性文件系统**。
+- en: Getting ready
+  id: totrans-106
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: Go to ReClaiMe's website and click on the green DOWNLOAD button on the left.
+    It brings you to the ReclaiMe File Recovery download page and the downloading
+    process starts automatically. After this, just run the setup file and follow the
+    installation instructions. You are ready to go!
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 进入 ReClaiMe 的网站，点击左侧的绿色下载按钮。它将引导您到 ReclaiMe 文件恢复的下载页面，并自动开始下载过程。之后，只需运行安装文件并按照安装说明进行操作。准备好就可以开始了！
+- en: How to do it...
+  id: totrans-108
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: Before you start, it's a good idea to find the right data source. ReFS is an
+    active development, and is used usually on Windows servers only. Thankfully, Willi
+    Ballenthin has created a bunch of ReFS images for testing purposes, which are
+    now publically available. Let's use one of them.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始之前，最好找到正确的数据源。ReFS 仍在积极开发中，通常仅用于 Windows 服务器。幸运的是，Willi Ballenthin 创建了一些用于测试的
+    ReFS 镜像，现在已经公开提供。我们可以使用其中之一。
+- en: 'Start ReclaiMe File Recovery. It takes some time for the tool to scan all available
+    drives. After this, you will be taken to the main window, like the one in the
+    following figure:'
+  id: totrans-110
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 ReclaiMe 文件恢复。工具需要一些时间来扫描所有可用的驱动器。完成后，您将进入主窗口，如下图所示：
+- en: '![](img/9f8f0d0b-8f2a-4391-9658-0bdb4bae009a.png)'
+  id: totrans-111
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9f8f0d0b-8f2a-4391-9658-0bdb4bae009a.png)'
+- en: Figure 4.13\. ReclaiMe File Recovery main window
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.13\. ReclaiMe 文件恢复主窗口
+- en: ReclaiMe File Recovery doesn't support E01 images, but this is not a problem
+    because we have an image in RAW format.
+  id: totrans-113
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ReclaiMe 文件恢复不支持 E01 镜像，但这不是问题，因为我们有一个 RAW 格式的镜像。
+- en: 'Let''s go to Disks - Open disk image... Choose the disk image and click Open.
+    Now there should also be an image in the main window, like the one in the following
+    figure:'
+  id: totrans-114
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们进入磁盘 - 打开磁盘镜像... 选择磁盘镜像并点击打开。现在主窗口中应该也会显示出一个镜像，如下图所示：
+- en: '![](img/c72c3dde-031b-42ef-ba6e-f6e5735a9d4a.png)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/c72c3dde-031b-42ef-ba6e-f6e5735a9d4a.png)'
+- en: Figure 4.14\. ReclaiMe File Recovery main window (Disk image is added)
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.14\. ReclaiMe 文件恢复主窗口（磁盘镜像已添加）
+- en: 'Double-click the image to start the recovery process. Of course, it will take
+    some time, depending on the size of the image. In our case, the image is small
+    enough, so it doesn''t take a lot of time. The recovery is shown in the following
+    figure:'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 双击镜像以启动恢复过程。当然，根据镜像的大小，这将需要一些时间。在我们的案例中，镜像足够小，所以不会花太多时间。恢复过程如下图所示：
+- en: '![](img/f8c7b542-1002-469a-b03a-490cdf0fe56e.png)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f8c7b542-1002-469a-b03a-490cdf0fe56e.png)'
+- en: Figure 4.15\. ReclaiMe File Recovery image processing results
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.15. ReclaiMe 文件恢复图像处理结果
+- en: Now you can save recovered files or even folders using the blue Save button.
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在你可以使用蓝色的保存按钮来保存恢复的文件甚至文件夹。
+- en: How it works...
+  id: totrans-121
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: ReclaiMe File Recovery processes the image and lists the files and folders available,
+    giving a computer forensic examiner the ability to extract deleted files.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ReclaiMe 文件恢复处理镜像并列出可用的文件和文件夹，提供计算机取证检查员提取已删除文件的能力。
+- en: See also
+  id: totrans-123
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The ReclaiMe File Recovery website: [http://www.reclaime.com/](http://www.reclaime.com/)'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ReclaiMe 文件恢复网站：[http://www.reclaime.com/](http://www.reclaime.com/)
+- en: 'The ReFS sample images: [http://www.williballenthin.com/forensics/refs/test_images/](http://www.williballenthin.com/forensics/refs/test_images/)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ReFS 示例镜像：[http://www.williballenthin.com/forensics/refs/test_images/](http://www.williballenthin.com/forensics/refs/test_images/)
+- en: File carving with PhotoRec
+  id: totrans-126
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 PhotoRec 进行文件雕刻
+- en: PhotoRec is a file carving tool that is widely used by digital forensic examiners.
+    This tool is even built into the previously mentioned digital forensic platform,
+    Autopsy, as a module. PhotoRec can recover a diverse range of file types (more
+    than 480 file formats), but if you think this will not be enough, you can add
+    your own custom signatures, which will help the tool to recover even more data.
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PhotoRec 是一个广泛用于数字取证检查员的文件雕刻工具。这个工具甚至作为一个模块内置在前面提到的数字取证平台 Autopsy 中。PhotoRec
+    可以恢复多种类型的文件（超过 480 种文件格式），但是如果你认为这还不够，你可以添加自己的自定义签名，这将帮助该工具恢复更多的数据。
+- en: Getting ready
+  id: totrans-128
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: Go to CGSecurity's website and click the download hyperlink on the left. You
+    will be redirected to the Download page. Now click on the big green button on
+    the right, and the downloading process will be initiated. At the time of writing,
+    the most recent version of PhotoRec is 7.0, so the archive we downloaded is called
+    **testdisk-7.0.win.zip**. Unpack it and you are ready to go.
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问 CGSecurity 的网站并点击左侧的下载超链接。你将被重定向到下载页面。现在点击右侧的大绿按钮，下载过程将开始。在撰写本文时，PhotoRec
+    的最新版本是 7.0，因此我们下载的压缩包名为 **testdisk-7.0.win.zip**。解压后，你就可以开始使用了。
+- en: How to do it...
+  id: totrans-130
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Before we start, it''s important to note that PhotoRec supports disk images:
+    not only RAW, but also E01\. As we are carving data for forensic purposes, let''s
+    use an E01 image that we acquired in one of the previous recipes.'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始之前，重要的是要注意 PhotoRec 支持磁盘镜像：不仅支持 RAW 格式，还支持 E01 格式。由于我们是为了取证目的进行数据雕刻，让我们使用在之前某个步骤中获取的
+    E01 镜像。
+- en: 'Start the Windows Command Prompt from an account in the Administrator group,
+    and change the directory to **testdisk-7.0**. Use the following command:'
+  id: totrans-132
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从管理员组中的帐户启动 Windows 命令提示符，并将目录更改为 **testdisk-7.0**。使用以下命令：
+- en: '[PRE6]'
+  id: totrans-133
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Make sure you typed the path to the image you acquired, as it can have a different
+    name and location.
+  id: totrans-134
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 确保你输入了你获取的镜像的路径，因为它可能有不同的名称和位置。
+- en: The first dialog box that you see is 'Select a media'. In our case we are dealing
+    with an E01 image, so we have only one option, and all we need to do is press
+    *Enter* to proceed.
+  id: totrans-135
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你看到的第一个对话框是“选择媒体”。在我们的案例中，我们正在处理一个 E01 镜像，所以我们只有一个选项，所有需要做的就是按 *Enter* 继续。
+- en: '![](img/7a69c570-2beb-41a8-9bec-85bd3d7bc9ed.png)'
+  id: totrans-136
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/7a69c570-2beb-41a8-9bec-85bd3d7bc9ed.png)'
+- en: Figure 4.16\. PhotoRec Select a media dialog
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.16. PhotoRec 选择媒体对话框
+- en: Now we have the Partition selection dialog box. In our case, we have only one
+    partition of unknown type - a perfect example for file carving.
+  id: totrans-138
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们有了分区选择对话框。在我们的案例中，我们只有一个未知类型的分区——这是文件雕刻的完美示例。
+- en: '![](img/bddf62aa-b739-4d27-bf49-aa4701315a3b.png)'
+  id: totrans-139
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/bddf62aa-b739-4d27-bf49-aa4701315a3b.png)'
+- en: Figure 4.17\. PhotoRec Partition selection dialog
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.17. PhotoRec 分区选择对话框
+- en: 'Also, four options are seen at the bottom:'
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 同时，底部有四个选项：
+- en: Search - to start recovery
+  id: totrans-142
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 搜索 - 开始恢复
+- en: Options - to modify recovery options
+  id: totrans-143
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 选项 - 修改恢复选项
+- en: File Opt - to modify file types to be recovered
+  id: totrans-144
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 文件选项 - 修改要恢复的文件类型
+- en: Quit - to cancel recovery
+  id: totrans-145
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 退出 - 取消恢复
+- en: 'Let''s go to Options. Here, we have the following:'
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们进入选项。这里有以下内容：
+- en: Paranoid - if enabled, verifies recovered files, and invalid files are rejected.
+    Another option here, **bruteforce**, if enabled, tries to recover fragmented JPG
+    files.
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 偏执模式 - 如果启用，会验证恢复的文件，并且无效文件将被拒绝。另一个选项是 **bruteforce**，如果启用，会尝试恢复碎片化的 JPG 文件。
+- en: Keep corrupted files - if enabled, keeps invalid files. Use it if you want to
+    try to repair them with other tools.
+  id: totrans-148
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 保留损坏文件 - 如果启用，会保留无效文件。如果希望尝试用其他工具修复它们，请使用此选项。
+- en: Expert mode - if enabled, allows an examiner to force the block size and the
+    offset.
+  id: totrans-149
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 专家模式 - 如果启用，允许检验员强制设置块大小和偏移量。
+- en: Low memory - use it if your workstation doesn't have enough memory to avoid
+    recovery crashes.
+  id: totrans-150
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 低内存 - 如果您的工作站内存不足以避免恢复崩溃，请使用此选项。
+- en: '![](img/f47b55f6-75e1-44a8-9d2c-2d0c3d927664.png)'
+  id: totrans-151
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/f47b55f6-75e1-44a8-9d2c-2d0c3d927664.png)'
+- en: Figure 4.18\. PhotoRec Options
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.18\. PhotoRec 选项
+- en: Now let's check File Opt. Here, we have a long list of file types supported
+    by the tool. Use the *s* button to check all file types or to disable all. Use
+    spacebar if you want to enable or disable some of the types. To save changes use
+    b.
+  id: totrans-153
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们检查文件选项。这里有工具支持的文件类型的长列表。使用 *s* 按钮来检查所有文件类型或禁用所有文件类型。如果您想启用或禁用一些类型，请使用空格键。保存更改使用
+    b。
+- en: '![](img/ec38425c-b815-492f-954f-5b0a0368ec5c.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/ec38425c-b815-492f-954f-5b0a0368ec5c.png)'
+- en: Figure 4.19\. PhotoRec File Opt option
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.19\. PhotoRec 文件选项
+- en: Now we have looked through the available options, and are ready to start recovery.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经查看了可用的选项，并且准备开始恢复。
+- en: Choose Search and press *Enter*. It's time to choose the file system type. We
+    know that there are only two options, and that there are no EXT partitions on
+    our image, so we choose **Other**.![](img/f9cb5e24-e47e-4c6f-ac84-628bf8338a9a.png)
+  id: totrans-157
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 选择搜索并按 *Enter*。现在是选择文件系统类型的时候了。我们知道只有两个选项，并且我们的镜像上没有 EXT 分区，因此我们选择 **Other**.![](img/f9cb5e24-e47e-4c6f-ac84-628bf8338a9a.png)
+- en: Figure 4.20\. PhotoRec Filesystem type dialog
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 4.20\. PhotoRec 文件系统类型对话框
+- en: 'Now we need to choose the destination path for the files being recovered. We
+    recommend creating one before starting the file carving process. In our case,
+    the destination folder is `X:52-Carved`, as you can see in the following figure:'
+  id: totrans-159
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们需要选择恢复文件的目标路径。我们建议在开始文件雕刻过程之前创建一个目录。在我们的情况下，目标文件夹是 `X:52-Carved`，如下图所示：
+- en: '![](img/a8f02e8b-cf7b-4eab-8a4d-417df85e4a05.png)*Figure 4.21\. PhotoRec Select
+    destination dialog*'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](img/a8f02e8b-cf7b-4eab-8a4d-417df85e4a05.png)*图 4.21\. PhotoRec 选择目标对话框*'
+- en: Use the *C* button to start the file carving process.
+  id: totrans-161
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用 *C* 按钮启动文件雕刻过程。
+- en: Once the process is finished, you will have one or more folders (`recup_dir.1`,
+    `recup_dir.2`...) with recovered files. It's important to note that these folders
+    can be accessed before the recovery is finished.
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦进程完成，您将拥有一个或多个文件夹（`recup_dir.1`，`recup_dir.2`...），其中包含恢复的文件。重要的是注意，在恢复完成之前可以访问这些文件夹。
+- en: How it works...
+  id: totrans-163
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 工作原理...
+- en: PhotoRec reads the data source sector by sector, and finds the first ten files.
+    It uses them to calculate the block/cluster size after each block is checked by
+    the tool against a signature database.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PhotoRec 逐扇区读取数据源，并找到前十个文件。它使用这些文件来计算每个块经工具对比签名数据库检查后的块/簇大小。
+- en: If the file system is not corrupted, PhotoRec can get the block/cluster size
+    from volume boot record, or superblock.
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果文件系统没有损坏，PhotoRec 可以从卷引导记录或超级块获取块/簇大小。
+- en: See more
+  id: totrans-166
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 查看更多
+- en: 'The PhotoRec download page: [http://www.cgsecurity.org/wiki/TestDisk_Download](http://www.cgsecurity.org/wiki/TestDisk_Download)'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PhotoRec 下载页面：[http://www.cgsecurity.org/wiki/TestDisk_Download](http://www.cgsecurity.org/wiki/TestDisk_Download)
+- en: 'The PhotoRec wiki page: [http://www.cgsecurity.org/wiki/PhotoRec](http://www.cgsecurity.org/wiki/PhotoRec)'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: PhotoRec 维基页面：[http://www.cgsecurity.org/wiki/PhotoRec](http://www.cgsecurity.org/wiki/PhotoRec)

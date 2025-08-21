@@ -1,0 +1,1305 @@
+- en: Privilege Escalation
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 提权
+- en: 'In this chapter, we will cover the following topics:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主题：
+- en: Establishing a connection as an elevated user
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 以提升的用户身份建立连接
+- en: Remotely bypassing Windows UAC
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 远程绕过Windows UAC
+- en: Local Linux system check for privilege escalation
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本地Linux系统检查提权
+- en: Local Linux privilege escalation
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 本地Linux提权
+- en: Remote Linux privilege escalation
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 远程Linux提权
+- en: DirtyCOW privilege escalation for Linux
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: DirtyCOW提权（Linux）
+- en: Introduction
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: Now that we have some small foothold in the environment, we will use this foothold
+    to expand the scope of our breach, increase the admin level, and use lateral movement
+    to compromise more machines. In most cases, the initial point of a breach is not
+    the desired target but just a means to get to the more valuable targets. By elevating
+    privileges it will make your ability to move in the environment much easier.
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 既然我们已经在环境中获得了一个小的立足点，我们将利用这个立足点扩展我们的突破范围，提升管理员权限，并通过横向移动来入侵更多机器。在大多数情况下，突破的初始点并不是目标，而只是通往更有价值目标的手段。通过提升特权，可以使你在环境中移动的能力变得更加轻松。
+- en: Establishing a connection as an elevated user
+  id: totrans-10
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 以提升的用户身份建立连接
+- en: In this recipe, we will establish a connection to a remote Windows computer.
+    We will use the same skills that we learned in previous chapters to make our initial
+    connection to the computer.
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将建立与远程Windows计算机的连接。我们将使用在前几章中学到的相同技能来进行初始连接。
+- en: Getting ready
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要确保以下前提条件：
+- en: Your Kali Linux VM is powered up and you are logged in as root
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的Kali Linux虚拟机已启动并且你以root身份登录
+- en: Your Windows XP VM is powered up
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的Windows XP虚拟机已经启动。
+- en: How to do it...
+  id: totrans-16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'We will now connect to a Windows machine and elevate that connection to a privileged
+    level:'
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们将连接到一台Windows机器，并将该连接提升到特权级别：
+- en: Validate the IP addresses of your Kali box and your Windows machine—you should
+    have interfaces on both of your host-only networks on both boxes. In my case,
+    my Kali VM is `192.168.56.10` and my Windows XP VM is `192.168.56.102`.
+  id: totrans-18
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证你的Kali主机和Windows机器的IP地址—你应该在两个主机仅限网络上都有接口。在我的例子中，我的Kali虚拟机IP是`192.168.56.10`，我的Windows
+    XP虚拟机IP是`192.168.56.102`。
+- en: Let's ensure we have NetBIOS over TCP enabled in Windows XP. Log in to your
+    Windows XP VM as an administrator and click onStart | Control Panel | Network
+    Connections.
+  id: totrans-19
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们需要确保Windows XP启用了NetBIOS over TCP。作为管理员登录Windows XP虚拟机，点击开始 | 控制面板 | 网络连接。
+- en: 'Right-click on your Local Area Connection and click on Properties:'
+  id: totrans-20
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击本地连接，点击属性：
+- en: '![](assets/187c679f-1227-496c-8011-8211668d0109.png)Windows network connection
+    screen'
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/187c679f-1227-496c-8011-8211668d0109.png)Windows网络连接屏幕'
+- en: 'Click on the Advanced button in the bottom right and then click on WINS at
+    the top, and ensure Enable NetBIOS over TCP/IP is selected:'
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 点击右下角的“高级”按钮，然后点击顶部的WINS，确保选中“启用NetBIOS over TCP/IP”：
+- en: '![](assets/4f3601a5-849d-4adb-a8d9-cdd7e59f4e1f.png)Advanced TCP/IP settings:
+    WINS'
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/4f3601a5-849d-4adb-a8d9-cdd7e59f4e1f.png)高级TCP/IP设置：WINS'
+- en: If it was not selected, click on OK | Close and reboot your Windows XP VM.
+  id: totrans-24
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果未选中，点击确定 | 关闭并重启你的Windows XP虚拟机。
+- en: For the purposes of this book, we will use Armitage, but if you would rather
+    do everything through the CLI, you may use `msfconsole`. We will also clear the
+    database if there are any hosts displayed in it at this time.
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 本书中我们将使用Armitage，但如果你更喜欢通过CLI进行所有操作，你可以使用`msfconsole`。如果此时数据库中有任何主机显示，我们也会清除它。
+- en: Refer to [Chapter 4](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml), *Finding Exploits
+    in the Target*, for information on starting Armitage or Metasploit and clearing
+    the database, depending on your preference.
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参考[第4章](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml)，《在目标中寻找漏洞》，了解如何启动Armitage或Metasploit，并根据你的偏好清除数据库。
+- en: 'From the Armitage screen, we will click on Hosts | Add Hosts and enter our
+    Windows XP machine IP address `192.168.56.102` and then click on Add. Click on
+    OK when it acknowledges that the host was added:'
+  id: totrans-27
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在Armitage界面中，我们点击主机 | 添加主机，输入我们的Windows XP机器的IP地址`192.168.56.102`，然后点击添加。系统确认主机已添加后，点击确定：
+- en: '![](assets/21fda32f-6900-4088-b3e0-40911e7e642f.png)Armitage: Add Hosts dialog'
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/21fda32f-6900-4088-b3e0-40911e7e642f.png)Armitage：添加主机对话框'
+- en: 'From the top menu, click on Hosts | Nmap Scan | Intense Scan and for the scan
+    range, enter the IP address of the XP machine and click OK:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从顶部菜单点击主机 | Nmap扫描 | 强力扫描，在扫描范围中输入XP机器的IP地址，然后点击确定：
+- en: '![](assets/705a5d34-eedb-41da-9c67-f7b49aaff0bb.png)Armitage: nmap scan'
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/705a5d34-eedb-41da-9c67-f7b49aaff0bb.png)Armitage：nmap扫描'
+- en: 'Once `nmap` is finished, you will be presented with a Scan Complete! message;
+    click OK:'
+  id: totrans-31
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦`nmap`完成，你将看到“扫描完成！”的消息；点击确定：
+- en: 'From the top menu, click on Attacks | Find Attacks:'
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从顶部菜单中，点击攻击 | 查找攻击：
+- en: '![](assets/91513504-9421-4097-93c5-18e7394baaf9.png)Armitage: main screen'
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/91513504-9421-4097-93c5-18e7394baaf9.png)Armitage：主屏幕'
+- en: On the Attack Analysis Complete... screen, click OK.
+  id: totrans-34
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在“攻击分析完成...”屏幕上，点击确定。
+- en: 'Right-click on the host and click on Attack | smb | ms08_067_netapi:'
+  id: totrans-35
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击主机，点击攻击 | smb | ms08_067_netapi：
+- en: '![](assets/0e122b6f-e0cc-476c-ae72-c98ffbfe3a0a.png)Armitage: main screen'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/0e122b6f-e0cc-476c-ae72-c98ffbfe3a0a.png)Armitage：主屏幕'
+- en: 'From the Attack dialog, click on Launch:'
+  id: totrans-37
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从攻击对话框中，点击启动：
+- en: '![](assets/f6885753-15a4-46ce-8af5-1a5f33346fcb.png)Armitage: attack dialog
+    screen'
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/f6885753-15a4-46ce-8af5-1a5f33346fcb.png)Armitage：攻击对话框屏幕'
+- en: 'You will notice that the host now shows you have compromised the device:'
+  id: totrans-39
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你会注意到，现在主机显示你已经控制了该设备：
+- en: '![](assets/0e694fff-b826-4fe2-81c7-2784e6d4ce52.png)Armitage: main screen'
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/0e694fff-b826-4fe2-81c7-2784e6d4ce52.png)Armitage：主屏幕'
+- en: 'Right-click on the XP host and click on Meterpreter 1 | Interact | Meterpreter
+    Shell:'
+  id: totrans-41
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击XP主机，点击Meterpreter 1 | 互动 | Meterpreter Shell：
+- en: '![](assets/36b1d2d1-11c7-4995-90cd-80b11389c657.png)Armitage: main screen'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/36b1d2d1-11c7-4995-90cd-80b11389c657.png)Armitage：主屏幕'
+- en: 'From the shell, enter `getuid` to see who is currently logged in – you will
+    notice you have system-level privileges:'
+  id: totrans-43
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从shell中输入`getuid`以查看当前谁已登录——你会注意到你已经拥有系统级别的权限：
+- en: '![](assets/a204ed9e-fccd-44e3-87f2-f7b7e5e00461.png)Armitage: main screen'
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/a204ed9e-fccd-44e3-87f2-f7b7e5e00461.png)Armitage：主屏幕'
+- en: Remotely bypassing Windows UAC
+  id: totrans-45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 远程绕过Windows UAC
+- en: In this recipe, we will establish a connection to a remote Windows computer.
+    We will then bypass **User Account Control** (**UAC**) to gain elevated permissions.
+    The UAC is part of windows attempt to harden itself from remote attack by prompting
+    the user to confirm potential escalated privileges requests.
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将建立与远程Windows计算机的连接。然后，我们将绕过**用户帐户控制**（**UAC**）以获取提升的权限。UAC是Windows为防止远程攻击而增强安全性的措施，用户需要确认潜在的权限提升请求。
+- en: Getting ready
+  id: totrans-47
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们确保以下前提条件：
+- en: Your Kali Linux VM is powered up and you are logged in as root
+  id: totrans-49
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的Kali Linux虚拟机已经启动，并且你已经以root用户登录
+- en: Your Windows XP VM is powered up
+  id: totrans-50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的Windows XP虚拟机已启动
+- en: How to do it...
+  id: totrans-51
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何进行...
+- en: 'We will remotely bypass Windows UAC to elevate privileges:'
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将远程绕过Windows UAC以提升权限：
+- en: Validate the IP addresses of your Kali VM and your Windows VM – you should have
+    interfaces on both of your host-only networks on both boxes. In my case, my Kali
+    device is `192.168.56.10` and my Windows XP device is `192.168.56.102`.
+  id: totrans-53
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 验证你的Kali虚拟机和Windows虚拟机的IP地址——你应该在两个主机的独立网络上都能看到接口。在我的情况下，我的Kali设备是`192.168.56.10`，而我的Windows
+    XP设备是`192.168.56.102`。
+- en: Open a terminal window by clicking the terminal icon: ![](assets/58d64492-2224-4790-866e-60e7030e7b9a.png)
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过点击终端图标打开终端窗口：![](assets/58d64492-2224-4790-866e-60e7030e7b9a.png)
+- en: 'We will quickly create a payload file with `msfvenom` by typing the following
+    command:'
+  id: totrans-55
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将通过输入以下命令快速创建一个有效载荷文件：
+- en: '[PRE0]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '![](assets/96a824a9-1d64-499b-a3dc-91175db40693.png)Kali: Terminal output'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/96a824a9-1d64-499b-a3dc-91175db40693.png)Kali：终端输出'
+- en: Once the payload is created, move it to your target machine.
+  id: totrans-58
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦有效载荷创建完成，将其移动到目标机器。
+- en: 'Log in to your target machine as a standard user. In my case, I will be logging
+    in as `Jane Doe`. You can open Command Prompt and use the `qwinsta` command, or
+    on later versions of Windows, you can use the `whoami` command, similar to Linux
+    systems:'
+  id: totrans-59
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 以标准用户身份登录到目标计算机。在我的情况下，我将以`Jane Doe`身份登录。你可以打开命令提示符并使用`qwinsta`命令，或者在较新的Windows版本中，你可以使用`whoami`命令，类似于Linux系统：
+- en: 'The `qwinsta` command and the `whoami` command provide information about the
+    currently logged in session. The `qwinsta` has been used since the early days
+    of Windows. The `whoami` command was a standard command used in Linux environments
+    for years and was ultimately adopted by more recent versions of Windows.![](assets/d9ce1c86-542e-4f7f-b416-1e9f3d726b27.png)Windows:
+    Command Prompt'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`qwinsta`命令和`whoami`命令提供有关当前登录会话的信息。`qwinsta`自Windows早期版本以来就已经被使用。`whoami`命令是Linux环境中使用多年的标准命令，最终被较新的Windows版本所采用。![](assets/d9ce1c86-542e-4f7f-b416-1e9f3d726b27.png)Windows：命令提示符'
+- en: Let's start a listener in Armitage for the payload we just copied over.
+  id: totrans-61
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们在Armitage中启动一个监听器，以便接收我们刚刚复制的有效载荷。
+- en: Refer to [Chapter 4](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml), *Finding Exploits
+    in the Target*, for more information on creating listeners.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 参考 [第 4 章](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml)，*在目标中寻找漏洞*，了解更多关于创建监听器的信息。
+- en: 'From the Armitage main screen, select Armitage | Listeners | Reverse (wait
+    for):'
+  id: totrans-63
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 Armitage 主屏幕，选择 Armitage | Listeners | Reverse（等待）：
+- en: '![](assets/8daf179f-6ada-4cea-9a49-0900788ddce5.png)Armitage: main screen'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/8daf179f-6ada-4cea-9a49-0900788ddce5.png)Armitage: 主屏幕'
+- en: 'Set the Port to `8443` and the Type as meterpreter, and click on Start Listener:'
+  id: totrans-65
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 将端口设置为 `8443`，类型选择为 meterpreter，然后点击 Start Listener：
+- en: '![](assets/40932b20-f1fb-44d1-b478-0d53791652ec.png)Armitage: create listener
+    dialog'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/40932b20-f1fb-44d1-b478-0d53791652ec.png)Armitage: 创建监听器对话框'
+- en: 'From your Windows machine, launch the `exploit.exe` file by double-clicking
+    on it:'
+  id: totrans-67
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在你的 Windows 机器上，双击 `exploit.exe` 文件以启动：
+- en: '![](assets/b7fa154a-f7de-4d62-b4b6-dfa2a9a8d9a2.png)Windows main screen: launching
+    exploit'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/b7fa154a-f7de-4d62-b4b6-dfa2a9a8d9a2.png)Windows 主屏幕：启动漏洞利用'
+- en: 'You will now notice that we see the device exploited and a session has been
+    created:'
+  id: totrans-69
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你现在会注意到，我们看到设备已被利用并且已创建会话：
+- en: '![](assets/dd551a4e-17df-411c-a00c-8c0caa9efa91.png)Armitage: main screen'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/dd551a4e-17df-411c-a00c-8c0caa9efa91.png)Armitage: 主屏幕'
+- en: 'Right-click on the exploited machine and select Meterpreter 1 | Interact |
+    Meterpreter Shell:'
+  id: totrans-71
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击被利用的机器，选择 Meterpreter 1 | 交互 | Meterpreter Shell：
+- en: '![](assets/ff7f0d6e-c562-4714-9a51-d8ef994aeca9.png)Armitage: main screen'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/ff7f0d6e-c562-4714-9a51-d8ef994aeca9.png)Armitage: 主屏幕'
+- en: 'From the `meterpreter` console, enter the following commands. You will notice
+    that I am logged in as `Jane Doe` and I do not have the privileges to run the
+    `getsystem` command:'
+  id: totrans-73
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 `meterpreter` 控制台，输入以下命令。你会注意到我已登录为 `Jane Doe`，但没有权限运行 `getsystem` 命令：
+- en: '[PRE1]'
+  id: totrans-74
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '![](assets/cbb60a20-c771-443e-931a-edc4067f1ea4.png)Armitage: meterpreter console'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/cbb60a20-c771-443e-931a-edc4067f1ea4.png)Armitage: meterpreter 控制台'
+- en: 'To bypass UAC controls, on the left, select exploit | Windows | local | ms10_015_kitrap0d:'
+  id: totrans-76
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为绕过 UAC 控制，在左侧选择 exploit | Windows | local | ms10_015_kitrap0d：
+- en: '![](assets/2d96b2a4-ca53-467e-b377-801db9d0755e.png)Armitage: main screen'
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/2d96b2a4-ca53-467e-b377-801db9d0755e.png)Armitage: 主屏幕'
+- en: 'In the dialog box, validate that the session correctly identifies the `msf`
+    session you are currently working with (in my case, 1),and the LHOST reflects
+    the IP address of the interface on the same subnet as your Windows machine, and
+    then click on Launch:'
+  id: totrans-78
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在对话框中，验证当前会话是否正确识别你正在使用的 `msf` 会话（在我的例子中是 1），并且 LHOST 显示的是与 Windows 机器在同一子网的接口的
+    IP 地址，然后点击 Launch：
+- en: '![](assets/d3e81b45-976a-4cb8-beae-72fb835c4323.png)Armitage: exploit options
+    screen'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/d3e81b45-976a-4cb8-beae-72fb835c4323.png)Armitage: 漏洞选项屏幕'
+- en: 'You will then see a successful exploit and a new session opened:'
+  id: totrans-80
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 然后你将看到一个成功的漏洞利用，并打开了一个新的会话：
+- en: '![](assets/b9ab2af8-41bf-4fb7-ba0f-d2e6194bf099.png)Armitage exploit screen'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/b9ab2af8-41bf-4fb7-ba0f-d2e6194bf099.png)Armitage 漏洞利用屏幕'
+- en: 'Select this new session by right-clicking on the Windows machine and selecting
+    Meterpreter 2 | Interact | Meterpreter Shell:'
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击 Windows 机器，选择 Meterpreter 2 | 交互 | Meterpreter Shell，选择此新会话：
+- en: '![](assets/bf8cf8e1-b673-4990-8a79-e0551e985621.png)Armitage: main screen'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/bf8cf8e1-b673-4990-8a79-e0551e985621.png)Armitage: 主屏幕'
+- en: 'Now let''s rerun the previous commands. You will notice that I am logged in
+    as `SYSTEM` and I do have the privileges to run the `getsystem` command:'
+  id: totrans-84
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们重新运行之前的命令。你会注意到我已登录为 `SYSTEM`，并且我有权限执行 `getsystem` 命令：
+- en: '[PRE2]'
+  id: totrans-85
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '![](assets/52d921f7-fafd-440e-9606-58bc98c0deb3.png)Armitage: meterpreter console'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/52d921f7-fafd-440e-9606-58bc98c0deb3.png)Armitage: meterpreter 控制台'
+- en: Local Linux system check for privilege escalation
+  id: totrans-87
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 本地 Linux 系统检查权限提升
+- en: In this recipe, we will use a Python script to check the system for vulnerabilities
+    that could lead to privilege escalation.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将使用 Python 脚本检查系统是否存在可能导致权限提升的漏洞。
+- en: Getting ready
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备中
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们确保以下前提条件：
+- en: Your Metasploitable machine is connected to the NAT network (remove it immediately
+    after this lab)
+  id: totrans-91
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Metasploitable 机器已连接到 NAT 网络（完成此实验后请立即断开连接）
+- en: Your Metasploitable machine is powered up
+  id: totrans-92
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Metasploitable 机器已开机
+- en: How to do it...
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'In this recipe we will try and discover a vulnerability that will allow us
+    to escalate privileges in linux:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将尝试发现一个漏洞，该漏洞将允许我们在 Linux 中提升权限：
+- en: Log in to the Metasploitable machine with the username `msfadmin` and password
+    `msfadmin`.
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 使用用户名 `msfadmin` 和密码 `msfadmin` 登录到 Metasploitable 机器。
+- en: 'From the terminal prompt of the Metasploitable machine, run the following commands:'
+  id: totrans-96
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 Metasploitable 机器的终端提示符，运行以下命令：
+- en: '[PRE3]'
+  id: totrans-97
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 'You can now scroll through a list of vulnerabilities that can be used against
+    this machine to provide privilege escalation:'
+  id: totrans-98
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，你可以浏览一系列可以用来针对该机器进行权限提升的漏洞：
+- en: '![](assets/3ff6a38d-7e9a-4c68-bfdb-132c8675e0f6.png) Metasploitable console
+    output'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/3ff6a38d-7e9a-4c68-bfdb-132c8675e0f6.png) Metasploitable 控制台输出'
+- en: From here, you can use the exploit DB we learned to use in previous recipes
+    to see what attacks can be used against the Linux VM for privilege escalation.
+  id: totrans-100
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从这里，你可以使用我们在之前教程中学到的漏洞数据库（Exploit DB），查看哪些攻击可以用来对 Linux 虚拟机进行权限提升。
+- en: Local Linux privilege escalation
+  id: totrans-101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 本地 Linux 权限提升
+- en: In this recipe, we will use a known exploit to gain elevated privileges for
+    the logged-in user in Linux. We will have login credentials for a standard user
+    and we will then escalate their privileges through local account access.
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将利用一个已知的漏洞来为 Linux 系统中的登录用户提升权限。我们将使用标准用户的登录凭证，然后通过本地账户访问来提升其权限。
+- en: Getting ready
+  id: totrans-103
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们确保以下先决条件：
+- en: Your Kali VM is up and running
+  id: totrans-105
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Kali 虚拟机已启动并运行
+- en: Download and set up Vulnerable OS 2 (VulnOS2) from [https://www.vulnhub.com/entry/vulnos-2,147/](https://www.vulnhub.com/entry/vulnos-2,147/)
+  id: totrans-106
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 下载并设置 Vulnerable OS 2（VulnOS2），请访问 [https://www.vulnhub.com/entry/vulnos-2,147/](https://www.vulnhub.com/entry/vulnos-2,147/)
+- en: Attach the network interface to your host-only network
+  id: totrans-107
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 将网络接口附加到仅限主机的网络
+- en: Start your VulnOS2 image
+  id: totrans-108
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 启动你的 VulnOS2 镜像
+- en: Refer to [Chapter 1](7560c369-51ac-43f6-b94e-3889265b10bc.xhtml), *Installing
+    Kali and the Lab Setup*, if you need assistance setting up the VM in VirtualBox.
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你需要帮助设置虚拟机，请参阅 [第 1 章](7560c369-51ac-43f6-b94e-3889265b10bc.xhtml)，*安装 Kali
+    和实验室设置*。
+- en: How to do it...
+  id: totrans-110
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'We will now elevate privileges in Linux:'
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们将在 Linux 系统中提升权限：
+- en: Start by finding the IP address of the VulnOS2 image – we can use a simple `nmap`
+    scan to find it. Open a terminal window by clicking on the terminal icon.![](assets/f39e71d6-37a9-42fd-af2d-97306a5e6823.png)
+  id: totrans-112
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先找到 VulnOS2 镜像的 IP 地址——我们可以使用简单的 `nmap` 扫描来查找它。点击终端图标打开终端窗口。![](assets/f39e71d6-37a9-42fd-af2d-97306a5e6823.png)
+- en: 'Enter the following commands to run a quick `nmap` for the host-only network
+    of `192.168.56.0/24`:'
+  id: totrans-113
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入以下命令，在仅限主机网络 `192.168.56.0/24` 上运行快速 `nmap` 扫描：
+- en: '[PRE4]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: 'From our output, we can see that the address of the machine is `192.168.56.104`:'
+  id: totrans-115
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从我们的输出中，我们可以看到机器的地址是 `192.168.56.104`：
+- en: '![](assets/a110a183-2c88-4526-bfba-84d1b0935325.png)Kali console outputWe are
+    going to use this exploit through SSH access to the device. Local access to the
+    device will work; however, the person who designed the VM used the AZERTY keyboard
+    layout, so you will have to adjust for that if you want to do it locally. As this
+    layout assumes a different keyboard layout you will not be able to simply type
+    as you normally would. The creators intention for this is that as a penetration
+    tester you have to be aware that different users or computers may provide unfamiliar
+    environments to you that you would have to adjust to.'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/a110a183-2c88-4526-bfba-84d1b0935325.png)Kali 控制台输出我们将通过 SSH 访问设备来利用这个漏洞。也可以使用本地访问，但设计虚拟机的人使用了
+    AZERTY 键盘布局，如果你想进行本地操作，你需要做相应的调整。由于该布局假定使用不同的键盘布局，你将不能像平常一样直接输入。设计者的意图是，作为渗透测试人员，你需要意识到不同的用户或计算机可能会提供不熟悉的环境，而你需要作出调整。'
+- en: 'Let''s SSH to the device and use the credentials that we found through other
+    means. From the Kali command terminal window, enter the following:'
+  id: totrans-117
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们通过 SSH 连接到设备，使用我们通过其他方式获取的凭证。在 Kali 命令终端窗口中输入以下内容：
+- en: '[PRE5]'
+  id: totrans-118
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The username is `webmin` and the password is `webmin1980`. If you are asked
+    whether to continue connecting, select yes. If you were given an error stating
+    that the remote host identification has changed, you can clear your known hosts
+    by typing `rm /root/.ssh/known_hosts <enter>` from the console and trying to SSH
+    again.
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 用户名是 `webmin`，密码是 `webmin1980`。如果系统询问是否继续连接，请选择“是”。如果出现远程主机身份已更改的错误，可以通过在控制台输入
+    `rm /root/.ssh/known_hosts <enter>` 清除已知主机记录，然后重新尝试 SSH 连接。
+- en: Now assuming we used the previous recipe, Local Linux system check for privilege
+    escalation, we could find that this system is vulnerable to exploit `37292`.
+  id: totrans-120
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 假设我们使用了之前的教程《本地 Linux 系统检查权限提升》，我们可能会发现该系统对漏洞 `37292` 易受攻击。
+- en: 'Open Firefox and go to [https://www.exploit-db.com/exploits/37292/](https://www.exploit-db.com/exploits/37292/).
+    Review the details of the exploit and click on View Raw and copy its contents
+    to the clipboard:'
+  id: totrans-121
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 打开 Firefox 浏览器，访问 [https://www.exploit-db.com/exploits/37292/](https://www.exploit-db.com/exploits/37292/)。查看漏洞的详细信息，点击“查看原始”，并将其内容复制到剪贴板：
+- en: 'Vulnerability 37292 (CVE-2015-1328) overlayfs is a vulnerability affecting
+    Ubuntu where it does not do proper checking of file creation in the upper filesystem
+    area. Exploiting this can lead to root privilege.![](assets/fd03aeeb-1475-4068-9aeb-a43d270ecc49.png)Firefox:
+    exploit database'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '漏洞 37292 (CVE-2015-1328) overlayfs 是影响 Ubuntu 的一个漏洞，未能正确检查上层文件系统区域中文件的创建。利用该漏洞可能导致获取
+    root 权限。![](assets/fd03aeeb-1475-4068-9aeb-a43d270ecc49.png)Firefox: 漏洞数据库'
+- en: 'From the SSH session, enter the following:'
+  id: totrans-123
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 SSH 会话中，输入以下内容：
+- en: '[PRE6]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: 'Paste the contents of the clipboard, exit nano, and save the file:'
+  id: totrans-125
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 粘贴剪贴板内容，退出 nano 并保存文件：
+- en: '![](assets/1eb8af4a-0736-4142-89fa-974bc078d88e.png)nano editor screen'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/1eb8af4a-0736-4142-89fa-974bc078d88e.png)nano 编辑器界面'
+- en: 'Now we must compile the C code by entering the following—also note that we
+    are logged in as `webmin` and the shutdown command fails:'
+  id: totrans-127
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，我们必须通过输入以下内容来编译 C 代码——还要注意，我们以 `webmin` 用户身份登录，并且关机命令无法执行：
+- en: '[PRE7]'
+  id: totrans-128
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: 'Now let''s run the exploit by entering the following:'
+  id: totrans-129
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们通过输入以下内容来运行 exploit：
+- en: '[PRE8]'
+  id: totrans-130
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'You will now notice that you are the root user:'
+  id: totrans-131
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在你会注意到你已经是 root 用户：
+- en: '![](assets/dfa03d5b-fdc2-45d8-a179-451598e9eaac.png)Console output screen'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/dfa03d5b-fdc2-45d8-a179-451598e9eaac.png)控制台输出界面'
+- en: Remote Linux privilege escalation
+  id: totrans-133
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 远程 Linux 提权
+- en: In this recipe, we will use Metasploit against the Metasploitable VM to raise
+    the privileges of the user.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将使用 Metasploit 对 Metasploitable 虚拟机进行攻击，以提升用户的权限。
+- en: Getting ready
+  id: totrans-135
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们来确保以下先决条件：
+- en: Your Kali VM is up and running
+  id: totrans-137
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Kali 虚拟机已启动并运行
+- en: Your Metasploitable VM is up and running and on the host-only network
+  id: totrans-138
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Metasploitable 虚拟机已启动并运行，并且在主机专用网络中
+- en: How to do it...
+  id: totrans-139
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作…
+- en: 'In this recipe we will remotely elevate privilege on a Linux device:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本教程中，我们将在 Linux 设备上远程提升权限：
+- en: First, let's log in to the Metasploitable VM and add a standard user.
+  id: totrans-141
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 首先，让我们登录到 Metasploitable 虚拟机并添加一个标准用户。
+- en: Metasploitable's default username is `msfadmin` and password `msfadmin`.
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Metasploitable 的默认用户名是 `msfadmin`，密码是 `msfadmin`。
+- en: 'From the console, enter the following commands to add a user and validate the
+    IP address of the Metasploitable host:'
+  id: totrans-143
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从控制台，输入以下命令来添加用户并验证 Metasploitable 主机的 IP 地址：
+- en: '[PRE9]'
+  id: totrans-144
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: '![](assets/63822a93-b98f-421b-bf63-5a49c1f667f6.png)Metasploitable console'
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/63822a93-b98f-421b-bf63-5a49c1f667f6.png)Metasploitable 控制台'
+- en: From Kali, let's start Armitage.
+  id: totrans-146
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从 Kali 开始，启动 Armitage。
+- en: Refer to [Chapter 4](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml), *Finding Exploits
+    in the Target*, for information on starting Armitage.
+  id: totrans-147
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请参阅[第 4 章](9f678d15-2115-4e29-a75d-03dba65d3398.xhtml)，*寻找目标中的漏洞*，获取有关启动 Armitage
+    的信息。
+- en: 'From Armitage, add the Metasploitable VM, in my case `192.168.56.105`, by clicking
+    on Hosts | Add Hosts:'
+  id: totrans-148
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 Armitage 中，添加 Metasploitable 虚拟机，在我的情况下是 `192.168.56.105`，通过点击主机 | 添加主机：
+- en: '![](assets/44e270d7-66a0-4451-a8ea-c638660f1b49.png)Armitage: main screen'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/44e270d7-66a0-4451-a8ea-c638660f1b49.png)Armitage: 主界面'
+- en: 'From the Add Hosts dialog box, enter your Metasploitable VM''s IP address and
+    click on Add. Click on OK on the confirmation dialog box:'
+  id: totrans-150
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从添加主机对话框中，输入 Metasploitable 虚拟机的 IP 地址并点击添加。点击确认对话框中的“确定”：
+- en: '![](assets/55df966c-3bb2-4fcd-a385-a8af16d24b6a.png)Armitage: Add Hosts dialog
+    box'
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/55df966c-3bb2-4fcd-a385-a8af16d24b6a.png)Armitage: 添加主机对话框'
+- en: 'Run a quick scan against the device by selecting the host and then clicking
+    on Hosts | Nmap Scan | Intense Scan. Ensure the IP address of your VM is populated
+    in the input screen and click on OK:'
+  id: totrans-152
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过选择主机并点击主机 | Nmap 扫描 | 强力扫描，快速扫描设备。确保在输入界面中填写了虚拟机的 IP 地址并点击“确定”：
+- en: '![](assets/301d8928-ebe7-487d-9684-2251270ef079.png)Armitage: Input dialog
+    box'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/301d8928-ebe7-487d-9684-2251270ef079.png)Armitage: 输入对话框'
+- en: Once the scan is complete, click OK in the Scan Complete dialog box.
+  id: totrans-154
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 扫描完成后，在扫描完成对话框中点击“确定”。
+- en: Now click on Attacks | Find attacks from the top menu and click on OK in the
+    Attack Analysis Complete... dialog box.
+  id: totrans-155
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在点击顶部菜单中的攻击 | 查找攻击，然后在攻击分析完成对话框中点击“确定”。
+- en: 'Now let''s log in with Telnet to the Metasploitable machine with the username
+    and password that we have by right-clicking on the host and selecting Login |
+    telnet:'
+  id: totrans-156
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们通过 Telnet 使用用户名和密码登录 Metasploitable 机器，方法是右键点击主机并选择登录 | telnet：
+- en: '![](assets/ef932ca8-50d3-41b7-904e-2358c51da583.png)Armitage: main screen'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/ef932ca8-50d3-41b7-904e-2358c51da583.png)Armitage: 主界面'
+- en: 'In the login dialog box, enter `user7` for the user and `password` for the
+    password, and then click on Launch:'
+  id: totrans-158
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在登录对话框中，输入用户名 `user7` 和密码 `password`，然后点击启动：
+- en: '![](assets/4c30f5ef-b192-41e7-be44-2188885b41fd.png).Armitage: Launch dialog
+    box'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/4c30f5ef-b192-41e7-be44-2188885b41fd.png)Armitage: 启动对话框'
+- en: 'You will now see that we have remote access to the box based on the host icon
+    change:'
+  id: totrans-160
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在你会看到，基于主机图标的变化，我们已经获得了远程访问：
+- en: '![](assets/ad866731-3b97-463c-91fe-d4ba5c68956a.png)Armitage: main screen'
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/ad866731-3b97-463c-91fe-d4ba5c68956a.png)Armitage：主界面'
+- en: 'Right-click on the hosts and select the shell| Interact option, and you will
+    be dropped into a Command Prompt window on the Metasploitable machine. Enter the
+    following:'
+  id: totrans-162
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击主机，选择 shell | 互动 选项，你将进入 Metasploitable 机器的命令提示符窗口。输入以下命令：
+- en: '[PRE10]'
+  id: totrans-163
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'From the output, you will notice that we are a standard user and have no root
+    or `sudo` privileges:'
+  id: totrans-164
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从输出中你会看到我们是一个标准用户，没有 root 或 `sudo` 权限：
+- en: '![](assets/164e288c-7bfa-4f92-a435-a3b46edfbea2.png)Armitage: shell output'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/164e288c-7bfa-4f92-a435-a3b46edfbea2.png)Armitage：shell 输出'
+- en: 'Now let''s try and exploit the system to gain root access. Right-click on the
+    hosts and select Attack | samba | usermap_script:'
+  id: totrans-166
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们尝试利用该系统来获得 root 权限。右键点击主机，选择 攻击 | samba | usermap_script：
+- en: '![](assets/73fa81f0-0fdd-475f-951b-7f23dbc97b02.png)Armitage: main screen'
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/73fa81f0-0fdd-475f-951b-7f23dbc97b02.png)Armitage：主界面'
+- en: 'On the attack dialog box, make sure your LHOST is correct, and click on Launch:'
+  id: totrans-168
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在攻击对话框中，确保你的 LHOST 地址正确，然后点击启动：
+- en: '![](assets/5501de39-53cf-40ef-a82c-66cc12b776ef.png)Armitage: attack dialog'
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/5501de39-53cf-40ef-a82c-66cc12b776ef.png)Armitage：攻击对话框'
+- en: 'After it shows a successful launch, you will see that a new shell session was
+    created, in my case, shell 8:'
+  id: totrans-170
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在成功启动后，你将看到一个新的 shell 会话已被创建，在我的例子中，是 shell 8：
+- en: '![](assets/b10c18cc-33b4-408d-8900-b6a2e08501da.png)Armitage exploit output'
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/b10c18cc-33b4-408d-8900-b6a2e08501da.png)Armitage 漏洞利用输出'
+- en: 'Right-click on the host and select the shell8 | Interact option, and you will
+    be dropped into a Command Prompt window in the Metasploitable machine. Enter the
+    following:'
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键点击主机，选择 shell8 | 互动 选项，你将进入 Metasploitable 机器中的命令提示符窗口。输入以下命令：
+- en: '[PRE11]'
+  id: totrans-173
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'You will now see that we are the root user and we can shut down the host with
+    the following command:'
+  id: totrans-174
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你会看到我们现在是 root 用户，并且可以使用以下命令关闭主机：
+- en: '[PRE12]'
+  id: totrans-175
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: '![](assets/9bc6d6b1-9b76-4318-89b3-8471cddd43a0.png)Armitage shell output'
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/9bc6d6b1-9b76-4318-89b3-8471cddd43a0.png)Armitage shell 输出'
+- en: 'You will notice if you switch to the screen of the Metasploitable machine that
+    it is shutting down:'
+  id: totrans-177
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如果你切换到 Metasploitable 机器的屏幕，你会看到它正在关机：
+- en: '![](assets/ab60c623-1cfd-4a9d-82c8-9bef522422be.png)Metasploitable console:
+    machine shutting down'
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/ab60c623-1cfd-4a9d-82c8-9bef522422be.png)Metasploitable 控制台：机器正在关机'
+- en: DirtyCOW privilege escalation for Linux
+  id: totrans-179
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: DirtyCOW Linux 提权
+- en: In this recipe, we will use DirtyCOW to exploit Linux.
+  id: totrans-180
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个配方中，我们将使用 DirtyCOW 来攻击 Linux。
+- en: We will use Metasploit with the DirtyCOW vulnerability to provide privilege
+    escalation. **Dirty Copy-On-Write** (**DirtyCOW**) was recently discovered and
+    was a major vulnerability as it went for several years without being recognized
+    and patched. DirtyCOW is a privilege escalation bug that exploits a race condition
+    in the copy on write function.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将使用 Metasploit 与 DirtyCOW 漏洞来进行提权。**脏拷贝写入**（**DirtyCOW**）最近被发现，是一个重大的漏洞，因为它在多年内未被识别和修复。DirtyCOW
+    是一个提权漏洞，利用了写时复制（copy-on-write）函数中的竞态条件。
+- en: Getting ready
+  id: totrans-182
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备就绪
+- en: 'Let''s ensure the following prerequisites:'
+  id: totrans-183
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们确保满足以下先决条件：
+- en: Your Kali VM is up and running
+  id: totrans-184
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Kali 虚拟机已经启动并运行
+- en: Your Metasploitable VM is up and running and on the host-only network
+  id: totrans-185
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 你的 Metasploitable 虚拟机已经启动并在主机专用网络上
+- en: How to do it...
+  id: totrans-186
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'We will now launch DirtyCOW against a Linux machine:'
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们将对一台 Linux 机器发起 DirtyCOW 攻击：
+- en: Open up a terminal window by clicking on the terminal icon: ![](assets/7b4a48f1-4620-42af-99a4-0cb257600f28.png)
+  id: totrans-188
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过点击终端图标打开终端窗口： ![](assets/7b4a48f1-4620-42af-99a4-0cb257600f28.png)
+- en: 'Enter the following commands to download our DirtyCOW exploit:'
+  id: totrans-189
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 输入以下命令下载我们的 DirtyCOW 漏洞利用代码：
+- en: '[PRE13]'
+  id: totrans-190
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'From within nano, look for the section `struct Userinfo user;`and change the
+    `user.username` to `"dirtycow"`:'
+  id: totrans-191
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在 nano 中，查找 `struct Userinfo user;` 部分，并将 `user.username` 改为 `"dirtycow"`：
+- en: '![](assets/f5f7b4bb-f819-49b4-959a-964d101c1c8d.png)nano interface'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/f5f7b4bb-f819-49b4-959a-964d101c1c8d.png)nano 接口'
+- en: Now we will send over the C code to our Metasploitable machine for compiling.
+  id: totrans-193
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们将把 C 代码发送到我们的 Metasploitable 机器进行编译。
+- en: I will use the same username and password I created in a previous recipe, *Remote
+    Linux privilege escalation*.
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我将使用之前在 *远程 Linux 提权* 配方中创建的相同用户名和密码。
+- en: '[PRE14]'
+  id: totrans-195
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'From your Kali VM, open an SSH session to your Metasploit VM as a standard
+    user:'
+  id: totrans-196
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从你的 Kali 虚拟机打开一个 SSH 会话到 Metasploit 虚拟机，以标准用户身份登录：
+- en: '[PRE15]'
+  id: totrans-197
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 'Let''s compile our new exploit:'
+  id: totrans-198
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让我们编译新的漏洞利用代码：
+- en: '[PRE16]'
+  id: totrans-199
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Now we will take a look at how we are before we launch the exploit:'
+  id: totrans-200
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们来看看在启动漏洞利用之前的状态：
+- en: '[PRE17]'
+  id: totrans-201
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'You will notice I am a standard user and have no root privileges, nor am I
+    a `sudo` user:'
+  id: totrans-202
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你会注意到，我是一个标准用户，没有root权限，也不是`sudo`用户：
+- en: '![](assets/769e178d-ad15-449f-b87d-a61f05c21ba6.png)Metasploitable machine
+    output'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/769e178d-ad15-449f-b87d-a61f05c21ba6.png)Metasploitable机器输出'
+- en: 'Let''s now run the `dirtycow` exploit:'
+  id: totrans-204
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在我们来运行`dirtycow`漏洞：
+- en: '[PRE18]'
+  id: totrans-205
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: 'This will take several minutes to complete; be patient until you are back at
+    the Command Prompt window.![](assets/f09174df-7b58-4153-a526-f937f7b951bf.png)Metasploitable:
+    DirtyCOW exploit'
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这将需要几分钟时间来完成；请耐心等待，直到你回到命令提示符窗口！ ![](assets/f09174df-7b58-4153-a526-f937f7b951bf.png)Metasploitable：DirtyCOW漏洞
+- en: 'Now let''s see if we have a user we can `su` too:'
+  id: totrans-207
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在让我们看看是否有一个用户可以`su`到：
+- en: '[PRE19]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 'You will now see from the output that I am an elevated user and root equivalent:'
+  id: totrans-209
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 从输出中你现在会看到，我是一个提升权限的用户，并且是root等价用户：
+- en: '![](assets/b99340e4-31ea-4c27-a335-6cafcbaa4812.png)Metasploitable: elevated
+    privileges output.Don''t forget to restore your `/etc/passwd` file when finished
+    by entering the following command: `mv /tmp/passwd.bak /etc/passwd`.'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![](assets/b99340e4-31ea-4c27-a335-6cafcbaa4812.png)Metasploitable：提升权限的输出。完成后不要忘记通过输入以下命令恢复`/etc/passwd`文件：`mv
+    /tmp/passwd.bak /etc/passwd`。'

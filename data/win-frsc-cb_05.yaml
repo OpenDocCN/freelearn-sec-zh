@@ -1,0 +1,673 @@
+- en: Windows Shadow Copies Analysis
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Windows 阴影副本分析
+- en: 'In this chapter, we will cover the following recipes:'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍以下内容：
+- en: Browsing and copying files from VSCs on a live system with ShadowCopyView
+  id: totrans-2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 ShadowCopyView 浏览和复制实时系统中的 VSC 文件
+- en: Mounting VSCs from disk images with VSSADMIN and MKLINK
+  id: totrans-3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 VSSADMIN 和 MKLINK 从磁盘镜像挂载 VSCs
+- en: Processing and analyzing VSC data with Magnet AXIOM
+  id: totrans-4
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用 Magnet AXIOM 处理和分析 VSC 数据
+- en: Introduction
+  id: totrans-5
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 介绍
+- en: Shadow copies, also known as volume shadow copies, are backup copies of Windows
+    files that are taken during the normal course of use of a machine running on NTFS.
+    For the average computer user, shadow copies may be familiar, as they are what
+    make it possible to create Windows backups, or to perform system restores when
+    something goes wrong.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 阴影副本，也称为卷阴影副本，是在使用运行 NTFS 的机器时，系统在正常操作过程中自动创建的 Windows 文件的备份副本。对于普通计算机用户来说，阴影副本可能比较熟悉，因为它们使得创建
+    Windows 备份或在出现问题时执行系统恢复成为可能。
+- en: These have obvious applications for digital forensic practitioners, particularly
+    in cases where a suspect may have tried to delete evidence from a machine. By
+    restoring the system to its previous state, or by using forensic tools to uncover
+    files that are saved in shadow copy locations, forensic practitioners may be able
+    to deduce information that an individual has tried to hide.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这些在数字法医实践中有显而易见的应用，特别是在嫌疑人可能尝试从计算机上删除证据的案件中。通过将系统恢复到之前的状态，或使用法医工具揭示保存在阴影副本位置的文件，法医从业人员可能能够推断出个体试图隐藏的信息。
+- en: However, the presence of shadow copies and the ability forensic investigators
+    have to uncover the information contained within them does not necessarily mean
+    that useful information will be obtained. Many files will simply contain information
+    that is irrelevant to the case. Even when shadow copies of useful files are restored,
+    the version the investigator can see is only a snapshot of the file. In other
+    words, the forensic analyst will only be able to see a single version of a file,
+    rather than any changes that may have been made. Shadow copies are frequently
+    overwritten by the system, and it is possible in most versions of Windows to turn
+    off the ability to create them, which means they are not a failsafe fallback option.
+    Having said that, the ability to locate, restore, and comprehend the data contained
+    within volume shadow copies is an important part of a digital forensic investigator's
+    toolkit. In this chapter, we will demonstrate a few methods that will help you
+    get to grips with shadow copies analysis.
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，阴影副本的存在以及法医调查员能够揭示其中包含的信息，并不意味着一定能获得有用的信息。许多文件可能只是包含与案件无关的信息。即使恢复了有用文件的阴影副本，调查员所看到的版本也只是该文件的快照。换句话说，法医分析员只能看到文件的单一版本，而无法看到可能已做过的任何更改。阴影副本常常会被系统覆盖，而且在大多数版本的
+    Windows 中，可以关闭创建阴影副本的功能，这意味着它们并不是一个万无一失的备用选项。尽管如此，定位、恢复和理解卷阴影副本中包含的数据的能力，仍然是数字法医调查员工具包中的重要部分。本章将演示几种帮助你掌握阴影副本分析的方法。
+- en: Browsing and copying files from VSCs on a live system with ShadowCopyView
+  id: totrans-9
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 ShadowCopyView 浏览和复制实时系统中的 VSC 文件
+- en: ShadowCopyView is a simple tool developed by **NirSoft** (remember this name!
+    They have developed lots of small free tools which are extremely useful for computer
+    forensics), which enables digital forensic examiners to browse snapshots created
+    by the Windows Volume Shadow Copy Service. It supports even the most recent Windows
+    versions (Windows 10, for example), and can be kept on your favorite USB drive,
+    which is very important for live forensics and incident response.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ShadowCopyView 是一个由 **NirSoft** 开发的简单工具（记住这个名字！他们开发了许多非常有用的小型免费工具，尤其适用于计算机法医），它使数字法医检查员能够浏览
+    Windows 卷阴影复制服务创建的快照。它甚至支持最新版本的 Windows（例如 Windows 10），并且可以保存在你最喜欢的 USB 驱动器上，这对于实时法医和事件响应非常重要。
+- en: Getting ready
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'Go to NirSoft''s website and click on the All Utilities link on the left. Scroll
+    down the page, find the **ShadowCopyView** link, and click it. At the time of
+    writing, the most recent version of the tool is 1.05\. Scroll down and you will
+    find two download links: 32-bit and 64-bit versions. We recommend that you download
+    both, and use them depending on the target system. Unpack the archives you downloaded
+    to your flash drive, and you are ready to go.'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问 NirSoft 网站，并点击左侧的“所有实用工具”链接。向下滚动页面，找到 **ShadowCopyView** 链接并点击它。撰写本文时，工具的最新版本是
+    1.05\. 向下滚动，您将找到两个下载链接：32 位和 64 位版本。我们建议您下载两个版本，根据目标系统使用它们。将下载的压缩包解压到您的闪存驱动器中，准备就绪。
+- en: How to do it...
+  id: totrans-13
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'Connect your flash drive to the target system. In our case, it''s Windows 7
+    x64, so we will use the 64-bit version of ShadowCopyView. The tool detects available
+    VSCs automatically. In our case we have three VSCs available, as you can see in
+    the following figure:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将闪存驱动器连接到目标系统。在我们的案例中，是 Windows 7 x64，因此我们将使用 64 位版本的 ShadowCopyView。该工具会自动检测可用的
+    VSC（卷影副本）。在我们的案例中，有三个 VSC 可用，如下图所示：
+- en: '![](img/a7e0e87f-ab65-4031-9f52-3fef447ed5ac.png)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/a7e0e87f-ab65-4031-9f52-3fef447ed5ac.png)'
+- en: Figure 5.1\. Volume Shadow Copies detected by ShadowCopyView
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.1\. ShadowCopyView 检测到的卷影副本
+- en: The main window of the tool consists of two panes. The first pane displays information
+    about detected shadow copies, including name, Explorer path, Volume path, Created
+    Time, and so on. The Explorer path means you can browse shadow copies in Windows
+    Explorer.
+  id: totrans-17
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工具的主窗口由两个窗格组成。第一个窗格显示有关检测到的影子副本的信息，包括名称、资源管理器路径、卷路径、创建时间等。资源管理器路径意味着您可以在 Windows
+    资源管理器中浏览影子副本。
+- en: 'Right-click on the VSC you want to browse in Explorer and choose Open In Windows
+    Explorer, or just press F2\. Now it''s open in Windows Explorer, as you can see
+    in the following figure:'
+  id: totrans-18
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 右键单击要在资源管理器中浏览的 VSC，并选择“在 Windows 资源管理器中打开”，或者直接按 F2\. 现在它已经在 Windows 资源管理器中打开，如下图所示：
+- en: '![](img/9abb53d4-92eb-485d-9463-422e792ef41d.png)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/9abb53d4-92eb-485d-9463-422e792ef41d.png)'
+- en: Figure 5.2\. A Volume Shadow Copy opened in Windows Explorer
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.2\. 在 Windows 资源管理器中打开的卷影副本
+- en: Now, let's get back to ShadowCopyView. The second pane enables you to browse
+    available shadow copies. Using this pane, you can export both files and folders.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们回到 ShadowCopyView。第二个窗格使您能够浏览可用的影子副本。使用此窗格，您可以导出文件和文件夹。
+- en: All you need to do is to right-click a file or a folder, and select the Copy
+    Selected Files To... option or just press F8.
+  id: totrans-22
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 您只需右键单击文件或文件夹，选择“将选定文件复制到...”选项，或者直接按 F8。
+- en: There are some other useful options you can use. For example, if you prefer
+    timestamps in the UTC (Coordinated Universal Time) time standard, you can use
+    the **GMT** (**Greenwich Mean Time**) time zone. To do this, go to the Options
+    menu and select Show Time In GMT.
+  id: totrans-23
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 还有一些其他有用的选项可以使用。例如，如果您更喜欢使用 UTC（协调世界时）时间标准的时间戳，可以使用 **GMT**（**格林威治标准时间**）时区。为此，进入“选项”菜单并选择“以
+    GMT 显示时间”。
+- en: UTC or Coordinated Universal Time is the primary standard by which the world
+    regulates clocks and time. For example, most parts of European Russia use UTC
+    +3 hours.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 协调世界时（UTC）是世界调节时钟和时间的主要标准。例如，俄罗斯欧洲大部分地区使用 UTC +3 小时。
+- en: 'Also, if you want to see the whole properties list of a shadow copy, you can
+    right-click it and choose the Properties option, or just press *Alt* + *Enter*.
+    Now you see all the properties in one window, as in the following figure:'
+  id: totrans-25
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 此外，如果您想查看影子副本的完整属性列表，可以右键单击它并选择“属性”选项，或者直接按 *Alt* + *Enter*。现在您可以在一个窗口中查看所有属性，如下图所示：
+- en: '![](img/aa74b742-626e-4616-9c21-2488e3c8fb44.png)'
+  id: totrans-26
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/aa74b742-626e-4616-9c21-2488e3c8fb44.png)'
+- en: Figure 5.3\. A Volume Shadow Copy's properties
+  id: totrans-27
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.3\. 卷影副本的属性
+- en: And the last very useful feature we want to tell you about is keyword searching.
+  id: totrans-28
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们要告诉您最后一个非常有用的功能是关键字搜索。
+- en: 'Go to **Edit - Find**, or just press *Ctrl* + *F*, and you will see the Find
+    window, as in the following figure:'
+  id: totrans-29
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 进入 **编辑 - 查找**，或者直接按 *Ctrl* + *F*，您将看到查找窗口，如下图所示：
+- en: '![](img/6a008b3a-640b-465f-ab4d-c613318459b4.png)'
+  id: totrans-30
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6a008b3a-640b-465f-ab4d-c613318459b4.png)'
+- en: Figure 5.4\. ShadowCopyView Find window
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.4\. ShadowCopyView 查找窗口
+- en: As you can see, you also have two options to tick. Tick the first one if hits
+    must include the whole word only, tick the second if it is important that results
+    are returned in uppercase or lowercase letters.
+  id: totrans-32
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如您所见，您还可以选择两个选项。如果必须包含整个单词，请勾选第一个选项；如果需要结果以大写或小写字母返回，请勾选第二个选项。
+- en: How it works...
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何运作...
+- en: ShadowCopyView detects available Volume Shadow Copies, enabling a computer forensic
+    examiner to browse them both via the tool and Windows Explorer, and also allows
+    them to search for and export files and folders.
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ShadowCopyView 检测可用的卷影像副本，使得计算机取证检查员能够通过该工具和 Windows 资源管理器浏览它们，并且还允许他们搜索和导出文件和文件夹。
+- en: See also
+  id: totrans-35
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The NirSoft website: [http://www.nirsoft.net/](http://www.nirsoft.net/)'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: NirSoft 网站：[http://www.nirsoft.net/](http://www.nirsoft.net/)
+- en: 'The ShadowCopyView download page: [http://www.nirsoft.net/utils/shadow_copy_view.html](http://www.nirsoft.net/utils/shadow_copy_view.html)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ShadowCopyView 下载页面：[http://www.nirsoft.net/utils/shadow_copy_view.html](http://www.nirsoft.net/utils/shadow_copy_view.html)
+- en: Mounting VSCs from disk images with VSSADMIN and MKLINK
+  id: totrans-38
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 VSSADMIN 和 MKLINK 从磁盘镜像挂载 VSC
+- en: VSSADMIN is a built-in Windows command-line tool capable of displaying Volume
+    Shadow Copies. You can use it not only on a running Windows system, but also on
+    disk images. In this recipe, we will show you how to do it.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VSSADMIN 是一个内置的 Windows 命令行工具，能够显示卷影像副本。你不仅可以在运行中的 Windows 系统上使用它，还可以在磁盘镜像上使用它。在本教程中，我们将展示如何做到这一点。
+- en: Getting ready
+  id: totrans-40
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备工作
+- en: 'As the tool we are going to use is built-in, there is no need for installation:
+    if you are using Windows, you already have it. So all you need is to mount a forensic
+    image, and you already know how to do this from [Chapter 3](cdc042a6-a9ed-423a-96da-96e6d7767d8e.xhtml),
+    *Windows Drive Acquisition*. As soon as the image is mounted, you are ready to
+    go.'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们要使用的工具是内置的，因此无需安装：如果你使用的是 Windows，你已经拥有它。因此，你只需要挂载一个取证镜像，你已经知道如何做到这一点，见
+    [第 3 章](cdc042a6-a9ed-423a-96da-96e6d7767d8e.xhtml)，*Windows 驱动器获取*。一旦镜像挂载完成，你就可以开始了。
+- en: How to do it...
+  id: totrans-42
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'The steps to mount VSCs from disk images using VSSADMIN and MKLINK are as follows:'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 VSSADMIN 和 MKLINK 从磁盘镜像挂载 VSC 的步骤如下：
+- en: 'Start Windows Command Prompt (don''t forget to run it as Administrator). In
+    our case, the boot partition is mounted as `G:\ drive`, so we use the following
+    command:'
+  id: totrans-44
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 Windows 命令提示符（别忘了以管理员身份运行）。在我们的例子中，启动分区挂载为 `G:\` 驱动器，因此我们使用以下命令：
+- en: '[PRE0]'
+  id: totrans-45
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '![](img/6e8b801e-fcfc-4f17-a575-27608839f43d.png)'
+  id: totrans-46
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/6e8b801e-fcfc-4f17-a575-27608839f43d.png)'
+- en: Figure 5.5\. vssadmin list shadows /for=G:\ command output
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.5\. vssadmin list shadows /for=G:\ 命令输出
+- en: As you can see in the preceding figure, our forensic image contains a shadow
+    copy.
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你在前面的图中所看到的，我们的取证镜像包含一个影像副本。
+- en: 'The most important part of its properties for us is **Shadow Copy Volume**,
+    in our case it''s `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy7`. Now we are
+    ready to use MKLINK to mount the shadow copy we found. Use the following command:'
+  id: totrans-49
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 对我们来说，它的最重要属性是 **影像副本卷**，在我们的例子中它是 `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy7`。现在我们准备好使用
+    MKLINK 挂载我们找到的影像副本。使用以下命令：
+- en: '[PRE1]'
+  id: totrans-50
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '![](img/5a241b81-44d5-48b5-8cad-08237163afe3.png)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5a241b81-44d5-48b5-8cad-08237163afe3.png)'
+- en: Figure 5.6\. mklink /D C:\VSC \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy7
+    command output
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.6\. mklink /D C:\VSC \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy7 命令输出
+- en: MKLINK creates a folder (you should choose its name and location, and type it
+    in as part of the command) and mounts the shadow copy to it, so you can browse
+    it like a normal folder. Don't forget the **/D** switch — we need it to create
+    a directory symbolic link, not a file.
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: MKLINK 创建一个文件夹（你需要选择它的名称和位置，并将其作为命令的一部分输入），并将影像副本挂载到该文件夹上，这样你就可以像浏览普通文件夹一样浏览它。不要忘记
+    **/D** 开关 —— 我们需要它来创建一个目录符号链接，而不是文件。
+- en: There is another way to use Windows Explorer for VSC browsing. We need to get
+    a VSC path in the following format `\\localhost\G$\@GMT-2016.12.28-20.00.30`
+  id: totrans-54
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 还有另一种方法可以使用 Windows 资源管理器浏览 VSC。我们需要获取 VSC 路径，格式如下：`\\localhost\G$\@GMT-2016.12.28-20.00.30`
+- en: 'The first part of the path, `\\localhost\`, will be always the same. The next
+    part depends on the drive letter of the boot partition. As you will remember,
+    in our case it''s `G:\`, so in the path it is `G$`. For example, if you have `H:\`,
+    it''s `H$`, and so on. The last part is based on the VSC''s creation time. You
+    can get it from the VSSADMIN output, but it must be converted into GMT. Now just
+    type it as a path in Windows Explorer, and the shadow copy will be available for
+    examination, as in the following figure:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 路径的第一部分 `\\localhost\` 将始终相同。接下来的部分取决于启动分区的驱动器字母。正如你所记得的，在我们的例子中是 `G:\`，所以路径中是
+    `G$`。例如，如果你的驱动器字母是 `H:\`，那就是 `H$`，依此类推。最后一部分是基于 VSC 的创建时间。你可以从 VSSADMIN 输出中获取它，但必须将其转换为
+    GMT 时间。现在，只需将其作为路径输入 Windows 资源管理器，影像副本就可以进行检查了，如下图所示：
+- en: '![](img/2ee34c69-6be4-4c12-9a5e-81be1d03a659.png)'
+  id: totrans-56
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/2ee34c69-6be4-4c12-9a5e-81be1d03a659.png)'
+- en: Figure 5.7\. A Volume Shadow Copy opened in Windows Explorer
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.7\. 在 Windows 资源管理器中打开的卷影像副本
+- en: How it works...
+  id: totrans-58
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的...
+- en: VSSADMIN displays available Volume Shadow Copies on a mounted forensic image.
+    MKLINK creates a symbolic link to the shadow copy, so a digital forensic examiner
+    can browse it in Windows Explorer.
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: VSSADMIN 显示已挂载取证镜像中的可用卷影副本。MKLINK 创建一个符号链接指向影像副本，以便数字取证检查员可以在 Windows 资源管理器中浏览它。
+- en: See also
+  id: totrans-60
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The VSSADMIN page at Misrosoft TechNet: [https://technet.microsoft.com/en-us/library/cc754968(v=ws.11).aspx](https://technet.microsoft.com/en-us/library/cc754968(v=ws.11).aspx)'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Misrosoft TechNet 上的 VSSADMIN 页面：[https://technet.microsoft.com/en-us/library/cc754968(v=ws.11).aspx](https://technet.microsoft.com/en-us/library/cc754968(v=ws.11).aspx)
+- en: 'The MKLINK page at Microsoft TechNet: [https://technet.microsoft.com/en-us/library/cc753194(v=ws.11).aspx](https://technet.microsoft.com/en-us/library/cc753194(v=ws.11).aspx)'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Microsoft TechNet 上的 MKLINK 页面：[https://technet.microsoft.com/en-us/library/cc753194(v=ws.11).aspx](https://technet.microsoft.com/en-us/library/cc753194(v=ws.11).aspx)
+- en: Processing and analyzing VSC data with Magnet AXIOM
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 Magnet AXIOM 处理和分析 VSC 数据
+- en: Magnet AXIOM is an all-in-one digital forensics tool by Magnet Forensics, capable
+    of extracting (acquiring) and processing data from both computers and mobile devices.
+    It supports lots of Windows forensic artifacts, including extracting data from
+    Windows Volume Shadow Copies.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Magnet AXIOM 是 Magnet Forensics 提供的一个集成数字取证工具，能够从计算机和移动设备中提取（获取）和处理数据。它支持大量
+    Windows 取证工件，包括从 Windows 卷影副本中提取数据。
+- en: Getting ready
+  id: totrans-65
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 准备开始
+- en: 'At the time of writing, Magnet Forensics provides a fully functional 30-day
+    free trial version of Magnet AXIOM. All you need to do is go to Magnet Forensics''
+    website and click on the TRY NOW button. Fill in the form, including your first
+    name, last name, email address, phone number, state or province, country, and
+    so on and click on REQUEST A FREE TRIAL. Make sure you type your real email: your
+    trial key and download link will be sent to this address. Once you get it, download
+    the installer and follow its instructions. You are ready to go!'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在撰写本文时，Magnet Forensics 提供了功能完整的 Magnet AXIOM 30 天免费试用版。您只需访问 Magnet Forensics
+    网站并点击“立即试用”按钮。填写表格，包括您的名字、姓氏、电子邮件地址、电话号码、州或省、国家等，然后点击“申请免费试用”。确保输入您的真实电子邮件地址：试用密钥和下载链接将发送到该地址。收到后，下载安装程序并按照提示操作，您就可以开始了！
+- en: How to do it...
+  id: totrans-67
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 如何操作...
+- en: 'The steps to process and analyze data using Magnet AXIOM are as follows:'
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用 Magnet AXIOM 处理和分析数据的步骤如下：
+- en: Start the Magnet AXIOM Process.
+  id: totrans-69
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 启动 Magnet AXIOM 处理。
+- en: 'The first window you will see is CASE DETAILS, as you can see in the following
+    figure:'
+  id: totrans-70
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 您将看到的第一个窗口是案件详情，如下图所示：
+- en: '![](img/5fc26f32-6c1e-4278-8491-dac07e3c3345.png)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/5fc26f32-6c1e-4278-8491-dac07e3c3345.png)'
+- en: Figure 5.8\. Magnet AXIOM CASE DETAILS window
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.8。Magnet AXIOM 案件详情窗口
+- en: 'Here, we have four main parts:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里我们有四个主要部分：
+- en: LOCATION FOR CASE FILES - Here, you should choose the Folder name and File path
+    being created during processing.
+  id: totrans-74
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案件文件位置 - 在这里，您应该选择处理过程中创建的文件夹名称和文件路径。
+- en: LOCATION FOR ACQUIRED EVIDENCE - If you plan to acquire drives or mobile devices
+    via AXIOM, choose the Folder name and File path for them, or just choose the same
+    path as for case files.
+  id: totrans-75
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 获取证据的位置 - 如果您计划通过 AXIOM 获取硬盘或移动设备，请选择文件夹名称和文件路径，或者直接选择与案件文件相同的路径。
+- en: CASE INFORMATION - Type in your case number, your name, and the case description.
+  id: totrans-76
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 案件信息 - 输入您的案件编号、姓名和案件描述。
+- en: REPORT OPTIONS - If you have your own logo or company logo, you can choose it
+    by clicking BROWSE. Make sure the image is square, because it will be resized
+    to 150x150 pixels.
+  id: totrans-77
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 报告选项 - 如果您有自己的标志或公司标志，可以通过点击浏览来选择它。确保图像是正方形的，因为它将被调整为 150x150 像素。
+- en: 'Once you have filled in all the fields, you can click GO TO EVIDENCE SOURCES.
+    You can see the EVIDENCE SOURCES window shown in the following figure:'
+  id: totrans-78
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 填写完所有字段后，您可以点击“转到证据来源”。您可以看到如下图所示的证据来源窗口：
+- en: '![](img/94548459-44b7-4e29-b453-fe10ab7e0fc7.png)'
+  id: totrans-79
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/94548459-44b7-4e29-b453-fe10ab7e0fc7.png)'
+- en: Figure 5.9\. Magnet AXIOM EVIDENCE SOURCES window
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.9。Magnet AXIOM 证据来源窗口
+- en: 'Here, we have two options: ACQUIRE EVIDENCE and LOAD EVIDENCE.'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里我们有两个选项：获取证据和加载证据。
+- en: We are going to use an image we acquired previously, so our choice is the LOAD
+    EVIDENCE button. You can use one of the images you acquired in the previous recipes.
+  id: totrans-82
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 我们将使用之前获取的镜像，因此选择的是加载证据按钮。您也可以使用之前教程中获取的任意镜像。
+- en: 'The next window is LOAD EVIDENCE, as you can see in the following figure:'
+  id: totrans-83
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 下一个窗口是加载证据，如下图所示：
+- en: '![](img/753e8d29-3fb2-4d2c-bc6c-a3677f281ff1.png)'
+  id: totrans-84
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/753e8d29-3fb2-4d2c-bc6c-a3677f281ff1.png)'
+- en: Figure 5.10\. Magnet AXIOM LOAD EVIDENCE window
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 5.10。Magnet AXIOM 加载证据窗口
+- en: 'Here, we have a VOLUME SHADOW COPY option - click it. Now we have two more
+    options: DRIVE and IMAGE.'
+  id: totrans-86
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 在这里，我们有一个“卷影像副本”选项——点击它。现在，我们有两个选项：驱动器和镜像。
+- en: 'As we noted earlier, we are going to use an image. Once you choose it, you
+    can see the list of shadow copies available on the image, as in the following
+    figure:'
+  id: totrans-87
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 如我们之前所述，我们将使用一个镜像。选择后，您可以看到镜像上可用的影像副本列表，如下图所示：
+- en: '![](img/31533d54-2a8c-46c1-855f-e414832d1465.png)'
+  id: totrans-88
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/31533d54-2a8c-46c1-855f-e414832d1465.png)'
+- en: Figure 5.11\. Volume Shadow Copies list
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.11\. 卷影像副本列表
+- en: You can choose one or more shadow copies and go to processing details by clicking
+    NEXT. This time, we will skip this step and go straight to artifacts details (click
+    the GO TO ARTIFACTS DETAILS button).
+  id: totrans-90
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 您可以选择一个或多个影像副本，并通过点击“下一步”进入处理详情。这次，我们将跳过这一步，直接进入伪造物详情（点击“转到伪造物详情”按钮）。
+- en: 'As we are working with a shadow copy, the MOBILE ARTIFACTS option is inactive,
+    but we can use the COMPUTER ARTIFACTS option. As in Belkasoft Evidence Center,
+    here we have a wide range of artifacts, as you can see in the following figure:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们正在处理一个影像副本，MOBILE ARTIFACTS 选项不可用，但我们可以使用 COMPUTER ARTIFACTS 选项。与 Belkasoft
+    Evidence Center 一样，在这里我们有广泛的伪造物，您可以在下图中看到：
+- en: '![](img/937de1a6-0c90-438e-8f89-602626b1e0f5.png)'
+  id: totrans-92
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](img/937de1a6-0c90-438e-8f89-602626b1e0f5.png)'
+- en: Figure 5.12\. Magnet AXIOM SELECT ARTIFACTS TO INCLUDE IN CASE window
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5.12\. Magnet AXIOM 选择要包含在案件中的伪造物窗口
+- en: For testing purposes, we have included all available artifacts in the case.
+    Click the GO TO ANALYZE EVIDENCE button, and the ANALYZE EVIDENCE button right
+    after that. This will start Magnet AXIOM Examine.
+  id: totrans-94
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了测试，我们已将所有可用伪造物包含在案件中。点击“转到分析证据”按钮，接着点击“分析证据”按钮。这将启动 Magnet AXIOM Examine。
+- en: Once processing is finished, you will see the results in Magnet AXIOM Examine.
+  id: totrans-95
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 一旦处理完成，您将看到 Magnet AXIOM Examine 中的结果。
+- en: How it works...
+  id: totrans-96
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 它是如何工作的…
+- en: Magnet AXIOM scans a drive or an image for available Volume Shadow Copies and
+    uses them as its evidence source. After it has processed all available data in
+    the chosen shadow copies, it extracts forensic artifacts according to the choices
+    made by the examiner.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Magnet AXIOM 会扫描驱动器或镜像中的可用卷影像副本，并将它们作为证据来源。处理完所选影像副本中的所有可用数据后，它会根据审查员做出的选择提取法医伪造物。
+- en: See also
+  id: totrans-98
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 另见
+- en: 'The Magnet Forensics website: [https://www.magnetforensics.com/](https://www.magnetforensics.com/)'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Magnet Forensics 网站：[https://www.magnetforensics.com/](https://www.magnetforensics.com/)
+- en: 'The Magnet AXIOM free 30-day trial request page: [https://www.magnetforensics.com/try-magnet-axiom-free-30-days/](https://www.magnetforensics.com/try-magnet-axiom-free-30-days/)'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Magnet AXIOM 免费30天试用请求页面：[https://www.magnetforensics.com/try-magnet-axiom-free-30-days/](https://www.magnetforensics.com/try-magnet-axiom-free-30-days/)
+- en: 'Belkasoft Evidence Center: [https://belkasoft.com/ec](https://belkasoft.com/ec)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Belkasoft Evidence Center：[https://belkasoft.com/ec](https://belkasoft.com/ec)

@@ -1,0 +1,1605 @@
+- en: '*Chapter 3*: Ghidra Debug Mode'
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: '*第3章*：Ghidra 调试模式'
+- en: In this chapter, we will introduce Ghidra debug mode. By using the Eclipse IDE,
+    you will be able to develop and debug, in a professional way, any feature of Ghidra,
+    including plugins, which were covered in the previous chapter.
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将介绍 Ghidra 调试模式。通过使用 Eclipse IDE，你将能够以专业的方式开发和调试 Ghidra 的任何功能，包括前一章中介绍的插件。
+- en: We choose to use the Eclipse IDE (https://ghidra-sre.org/InstallationGuide.html)
+    because it is the only one officially supported by Ghidra. It is technically possible
+    to use other ones, but they are not officially supported. There is a severe security
+    issue in the Ghidra debug mode functionality that affects Ghidra 9.0, so please
+    use any later version of the program to deploy your development environment. The
+    current safe and stable version at the time of writing this book is 9.1.2.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们选择使用 Eclipse IDE（https://ghidra-sre.org/InstallationGuide.html），因为它是 Ghidra
+    官方支持的唯一 IDE。从技术上讲，可以使用其他 IDE，但它们并未被官方支持。Ghidra 调试模式功能在 Ghidra 9.0 版本中存在严重的安全问题，因此请使用该程序的任何较新版本来部署开发环境。在本书编写时，当前安全且稳定的版本是
+    9.1.2。
+- en: Finally, you will learn how to exploit the **remote code execution** (**RCE**)
+    vulnerability.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后，你将学习如何利用 **远程代码执行**（**RCE**）漏洞。
+- en: 'In this chapter, we''re going to cover the following main topics:'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，我们将涵盖以下主要内容：
+- en: Setting up the Ghidra development environment
+  id: totrans-5
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 设置 Ghidra 开发环境
+- en: Debugging the Ghidra code and Ghidra scripts
+  id: totrans-6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 调试 Ghidra 代码和 Ghidra 脚本
+- en: Ghidra RCE vulnerability
+  id: totrans-7
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Ghidra 远程代码执行（RCE）漏洞
+- en: Technical requirements
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 技术要求
+- en: 'The GitHub repository containing all the necessary code for this chapter can
+    be found here:'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 包含本章所需所有代码的 GitHub 仓库可在此处找到：
+- en: '[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners)'
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners](https://github.com/PacktPublishing/Ghidra-Software-Reverse-Engineering-for-Beginners)'
+- en: 'Check out the following link to see the Code in Action video: [https://bit.ly/37EfC5a](https://bit.ly/37EfC5a)'
+  id: totrans-11
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请查看以下链接观看《代码实战》视频：[https://bit.ly/37EfC5a](https://bit.ly/37EfC5a)
+- en: Setting up the Ghidra development environment
+  id: totrans-12
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 设置 Ghidra 开发环境
+- en: 'For the purpose of this chapter, you will need to install the following software
+    requirements:'
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章所需安装的以下软件要求：
+- en: 'Java JDK 11 for x86_64 (available here: [https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot](https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot)).'
+  id: totrans-14
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 适用于 x86_64 的 Java JDK 11（可在此处下载：[https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot](https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot)）。
+- en: 'The Eclipse IDE for Java developers (any version supporting JDK 11, available
+    here: [https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/))
+    as it is the IDE that is officially integrated and supported by Ghidra.'
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Java 开发者的 Eclipse IDE（任何支持 JDK 11 的版本，下载链接：[https://www.eclipse.org/downloads/packages/](https://www.eclipse.org/downloads/packages/)），因为它是
+    Ghidra 官方集成和支持的 IDE。
+- en: 'PyDev 6.3.1 (available here: [https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip](https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip)).'
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: PyDev 6.3.1（可在此处下载：[https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip](https://netix.dl.sourceforge.net/project/pydev/pydev/PyDev%206.3.1/PyDev%206.3.1.zip)）。
+- en: 'The GhidraDev plugin (available here: [https://github.com/NationalSecurityAgency/ghidra/tree/f33e2c129633d4de544e14bc163ea95a4b52bac5/GhidraBuild/EclipsePlugins/GhidraDev](https://github.com/NationalSecurityAgency/ghidra/tree/f33e2c129633d4de544e14bc163ea95a4b52bac5/GhidraBuild/EclipsePlugins/GhidraDev)).'
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: GhidraDev 插件（可在此处下载：[https://github.com/NationalSecurityAgency/ghidra/tree/f33e2c129633d4de544e14bc163ea95a4b52bac5/GhidraBuild/EclipsePlugins/GhidraDev](https://github.com/NationalSecurityAgency/ghidra/tree/f33e2c129633d4de544e14bc163ea95a4b52bac5/GhidraBuild/EclipsePlugins/GhidraDev)）。
+- en: Overviewing the software requirements
+  id: totrans-18
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 软件要求概述
+- en: We need the **Java Development Kit** (**JDK**) and PyDev because they allow
+    us to work with the Java and Python programming languages, respectively. Eclipse
+    is the officially supported and integrated IDE for Ghidra development.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们需要 **Java 开发工具包**（**JDK**）和 PyDev，因为它们分别允许我们使用 Java 和 Python 编程语言。Eclipse
+    是 Ghidra 开发的官方集成和支持的 IDE。
+- en: Although Eclipse is the only officially supported IDE, it is technically possible
+    to integrate IntelliJ with Ghidra ([https://reversing.technology/2019/11/18/ghidra-dev-pt3-dbg.html](https://reversing.technology/2019/11/18/ghidra-dev-pt3-dbg.html))
+    or any other IDE for advanced purposes and to deeply investigate how integration
+    works.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管 Eclipse 是唯一官方支持的 IDE，但从技术上讲，也可以将 IntelliJ 与 Ghidra 集成（[https://reversing.technology/2019/11/18/ghidra-dev-pt3-dbg.html](https://reversing.technology/2019/11/18/ghidra-dev-pt3-dbg.html)）或与任何其他
+    IDE 集成，以便用于高级目的并深入探讨集成的工作原理。
+- en: You can install more dependencies if you want. In fact, more dependencies could
+    eventually be required to debug and/or develop specific components.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果需要，你可以安装更多的依赖项。实际上，可能需要更多的依赖项来调试和/或开发特定组件。
+- en: Ghidra DevGuide documentation
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra DevGuide 文档
+- en: If you want to install all the necessary dependencies for a full Ghidra development
+    environment, then you can refer to **Catalog of Dependencies** in the documentation,
+    which is also useful for answering specific questions when setting up the environment.
+    You can find the documentation at https://github.com/NationalSecurityAgency/ghidra/blob/master/DevGuide.md.
+    The documentation currently explicitly says that you can install these dependencies
+    in no particular order but, in this case, it is recommended to install the Java
+    JDK first because it will be required later by Eclipse.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你想安装所有必要的依赖项以创建完整的 Ghidra 开发环境，那么你可以参考文档中的**依赖项目录**，该目录对于设置环境时回答特定问题也非常有用。你可以在
+    https://github.com/NationalSecurityAgency/ghidra/blob/master/DevGuide.md 找到相关文档。文档中目前明确指出，你可以按任意顺序安装这些依赖项，但在此情况下，建议首先安装
+    Java JDK，因为 Eclipse 后续会用到它。
+- en: Installing the Java JDK
+  id: totrans-24
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装 Java JDK
+- en: The installation of the JDK is straightforward. First, you have to decompress
+    the ZIP file and set the `JAVA_HOME` environment variable to the JDK decompressed
+    location, and then add the path of its `bin` directory to the `PATH` environment
+    variable.
+  id: totrans-25
+  prefs: []
+  type: TYPE_NORMAL
+  zh: JDK 的安装很简单。首先，你需要解压 ZIP 文件并将 `JAVA_HOME` 环境变量设置为 JDK 解压位置，然后将其 `bin` 目录的路径添加到
+    `PATH` 环境变量中。
+- en: 'You can check whether the installation of the JDK was successful by printing
+    the `JAVA_HOME` content and the Java version. To do that, use the following two
+    commands and check the output:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过打印`JAVA_HOME`的内容和 Java 版本来检查 JDK 是否安装成功。为此，可以使用以下两个命令并检查输出：
+- en: '[PRE0]'
+  id: totrans-27
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[PRE1]'
+  id: totrans-28
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[PRE2]'
+  id: totrans-29
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[PRE3]'
+  id: totrans-30
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[PRE4]'
+  id: totrans-31
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[PRE5]'
+  id: totrans-32
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: The previous output indicates that JDK 11.0.6 was successfully installed and
+    configured.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上面的输出表示 JDK 11.0.6 已成功安装和配置。
+- en: Installing the Eclipse IDE
+  id: totrans-34
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装 Eclipse IDE
+- en: 'Once the Java JDK is installed, let''s go ahead and install **Eclipse IDE for
+    Java Developers** (other Eclipse installations might have problems) by downloading
+    it from the **packages** section of its official website (https://www.eclipse.org/downloads/packages/):'
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一旦 Java JDK 安装完成，接下来我们可以安装**Eclipse IDE for Java Developers**（其他 Eclipse 安装可能会有问题），通过从其官方网站的**下载包**部分下载（https://www.eclipse.org/downloads/packages/）：
+- en: '![Figure 3.1 – Downloading Eclipse IDE for Java Developers'
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.1 – 下载 Eclipse IDE for Java Developers](img/B16207_03_002.jpg)'
+- en: '](img/B16207_03_001.jpg)'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_001.jpg)'
+- en: Figure 3.1 – Downloading Eclipse IDE for Java Developers
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.1 – 下载 Eclipse IDE for Java Developers
+- en: The next step is to install PyDev from Eclipse.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下一步是从 Eclipse 安装 PyDev。
+- en: Installing PyDev
+  id: totrans-40
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装 PyDev
+- en: 'After installing Eclipse, extract or decompress the contents of the `PyDev
+    6.3.1` ZIP file we downloaded earlier when setting up the lab to a folder by right-clicking
+    on it and choosing **Extract All…**:'
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装 Eclipse 后，右键点击之前下载的 `PyDev 6.3.1` ZIP 文件，选择**全部解压...**，将其内容解压到一个文件夹中：
+- en: '![Figure 3.2 – Decompressing PyDev to a folder'
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.2 – 将 PyDev 解压到一个文件夹](img/B16207_03_003.jpg)'
+- en: '](img/B16207_03_002.jpg)'
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_002.jpg)'
+- en: Figure 3.2 – Decompressing PyDev to a folder
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.2 – 将 PyDev 解压到一个文件夹
+- en: 'Decompress all the contents of `PyDev 6.3.1.zip` to a folder named `PyDev 6.3.1`:'
+  id: totrans-45
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 将 `PyDev 6.3.1.zip` 的所有内容解压到名为 `PyDev 6.3.1` 的文件夹中：
+- en: '![Figure 3.3 – Decompressing the contents of the PyDev 6.3.1.zip file'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.3 – 解压 PyDev 6.3.1.zip 文件的内容](img/B16207_03_001.jpg)'
+- en: '](img/B16207_03_003.jpg)'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_003.jpg)'
+- en: Figure 3.3 – Decompressing the contents of the PyDev 6.3.1.zip file
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.3 – 解压 PyDev 6.3.1.zip 文件的内容
+- en: 'Install it from Eclipse by clicking on the **Install New Software…** option
+    of the **Help** menu and add the folder path of the decompressed PyDev archive
+    file as the local repository (the **Local…** option in the following screenshot):'
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从 Eclipse 中安装，方法是点击**安装新软件...**选项，在**帮助**菜单下，然后将解压后的 PyDev 压缩包文件夹路径添加为本地仓库（如下截图中的**本地...**选项）：
+- en: '![Figure 3.4 – Adding PyDev as the Eclipse local repository'
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.4 – 将 PyDev 添加为 Eclipse 本地仓库](img/B16207_03_005.jpg)'
+- en: '](img/B16207_03_004.jpg)'
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_007.jpg)'
+- en: Figure 3.4 – Adding PyDev as the Eclipse local repository
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.4 – 将 PyDev 添加为 Eclipse 本地仓库
+- en: 'It is quite common to get stuck at this point. As you can see in the following
+    screenshot, no categorized items exist. Please, uncheck the **Group items by category**
+    option to avoid this:'
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这一点上卡住是非常常见的。如您所见，在以下截图中，没有按类别分组的项目。请取消勾选**按类别分组项目**选项，以避免这种情况：
+- en: '![Figure 3.5 – ThePyDev plugin installer is NOT visible because installers
+    are grouped by category'
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.5 – PyDev 插件安装程序不可见，因为安装程序按类别分组](img/B16207_03_006.jpg)'
+- en: '](img/B16207_03_005.jpg)'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_005.jpg)'
+- en: Figure 3.5 – ThePyDev plugin installer is NOT visible because installers are
+    grouped by category
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.5 – PyDev 插件安装程序不可见，因为安装程序按类别分组
+- en: 'After unchecking **Group items by category**, you will be able to select the
+    **PyDev for Eclipse** option in order to install it:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在取消勾选**按类别分组项目**后，您将能够选择**PyDev for Eclipse**选项以进行安装：
+- en: '![Figure 3.6 – Checking PyDev to be installed'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.6 – 检查是否安装 PyDev](img/B16207_03_012.jpg)'
+- en: '](img/B16207_03_006.jpg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_009.jpg)'
+- en: Figure 3.6 – Checking PyDev to be installed
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.6 – 检查是否安装 PyDev
+- en: 'Click on **Next >** to continue the installation:'
+  id: totrans-61
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击**下一步 >**继续安装：
+- en: '![Figure 3.7 – Reviewing the items to be installed'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.7 – 审核待安装的项目](img/B16207_03_009.jpg)'
+- en: '](img/B16207_03_007.jpg)'
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_005.jpg)'
+- en: Figure 3.7 – Reviewing the items to be installed
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.7 – 审核待安装的项目
+- en: 'Before installing PyDev, you must accept the license:'
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在安装 PyDev 之前，您必须接受许可协议：
+- en: '![Figure 3.8 – Accepting the PyDev license'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.8 – 接受 PyDev 许可协议](img/B16207_03_005.jpg)'
+- en: '](img/B16207_03_008.jpg)'
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_010.jpg)'
+- en: Figure 3.8 – Accepting the PyDev license
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.8 – 接受 PyDev 许可协议
+- en: 'After installing PyDev, you will need to restart Eclipse to let the changes
+    in the software take effect:'
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装 PyDev 后，您需要重新启动 Eclipse，以便软件的更改生效：
+- en: '![Figure 3.9 – Restarting Eclipse'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.9 – 重启 Eclipse](img/B16207_03_004.jpg)'
+- en: '](img/B16207_03_009.jpg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_008.jpg)'
+- en: Figure 3.9 – Restarting Eclipse
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.9 – 重启 Eclipse
+- en: 'After this step, you will get Python support for Eclipse. You can check it
+    by clicking on **Help** | **About Eclipse IDE** | **Installation Details**:'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 完成此步骤后，您将获得 Eclipse 的 Python 支持。您可以通过点击**帮助** | **关于 Eclipse IDE** | **安装详情**来检查：
+- en: '![Figure 3.10 – Verifying that PyDev was successfully installed in Eclipse'
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.10 – 验证 PyDev 是否成功安装到 Eclipse 中](img/B16207_03_012.jpg)'
+- en: '](img/B16207_03_010.jpg)'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_009.jpg)'
+- en: Figure 3.10 – Verifying that PyDev was successfully installed in Eclipse
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.10 – 验证 PyDev 是否成功安装到 Eclipse 中
+- en: This Eclipse menu is also useful for updating, uninstalling, and seeing the
+    properties of any installed Eclipse IDE extensions.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此 Eclipse 菜单还可以用于更新、卸载以及查看任何已安装的 Eclipse IDE 扩展的属性。
+- en: Installing GhidraDev
+  id: totrans-78
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 安装 GhidraDev
+- en: 'Similar to how we installed PyDev, for Ghidra/Eclipse synchronization, you
+    need to install the GhidraDev plugin, available in Ghidra''s installation directory
+    at `Extensions\Eclipse\GhidraDev\GhidraDev-2.1.0.zip`, but this time, do not decompress
+    it but use the **Archive…** option instead:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 与我们安装 PyDev 类似，对于 Ghidra/Eclipse 同步，您需要安装 GhidraDev 插件，该插件可在 Ghidra 安装目录下的 `Extensions\Eclipse\GhidraDev\GhidraDev-2.1.0.zip`
+    找到，但这次不要解压它，而是使用**归档...**选项：
+- en: '![Figure 3.11 – Adding GhidraDev as an Eclipse local repository'
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.11 – 将 GhidraDev 添加为 Eclipse 本地仓库](img/B16207_03_011.jpg)'
+- en: '](img/B16207_03_011.jpg)'
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_008.jpg)'
+- en: Figure 3.11 – Adding GhidraDev as an Eclipse local repository
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.11 – 将 GhidraDev 添加为 Eclipse 本地仓库
+- en: 'After that, click on **Add**. In this case, you don''t need to worry about
+    the **Group items by category** option because a **Ghidra** category exists containing
+    the **GhidraDev** plugin we are interested in. Just make sure that the **GhidraDev**
+    option is marked and click on the **Next >** button:'
+  id: totrans-83
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，点击**添加**。在这种情况下，您无需担心**按类别分组项目**选项，因为已经有一个**Ghidra**类别，里面包含了我们感兴趣的**GhidraDev**插件。只需确保勾选**GhidraDev**选项，然后点击**下一步
+    >**按钮：
+- en: '![Figure 3.12 – Installing the GhidraDev plugin'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.12 – 安装 GhidraDev 插件](img/B16207_03_008.jpg)'
+- en: '](img/B16207_03_012.jpg)'
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_012.jpg)'
+- en: Figure 3.12 – Installing the GhidraDev plugin
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.12 – 安装 GhidraDev 插件
+- en: 'After that, you can take the opportunity to review the installation details.
+    Click on **Next >** again to continue installing GhidraDev:'
+  id: totrans-87
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，您可以利用这个机会查看安装详情。再次点击**下一步 >**继续安装 GhidraDev：
+- en: '![Figure 3.13 – Reviewing the items to be installed'
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.13 – 审核待安装的项目](img/B16207_03_013.jpg)'
+- en: '](img/B16207_03_013.jpg)'
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_013.jpg)'
+- en: Figure 3.13 – Reviewing the items to be installed
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.13 – 审核待安装的项目
+- en: 'Accept the GhidraDev license terms and click on **Finish**:'
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 接受 GhidraDev 许可协议并点击**完成**：
+- en: '![Figure 3.14 – Accepting the GhidraDev license terms'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.14 – 接受 GhidraDev 许可条款'
+- en: '](img/B16207_03_014.jpg)'
+  id: totrans-93
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_014.jpg)'
+- en: Figure 3.14 – Accepting the GhidraDev license terms
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.14 – 接受 GhidraDev 许可条款
+- en: 'In this case, a security warning will appear. Don''t worry about it. The authenticity
+    of the plugin cannot be verified because it is not signed. Click on **Install
+    anyway** to continue:'
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，安全警告将会出现。不要担心。插件的真实性无法验证，因为它没有签名。点击**仍然安装**继续：
+- en: '![Figure 3.15 – Accepting the security warning'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.15 – 接受安全警告'
+- en: '](img/B16207_03_015.jpg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_015.jpg)'
+- en: Figure 3.15 – Accepting the security warning
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.15 – 接受安全警告
+- en: 'To let the changes take effect, click on **Restart Now** to restart the Eclipse
+    IDE:'
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了使更改生效，请点击**立即重启**来重启 Eclipse IDE：
+- en: '![Figure 3.16 – Restarting the Eclipse IDE'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.16 – 重启 Eclipse IDE'
+- en: '](img/B16207_03_016.jpg)'
+  id: totrans-101
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_016.jpg)'
+- en: Figure 3.16 – Restarting the Eclipse IDE
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.16 – 重启 Eclipse IDE
+- en: 'As you know, you can check whether GhidraDev is installed via **Help** | **About
+    Eclipse IDE** | **Installation Details**. But in this case, the plugin is incorporated
+    into the menu bar of Eclipse, so you can easily notice whether the installation
+    was successful by checking the menu bar:'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您所知，您可以通过**帮助** | **关于 Eclipse IDE** | **安装详情**来检查是否安装了 GhidraDev。但在这种情况下，插件已经集成到
+    Eclipse 的菜单栏中，因此您可以通过检查菜单栏轻松发现安装是否成功：
+- en: '![Figure 3.17 – GhidraDev plugin installed'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.17 – 安装 GhidraDev 插件'
+- en: '](img/B16207_03_017.jpg)'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_017.jpg)'
+- en: Figure 3.17 – GhidraDev plugin installed
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.17 – 安装 GhidraDev 插件
+- en: After that, the GhidraDev plugin will be installed and you will also be able
+    to specify where Ghidra installations are located in order to link them to your
+    development projects. Use **GhidraDev** | **Preferences** | **Ghidra Installations…**
+    to do so.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 安装完成后，GhidraDev 插件将被安装，您还可以指定 Ghidra 安装的位置，以便将它们链接到您的开发项目中。使用**GhidraDev** |
+    **首选项** | **Ghidra 安装…**来进行操作。
+- en: 'In this case, I have two Ghidra installations (**Ghidra_9.1.1_PUBLIC** and
+    **Ghidra_9.1.1_PUBLIC - other**), where **Ghidra_9.1.1_PUBLIC** is checked as
+    default. Ghidra installations can be added by clicking on the **Add…** button
+    and removed by selecting the installation row on the table and clicking on **Remove**:'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，我有两个 Ghidra 安装（**Ghidra_9.1.1_PUBLIC** 和 **Ghidra_9.1.1_PUBLIC - other**），其中
+    **Ghidra_9.1.1_PUBLIC** 被选为默认。可以通过点击**添加…**按钮来添加 Ghidra 安装，也可以通过选择表格中的安装行并点击**删除**来删除安装：
+- en: '![Figure 3.18 – Adding Ghidra installation directories to GhidraDev'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.18 – 将 Ghidra 安装目录添加到 GhidraDev'
+- en: '](img/B16207_03_018.jpg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_018.jpg)'
+- en: Figure 3.18 – Adding Ghidra installation directories to GhidraDev
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.18 – 将 Ghidra 安装目录添加到 GhidraDev
+- en: In the next section, we will cover Ghidra debugging, which enables us not only
+    to identify and fix programming errors in scripts but also to follow the execution
+    of Ghidra step by step. The ability to debug will be very useful because it opens
+    up to you all the low-level internal details of Ghidra for fun and advanced development.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在接下来的部分，我们将介绍 Ghidra 调试，它不仅使我们能够识别和修复脚本中的编程错误，还能一步步地跟踪 Ghidra 的执行。调试能力将非常有用，因为它为您打开了
+    Ghidra 的所有低级内部细节，以供娱乐和高级开发使用。
+- en: Debugging the Ghidra code and Ghidra scripts
+  id: totrans-113
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 调试 Ghidra 代码和 Ghidra 脚本
+- en: In this section, we will explore how to debug Ghidra features from Eclipse.
+    We will start by reviewing how to develop scripts and how to debug them, and then
+    we will conclude by showing how to debug any Ghidra component from the source
+    code.
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将探讨如何从 Eclipse 中调试 Ghidra 功能。我们将从回顾如何开发脚本以及如何调试它们开始，然后通过展示如何从源代码调试任何
+    Ghidra 组件来结束。
+- en: Debugging Ghidra scripts from Eclipse
+  id: totrans-115
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从 Eclipse 调试 Ghidra 脚本
+- en: 'Let''s go ahead and debug a Ghidra script. First, we will need to create a
+    new Ghidra project using the `GhidraScripts`, which is the default or suggested
+    value:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，让我们开始调试一个 Ghidra 脚本。首先，我们需要使用默认或建议的值 `GhidraScripts` 创建一个新的 Ghidra 项目：
+- en: '![Figure 3.19 – Creating a Ghidra script project'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.19 – 创建 Ghidra 脚本项目'
+- en: '](img/B16207_03_019.jpg)'
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_019.jpg)'
+- en: Figure 3.19 – Creating a Ghidra script project
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.19 – 创建 Ghidra 脚本项目
+- en: 'After clicking on `C:\Users\virusito\ghidra_scripts`) and the scripts included
+    with your Ghidra installation with checkboxes:'
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击`C:\Users\virusito\ghidra_scripts`后，您将看到与您的 Ghidra 安装一起包含的脚本和复选框：
+- en: '![Figure 3.20 – Configuring the new Ghidra script project'
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.20 – 配置新的 Ghidra 脚本项目'
+- en: '](img/B16207_03_020.jpg)'
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_020.jpg)'
+- en: Figure 3.20 – Configuring the new Ghidra script project
+  id: totrans-123
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.20 – 配置新的 Ghidra 脚本项目
+- en: 'You will be able to choose a Ghidra installation previously configured via
+    **GhidraDev** | **Preferences** | **Ghidra Installations…**, and you can also
+    open the Ghidra installation window in order to add/remove Ghidra installation
+    directories via the **+** button:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您将能够选择通过**GhidraDev** | **Preferences** | **Ghidra Installations…**之前配置的Ghidra安装，您还可以通过**+**按钮打开Ghidra安装窗口，添加或删除Ghidra安装目录：
+- en: '![Figure 3.21 – Linking a Ghidra installation to the Ghidra script project
+    being created'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.21 – 将Ghidra安装与正在创建的Ghidra脚本项目关联'
+- en: '](img/B16207_03_021.jpg)'
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_021.jpg)'
+- en: Figure 3.21 – Linking a Ghidra installation to the Ghidra script project being
+    created
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.21 – 将Ghidra安装与正在创建的Ghidra脚本项目关联
+- en: 'After clicking on **Next >**, you will be able to enable Python support through
+    Jython. You can add the Jython interpreter that comes with Ghidra or download
+    your own interpreter (available here: [https://www.jython.org/download](https://www.jython.org/download))
+    by clicking on the **+** button:'
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击**Next >**后，您将能够通过Jython启用Python支持。您可以添加随Ghidra提供的Jython解释器，也可以通过点击**+**按钮下载您自己的解释器（下载链接：[https://www.jython.org/download](https://www.jython.org/download)）：
+- en: '![Figure 3.22 – Adding Python support to the Ghidra script project via Jython'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.22 – 通过Jython将Python支持添加到Ghidra脚本项目'
+- en: '](img/B16207_03_022.jpg)'
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_022.jpg)'
+- en: Figure 3.22 – Adding Python support to the Ghidra script project via Jython
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.22 – 通过Jython将Python支持添加到Ghidra脚本项目
+- en: 'If you want to use the interpreter that comes with Ghidra (available in the
+    following directory: `\Ghidra\Features\Python\lib\jython-standalone-2.7.1.jar`)
+    and you already have Ghidra linked to the project, you are presented with this
+    option, which avoids having to manually look for it yourself. Answer affirmatively
+    to the dialog window:'
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您想使用随Ghidra提供的解释器（位于以下目录：`\Ghidra\Features\Python\lib\jython-standalone-2.7.1.jar`），并且已经将Ghidra与项目关联，您将看到这个选项，这样可以避免手动寻找解释器。请在对话框中确认选择：
+- en: '![Figure 3.23 – Automatically adding the Jython interpreter that comes with
+    Ghidra'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.23 – 自动添加随Ghidra提供的Jython解释器'
+- en: '](img/B16207_03_023.jpg)'
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_023.jpg)'
+- en: Figure 3.23 – Automatically adding the Jython interpreter that comes with Ghidra
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.23 – 自动添加随Ghidra提供的Jython解释器
+- en: 'After that, you will have a Jython interpreter available and it is sufficient
+    for general purposes. But if at any time you have the need to link your own interpreter,
+    click on **+** | **New…** | **Browse** and, after adding your Jython interpreter,
+    click **OK**:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，您将拥有一个可用的Jython解释器，它足以满足一般需求。但如果您在任何时候需要链接自己的解释器，请点击**+** | **New…** | **Browse**，然后在添加自己的Jython解释器后点击**OK**：
+- en: '![Figure 3.24 – Adding your own Jython interpreter'
+  id: totrans-137
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.24 – 添加您自己的Jython解释器'
+- en: '](img/B16207_03_024.jpg)'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_024.jpg)'
+- en: Figure 3.24 – Adding your own Jython interpreter
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.24 – 添加您自己的Jython解释器
+- en: 'If you receive the following message, click on **Proceed anyways**:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您收到以下消息，请点击**Proceed anyways**：
+- en: '![Figure 3.25 – Adding the Python standard library to PYTHONPATH in Eclipse'
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.25 – 在Eclipse中将Python标准库添加到PYTHONPATH'
+- en: '](img/B16207_03_025.jpg)'
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_025.jpg)'
+- en: Figure 3.25 – Adding the Python standard library to PYTHONPATH in Eclipse
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.25 – 在Eclipse中将Python标准库添加到PYTHONPATH
+- en: 'Use the following command to retrieve the `/Lib` folder path:'
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用以下命令获取`/Lib`文件夹路径：
+- en: '[PRE6]'
+  id: totrans-145
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: '[PRE7]'
+  id: totrans-146
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: '[PRE8]'
+  id: totrans-147
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: 'Add that folder to `PYTHONPATH` using **New Folder** and, after checking that
+    it was added, as shown in the following screenshot, click on **Apply and Close**:'
+  id: totrans-148
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用**New Folder**将该文件夹添加到`PYTHONPATH`中，并在确认已添加后，如下图所示，点击**Apply and Close**：
+- en: '![Figure 3.26 – Applying the changes in PYTHONPATH'
+  id: totrans-149
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.26 – 应用PYTHONPATH中的更改'
+- en: '](img/B16207_03_026.jpg)'
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_026.jpg)'
+- en: Figure 3.26 – Applying the changes in PYTHONPATH
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.26 – 应用PYTHONPATH中的更改
+- en: 'Now, you can choose your own interpreter or the other one included with Ghidra.
+    Make your choice and click on **Finish**:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，您可以选择自己的解释器或Ghidra中包含的另一个解释器。做出选择后点击**Finish**：
+- en: '![Figure 3.27 – Choosing an available Jython interpreter'
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.27 – 选择可用的Jython解释器'
+- en: '](img/B16207_03_027.jpg)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_027.jpg)'
+- en: Figure 3.27 – Choosing an available Jython interpreter
+  id: totrans-155
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.27 – 选择可用的Jython解释器
+- en: Before moving on to actually debugging, let's first see how our environment
+    looks and notice the following.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在开始实际调试之前，首先让我们看看我们的环境情况，并注意以下几点。
+- en: The Ghidra script project we created consists of some folders containing existing
+    scripts available in your Ghidra installation directory (you can check the path
+    of any of these folders when selected by pressing the *Alt* + *Enter* hotkey combination
+    in Eclipse) and also your home scripts by default, located in the `%userprofile%\ghidra_scripts\`
+    folder.
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们创建的 Ghidra 脚本项目由一些文件夹组成，这些文件夹包含了你 Ghidra 安装目录中现有的脚本（你可以通过在 Eclipse 中按下*Alt*
+    + *Enter* 快捷键组合来检查任何这些文件夹的路径），默认还包括你的个人脚本，位于`%userprofile%\ghidra_scripts\` 文件夹中。
+- en: '`JUnit 4`, the JDK (`JRE System Library`), and `Referenced Libraries` (including
+    Ghidra libraries) are also linked to the project, as well as the entire Ghidra
+    installation folder:'
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`JUnit 4`，JDK（`JRE 系统库`）以及`引用库`（包括 Ghidra 库）也被链接到项目中，还有整个 Ghidra 安装文件夹：'
+- en: '![Figure 3.28 – Ghidra script project structure'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.28 – Ghidra 脚本项目结构'
+- en: '](img/B16207_03_028.jpg)'
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_028.jpg)'
+- en: Figure 3.28 – Ghidra script project structure
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.28 – Ghidra 脚本项目结构
+- en: By right-clicking on the project and choosing **Run As** or **Debug As**, you
+    will notice that two running and debugging modes, respectively, were automatically
+    created when installing the GhidraDev plugin.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过右键点击项目并选择**运行方式**或**调试方式**，你会注意到，在安装 GhidraDev 插件时，分别自动创建了两种运行和调试模式。
+- en: 'The first one, **Ghidra** running mode, allows you to run Ghidra in a GUI environment,
+    while the second one, **Ghidra Headless**, allows you to execute Ghidra in non-GUI
+    mode:'
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 第一个，**Ghidra** 运行模式，允许你在 GUI 环境中运行 Ghidra，而第二个，**Ghidra Headless**，则允许你在非 GUI
+    模式下执行 Ghidra：
+- en: '![Figure 3.29 – Project running modes'
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.29 – 项目运行模式'
+- en: '](img/B16207_03_029.jpg)'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_029.jpg)'
+- en: Figure 3.29 – Project running modes
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.29 – 项目运行模式
+- en: Let's debug the `NopScript.java` Ghidra script code developed in [*Chapter 2*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031),
+    *Automating RE Tasks with Ghidra Scripts*, by pasting it into Eclipse, which is
+    now integrated with Ghidra.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过将 [*第 2 章*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031) 中开发的 `NopScript.java`
+    Ghidra 脚本代码粘贴到已集成 Ghidra 的 Eclipse 中来调试它，*通过 Ghidra 脚本自动化 RE 任务*。
+- en: 'In order to create a new script, follow these steps:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了创建一个新的脚本，按照以下步骤操作：
+- en: Go to **GhidraDev** | **New** | **Ghidra Script...**:![Figure 3.30 – Creating
+    a new Ghidra script
+  id: totrans-169
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 转到**GhidraDev** | **新建** | **Ghidra 脚本...**：![图 3.30 – 创建一个新的 Ghidra 脚本
+- en: '](img/B16207_03_030.jpg)'
+  id: totrans-170
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_030.jpg)'
+- en: Figure 3.30 – Creating a new Ghidra script
+  id: totrans-171
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3.30 – 创建一个新的 Ghidra 脚本
+- en: Fill in the required fields, as follows:![Figure 3.31 – Creating the NopScript.java
+    Ghidra script
+  id: totrans-172
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 填写所需的字段，如下所示：![图 3.31 – 创建 NopScript.java Ghidra 脚本
+- en: '](img/B16207_03_031.jpg)'
+  id: totrans-173
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_031.jpg)'
+- en: Figure 3.31 – Creating the NopScript.java Ghidra script
+  id: totrans-174
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3.31 – 创建 NopScript.java Ghidra 脚本
+- en: Let GhidraDev generate the corresponding script skeleton. Fill the script body
+    by pasting the `NopScript.java` Ghidra script code written in [*Chapter 2*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031),
+    *Automating RE Tasks with Ghidra Scripts*:![Figure 3.32 – Overwriting the skeleton
+    code with the NopScript.java code
+  id: totrans-175
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 让 GhidraDev 生成相应的脚本框架。通过粘贴 [*第 2 章*](B16207_02_Final_SK_ePub.xhtml#_idTextAnchor031)
+    中编写的 `NopScript.java` Ghidra 脚本代码来填写脚本主体，*通过 Ghidra 脚本自动化 RE 任务*：![图 3.32 – 用
+    NopScript.java 代码覆盖框架代码
+- en: '](img/B16207_03_032.jpg)'
+  id: totrans-176
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_032.jpg)'
+- en: Figure 3.32 – Overwriting the skeleton code with the NopScript.java code
+  id: totrans-177
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3.32 – 用 NopScript.java 代码覆盖框架代码
+- en: You can let the program break in some lines of the script by adding a breakpoint
+    to it. Breakpoints can be established by right-clicking on the line number you
+    want to break on and choosing **Toggle Breakpoint**. Alternatively, double-clicking
+    on the line number or pressing the *Ctrl* + *Shift* + *B* combination while keeping
+    the mouse focus on the line will also work:![Figure 3.33 – Setting a breakpoint
+    in the script on line 17
+  id: totrans-178
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你可以通过在脚本的某些行上添加断点来让程序暂停。可以通过右键点击你想要暂停的行号并选择**切换断点**来设置断点。或者，双击该行号或按下*Ctrl* +
+    *Shift* + *B* 组合键，同时保持鼠标焦点在该行上也能生效：![图 3.33 – 在脚本的第 17 行设置断点
+- en: '](img/B16207_03_033.jpg)'
+  id: totrans-179
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_033.jpg)'
+- en: Figure 3.33 – Setting a breakpoint in the script on line 17
+  id: totrans-180
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3.33 – 在脚本的第 17 行设置断点
+- en: Now, you can debug this code by right-clicking on it and choosing **Debug As**
+    | **Ghidra**:![Figure 3.34 – Debugging a Ghidra script
+  id: totrans-181
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 现在，你可以通过右键点击该代码并选择**调试方式** | **Ghidra**来调试此代码：![图 3.34 – 调试 Ghidra 脚本
+- en: '](img/B16207_03_034.jpg)'
+  id: totrans-182
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_034.jpg)'
+- en: Figure 3.34 – Debugging a Ghidra script
+  id: totrans-183
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 图 3.34 – 调试 Ghidra 脚本
+- en: 'To force Ghidra to reach the line where the breakpoint is established, you
+    will need to run the plugin over a chosen byte of a file in Ghidra, which is now
+    synchronized with Eclipse using GhidraDev. As this script has associated the *Ctrl*
+    + *Alt* + *Shift* + *N* hotkeys, you can use them in order to execute it over
+    a byte of a file:'
+  id: totrans-184
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 为了强制 Ghidra 到达设置了断点的那一行，你需要在 Ghidra 中运行插件，作用于文件的某个字节，这时它会与 Eclipse 同步，通过 GhidraDev
+    插件实现。由于该脚本已经将 *Ctrl* + *Alt* + *Shift* + *N* 快捷键关联起来，你可以使用它们在文件的字节上执行脚本：
+- en: '![Figure 3.35 – Debugging NopScript.java in Ghidra'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.35 – 在 Ghidra 中调试 NopScript.java'
+- en: '](img/B16207_03_035.jpg)'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_035.jpg)'
+- en: Figure 3.35 – Debugging NopScript.java in Ghidra
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.35 – 在 Ghidra 中调试 NopScript.java
+- en: 'In the same way, Ghidra Python scripts can be also debugged from Eclipse using
+    PyDev integration:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样，Ghidra Python 脚本也可以通过 Eclipse 中的 PyDev 集成进行调试：
+- en: '![Figure 3.36 – Debugging NopScript.py in Ghidra'
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.36 – 在 Ghidra 中调试 NopScript.py'
+- en: '](img/B16207_03_036.jpg)'
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_036.jpg)'
+- en: Figure 3.36 – Debugging NopScript.py in Ghidra
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.36 – 在 Ghidra 中调试 NopScript.py
+- en: The same procedure can be applied not only to home scripts but also to any other
+    plugin available in the project.
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 同样的过程不仅适用于自定义脚本，也适用于项目中的任何其他插件。
+- en: Debugging any Ghidra component from Eclipse
+  id: totrans-193
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 从 Eclipse 调试任何 Ghidra 组件
+- en: 'You can debug not only plugins but also any features in Ghidra. For instance,
+    if you want to debug the `Graph.jar`:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你不仅可以调试插件，还可以调试 Ghidra 中的任何功能。例如，如果你想调试 `Graph.jar`：
+- en: '![Figure 3.37 – Adding the Graph.jar file to the build path'
+  id: totrans-195
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.37 – 将 Graph.jar 文件添加到构建路径中'
+- en: '](img/B16207_03_037.jpg)'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_037.jpg)'
+- en: Figure 3.37 – Adding the Graph.jar file to the build path
+  id: totrans-197
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.37 – 将 Graph.jar 文件添加到构建路径中
+- en: 'Then, you can link the JAR file (now available in the build path) to its own
+    source code. The source code is located in the same folder, named `Grahp-src.zip`.
+    To link the source code, you need to open the `Graph.jar` properties by right-clicking
+    on the JAR file, and then attach the ZIP file in the **Workspace location** field
+    of the **Java Source Attachment** section:'
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，你可以将 JAR 文件（现在已添加到构建路径中）链接到其源代码。源代码位于同一文件夹中，命名为 `Graph-src.zip`。要链接源代码，你需要通过右键单击
+    JAR 文件打开 `Graph.jar` 的属性，然后在 **Java 源代码附件** 部分的 **工作区位置** 字段中附加该 ZIP 文件：
+- en: '![Figure 3.38 – Linking the Graph.jar file to its own source code'
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.38 – 将 Graph.jar 文件链接到其源代码'
+- en: '](img/B16207_03_038.jpg)'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_038.jpg)'
+- en: Figure 3.38 – Linking the Graph.jar file to its own source code
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.38 – 将 Graph.jar 文件链接到其源代码
+- en: 'After that, you will be able to expand the `Graph.jar` file, showing the included
+    `*.class` files. You will be able to see the source code because it is linked
+    now. You will be also able to add breakpoints to it, which will be hit when the
+    corresponding line is reached during a debugging session:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 之后，你将能够展开 `Graph.jar` 文件，显示其中包含的 `*.class` 文件。由于源代码已被链接，你将能够查看源代码。你还可以向源代码添加断点，在调试会话期间，当相应的代码行被执行时，断点会被触发：
+- en: '![Figure 3.39 – Debugging the Function Graph feature'
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '![图 3.39 – 调试功能图谱特性'
+- en: '](img/B16207_03_039.jpg)'
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '](img/B16207_03_039.jpg)'
+- en: Figure 3.39 – Debugging the Function Graph feature
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图 3.39 – 调试功能图谱特性
+- en: In this section, you learned how to integrate Eclipse and Ghidra using the GhidraDev
+    plugin. We saw how to develop and debug Ghidra plugins from the IDE and, finally,
+    how to debug any feature of Ghidra of your choice, which allows you to master
+    Ghidra internals on your own.
+  id: totrans-206
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，你学习了如何通过 GhidraDev 插件将 Eclipse 与 Ghidra 集成。我们展示了如何从 IDE 中开发和调试 Ghidra 插件，并最终如何调试你选择的
+    Ghidra 功能，这使你能够独立掌握 Ghidra 内部的工作原理。
+- en: Ghidra RCE vulnerability
+  id: totrans-207
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Ghidra RCE 漏洞
+- en: In this section, we will learn how the RCE vulnerability found in Ghidra 9.0
+    works, how to exploit it, and how to fix it.
+  id: totrans-208
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将学习如何发现 Ghidra 9.0 中的 RCE 漏洞，它是如何工作的，如何利用它，以及如何修复它。
+- en: Explaining the Ghidra RCE vulnerability
+  id: totrans-209
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 解释 Ghidra RCE 漏洞
+- en: 'The vulnerability was due to a line located in `launch.bat` when running Ghidra
+    on Windows platforms and `launch.sh` when running it on Linux or macOS. The following
+    is the line involved:'
+  id: totrans-210
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 漏洞是由于在 Windows 平台上运行 Ghidra 时位于 `launch.bat` 文件中的一行，或在 Linux 或 macOS 上运行时位于
+    `launch.sh` 文件中的一行。以下是涉及的那行代码：
+- en: '[PRE9]'
+  id: totrans-211
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'The vulnerability was fixed in the second version of Ghidra 9.0.1 by replacing
+    the asterisk (`*`), which indicates all addresses are allowed to attach the debugger
+    to Ghidra, and limiting it to `localhost`:'
+  id: totrans-212
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 漏洞在 Ghidra 9.0.1 的第二个版本中被修复，通过替换表示允许所有地址附加调试器的星号（`*`），并将其限制为 `localhost`：
+- en: '[PRE10]'
+  id: totrans-213
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: As you can see, the vulnerability is so evident that, paradoxically, it is likely
+    that it went unnoticed for the same reason.
+  id: totrans-214
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如你所见，这个漏洞显而易见，具有讽刺意味的是，它可能正因为这个原因而被忽视。
+- en: Exploiting the Ghidra RCE vulnerability
+  id: totrans-215
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 利用Ghidra RCE漏洞
+- en: 'To exploit this RCE vulnerability, we set up a vulnerable machine by executing
+    Ghidra 9.0 in debug mode. This can be done by executing the `ghidraDebug.bat`
+    file:'
+  id: totrans-216
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了利用这个RCE漏洞，我们通过执行调试模式下的Ghidra 9.0来设置一个易受攻击的机器。这可以通过执行`ghidraDebug.bat`文件来完成：
+- en: '[PRE11]'
+  id: totrans-217
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: '[PRE12]'
+  id: totrans-218
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'Then, we retrieve the `3828`, as shown in the following listing:'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们检索到`3828`，如以下列表所示：
+- en: '[PRE13]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: '[PRE14]'
+  id: totrans-221
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'Then, we list the active connections associated with it using `netstat`:'
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，我们使用`netstat`列出与其相关的活动连接：
+- en: '[PRE15]'
+  id: totrans-223
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: '[PRE16]'
+  id: totrans-224
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'As you can see in the previous listing, a listening connection is opened to
+    the world as indicated with `0.0.0.0:0`. Then, we can establish a connection to
+    it from anywhere. Use the following code, replacing `VICTIM_IP_HERE` with the
+    victim''s IP address:'
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如您在之前的列表中所见，已向全世界打开了一个监听连接，如`0.0.0.0:0`所示。然后，我们可以从任何地方建立连接。使用以下代码，替换`VICTIM_IP_HERE`为受害者的IP地址：
+- en: '[PRE17]'
+  id: totrans-226
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: '[PRE18]'
+  id: totrans-227
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: '[PRE19]'
+  id: totrans-228
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: '[PRE20]'
+  id: totrans-229
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'Then, look for a runnable class that will probably soon hit a breakpoint if
+    established:'
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，查找一个可以运行的类，该类如果已经建立，可能很快就会触发断点：
+- en: '[PRE21]'
+  id: totrans-231
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: '[PRE22]'
+  id: totrans-232
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: '[PRE23]'
+  id: totrans-233
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: '[PRE24]'
+  id: totrans-234
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: '[PRE25]'
+  id: totrans-235
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: '[PRE26]'
+  id: totrans-236
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: '[PRE27]'
+  id: totrans-237
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: '[PRE28]'
+  id: totrans-238
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: '`javax.swing.RepaintManager$ProcessingRunnable` will be hit when repainting
+    the window. It is a pretty good candidate. Let''s add a breakpoint to it by using
+    the `stop` command:'
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当重绘窗口时，`javax.swing.RepaintManager$ProcessingRunnable`将被触发。这是一个非常好的候选项。让我们通过使用`stop`命令在它上面添加一个断点：
+- en: '[PRE29]'
+  id: totrans-240
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: '[PRE30]'
+  id: totrans-241
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'Then, the breakpoint is quickly hit:'
+  id: totrans-242
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然后，断点很快被触发：
+- en: '[PRE31]'
+  id: totrans-243
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Given this situation, you can execute any arbitrary command. I will execute
+    a calculator via `calc.exe`, but you can replace it with any command injection
+    payload:'
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这种情况下，您可以执行任何任意命令。我将通过`calc.exe`执行一个计算器，但您可以将其替换为任何命令注入有效负载：
+- en: '[PRE32]'
+  id: totrans-245
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: '[PRE33]'
+  id: totrans-246
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: In this case, the Windows calculator program was executed on the hacked computer.
+    We know the attack was successful because we obtained feedback indicating that
+    a new process identified by PID `9268` was created on the victim's machine.
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个案例中，Windows计算器程序在被黑客攻击的计算机上执行。我们知道攻击是成功的，因为我们获得了反馈，表明在受害者的机器上创建了一个新进程，进程ID为`9268`。
+- en: Fixing the Ghidra RCE vulnerability
+  id: totrans-248
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 修复Ghidra RCE漏洞
+- en: 'To fix the vulnerability, the `DEBUG_ADDRESS` variable is set to `127.0.0.1:18001`,
+    which restricts the incoming debugging connections to `localhost`:'
+  id: totrans-249
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了修复漏洞，`DEBUG_ADDRESS`变量被设置为`127.0.0.1:18001`，这样可以将传入的调试连接限制为`localhost`：
+- en: '[PRE34]'
+  id: totrans-250
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: '[PRE35]'
+  id: totrans-251
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE35]'
+- en: '[PRE36]'
+  id: totrans-252
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE36]'
+- en: '[PRE37]'
+  id: totrans-253
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE37]'
+- en: Manually reviewing these lines allows you to check on your own whether a given
+    Ghidra version is vulnerable to this attack.
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 手动审查这些行可以让你自己检查给定的Ghidra版本是否容易受到此攻击。
+- en: Looking for vulnerable computers
+  id: totrans-255
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 寻找易受攻击的计算机
+- en: 'The Ghidra RCE vulnerability was a small but extremely important mistake because
+    vulnerable computers can be located in a straightforward way; for example, by
+    querying Shodan (you will need a Shodan account and must be logged in; otherwise,
+    the results of this link will be not available for you): [https://www.shodan.io/search?query=port:18001](https://www.shodan.io/search?query=port:18001).'
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Ghidra RCE漏洞是一个小而极为重要的错误，因为易受攻击的计算机可以通过一种直接的方式被定位；例如，通过查询Shodan（你需要一个Shodan账户并且登录，否则这个链接的结果将无法访问）：[https://www.shodan.io/search?query=port:18001](https://www.shodan.io/search?query=port:18001)。
+- en: As you know, this vulnerability is probably not an **National Security Agency**
+    (**NSA**) backdoor into the program. The NSA has its own zero-day exploits to
+    hack computers and, for sure, doesn't need to introduce backdoors into its own
+    programs to hack the computers of people around the world. In fact, to do so would
+    be a terrible move in terms of reputation.
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如你所知道的，这个漏洞可能并不是**国家安全局**（**NSA**）给程序留下的后门。NSA有自己的零日漏洞来入侵计算机，肯定不需要为了入侵全球人民的计算机而在自己的程序中插入后门。事实上，这样做对它的声誉来说将是一个非常糟糕的举动。
+- en: Important note
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 重要提示
+- en: Be sure you're using a patched version of Ghidra when using debug mode, as using
+    a vulnerable version of Ghidra poses a high risk of being hacked.
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用调试模式时，确保你使用的是修补版本的Ghidra，因为使用易受攻击的Ghidra版本存在被黑客攻击的高风险。
+- en: Summary
+  id: totrans-260
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: In this chapter, you learned how to synchronize Eclipse and Ghidra for development
+    and debugging purposes using the GhidraDev plugin. You learned skills not only
+    for debugging scripts but also for debugging any Ghidra source code line, allowing
+    you to explore the internals of this awesome framework on your own.
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本章中，你学习了如何使用 GhidraDev 插件同步 Eclipse 和 Ghidra，以便进行开发和调试。你学到的不仅是调试脚本的技能，还能调试任何
+    Ghidra 源代码行，使你能够独立探索这个强大的框架的内部机制。
+- en: We also learned how the Ghidra RCE vulnerability works, how to patch it, how
+    to exploit it, and why it is probably not an NSA backdoor. In the next chapter,
+    we will cover Ghidra extensions that are used to freely extend Ghidra from the
+    source code.
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们还了解了 Ghidra RCE 漏洞的工作原理，如何修补它，如何利用它，以及为什么它可能不是 NSA 的后门。在下一章，我们将介绍用于从源代码自由扩展
+    Ghidra 的 Ghidra 插件。
+- en: Questions
+  id: totrans-263
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 问题
+- en: Is it possible to debug a compiled version of Ghidra using the source code instead
+    of bytecode?
+  id: totrans-264
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 是否可以使用源代码而非字节码调试已编译的 Ghidra 版本？
+- en: Is it possible to debug Ghidra using an IDE other than Eclipse? Are other IDEs
+    supported?
+  id: totrans-265
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 是否可以使用除 Eclipse 以外的 IDE 调试 Ghidra？其他 IDE 是否受支持？
+- en: Does it seem likely to you that the NSA is spying on Ghidra users? Do you think
+    this likely includes backdoors?
+  id: totrans-266
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 你认为 NSA 监视 Ghidra 用户的可能性大吗？你认为这可能包括后门吗？
+- en: Further reading
+  id: totrans-267
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 深入阅读
+- en: 'You can refer to the following links for more information on the topics covered
+    in this chapter:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以参考以下链接，获取更多有关本章涉及主题的信息：
+- en: '*Introduction to JVM Languages*, *Vincent van der Leun*, June 2017:[https://subscription.packtpub.com/book/application_development/9781787127944](https://subscription.packtpub.com/book/application_development/9781787127944)'
+  id: totrans-269
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*JVM 语言入门*，*Vincent van der Leun*，2017年6月：[https://subscription.packtpub.com/book/application_development/9781787127944](https://subscription.packtpub.com/book/application_development/9781787127944)'
+- en: 'Ghidra Dev without Eclipse: [https://reversing.technology/2019/11/18/ghidra-dev-pt1.html](https://reversing.technology/2019/11/18/ghidra-dev-pt1.html)'
+  id: totrans-270
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 无需 Eclipse 即可开发 Ghidra：[https://reversing.technology/2019/11/18/ghidra-dev-pt1.html](https://reversing.technology/2019/11/18/ghidra-dev-pt1.html)
+- en: '*The Complete Metasploit Guide*, *Sagar Rahalkar and Nipun Jaswal*, June 2019:
+    [https://subscription.packtpub.com/book/security/9781838822477](https://subscription.packtpub.com/book/security/9781838822477)'
+  id: totrans-271
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*完整的 Metasploit 指南*，*Sagar Rahalkar 和 Nipun Jaswal*，2019年6月：[https://subscription.packtpub.com/book/security/9781838822477](https://subscription.packtpub.com/book/security/9781838822477)'

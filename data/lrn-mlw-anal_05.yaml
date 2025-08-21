@@ -1,0 +1,2011 @@
+- en: Disassembly Using IDA
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 使用 IDA 进行反汇编
+- en: '*Code analysis* is often used to understand the inner workings of a malicious
+    binary when the source code is unavailable. In the previous chapter, you learned
+    the code analysis skills and techniques to interpret assembly code and to understand
+    a program''s functionality; the programs that we used were simple C programs,
+    but when you are dealing with malware, it can contain thousands of lines of code
+    and hundreds of functions, making it difficult to keep track of all of the variables
+    and functions.'
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*代码分析*通常用于在无法获得源代码的情况下理解恶意二进制文件的内部工作原理。在前一章中，你学习了代码分析的技巧和方法，如何解读汇编代码并理解程序的功能；我们使用的程序是简单的
+    C 程序，但当你处理恶意软件时，它可能包含数千行代码和数百个函数，这使得跟踪所有变量和函数变得困难。'
+- en: Code analysis tools offer various features to simplify code analysis. This chapter
+    will introduce you to one such code analysis tool, named *IDA Pro (*also known
+    as *IDA)*. You will learn how to leverage the features of IDA Pro to enhance your
+    disassembly. Before we delve into the features of IDA, let's go over different
+    code analysis tools.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码分析工具提供了多种功能来简化代码分析。本章将介绍一个这样的代码分析工具，名为*IDA Pro*（*也称为*IDA*）。你将学习如何利用 IDA Pro
+    的功能来增强你的反汇编工作。在深入了解 IDA 的功能之前，让我们先了解一下不同的代码分析工具。
+- en: 1\. Code Analysis Tools
+  id: totrans-3
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 1. 代码分析工具
+- en: Code analysis tools can be classified based on their functionalities, described
+    below.
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代码分析工具可以根据其功能进行分类，具体如下所述。
+- en: A *disassembler* is a program that translates machine code back to assembly
+    code; it allows you to perform static code analysis. *Static code analysis* is
+    a technique you can use to interpret the code to understand the program's behavior,
+    without executing the binary.
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*反汇编器*是一个将机器码转换回汇编代码的程序；它允许你进行静态代码分析。*静态代码分析*是一种可以用来解读代码以理解程序行为的技术，无需执行二进制文件。'
+- en: A *debugger* is a program which also disassembles the code; apart from that,
+    it allows you to execute the compiled binary in a controlled manner. Using debuggers,
+    you can execute either a single instruction or selected functions, instead of
+    executing the entire program. A Debugger allows you to perform *dynamic code analysis,*
+    and helps you examine the aspects of the suspect binary while it is running.
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*调试器*是一个也能进行代码反汇编的程序；除此之外，它还允许你以受控的方式执行已编译的二进制文件。使用调试器，你可以执行单条指令或选择的函数，而不是执行整个程序。调试器允许你进行*动态代码分析*，并帮助你在程序运行时检查可疑二进制文件的各个方面。'
+- en: A *decompiler* is a program that translates the machine code into the code in
+    a high-level language (pseudocode). Decompilers can greatly assist you with the
+    reverse engineering process and can simplify your work.
+  id: totrans-7
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*反编译器*是一个将机器码转换为高级语言（伪代码）代码的程序。反编译器可以极大地帮助你进行逆向工程，并简化你的工作。'
+- en: 2\. Static Code Analysis (Disassembly) Using IDA
+  id: totrans-8
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2. 使用 IDA 进行静态代码分析（反汇编）
+- en: '*Hex-Rays IDA Pro* is the most powerful and popular commercial disassembler/debugger
+    ([https://www.hex-rays.com/products/ida/index.shtml](https://www.hex-rays.com/products/ida/index.shtml));
+    it is used by reverse engineers, malware analysts, and vulnerability researchers.
+    IDA can run on various platforms (Windows, Linux, and macOS) and supports analysis
+    of various file formats, including the *PE/ELF/Macho-O* formats. Apart from the
+    commercial version, IDA is distributed in two other versions: *IDA demo version
+    (evaluation version)* and *IDA Freeware version;* both these versions have certain
+    limitations. You can download the *freeware version* of IDA for non-commercial
+    use from [https://www.hex-rays.com/products/ida/support/download_freeware.shtml](https://www.hex-rays.com/products/ida/support/download_freeware.shtml).
+    At the time of writing this book, the distributed freeware version is IDA 7.0;
+    it lets you disassemble both 32-bit and 64-bit Windows binary but you will not
+    be able to debug the binary, using the free version. The *demo version (evaluation
+    version)* of IDA can be requested by filling in a form ([https://out7.hex-rays.com/demo/request](https://out7.hex-rays.com/demo/request));
+    it lets you disassemble both 32-bit and 64-bit Windows binary, and you can debug
+    32-bit binary (but not 64-bit binary) with it. Another restriction in the demo
+    version is that you will not able to save the database (covered later in this
+    chapter). Both demo and freeware version lacks *IDAPython* support. The *commercial
+    version* of IDA does not lack any functionality and comes with full-year free
+    email support and upgrades.'
+  id: totrans-9
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*Hex-Rays IDA Pro* 是最强大且最受欢迎的商业反汇编/调试工具（[https://www.hex-rays.com/products/ida/index.shtml](https://www.hex-rays.com/products/ida/index.shtml)）；它被逆向工程师、恶意软件分析师和漏洞研究人员广泛使用。IDA可以在多种平台上运行（Windows、Linux和macOS），并支持分析多种文件格式，包括
+    *PE/ELF/Macho-O* 格式。除了商业版本，IDA还提供了另外两个版本：*IDA 演示版（评估版）* 和 *IDA 免费版；* 这两个版本都有一些限制。你可以从
+    [https://www.hex-rays.com/products/ida/support/download_freeware.shtml](https://www.hex-rays.com/products/ida/support/download_freeware.shtml)
+    下载适用于非商业用途的 *免费版*。在写这本书时，分发的免费版是 IDA 7.0；它允许你反汇编 32 位和 64 位 Windows 二进制文件，但你将无法使用免费版进行调试。你可以通过填写表格（[https://out7.hex-rays.com/demo/request](https://out7.hex-rays.com/demo/request)）请求
+    *演示版（评估版）*；它允许你反汇编 32 位和 64 位 Windows 二进制文件，并且可以调试 32 位二进制文件（但不能调试 64 位二进制文件）。演示版的另一个限制是你无法保存数据库（稍后会在本章中介绍）。演示版和免费版都不支持
+    *IDAPython*。*商业版* 的 IDA 不会缺少任何功能，并提供全年的免费电子邮件支持和升级服务。'
+- en: In this section and later sections, we will look at various features of IDA
+    Pro, and you will learn how to use IDA to perform *static code analysis (disassembly)*. It
+    is not possible to cover all the features of IDA; only those features that are
+    relevant to malware analysis will be covered in this chapter. If you are interested
+    in gaining a deeper understanding of IDA Pro, it is recommended to the read the
+    book, *The IDA Pro Book (2nd Edition)* by Chris Eagle. To get a better understanding
+    of IDA, just load a binary and explore various features of IDA while you are reading
+    this section and later sections. Remember the restrictions in various versions
+    of IDA, if you are using the *commercial version* of IDA, you will be able to
+    explore all the features covered in this book. If you are using the *demo version*
+    you will be able to explore only the disassembly and debugging (32-bit binary
+    only) features, but you will not be able to test *IDAPython* scripting capabilities.
+    If you are using the *freeware version*, you will only be able to try out the
+    disassembly features (no debugging and no IDAPython scripting). I highly recommend
+    using either the *commercial version* or the *demo version* of IDA, using these
+    versions you will be able to try out all/most of the features covered in this
+    book. If you wish to look at an alternate tool for debugging 32-bit and 64-bit
+    binary, you can use *x64dbg* (an open source x64/x86 debugger), which is covered
+    in the next chapter. With an understanding of different versions of IDA, let'us,
+    now explore its features, and you will understand how it can speed up your reverse
+    engineering and malware analysis tasks.
+  id: totrans-10
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节以及后续章节中，我们将探讨 IDA Pro 的各种功能，你将学习如何使用 IDA 进行*静态代码分析（反汇编）*。由于无法涵盖 IDA 的所有功能，本章节仅介绍与恶意软件分析相关的功能。如果你有兴趣深入了解
+    IDA Pro，建议阅读 Chris Eagle 的书籍，《*The IDA Pro Book (第二版)*》。为了更好地理解 IDA，建议你加载一个二进制文件，并在阅读本节及后续章节时探索
+    IDA 的各种功能。记住，IDA 不同版本的功能有所限制。如果你使用的是*商业版*，你将能够探索本书中涵盖的所有功能。如果你使用的是*演示版*，你只能探索反汇编和调试功能（仅限
+    32 位二进制文件），但无法测试*IDAPython* 脚本功能。如果你使用的是*免费版*，你只能试用反汇编功能（无法调试，也无法使用 IDAPython
+    脚本）。我强烈推荐使用*商业版*或*演示版*的 IDA，使用这些版本你将能够体验本书中涵盖的所有或大部分功能。如果你希望查看其他调试工具以调试 32 位和
+    64 位二进制文件，可以使用 *x64dbg*（一个开源的 x64/x86 调试器），它将在下一章中介绍。了解了不同版本的 IDA 后，让我们开始探索其功能，你将明白它如何加速你的逆向工程和恶意软件分析工作。
+- en: 2.1 Loading Binary in IDA
+  id: totrans-11
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.1 在 IDA 中加载二进制文件
+- en: 'To load an executable, Launch IDA Pro (right-click and select Run as administrator).
+    When you launch IDA, it will briefly display a screen showing your license information;
+    immediately after that, you will be presented with the following screen. Choose
+    New and select the file you wish to analyze. If you select Go, IDA will open the
+    empty workspace. To load a file, you can either drag and drop or click on File
+    | Open and select the file:'
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要加载可执行文件，启动 IDA Pro（右键点击并选择“以管理员身份运行”）。当你启动 IDA 时，它会简短地显示一个屏幕，展示你的许可信息；随后，你将看到以下界面。选择“新建”，并选择你希望分析的文件。如果你选择“开始”，IDA
+    会打开一个空的工作区。要加载文件，你可以直接拖放文件，或者点击“文件 | 打开”并选择文件：
+- en: '![](../images/00092.jpeg)'
+  id: totrans-13
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00092.jpeg)'
+- en: 'The file that you give to IDA will be loaded into the memory (IDA acts like
+    a Windows loader). To load the file into the memory, IDA determines the best possible
+    loaders, and from the file header, it determines the processor type that should
+    be used during the disassembly process. After you select the file,  IDA shows
+    the loading dialog (as shown in the following screenshot). From the screenshot,
+    it can be seen that IDA determined the appropriate loaders (`pe.ldw` and `dos.ldw`)
+    and the processor type. The Binary file option (if you are using the IDA demo
+    version, you will not see this option) is used by the IDA to load the files that
+    it does not recognize. You will normally use this option when you are dealing
+    with a shellcode. By default, IDA does not load the *PE headers* and the *resource*
+    section in the disassembly. By using the manual load checkbox option, you can
+    manually specify the base address where the executable has to be loaded, and IDA
+    will prompt you on whether you want to load each section, including the PE headers:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您提供给IDA的文件将被加载到内存中（IDA像Windows加载器一样工作）。为了将文件加载到内存中，IDA会确定最佳加载器，并从文件头部确定在反汇编过程中应使用的处理器类型。选择文件后，IDA会显示加载对话框（如以下截图所示）。从截图中可以看到，IDA确定了合适的加载器（`pe.ldw`和`dos.ldw`）以及处理器类型。如果您使用的是IDA演示版本，您将看不到“二进制文件”选项。该选项用于IDA加载它无法识别的文件。通常在处理shellcode时，您会使用此选项。默认情况下，IDA不会在反汇编中加载*PE头部*和*资源*部分。通过使用手动加载复选框选项，您可以手动指定可执行文件应加载的基地址，并且IDA会提示您是否加载每个部分，包括PE头部：
+- en: '![](../images/00093.jpeg)'
+  id: totrans-15
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00093.jpeg)'
+- en: After you click OK, IDA loads the file into memory, and the disassembly engine
+    disassembles the machine code. After the disassembly, IDA performs an initial
+    analysis to identify the compiler, function arguments, local variables, library
+    functions, and their parameters. Once the executable has been loaded, you will
+    be taken to the IDA desktop, showing the disassembled output of the program.
+  id: totrans-16
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击“确定”后，IDA将文件加载到内存中，反汇编引擎开始反汇编机器代码。反汇编后，IDA会执行初步分析，识别编译器、函数参数、局部变量、库函数及其参数。可执行文件加载后，您将进入IDA桌面，显示程序的反汇编输出。
+- en: 2.2 Exploring IDA Displays
+  id: totrans-17
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2 探索IDA显示界面
+- en: 'The IDA desktop integrates the features of many common static analysis tools
+    into a single interface. This section will give you an understanding of the IDA
+    desktop and its various windows. The following screenshot shows the IDA desktop
+    after loading an executable file. The IDA desktop contains multiple tabs (IDA
+    View-A**,** Hex View-1, and so on); clicking on each tab brings up a different
+    window. Each window contains different information extracted from the binary.
+    You can also add additional tabs via the View | Open Subviews menu:'
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA桌面将许多常见静态分析工具的功能集成到一个界面中。本节将帮助您了解IDA桌面及其各种窗口。以下截图显示了加载可执行文件后的IDA桌面。IDA桌面包含多个标签（如IDA视图-A、Hex视图-1等）；点击每个标签会显示不同的窗口。每个窗口显示从二进制文件提取的不同信息。您还可以通过查看
+    | 打开子视图菜单添加额外的标签：
+- en: '![](../images/00094.jpeg)'
+  id: totrans-19
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00094.jpeg)'
+- en: 2.2.1 Disassembly Window
+  id: totrans-20
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.1 反汇编窗口
+- en: After the executable has been loaded, you will be presented with the disassembly
+    window (also known as the IDA-view window). This is the primary window, and it
+    displays the disassembled code. You will mostly be using this window for analyzing
+    binaries.
+  id: totrans-21
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在可执行文件加载后，您将看到反汇编窗口（也称为IDA视图窗口）。这是主要窗口，显示反汇编后的代码。您将主要使用这个窗口来分析二进制文件。
+- en: 'IDA can show the disassembled code in two display modes: G*raph view* and T*ext
+    view*. *Graph view* is the default view, and when the disassembly view (IDA-view)
+    is active, you can switch between the graph and text views by pressing the spacebar
+    button.'
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA可以通过两种显示模式显示反汇编代码：*图形视图*和*文本视图*。*图形视图*是默认视图，当反汇编视图（IDA视图）处于活动状态时，您可以通过按空格键在图形视图和文本视图之间切换。
+- en: In the graph view mode, IDA displays only one function at a time, in a flowchart-style
+    graph, and the function is broken down into basic blocks. This mode is useful
+    to quickly recognize *branching* and *looping* statements. In the graph view mode,
+    the color and the direction of the arrows indicate the path that will be taken,
+    based on a particular decision. The *conditional jumps* use *green* and *red*
+    arrows; the *green* arrow indicates that the jump will be taken if the condition
+    is true, and the *red* arrow indicates that the jump will not be taken (normal
+    flow). The *blue* arrow is used for an *unconditional* jump, and the loop is indicated
+    by the upward (backward) *blue* arrow. In the graph view, the virtual addresses
+    are not displayed by default (this is to minimize the amount of space required
+    to display each basic block). To display virtual address information, click on
+    Options | General and enable line prefixes.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在图形视图模式下，IDA一次只显示一个函数，以流程图样式展示，且每个函数被分解成基本块。此模式有助于快速识别*分支*和*循环*语句。在图形视图中，箭头的颜色和方向表示根据特定决策将采取的路径。*条件跳转*使用*绿色*和*红色*箭头；*绿色*箭头表示如果条件为真，跳转将会发生，*红色*箭头表示跳转不会发生（正常流程）。*蓝色*箭头表示*无条件*跳转，而循环由向上（向后）的*蓝色*箭头表示。在图形视图中，虚拟地址默认不显示（这是为了最小化每个基本块所需显示的空间）。要显示虚拟地址信息，可以点击选项
+    | 常规并启用行前缀。
+- en: 'The following screenshot shows the disassembly of the `main` function in the
+    graph view mode. Notice the conditional check at the addresses `0x0040100B` and
+    `0x0040100F`. If the condition is true, then the control is transferred to the
+    address `0x0040101A` (indicated by a green arrow), and if the condition is false,
+    the control gets transferred to `0x00401011` (indicated by a red arrow). In other
+    words, the *green arrow* indicates jump and the *red arrow* indicates the normal
+    flow:'
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 下图展示了`main`函数在图形视图模式下的反汇编。注意在地址`0x0040100B`和`0x0040100F`处的条件检查。如果条件为真，控制会转移到地址`0x0040101A`（由绿色箭头表示），如果条件为假，控制会转移到`0x00401011`（由红色箭头表示）。换句话说，*绿色箭头*表示跳转，*红色箭头*表示正常流程：
+- en: '![](../images/00095.jpeg)'
+  id: totrans-25
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00095.jpeg)'
+- en: 'In the *text view* mode, the entire disassembly is presented in a linear fashion.
+    The following screenshot shows the text view of the same program; the virtual
+    addresses are displayed by default, in the `<section name>:<virtual address>`
+    format. The left-hand portion of the text view window is called the *arrows window*;
+    it is used to indicate the program''s nonlinear flow. The *dashed arrows* represent
+    `conditional jumps`, the *solid arrows* indicate `unconditional jumps`, and the
+    *backward arrows* (arrows facing up) indicate loops:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在*文本视图*模式下，整个反汇编呈线性展示。下图展示了相同程序的文本视图；虚拟地址默认以`<节名称>:<虚拟地址>`的格式显示。文本视图窗口的左侧部分称为*箭头窗口*，用于表示程序的非线性流程。*虚线箭头*表示`条件跳转`，*实线箭头*表示`无条件跳转`，而*向后箭头*（指向上的箭头）表示循环：
+- en: '![](../images/00096.jpeg)'
+  id: totrans-27
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00096.jpeg)'
+- en: 2.2.2 Functions Window
+  id: totrans-28
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.2 函数窗口
+- en: The *functions window* displays all the functions recognized by IDA, and it
+    also shows the virtual address where each function can be found, the size of each
+    function, and various other properties of the function. You can double-click on
+    any of these functions to jump to a selected function. Each function is associated
+    with various flags (such as `R`, `F`, `L`, and so on). You can get more information
+    about these flags in the help file (by pressing *F1*). One of the useful flags
+    is the `L` flag, which indicates that the function is a *library function*. Library
+    functions are compiler-generated and are not written by a malware author; from
+    a code analysis perspective, we would be interested in analyzing the malware code,
+    not the library code.
+  id: totrans-29
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*函数窗口*展示了IDA识别的所有函数，并显示每个函数的虚拟地址、函数大小以及其他各种属性。你可以双击任何函数跳转到选定的函数。每个函数都与各种标志（如`R`、`F`、`L`等）关联。你可以在帮助文件中获取这些标志的更多信息（按*F1*键）。一个有用的标志是`L`标志，表示该函数是*库函数*。库函数是编译器生成的，并不是恶意软件作者编写的；从代码分析的角度来看，我们关注的是分析恶意软件代码，而不是库代码。'
+- en: 2.2.3 Output Window
+  id: totrans-30
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.3 输出窗口
+- en: The *output window* displays the messages generated by IDA and the IDA plugins.
+    These messages can give information about the analysis of the binary and the various
+    operations that you perform. You can look at the contents of the output window
+    to get an idea of various operations performed by IDA when an executable is loaded.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*输出窗口* 显示 IDA 和 IDA 插件生成的消息。这些消息可以提供有关二进制分析和你所执行的各种操作的信息。你可以查看输出窗口的内容，以了解当可执行文件被加载时，IDA
+    执行的各种操作。'
+- en: 2.2.4 Hex View Window
+  id: totrans-32
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.4 十六进制视图窗口
+- en: You can click on the Hex View-1 tab to display the *hex window*. The hex window
+    displays a sequence of bytes in a hex dump and the ASCII format. By default, the
+    hex window is synchronized with the disassembly window; this means, when you select
+    any item in the disassembly window, the corresponding bytes are highlighted in
+    the hex window. The hex window is useful to inspect the contents of the memory
+    address.
+  id: totrans-33
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以点击 Hex View-1 标签来显示 *十六进制窗口*。十六进制窗口显示了一系列字节的十六进制转储和 ASCII 格式。默认情况下，十六进制窗口与反汇编窗口同步；这意味着，当你在反汇编窗口中选择任何项时，相应的字节会在十六进制窗口中高亮显示。十六进制窗口对于检查内存地址的内容非常有用。
+- en: 2.2.5 Structures Window
+  id: totrans-34
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.5 结构窗口
+- en: Clicking on the Structures tab will bring up the structures window. The structures
+    window lists the layout of the standard data structures used in the program, and
+    it also allows you to create your own data structures.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 点击 Structures 标签将打开结构窗口。结构窗口列出了程序中使用的标准数据结构的布局，并且还允许你创建自己的数据结构。
+- en: 2.2.6 Imports Window
+  id: totrans-36
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.6 导入窗口
+- en: 'The *imports window* lists all of the functions imported by the binary. The
+    following screenshot shows the imported functions and the shared libraries (DLL)
+    from which these functions are imported. Detailed information about imports was
+    covered in [Chapter 2](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*,
+    Static Analysis*:'
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*导入窗口* 列出了二进制文件所导入的所有函数。下图显示了导入的函数以及这些函数所在的共享库（DLL）。有关导入的详细信息，请参见 [第 2 章](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*，静态分析*：'
+- en: '![](../images/00097.jpeg)'
+  id: totrans-38
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00097.jpeg)'
+- en: 2.2.7 Exports Window
+  id: totrans-39
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.7 导出窗口
+- en: The *exports window* lists all of the exported functions. The exported functions
+    are normally found in the DLLs, so this window can be useful when you are analyzing
+    malicious DLLs.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*导出窗口* 列出了所有已导出的函数。已导出的函数通常位于 DLL 文件中，因此当你分析恶意 DLL 时，这个窗口会非常有用。'
+- en: 2.2.8 Strings Window
+  id: totrans-41
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.8 字符串窗口
+- en: IDA does not show *strings window* by default; you can bring up the strings
+    window by clicking on View | Open Subviews | Strings (or *Shift *+ *F12*). The
+    strings window displays the list of strings extracted from the binary and the
+    address where these strings can be found. By default, the strings window displays
+    only the *null-terminated ASCII strings* of at least five characters in length.
+    In [Chapter 2](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*, Static
+    Analysis*, we saw that a malicious binary can use *UNICODE strings*. You can configure
+    IDA to display different types of strings; to do that, while you are in the strings
+    window, right-click onSetup (or *Ctrl* + *U*), check Unicode C-style (16 bits),
+    and click OK**.**
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 默认情况下，IDA 不显示 *字符串窗口*；你可以通过点击 View | Open Subviews | Strings（或 *Shift* + *F12*）来打开字符串窗口。字符串窗口显示从二进制文件中提取的字符串列表及其地址。默认情况下，字符串窗口仅显示长度至少为五个字符的
+    *以 null 结尾的 ASCII 字符串*。在 [第 2 章](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*，静态分析*
+    中，我们看到恶意二进制文件可能使用 *UNICODE 字符串*。你可以配置 IDA 显示不同类型的字符串；为此，在字符串窗口中，右键点击 Setup（或 *Ctrl*
+    + *U*），勾选 Unicode C-style（16 位），然后点击 OK**。**
+- en: 2.2.9 Segments Window
+  id: totrans-43
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.2.9 段窗口
+- en: The segments window is available via View | Open Subviews | Segments (or *Shift*
+    + *F7*). The segments window lists the sections (`.text`, `.data`, and so on)
+    in the binary file. The displayed information contains the *start address*, the
+    *end address*, and the *memory permissions* of each section. The start and end
+    address specify the virtual address of each section that is mapped into memory
+    during runtime.
+  id: totrans-44
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 段窗口可以通过 View | Open Subviews | Segments（或 *Shift* + *F7*）打开。段窗口列出了二进制文件中的各个段（`.text`、`.data`
+    等）。显示的信息包含每个段的 *起始地址*、*结束地址* 和 *内存权限*。起始和结束地址指定了每个段在运行时映射到内存中的虚拟地址。
+- en: 2.3 Improving Disassembly Using IDA
+  id: totrans-45
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3 使用 IDA 改进反汇编
+- en: 'In this section, we will explore various features of IDA, and you will learn
+    how to combine the knowledge you gained in the previous chapter with the capabilities
+    offered by IDA to enhance the disassembly process. Consider the following trivial
+    program, which copies the content of one local variable to another:'
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在本节中，我们将探索IDA的各种功能，您将学习如何将前一章中获得的知识与IDA提供的功能相结合，以增强反汇编过程。考虑以下简单程序，它将一个局部变量的内容复制到另一个局部变量中：
+- en: '[PRE0]'
+  id: totrans-47
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: 'After compiling the preceding code and loading it in IDA, the program disassembles
+    to the following:'
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编译上述代码并将其加载到IDA后，程序反汇编为以下内容：
+- en: '[PRE1]'
+  id: totrans-49
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: When an executable is loaded, IDA performs an analysis on every function that
+    it disassembles to determine the layout of the *stack frame*. Apart from that,
+    it uses various signatures and runs pattern matching algorithms to determine whether
+    a disassembled function matches any of the signatures known to IDA. At ➊, notice
+    how after performing initial analysis, IDA added a comment (the comment starts
+    with a semicolon), that tells you that an `ebp` based stack frame is used; this
+    means that the `ebp` register is used to reference the local variables and the
+    function parameters (the details regarding `ebp` based stack frames were covered
+    while discussing functions in the previous chapter). At ➋, IDA used its robust
+    detection to identify the function as the `main` function and inserted the `function
+    prototype` comment. During analysis this feature can be useful to determine, how
+    many parameters are accepted by a function, and their data types.
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当一个可执行文件被加载时，IDA会对每个反汇编的函数进行分析，以确定*栈帧*的布局。除此之外，IDA还使用各种签名并运行模式匹配算法，来判断反汇编的函数是否与IDA已知的任何签名匹配。在➊处，注意在执行初步分析后，IDA添加了一条注释（该注释以分号开始），它告诉你使用的是基于`ebp`的栈帧；这意味着`ebp`寄存器被用来引用局部变量和函数参数（关于`ebp`基栈帧的详细内容，我们在前一章讨论函数时已涉及）。在➋处，IDA利用其强大的检测功能识别该函数为`main`函数，并插入了`function
+    prototype`注释。在分析过程中，这一功能对于确定函数接受的参数数量以及它们的数据类型非常有用。
+- en: At ➌, IDA gives you a summary of the stack view; IDA was able to identify the
+    *local variables* and *function arguments*. In the `main` function, IDA identified
+    two local variables, which are automatically named as `var_4` and `var_8.` IDA
+    also tells you that `var_4` corresponds to the value `-4`, and `var_8` corresponds
+    to the value `-8`. The `-4` and `-8` specify the offset distance from the `ebp`
+    (*frame pointer*); this is IDA's way of saying that it has replaced `var_4` for
+    `-4` and `var_8` for `-8` in the code. Notice the instructions at ➍,and ➎ you
+    can see that IDA replaced the memory reference `[ebp-4]` with `[ebp+var_4]` and
+    `[ebp-8]` with `[ebp+var_8]`.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在➌处，IDA为你提供了栈视图的概述；IDA能够识别出*局部变量*和*函数参数*。在`main`函数中，IDA识别出了两个局部变量，它们分别被自动命名为`var_4`和`var_8`。IDA还告诉你，`var_4`对应值`-4`，而`var_8`对应值`-8`。`-4`和`-8`表示相对于`ebp`（*帧指针*）的偏移量；这是IDA的一种方式，表明它在代码中将`var_4`替换为`-4`，将`var_8`替换为`-8`。注意在➍和➎处的指令，你可以看到IDA将内存引用`[ebp-4]`替换为`[ebp+var_4]`，将`[ebp-8]`替换为`[ebp+var_8]`。
+- en: If IDA had not replaced the values, then the instructions at ➍, and ➎ would
+    look like the ones shown here, and you'd have to manually label all of these addresses
+    (as covered in the previous chapter).
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果IDA没有替换这些值，那么在➍和➎处的指令将会像这里展示的那样，你将不得不手动标记所有这些地址（正如我们在前一章中讨论过的）。
+- en: '[PRE2]'
+  id: totrans-53
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: The IDA automatically generated *dummy names* for the variables/arguments and
+    used these names in the code; this saved the manual work of labeling the addresses
+    and made it easy to recognize the local variables and arguments because of the
+    `var_xxx` and `arg_xxx` prefixes added by IDA. You can now treat the `[ebp+var_4]`
+    at ➍ as just `[var_4]`, so the instruction `mov [ebp+var_4],1` can be treated
+    as `mov [var_4],1`, and you can read it as `var_4` being assigned the value `1`
+    (in other words, `var_4 = 1`). Similarly, the instruction `mov [ebp+var_8],eax`
+    can be treated as `mov [var_8],eax` (in other words, `var_8 = eax`); this feature
+    of IDA makes reading assembly code much easier.
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA自动为变量/参数生成了*虚拟名称*并在代码中使用了这些名称；这节省了手动标记地址的工作，并且由于IDA添加的`var_xxx`和`arg_xxx`前缀，使得识别局部变量和参数变得更加容易。现在，你可以将➍处的`[ebp+var_4]`当作`[var_4]`来看待，因此指令`mov
+    [ebp+var_4],1`可以被看作`mov [var_4],1`，并且可以理解为将`var_4`的值设为`1`（换句话说，`var_4 = 1`）。类似地，指令`mov
+    [ebp+var_8],eax`可以被看作`mov [var_8],eax`（换句话说，`var_8 = eax`）；IDA的这个功能使得阅读汇编代码变得更加轻松。
+- en: 'The preceding program can be simplified by ignoring `function prologue`, `function
+    epilogue`, and the instructions used to allocate space for the local variables
+    at ➏. From the concepts covered in the previous chapter, we know that these instructions
+    are just used for setting up the function environment. After the cleanup, we are
+    left with the following code:'
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的程序可以通过忽略`函数序言`、`函数尾声`和用于为局部变量分配空间的指令简化。根据上一章节介绍的概念，我们知道这些指令只是用于设置函数环境。清理后，我们得到以下代码：
+- en: '[PRE3]'
+  id: totrans-56
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: 2.3.1 Renaming Locations
+  id: totrans-57
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.1 重命名位置
+- en: 'So far, we have seen how IDA performs analysis on our program and how it adds
+    *dummy names*. The dummy names are useful, but these names do not tell the purpose
+    of a variable. When analyzing malware, you should change the variable/function
+    names to more meaningful names. To rename a variable or an argument, right-click
+    on the variable name or argument and select rename (or press *N*); this will bring
+    up the following dialog. After you rename it, IDA will propagate the new name
+    to wherever that item is referenced. You can use the rename feature to give meaningful
+    names to the functions, and variables:'
+  id: totrans-58
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经看到IDA如何对我们的程序执行分析以及如何添加*虚拟名称*。虚拟名称很有用，但这些名称并不说明变量的目的。在分析恶意软件时，您应该将变量/函数名称更改为更有意义的名称。要重命名变量或参数，请右键单击变量名或参数，然后选择重命名（或按*N*键）；这将弹出以下对话框。重命名后，IDA将将新名称传播到引用该项的任何地方。您可以使用重命名功能为函数和变量赋予有意义的名称：
+- en: '![](../images/00098.jpeg)'
+  id: totrans-59
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00098.jpeg)'
+- en: 'Changing the name of `var_4` to `x` and `var_8` to `y` in the preceding code
+    would result in the new listing shown here:'
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前述代码中将`var_4`的名称更改为`x`，将`var_8`的名称更改为`y`将导致显示如下的新列表：
+- en: '[PRE4]'
+  id: totrans-61
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: You can now translate the preceding instructions to pseudocode (as covered in
+    the previous chapter). To do that, let's make use of the comment feature in IDA.
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 您现在可以将前述指令翻译为伪代码（如前一章节所述）。为此，让我们利用IDA中的注释功能。
+- en: 2.3.2 Commenting in IDA
+  id: totrans-63
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.2 在IDA中添加注释
+- en: 'Comments are useful to remind you of something important in the program. To
+    add a regular comment, place the cursor on any line in the disassembly listing,
+    and press the hotkey *colon* (*:*), this will bring up the comment entry dialog
+    where you can enter the comments. The following listing shows the comments (starting
+    with `;`) describing individual instructions:'
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 注释对于提醒您程序中的重要事项非常有用。要添加常规注释，请将光标放在反汇编列表中的任何行上，然后按热键*冒号*（*:*），这将弹出注释输入对话框，您可以在其中输入注释。以下列表显示了描述各个指令的注释（以`;`开头）：
+- en: '[PRE5]'
+  id: totrans-65
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: 'The regular comments are particularly useful for describing a single line (even
+    though you can enter multiple lines), but it would be great if we could group
+    the preceding comments together to describe what the `main` function does. IDA
+    offers another type of comments called *function comments*, which allow you to
+    group comments and display them at the top of the function''s disassembly listing.
+    To add a function comment, highlight the function name, such as `_main` shown
+    at ➐ in the previous disassembly listing, and press colon (:). The following shows
+    the pseudocode added at the top of the `_main` function at ➑ as a result of using
+    a function comment. The pseudocode can now remind you of the function''s behavior:'
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 常规注释特别适用于描述单行（即使您可以输入多行），但如果我们能够将前面的注释分组在一起描述`main`函数的功能，那将会很棒。IDA提供了另一种称为*函数注释*的注释类型，允许您将注释分组并在函数的反汇编列表顶部显示它们。要添加函数注释，请突出显示函数名称，例如在前面的反汇编列表中显示的`_main`，然后按冒号（:）。以下显示了在`_main`函数顶部添加的伪代码，作为使用函数注释的结果，现在伪代码可以提醒您函数的行为：
+- en: '[PRE6]'
+  id: totrans-67
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE6]'
+- en: Now that we have used some of IDA's features to analyze the binary, wouldn't
+    it be nice if there was a way to save the name of the variable and the comments
+    that we added, so that next time, when you load the same binary into IDA, you
+    don't have to follow these steps all over again?. In fact, whatever manipulation
+    was done earlier (like renaming or adding a comment) was done to the database,
+    not to the executable; in the next section, you will learn how easy it is to save
+    the database.
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在我们已经使用了IDA的一些功能来分析二进制文件，如果有一种方法可以保存变量的名称和我们添加的注释，那不是很好吗？这样，下次当你将相同的二进制文件加载到IDA中时，就不必再次按照这些步骤进行了。实际上，之前所做的任何操作（如重命名或添加注释）都是针对数据库而不是可执行文件进行的；在下一节中，您将学习如何轻松保存数据库。
+- en: 2.3.3 IDA Database
+  id: totrans-69
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.3 IDA数据库
+- en: 'When an executable is loaded into IDA, it creates a database consisting of
+    five files (whose extensions are `.id0`, `.id1`, `.nam`, `.id2`, and `.til`) in
+    the working directory. Each of these files stores various information and has
+    a base name that matches the selected executable. These files are archived and
+    compressed into a database file with a `.idb` (for 32-bit binary) or `.i64` (for
+    64-bit binary) extension. Upon loading the executable, the database is created
+    and populated with the information from the executable files. The various displays
+    that are presented to you are simply views into the database that gives information
+    in a format that is useful for code analysis. Any modifications that you make
+    (such as *renaming*, *commenting*, and so on) are reflected in the views and saved
+    in the database, but these changes do not modify the original executable file.
+    You can save the database by closing IDA; when you close IDA, you will be presented
+    with a Save database dialog, as shown in the following screenshot. The Pack database
+    option (the default option) archives all of the files into a single IDB (`.idb`)
+    or i64 (`.i64`) file. When you reopen the `.idb` or `.i64` file, you should be
+    able to see the renamed variables and comments:'
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当可执行文件加载到 IDA 时，它会在工作目录中创建一个由五个文件（扩展名为 `.id0`、`.id1`、`.nam`、`.id2` 和 `.til`
+    的文件）组成的数据库。每个文件存储着不同的信息，并且具有与所选可执行文件匹配的基本名称。这些文件会被归档并压缩成一个 `.idb`（用于 32 位二进制文件）或
+    `.i64`（用于 64 位二进制文件）扩展名的数据库文件。在加载可执行文件时，数据库会被创建并填充来自可执行文件的信息。展示给你的各种视图实际上只是数据库的不同展示方式，以便以有助于代码分析的格式呈现信息。你所做的任何修改（如*重命名*、*注释*等）都会反映在视图中，并保存在数据库中，但这些更改并不会修改原始的可执行文件。你可以通过关闭
+    IDA 来保存数据库；当你关闭 IDA 时，会弹出一个保存数据库的对话框，如下图所示。选择默认的打包数据库选项时，所有文件会被归档为一个单独的 IDB（`.idb`）或
+    i64（`.i64`）文件。当你重新打开 `.idb` 或 `.i64` 文件时，你应该能够看到已重命名的变量和注释：
+- en: '![](../images/00099.jpeg)'
+  id: totrans-71
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00099.jpeg)'
+- en: 'Let''s look at another simple program and explore a few more features of IDA.
+    The following program consists of the global variables `a` and `b`, which are
+    assigned values inside of the `main` function. The variables `x`, `y`, and `string`
+    are local variables; `x` holds the value of `a`, whereas `y` and `string` hold
+    the addresses:'
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们看另一个简单的程序，并探索 IDA 的一些其他功能。以下程序包含了全局变量 `a` 和 `b`，这些变量在 `main` 函数中被赋值。变量 `x`、`y`
+    和 `string` 是局部变量；`x` 保存 `a` 的值，而 `y` 和 `string` 保存地址：
+- en: '[PRE7]'
+  id: totrans-73
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE7]'
+- en: The program translates to the following disassembly listing. IDA identified
+    three local variables at ➊ and propagated this information in the program. IDA
+    also identified the global variables and assigned names such as `dword_403374`
+    and `byte_403370`; note how the fixed memory addresses are used to reference the
+    global variables at ➋, ➌, and ➍. The reason for that, is when a variable is defined
+    in the global data area, the address and size of the variables are known to the
+    compiler at compile time. The dummy global variable names assigned by IDA specify
+    the addresses of the variables and what types of data they contain. For example, `dword_403374`
+    tells you that the address `0x403374` can contain a `dword` value (4 bytes); similarly,
+    `byte_403370` tells you that `0x403370` can hold a single `byte` value.
+  id: totrans-74
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序会翻译成以下的反汇编列表。IDA 在 ➊ 处识别了三个局部变量，并将这些信息传播到程序中。IDA 还识别了全局变量，并分配了像 `dword_403374`
+    和 `byte_403370` 这样的名称；注意如何使用固定的内存地址来引用 ➋、➌ 和 ➍ 处的全局变量。原因是，当一个变量在全局数据区中定义时，编译器在编译时就知道了变量的地址和大小。IDA
+    分配的虚拟全局变量名指定了变量的地址以及它们包含的数据类型。例如，`dword_403374` 告诉你地址 `0x403374` 可以包含一个 `dword`
+    值（4 字节）；类似地，`byte_403370` 告诉你 `0x403370` 可以保存一个单一的 `byte` 值。
+- en: 'IDA used the `offset` keyword at ➎ and ➏ to indicate that addresses of variables
+    are used (rather than the content of the variables), and because addresses are
+    assigned to the local variables `var_8` and `var_C` at ➎ and ➏, you can tell that
+    `var_8` and `var_C` hold addresses (`pointer` variables). At ➏, IDA assigned the
+    dummy name `aTest` to the address containing the string (string variable). This
+    dummy name is generated using the characters of the string, and the string `"test"`
+    itself is added as a `comment`, to indicate that the address contains the string:'
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA 在 ➎ 和 ➏ 处使用了 `offset` 关键字，表示使用了变量的地址（而不是变量的内容），并且由于在 ➎ 和 ➏ 处为局部变量 `var_8`
+    和 `var_C` 分配了地址，你可以看出 `var_8` 和 `var_C` 保存的是地址（即“指针”变量）。在 ➏ 处，IDA 为包含字符串的地址分配了虚拟名称
+    `aTest`（字符串变量）。这个虚拟名称是通过字符串中的字符生成的，字符串 `"test"` 本身被作为一个 `comment` 添加，以指示该地址包含该字符串：
+- en: '[PRE8]'
+  id: totrans-76
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE8]'
+- en: So far, in this program, we have seen how IDA helped by performing its analysis
+    and by assigning dummy names to addresses (you can rename these addresses to more
+    meaningful names using the rename option covered previously). In the next few
+    sections, we will see what other features of IDA we can use to further improve
+    the disassembly.
+  id: totrans-77
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，在这个程序中，我们已经看到IDA通过执行其分析并为地址分配虚拟名称（您可以使用之前介绍的重命名选项将这些地址重命名为更有意义的名称）来帮助。
+    在接下来的几节中，我们将看到IDA的其他功能，以进一步改进反汇编。
+- en: 2.3.4 Formatting Operands
+  id: totrans-78
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.4 格式化操作数
+- en: 'At ➋, and ➌ in the preceding listing, the operands (`29h` and `41h`) are represented
+    as hexadecimal constant values, whereas in the source code, we used the decimal
+    value `41` and the character `''A''`. IDA gives you the ability to reformat constant
+    values as a `decimal`, `octal`, or `binary` values. If the constant falls within
+    the ASCII printable range, then you can also format the constant value as a `character`.
+    For example, to change the format of `41h`, right-click on the constant value
+    `(41h)`, after which you will be presented with different options, as shown in
+    the following screenshot. Choose the ones that suit your needs:'
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前述清单中的➋和➌处，操作数（`29h`和`41h`）表示为十六进制常量值，而在源代码中，我们使用了十进制值`41`和字符`'A'`。 IDA允许您将常量值重新格式化为`十进制`、`八进制`或`二进制`值。
+    如果常量落在ASCII可打印范围内，则还可以将常量值格式化为`字符`。 例如，要更改`41h`的格式，请右键单击常量值`(41h)`，之后将呈现不同的选项，如下图所示。
+    选择适合您需求的选项：
+- en: '![](../images/00100.jpeg)'
+  id: totrans-80
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00100.jpeg)'
+- en: 2.3.5 Navigating Locations
+  id: totrans-81
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.5 导航位置
+- en: 'Another great feature of IDA is that it makes navigating to anywhere within
+    a program much easier. When a program is disassembled, IDA labels every location
+    in the program, and double-clicking on the locations will jump the display to
+    the selected location. In the preceding example, you can navigate to any of the
+    named locations (such as `dword_403374`, `byte_403370`, and `aTest`) by double-clicking
+    on them. For example, double-clicking on `aTest` at ➏ jumps the display to a virtual
+    address in the `.data` section, shown as follows. Notice how IDA labeled the address
+    `0x00403000`, containing the string `"test"`, as `aTest`:'
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA的另一个重要功能是使得在程序中的任何位置导航变得更加容易。 当程序被反汇编时，IDA为程序中的每个位置都标记了标签，双击这些位置将会跳转到所选位置。
+    在前面的示例中，您可以通过双击任何命名位置（如`dword_403374`、`byte_403370`和`aTest`）来导航到其中任何一个。 例如，双击➏处的`aTest`将会跳转到`.data`部分中的虚拟地址，如下所示。
+    请注意IDA如何将包含字符串`"test"`的地址`0x00403000`标记为`aTest`：
+- en: '[PRE9]'
+  id: totrans-83
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE9]'
+- en: 'Similarly, double-clicking on the address `dword_403374` relocates to the virtual
+    address shown here:'
+  id: totrans-84
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 类似地，双击地址`dword_403374`将重新定位到此处显示的虚拟地址：
+- en: '[PRE10]'
+  id: totrans-85
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE10]'
+- en: 'IDA keeps track of your navigation history; any time you navigate to a new
+    location and would like to go back to your original position, you can use the
+    navigation buttons. In the preceding example, to go back to the disassembly window,
+    simply use the backward navigation button, as shown in the following screenshot:'
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA会跟踪您的导航历史记录； 每当您导航到新位置并希望返回到原始位置时，您可以使用导航按钮。 在前面的示例中，要返回到反汇编窗口，只需使用后退导航按钮，如下图所示：
+- en: '![](../images/00101.jpeg)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00101.jpeg)'
+- en: Sometimes, you will know the exact address you would like to navigate to. To
+    jump to a particular address, click on Jump | Jump to Address (or press the *G*
+    key); this will bring up the Jump to address dialog. Just specify the address
+    and click on OK.
+  id: totrans-88
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有时，您可能知道要导航到的确切地址。 要跳转到特定地址，请单击跳转 | 跳转到地址（或按*G*键）； 这将弹出跳转到地址对话框。 只需指定地址并单击确定。
+- en: 2.3.6 Cross-References
+  id: totrans-89
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.6 交叉引用
+- en: Another way to navigate is by using *cross-references* (also referred to as
+    *Xrefs*). The cross-references link relates addresses together. Cross-references
+    can be either *data cross-references* or *code cross-references*.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 另一种导航方式是使用*交叉引用*（也称为*Xrefs*）。 交叉引用链接相关地址。 交叉引用可以是*数据交叉引用*或*代码交叉引用*。
+- en: A *data cross-reference* specifies how the data is accessed within a binary.
+    An example of a data cross-reference is shown at ➐, ➑, and ➒, in the preceding
+    listing. For example, the data cross-references at ➑ tell us that this data is
+    referenced by the instruction which is at the offset `0x6`, from the start of the `_main`
+    function (in other words, the instruction at ➋). The character `w` indicates a
+    *write cross-reference*; this tells us that the instruction writes content into
+    this memory location (note that `29h` is written to this memory location at ➋).
+    The character `r` at ➒ indicates a *read cross-reference*, which tells us that
+    the instruction `_main+17` (in other words, the instruction at ➍) reads the content
+    from this memory location. The ellipsis (`...`) at ➒ indicates that there are
+    more cross-references, but they could not be displayed because of the display
+    limit. Another type of data cross-reference is an *offset cross-reference* (indicated
+    by character `o`), which indicates that the address of a location is being used,
+    rather than the content. The arrays and strings (character arrays) are accessed
+    using their start addresses, because of which the string data at ➐ is marked as
+    an offset cross-reference.
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*数据交叉引用*指定了数据在二进制文件中的访问方式。在前面的列表中，➐、➑和➒处展示了数据交叉引用的示例。例如，➑处的数据交叉引用告诉我们，这个数据是由偏移量为`0x6`的指令访问的，即`_main`函数的指令（换句话说，就是➋处的指令）。字符`w`表示*写入交叉引用*；这表明该指令将内容写入此内存位置（请注意，`29h`被写入了➋处的内存位置）。➒处的字符`r`表示*读取交叉引用*，这告诉我们，指令`_main+17`（换句话说，就是➍处的指令）从该内存位置读取内容。➒处的省略号（`...`）表示还有更多的交叉引用，但由于显示限制，未能展示。另一种类型的数据交叉引用是*偏移交叉引用*（由字符`o`表示），它表明使用的是某个位置的地址，而不是内容。数组和字符串（字符数组）通过其起始地址进行访问，因此➐处的字符串数据标记为偏移交叉引用。'
+- en: 'A *code cross-reference* indicates the control flow from one instruction to
+    an another (such as *jump* or *function call*). The following displays a simple
+    `if` statement in C:'
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*代码交叉引用*表示控制流从一个指令跳转到另一个指令（例如*跳转*或*函数调用*）。以下展示了一个简单的C语言`if`语句：'
+- en: '[PRE11]'
+  id: totrans-93
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE11]'
+- en: 'The program disassembles to the following listing. At ➊, note how the `equal
+    to` (`==`) condition from the C code is reversed to `jnz` (which is an alias for
+    `jne` or `jump, if not equal`); this is done to implement the branching from ➊ to ➋.
+    You can read it as `if var_4 is not equal to 0`; then, the jump is taken to `loc_401018`
+    (which is outside of the `if` block). The *jump cross-reference* comment is shown
+    at the jump target ➌ in the following listing, to indicate that the control is
+    transferred from an instruction, which is at the offset `0xF` from the start of
+    the main function (in other words, ➊). The character `j` at the end signifies
+    that the control was transferred as a result of the jump. You can simply double-click
+    the cross-reference comment `(_Main+Fj)` to change the display to the referencing
+    instruction at ➊:'
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序反汇编后的列表如下。在➊处，注意到C代码中的`equal to`（`==`）条件被反转为`jnz`（即`jne`或`jump, if not equal`的别名）；这样做是为了实现从➊跳转到➋的分支。你可以理解为`if
+    var_4不等于0`，然后跳转到`loc_401018`（即跳转到`if`块之外）。*跳转交叉引用*的注释显示在跳转目标➌处，表示控制流从一个指令（即偏移量为`0xF`的指令）转移到另一个位置（换句话说，就是➊处的指令）。注释末尾的字符`j`表示控制流因跳转而发生了转移。你可以双击交叉引用注释`(_Main+Fj)`，以将显示切换到➊处的引用指令：
+- en: '[PRE12]'
+  id: totrans-95
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE12]'
+- en: 'The preceding listing can be viewed in the graph view mode by pressing the
+    *spacebar* key. The graph view is especially useful to get a visual representation
+    of *branching/looping* statements. As mentioned before, the *green arrow* indicates
+    that the jump is taken (the condition is satisfied), the *red arrow* indicates
+    that the jump is not taken, and the *blue arrow* indicates the normal path:'
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过按下*空格键*，前面的列表可以在图形视图模式下查看。图形视图特别有助于可视化*分支/循环*语句。如前所述，*绿色箭头*表示跳转已发生（条件已满足），*红色箭头*表示跳转未发生，*蓝色箭头*表示正常路径：
+- en: '![](../images/00102.jpeg)'
+  id: totrans-97
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00102.jpeg)'
+- en: 'Now, to understand the *function cross-reference*, consider the following C
+    code, which calls the `test()` function within `main()`:'
+  id: totrans-98
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，为了理解*函数交叉引用*，请参考以下C代码，它在`main()`函数内调用了`test()`函数：
+- en: '[PRE13]'
+  id: totrans-99
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE13]'
+- en: 'The following is the disassembly listing of the `main` function. The `sub_401000` at ➊
+    represents the `test` function. IDA automatically named the function address with
+    the `sub_` prefix, to indicate a *subroutine ( Or function)*. For example, when
+    you see `sub_401000`, you can read it as a subroutine at the address `0x401000`
+    (you can also rename it to a more meaningful name). If you wish, you can navigate
+    to the function by double-clicking on the function name:'
+  id: totrans-100
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是 `main` 函数的反汇编清单。➊ 处的 `sub_401000` 代表 `test` 函数。IDA 自动使用 `sub_` 前缀为函数地址命名，以表示
+    *子程序（或函数）*。例如，当你看到 `sub_401000` 时，你可以理解为这是位于地址 `0x401000` 的子程序（你也可以将其重命名为更有意义的名称）。如果你愿意，可以通过双击函数名跳转到该函数：
+- en: '[PRE14]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE14]'
+- en: 'At the start of the `sub_401000` (`test` function), a code cross-reference
+    comment was added by IDA, ➋, to indicate that this function, `sub_401000`, was
+    called from an instruction which is at the offset `3` from the start of the `_main`
+    function (that is called from ➊). You can navigate to the `_main` function simply
+    by double-clicking `_main+3p`. The `p` suffix signifies that the control is transferred
+    to the address `0x401000` as a result of the *function (procedure)* call:'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 `sub_401000`（`test` 函数）开始处，IDA 添加了一个代码交叉引用注释 ➋，表示该函数 `sub_401000` 是由 `_main`
+    函数起始位置偏移 `3` 处的指令调用的（也就是从 ➊ 调用）。你可以通过双击 `_main+3p` 来跳转到 `_main` 函数。`p` 后缀表示控制流因
+    *函数（过程）* 调用而转移到地址 `0x401000`：
+- en: '[PRE15]'
+  id: totrans-103
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE15]'
+- en: 2.3.7 Listing All Cross-References
+  id: totrans-104
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.7 列出所有交叉引用
+- en: '*Cross-references* are very useful when analyzing malicious binary. During
+    analysis, if you come across a *string* or a *useful function* and if you would
+    like to know how they are used in the code, then you can use cross-references
+    to quickly navigate to the location where the string or function is referenced.
+    Cross-reference comments added by IDA are a great way to navigate between addresses,
+    but there is a display limit (of two entries); as a result, you will not be able
+    to see all of the cross-references. Consider the following data cross-reference
+    at ➊; the ellipsis (`...`) indicates that there are more cross-references:'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*交叉引用* 在分析恶意二进制文件时非常有用。在分析过程中，如果你遇到一个 *字符串* 或 *有用的函数*，并且想了解它们在代码中的使用方式，那么你可以使用交叉引用快速跳转到引用该字符串或函数的位置。IDA
+    添加的交叉引用注释是定位地址之间的一种很好的方法，但它有显示限制（最多显示两项）；因此，你将无法看到所有的交叉引用。请参考以下的数据交叉引用 ➊；省略号（`...`）表示还有更多交叉引用：'
+- en: '[PRE16]'
+  id: totrans-106
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE16]'
+- en: 'Suppose that you want to list all of the cross-references; just click on the
+    named location such as `dword_403374` and press the *X* key. This will bring up
+    a window, that lists all the locations where the named location is referenced,
+    as follows. You can double-click on any of these entries to reach the location
+    in the program where the data is used. You can use this technique to find all
+    of the cross-references to a *string* or *function*:'
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你想列出所有的交叉引用，只需点击命名位置（如`dword_403374`），然后按 *X* 键。这将弹出一个窗口，列出所有引用该命名位置的地方，如下所示。你可以双击这些条目中的任何一个，跳转到程序中使用该数据的位置。你可以使用这种方法查找所有指向
+    *字符串* 或 *函数* 的交叉引用：
+- en: '![](../images/00103.jpeg)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00103.jpeg)'
+- en: 'A program normally contains many functions. A single function can be called
+    by single/multiple functions, or it can, in turn, call single or multiple functions.
+    When performing malware analysis, you might be interested in getting a quick overview
+    of a function. In such a case, you can highlight the function name and choose
+    View | Open Subviews | Function Calls to get the function cross-references. The
+    following screenshot shows the function *Xrefs* for the function `sub_4013CD`
+    (from a malware sample). The upper half of the window tells you that the function
+    `sub_401466` calls `sub_4013CD.` The lower half of the window displays all of
+    the functions that will be called by `sub_4013CD`; notice that the lower window
+    displays the API functions (`CreateFile` and `WriteFile`) that will be called
+    by `sub_4013CD`;  based on this information, you can tell that the `sub_4013CD`
+    function interacts with the filesystem:'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一个程序通常包含许多函数。单个函数可以被一个或多个函数调用，或者它本身可以调用一个或多个函数。在进行恶意软件分析时，你可能希望快速了解一个函数。在这种情况下，你可以高亮显示函数名，并选择视图
+    | 打开子视图 | 函数调用，以查看函数的交叉引用。以下截图显示了`sub_4013CD`（来自恶意软件样本）函数的*Xrefs*。窗口的上半部分告诉你`sub_401466`函数调用了`sub_4013CD`，而窗口的下半部分显示了所有`sub_4013CD`将调用的函数；注意，下半部分显示了`sub_4013CD`将调用的API函数（`CreateFile`和`WriteFile`）；根据这些信息，你可以推断出`sub_4013CD`函数与文件系统进行了交互：
+- en: '![](../images/00104.jpeg)'
+  id: totrans-110
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00104.jpeg)'
+- en: 2.3.8 Proximity View And Graphs
+  id: totrans-111
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 2.3.8 邻近视图和图形
+- en: 'IDA''s graphing options are a great way to visualize cross-references. Apart
+    from the graph view shown previously, you can use the IDA''s integrated graphing
+    feature, called *proximity view*, to display the callgraph of a program. To view
+    the callgraph of the function `sub_4013CD` from the previous example, while placing
+    the cursor anywhere inside the function, click View | Open subviews | Proximity
+    browser; this will change the view in the disassembly window to the proximity
+    view, shown as follows. In proximity view, functions and data references are represented
+    as nodes, and the cross-references between them are represented as edges (the
+    lines that connect the nodes). The following graph displays *Xrefs to* and *Xrefs
+    from* `sub_4013CD`. The parent of `sub_4013CD` (which is `sub_401466`) represents
+    its calling function, and the functions called by `sub_4013CD` are represented
+    as children. You can further drill down the parent/child relationship (*Xrefs
+    to and from)* by double-clicking the *plus* icon or by right-clicking on the *plus*
+    icon and selecting expand node. You can also right-click on the node and use the
+    expand parents/children or collapse parents/children option to expand or collapse
+    parents or children of a node. You can also zoom in and zoom out by using *Ctrl*
+    + *Wheel mouse* *button*. To go back to the disassembly view from the proximity
+    view, just right-click on the background and choose either Graph view or Text
+    view:'
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA的图形选项是可视化交叉引用的好方法。除了前面展示的图形视图外，你还可以使用IDA集成的图形功能，称为*邻近视图*，来显示程序的调用图。要查看之前示例中`sub_4013CD`函数的调用图，在函数内的任意位置放置光标后，点击视图
+    | 打开子视图 | 邻近浏览器；这将把反汇编窗口的视图切换到邻近视图，具体如下所示。在邻近视图中，函数和数据引用以节点的形式表示，它们之间的交叉引用以边（连接节点的线）表示。以下图显示了`sub_4013CD`的*Xrefs
+    to*和*Xrefs from*。`sub_4013CD`的父节点（即`sub_401466`）表示它的调用函数，而`sub_4013CD`调用的函数则表示为子节点。你可以通过双击*加号*图标或右键点击*加号*图标并选择展开节点来进一步深入查看父子关系（*Xrefs
+    to 和 Xrefs from*）。你还可以右键点击节点，使用展开父节点/子节点或折叠父节点/子节点的选项来展开或折叠节点的父节点或子节点。你还可以通过使用*Ctrl*
+    + *鼠标滚轮*来进行缩放。要从邻近视图返回到反汇编视图，只需右键点击背景并选择图形视图或文本视图：
+- en: '![](../images/00105.jpeg)'
+  id: totrans-113
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00105.jpeg)'
+- en: 'Apart from the integrated graphing, IDA can also display graphs using third-party
+    graphing applications. To use these graphing options, right-click on the Toolbar
+    area and select Graphs, which will display five buttons in the toolbar area:'
+  id: totrans-114
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了集成图形，IDA还可以使用第三方图形应用程序显示图形。要使用这些图形选项，右键点击工具栏区域并选择图形，这将在工具栏区域显示五个按钮：
+- en: '![](../images/00106.gif)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00106.gif)'
+- en: 'You can generate different types of graphs by clicking on any these buttons,
+    but these graphs are not interactive (unlike the integrated graph-based disassembly
+    view and proximity view). The following outlines the functionality of these buttons:'
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你可以通过点击任意一个按钮来生成不同类型的图表，但这些图表并非交互式的（与集成的基于图形的反汇编视图和邻近视图不同）。以下概述了这些按钮的功能：
+- en: '| **![](../images/00107.gif)** | It displays the external flow chart of the
+    current function. This resembles IDA''s interactive graph view mode of the disassembly window.
+    |'
+  id: totrans-117
+  prefs: []
+  type: TYPE_TB
+  zh: '| **![](../images/00107.gif)** | 它显示当前函数的外部流程图。这类似于 IDA 反汇编窗口中的交互式图形视图模式。 |'
+- en: '| **![](../images/00108.gif)** | It displays the call graph for the entire
+    program; this can be used to get a quick overview of the hierarchy of the function
+    calls within a program, but if the binary contains too many functions, the graph
+    might be difficult to view, as it can get very large and cluttered. |'
+  id: totrans-118
+  prefs: []
+  type: TYPE_TB
+  zh: '| **![](../images/00108.gif)** | 它显示了整个程序的调用图；这可以用来快速了解程序内部函数调用的层级关系，但如果二进制文件包含太多函数，图表可能会难以查看，因为它可能变得非常大且杂乱无章。
+    |'
+- en: '| ![](../images/00109.gif) | It displays the cross-reference to *(*Xrefs to)
+    a function; this is useful if you want to see the various paths taken by a program
+    to reach a specific function. The following screenshot shows the path taken to
+    reach the `sub_4013CD` function: ![](../images/00110.gif)       |'
+  id: totrans-119
+  prefs: []
+  type: TYPE_TB
+  zh: '| ![](../images/00109.gif) | 它显示了对 *（Xrefs to）* 函数的交叉引用；如果您想查看程序到达特定函数的各种路径，这非常有用。以下截图展示了到达
+    `sub_4013CD` 函数的路径： ![](../images/00110.gif)       |'
+- en: '| ![](../images/00111.gif) | It displays the cross-references from (Xrefs from)
+    a function; this is useful in order to know all of the functions called by a particular
+    function. The following diagram will give you an idea of all of the functions
+    that will be called by `sub_4013CD`:   ![](../images/00112.gif)   |'
+  id: totrans-120
+  prefs: []
+  type: TYPE_TB
+  zh: '| ![](../images/00111.gif) | 它显示从（Xrefs from）一个函数的交叉引用；这对于了解一个特定函数调用的所有函数非常有用。以下示意图将帮助您了解
+    `sub_4013CD` 将调用的所有函数： ![](../images/00112.gif)   |'
+- en: '| ![](../images/00113.gif) | This is the *User Xref* button, which allows you
+    to generate custom cross-reference graphs.  |'
+  id: totrans-121
+  prefs: []
+  type: TYPE_TB
+  zh: '| ![](../images/00113.gif) | 这是 *用户交叉引用（User Xref）* 按钮，允许您生成自定义的交叉引用图。 |'
+- en: With an understanding of how to leverage IDA's features to enhance your disassembly,
+    let's move on to the next topic, where you will learn how malware uses the Windows
+    API to interact with the system. You will learn how to get more information about
+    an API function, and how to distinguish and interpret the Windows API from a 32-bit
+    and 64-bit malware.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过了解如何利用 IDA 的功能来增强您的反汇编效果，让我们进入下一个主题，在这个主题中，您将学习恶意软件如何使用 Windows API 与系统进行交互。您将学到如何获取更多关于
+    API 函数的信息，以及如何区分并解释 32 位和 64 位恶意软件中的 Windows API。
+- en: 3\. Disassembling Windows API
+  id: totrans-123
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 3\. 拆解 Windows API
+- en: 'Malware normally uses *Windows API functions* (*Application Programming Interface)*
+    to interact with the operating system (for performing filesystem, process, memory,
+    and network operations). As explained in [Chapter 2](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*, Static
+    Analysis,* and [Chapter 3](part0065.html#1TVKI0-ac10ba3f98854c44bac1c2c5641ca485), *Dynamic
+    Analysis*, Windows exports the majority of its functions required for these interactions
+    in *Dynamic Link Libary (DLL)* files. Executables import and call these API functions
+    from various DLLs, which provide different functionalities. To call the API, the
+    executable process loads the DLL into its memory and then calls the API function.
+    Inspecting the DLLs that a malware relies upon and the API functions that it imports
+    can give an idea of the functionality and capability of the malware. The following
+    table outlines some of the common DLLs, and the functionalities that they implement:'
+  id: totrans-124
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 恶意软件通常使用 *Windows API 函数* (*应用程序编程接口*) 来与操作系统交互（执行文件系统、进程、内存和网络操作）。正如在 [第 2
+    章](part0032.html#UGI00-ac10ba3f98854c44bac1c2c5641ca485)*静态分析* 和 [第 3 章](part0065.html#1TVKI0-ac10ba3f98854c44bac1c2c5641ca485)*动态分析*
+    中所解释的那样，Windows 在 *动态链接库（DLL）* 文件中导出了执行这些交互所需的大部分函数。可执行文件从这些 DLL 中导入并调用 API 函数，这些
+    DLL 提供不同的功能。为了调用 API，执行进程将 DLL 加载到其内存中，然后调用 API 函数。检查恶意软件依赖的 DLL 及其导入的 API 函数可以帮助我们了解恶意软件的功能和能力。下表概述了一些常见的
+    DLL 及其实现的功能：
+- en: '| **DLL** | **Description** |'
+  id: totrans-125
+  prefs: []
+  type: TYPE_TB
+  zh: '| **DLL** | **描述** |'
+- en: '| `Kernel32.dll` | This DLL exports functions related to process, memory, hardware,
+    and filesystem operations. Malware imports API functions from these DLLs to carry
+    out filesystem-memory-and process-related operations. |'
+  id: totrans-126
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Kernel32.dll` | 该 DLL 导出与进程、内存、硬件和文件系统操作相关的函数。恶意软件从这些 DLL 中导入 API 函数，以执行与文件系统、内存和进程相关的操作。
+    |'
+- en: '| `Advapi32.dll` | This contains functionality related to service and registry.
+    Malware uses the API functions from this DLL to carry out service-and registry
+    related operations. |'
+  id: totrans-127
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Advapi32.dll` | 该 DLL 包含与服务和注册表相关的功能。恶意软件使用这个 DLL 中的 API 函数来执行服务和注册表相关的操作。
+    |'
+- en: '| `Gdi32.dll` | It exports functions related to graphics. |'
+  id: totrans-128
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Gdi32.dll` | 它导出与图形相关的函数。 |'
+- en: '| `User32.dll` | It implements functions that create and manipulate Windows
+    user interface components, such as the desktop, windows, menus, message boxes,
+    prompts, and so on. Some malware programs use functions from this DLL for performing
+    DLL injections and for monitoring keyboard (for keylogging) and mouse events.
+    |'
+  id: totrans-129
+  prefs: []
+  type: TYPE_TB
+  zh: '| `User32.dll` | 它实现了创建和操作 Windows 用户界面组件的函数，例如桌面、窗口、菜单、消息框、提示框等。一些恶意软件程序使用这个
+    DLL 中的函数进行 DLL 注入，并监控键盘（键盘记录）和鼠标事件。 |'
+- en: '| `MSVCRT.dll` | It contains implementations of C standard library functions.
+    |'
+  id: totrans-130
+  prefs: []
+  type: TYPE_TB
+  zh: '| `MSVCRT.dll` | 它包含 C 标准库函数的实现。 |'
+- en: '| `WS2_32.dll` and `WSock32.dll` | They contain functions for communicating
+    on the network. Malware import functions from these DLLs for performing network-related
+    tasks.  |'
+  id: totrans-131
+  prefs: []
+  type: TYPE_TB
+  zh: '| `WS2_32.dll` 和 `WSock32.dll` | 它们包含用于网络通信的函数。恶意软件从这些 DLL 导入函数以执行与网络相关的任务。
+    |'
+- en: '| `Wininet.dll` | It exposes high-level functions to interact with HTTP and
+    FTP protocols. |'
+  id: totrans-132
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Wininet.dll` | 它暴露了与 HTTP 和 FTP 协议交互的高级函数。 |'
+- en: '| `Urlmon.dll` | It is a wrapper around `WinInet.dll`, and it is responsible
+    for MIME-type handling and the downloading of web content. Malware downloaders
+    use functions from this DLL for downloading additional malware content.  |'
+  id: totrans-133
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Urlmon.dll` | 它是 `WinInet.dll` 的封装，负责 MIME 类型处理和网页内容的下载。恶意软件下载器使用这个 DLL
+    中的函数来下载额外的恶意软件内容。 |'
+- en: '| `NTDLL.dll` | It exports Windows Native API functions and acts as the interface
+    between the user mode programs and the kernel. For example, when a program calls
+    API functions in `kernel32.dll` (or `kernelbase.dll`), the API, in turn, calls
+    short stub in `ntdll.dll`. A program typically does not import functions from
+    `ntdll.dll` directly; the functions in `ntdll.dll` are indirectly imported by
+    DLL such as `Kernel32.dll`. Most of the functions in `ntdll.dll` are undocumented,
+    and malware authors sometimes import functions from this DLL directly. |'
+  id: totrans-134
+  prefs: []
+  type: TYPE_TB
+  zh: '| `NTDLL.dll` | 它导出 Windows 本地 API 函数，并充当用户模式程序与内核之间的接口。例如，当程序调用 `kernel32.dll`（或
+    `kernelbase.dll`）中的 API 函数时，API 会调用 `ntdll.dll` 中的短小存根。程序通常不会直接从 `ntdll.dll` 导入函数；`ntdll.dll`
+    中的函数是通过像 `Kernel32.dll` 这样的 DLL 间接导入的。`ntdll.dll` 中的大部分函数未公开，恶意软件作者有时会直接从这个 DLL
+    中导入函数。 |'
+- en: 3.1 Understanding Windows API
+  id: totrans-135
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 3.1 理解 Windows API
+- en: 'To demonstrate how malware makes use of the Windows API and to help you understand
+    how to get more information about an API, let''s look at a malware sample. Loading
+    the malware sample in IDA and inspecting the imported functions in the Imports
+    window show reference to the `CreateFile` API function, as shown in the following
+    screenshot:'
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了演示恶意软件如何利用 Windows API，并帮助你了解如何获取更多有关 API 的信息，让我们看看一个恶意软件样本。将恶意软件样本加载到 IDA
+    中，并检查导入窗口中的导入函数，显示出对 `CreateFile` API 函数的引用，如下截图所示：
+- en: '![](../images/00114.jpeg)'
+  id: totrans-137
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00114.jpeg)'
+- en: 'Before we determine the location where this API is referenced in the code,
+    let''s try to get more information about the API call. Whenever you encounter
+    a Windows API function (like the one shown in the preceding example), you can
+    learn more about the API function by simply searching for it in the *Microsoft
+    Developer Network (MSDN)* at [https://msdn.microsoft.com/](https://msdn.microsoft.com/),
+    or by *Googling it*. The MSDN documentation gives a description of the API function,
+    its function parameters (their data types), and the return value. The function
+    prototype for `CreateFile` (as mentioned in the documentation at [https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx))
+    is shown in the following snippet. From the documentation, you can tell that this
+    function is used to *create* or *open* a file. To understand what file the program
+    creates or opens, you will have to inspect the first parameter (`lpFilename`),
+    which specifies the filename. The second parameter (`dwDesiredAccess`) specifies
+    the requested access (such as *read* or *write* access), and the fifth parameter
+    specifies the action to take on the file (such as creating a new file or opening
+    an existing file):'
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在确定此 API 在代码中引用的位置之前，让我们先获取更多关于 API 调用的信息。每当你遇到一个 Windows API 函数（如上面的例子所示），你可以通过简单地在
+    *Microsoft 开发者网络 (MSDN)* 上搜索它来了解更多关于该 API 函数的信息，网址是 [https://msdn.microsoft.com/](https://msdn.microsoft.com/)，或者通过
+    *Google 搜索*。MSDN 文档会提供 API 函数的描述、其函数参数（及其数据类型）和返回值。`CreateFile` 的函数原型（如文档中提到的
+    [https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx)）显示在以下代码段中。从文档中，你可以看出这个函数用于
+    *创建* 或 *打开* 文件。要了解程序创建或打开的是哪个文件，你需要检查第一个参数（`lpFilename`），它指定了文件名。第二个参数（`dwDesiredAccess`）指定了请求的访问权限（如
+    *读取* 或 *写入* 权限），第五个参数指定了对文件采取的操作（如创建新文件或打开现有文件）：
+- en: '[PRE17]'
+  id: totrans-139
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE17]'
+- en: 'The Windows API uses *Hungarian notation* for naming variables. In this notation,
+    the variable is prefixed with an abbreviation of its datatype; this makes it easy
+    to understand the data type of a given variable. In the preceding example, consider
+    the second parameter, `dwDesiredAccess`; the `dw` prefix specifies that it is
+    of the `DWORD` data type. The `Win32` API supports many different data types ([https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx)).
+    The following table outlines some of the relevant data types:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows API 使用 *匈牙利命名法* 来命名变量。在这种命名法中，变量前缀是其数据类型的缩写；这使得很容易理解给定变量的数据类型。在上面的例子中，考虑第二个参数
+    `dwDesiredAccess`；`dw` 前缀指定它是 `DWORD` 数据类型。`Win32` API 支持许多不同的数据类型（[https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx)）。下表概述了一些相关的数据类型：
+- en: '| **Data Type** | **Description** |'
+  id: totrans-141
+  prefs: []
+  type: TYPE_TB
+  zh: '| **数据类型** | **描述** |'
+- en: '| `BYTE (b)` | Unsigned 8-bit value. |'
+  id: totrans-142
+  prefs: []
+  type: TYPE_TB
+  zh: '| `BYTE (b)` | 无符号 8 位值。 |'
+- en: '| `WORD (w)` | Unsigned 16-bit value. |'
+  id: totrans-143
+  prefs: []
+  type: TYPE_TB
+  zh: '| `WORD (w)` | 无符号 16 位值。 |'
+- en: '| `DWORD (dw)` | Unsigned 32-bit value. |'
+  id: totrans-144
+  prefs: []
+  type: TYPE_TB
+  zh: '| `DWORD (dw)` | 无符号 32 位值。 |'
+- en: '| `QWORD (qw)` | Unsigned 64-bit value. |'
+  id: totrans-145
+  prefs: []
+  type: TYPE_TB
+  zh: '| `QWORD (qw)` | 无符号 64 位值。 |'
+- en: '| `Char (c)` | 8-bit ANSI character. |'
+  id: totrans-146
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Char (c)` | 8 位 ANSI 字符。 |'
+- en: '| `WCHAR` | 16-bit Unicode character. |'
+  id: totrans-147
+  prefs: []
+  type: TYPE_TB
+  zh: '| `WCHAR` | 16 位 Unicode 字符。 |'
+- en: '| `TCHAR` | Generic character (1-byte ASCII character or wide, 2-byte Unicode
+    character). |'
+  id: totrans-148
+  prefs: []
+  type: TYPE_TB
+  zh: '| `TCHAR` | 通用字符（1 字节 ASCII 字符或 2 字节 Unicode 字符）。 |'
+- en: '| `Long Pointer (LP)` | This is a pointer to another data type. For example,
+    `LPDWORD` is a pointer to `DWORD`, `LPCSTR` is a constant string, `LPCTSTR` is
+    a const `TCHAR` (1-byte ASCII characters, or wide, 2-byte Unicode characters)
+    string, `LPSTR` is a non-constant string, and `LPTSTR` is a non-constant `TCHAR`
+    (ASCII or Unicode) string. Sometimes, you will see `Pointer (P)` used instead
+    of `Long Pointer(LP)`. |'
+  id: totrans-149
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Long Pointer (LP)` | 这是指向另一数据类型的指针。例如，`LPDWORD` 是指向 `DWORD` 的指针，`LPCSTR`
+    是常量字符串，`LPCTSTR` 是常量 `TCHAR`（1 字节 ASCII 字符或 2 字节 Unicode 字符）字符串，`LPSTR` 是非常量字符串，`LPTSTR`
+    是非常量 `TCHAR`（ASCII 或 Unicode）字符串。有时，你会看到 `Pointer (P)` 代替 `Long Pointer (LP)`。
+    |'
+- en: '| `Handle (H)` | It represents the `handle` data type. A handle is a reference
+    to an object. Before a process can access an object (such as a file, registry,
+    process, Mutex, and so on), it must first open a handle to the object. For example,
+    if a process wants to *write* to a file, the process first calls the API, such
+    as `CreateFile`, which returns the *handle* to the file; the process then uses
+    the handle to write to the file by passing the handle to the `WriteFile` API.
+    |'
+  id: totrans-150
+  prefs: []
+  type: TYPE_TB
+  zh: '| `Handle (H)` | 它代表`handle`数据类型。句柄是对对象的引用。在进程可以访问一个对象（例如文件、注册表、进程、互斥锁等）之前，它必须先打开该对象的句柄。例如，如果一个进程想要*写入*文件，它首先调用API，如`CreateFile`，该API返回文件的*句柄*；然后，进程使用该句柄调用`WriteFile`
+    API来写入文件。 |'
+- en: Apart from the datatypes and variables, the preceding function prototype contains
+    *annotations*, such as `_In_` and `_Out_`, which describe how the function uses
+    its *parameters* and *return value*. The `_In_` specifies that it is an input
+    parameter, and the caller must provide valid parameters for the function to work.
+    The `_IN_OPT` specifies that it is an optional input parameter (or it can be `NULL`).
+    The `_Out_` specifies output parameter; it means that the function will fill in
+    the parameter on return. This convention is useful to know if the API call stores
+    any data in the output parameter after the function call. The `_Inout_` object
+    tells you that the parameter both passes values to the function and receives the
+    output from the function.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了数据类型和变量外，前面的函数原型包含了*注解*，例如`_In_`和`_Out_`，这些注解描述了函数如何使用其*参数*和*返回值*。`_In_`指定这是一个输入参数，调用者必须提供有效的参数以确保函数能够正常工作。`_IN_OPT`指定这是一个可选的输入参数（也可以是`NULL`）。`_Out_`指定这是一个输出参数，意味着函数在返回时会填充该参数。了解这一约定非常有用，因为它告诉你，API调用后是否会在输出参数中存储任何数据。`_Inout_`表示该参数既传递值给函数，又接收函数的输出。
+- en: 'With an understanding of how to get information about an API from the documentation,
+    let''s go back to our malware sample. Using the cross-references to `CreateFile`,
+    we can determine that the `CreateFile` API is referenced in two functions, `StartAddress`
+    and `start`, as shown here:'
+  id: totrans-152
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通过了解如何从文档中获取API的信息，接下来我们回到恶意软件示例。通过交叉引用`CreateFile`，我们可以确定`CreateFile` API在两个函数中被引用，分别是`StartAddress`和`start`，如下所示：
+- en: '![](../images/00115.jpeg)'
+  id: totrans-153
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00115.jpeg)'
+- en: 'Double-clicking the first entry in the preceding screenshot jumps the display
+    to the following code in the disassembly window. The following code highlights
+    another great feature of IDA. Upon disassembly, IDA employs a technology called
+    *Fast Library Identification and Recognition Technology (FLIRT)*, which contains
+    pattern matching algorithms to identify whether the disassembled function is a
+    *library* or an *imported function* (a function imported from DLLs). In this case,
+    IDA was able to recognize the disassembled function at ➊ as an imported function,
+    and named it `CreateFileA`. IDA''s capability to identify libraries and imported
+    functions is extremely useful, because when you are analyzing malware, you really
+    don''t want to waste time reverse engineering a library or import function. IDA
+    also added names of parameters as comments to indicate which parameter was being
+    pushed at each instruction leading up to the `CreateFileA` Windows API call:'
+  id: totrans-154
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 双击前面截图中的第一个条目，会跳转到反汇编窗口中的以下代码。以下代码突出了IDA的另一个重要特性。反汇编时，IDA采用了一种叫做*快速库识别与匹配技术（FLIRT）*的技术，该技术包含模式匹配算法，用于识别反汇编的函数是*库函数*还是*导入函数*（从DLL导入的函数）。在这个例子中，IDA成功地将反汇编出的函数➊识别为一个导入函数，并将其命名为`CreateFileA`。IDA能够识别库函数和导入函数非常有用，因为在分析恶意软件时，你不希望浪费时间逆向工程一个库或导入函数。IDA还将参数的名称作为注释添加，以指示在每个指令中传递了哪些参数，直到调用`CreateFileA`
+    Windows API为止：
+- en: '[PRE18]'
+  id: totrans-155
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE18]'
+- en: From the preceding disassembly listing, you can tell that malware either *creates*
+    or *opens* a file (`psto.exe`) that is passed as the first argument (➋) to `CreateFile`.
+    From the documentation, you know that the second argument (➌) specifies the requested
+    access (such as *read* or *write*). The constant `40000000h`, passed as the second
+    argument, represents the symbolic constant `GENERIC_WRITE`. Malware authors often
+    use symbolic constants, such as `GENERIC_WRITE`, in their source code; but during
+    the compilation process, these constants are replaced with their equivalent values
+    (such as `40000000h`), making it difficult to determine whether it is a numeric
+    constant or a symbolic constant. In this case, from the Windows API documentation,
+    we know that the value `40000000h` at ➌ is a symbolic constant that represents
+    `GENERIC_WRITE`. Similarly, the value `2`, passed as the fifth argument (➍), represents the
+    symbolic name `CREATE_ALWAYS`; this tells you that malware creates the file.
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从前面的反汇编列表中，你可以看出恶意软件要么*创建*，要么*打开*一个作为第一个参数（➋）传递给`CreateFile`的文件（`psto.exe`）。根据文档，你知道第二个参数（➌）指定了请求的访问权限（如*读取*或*写入*）。常量`40000000h`作为第二个参数，表示符号常量`GENERIC_WRITE`。恶意软件作者通常在其源代码中使用符号常量，如`GENERIC_WRITE`；但在编译过程中，这些常量会被其等价值（如`40000000h`）替代，使得很难判断它是一个数值常量还是符号常量。在这种情况下，结合Windows
+    API文档，我们知道在➌位置的值`40000000h`是一个符号常量，代表`GENERIC_WRITE`。类似地，作为第五个参数（➍）传递的值`2`，代表符号名称`CREATE_ALWAYS`；这表明恶意软件正在创建文件。
+- en: 'Another feature of IDA is that it maintains a list of standard *symbolic constants*
+    for the Windows API or the C standard library function. To replace the constant
+    value such as `40000000h` at ➌, with the symbolic constant, just right-click on
+    the constant value and choose the Use standard symbolic constant option; this
+    will bring up the window displaying all of the symbolic names for the selected
+    value (in this case, `40000000h`), as shown in the following screenshot. You need
+    to select the one that is appropriate; in this case, the appropriate one is `GENERIC_WRITE`.
+    In the same manner, you can also replace the constant value `2`, passed as the
+    fifth argument, to its symbolic name, `CREATE_ALWAYS`:'
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA的另一个特点是它维护了一个Windows API或C标准库函数的标准*符号常量*列表。要将常量值如`40000000h`在➌位置替换为符号常量，只需右击常量值并选择“使用标准符号常量”选项；这将弹出一个窗口，显示所选值（在此例中是`40000000h`）的所有符号名称，如下图所示。你需要选择适当的符号常量；在此例中，适当的符号常量是`GENERIC_WRITE`。以同样的方式，你也可以将作为第五个参数传递的常量值`2`，替换为它的符号名称`CREATE_ALWAYS`：
+- en: '![](../images/00116.jpeg)'
+  id: totrans-158
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00116.jpeg)'
+- en: 'After replacing the constants with symbolic names, the disassembly listing
+    is translated to the one shown in the following snippet. The code is now more
+    readable, and from the code, you can tell that malware creates the file `psto.exe`
+    on the filesystem. After the functional call, the *handle* to the file (which
+    can be found in the `EAX` register) is returned. The handle to the file returned
+    by this function can be passed to other APIs, such as `ReadFile()` or `WriteFile()`,
+    to perform subsequent operations:'
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在将常量替换为符号名称后，反汇编列表会被转换为如下所示的内容。现在代码更加易读，从代码中你可以看出恶意软件在文件系统上创建了文件`psto.exe`。功能调用之后，文件的*句柄*（可以在`EAX`寄存器中找到）会被返回。该函数返回的文件句柄可以传递给其他API，如`ReadFile()`或`WriteFile()`，以执行后续操作：
+- en: '[PRE19]'
+  id: totrans-160
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE19]'
+- en: 3.1.1 ANSI and Unicode API Functions
+  id: totrans-161
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 3.1.1 ANSI和Unicode API函数
+- en: 'Windows supports two parallel sets of APIs: one for *ANSI strings*, and the
+    other for *Unicode strings*. Many functions that take a string as an argument
+    include an `A` or `W` at the end of their names, such as `CreateFileA`. In other
+    words, the trailing character can give you an idea of what type of string (ANSI
+    or Unicode) is passed to the function. In the preceding example, the malware calls `CreateFileA`
+    to create a file; the trailing character `A` specifies that the `CreateFile` function
+    takes an ANSI string as input. You will also see malware using APIs such as `CreateFileW`;
+    the `W` at the end specifies that the function takes a `Unicode` string as input.
+    During malware analysis, when you come across a function such as `CreateFileA`
+    or `CreateFileW`, just remove the trailing `A` and `W` characters and use `CreateFile`
+    to search MSDN for the function documentation.'
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Windows支持两组并行的API：一组用于*ANSI字符串*，另一组用于*Unicode字符串*。许多接受字符串作为参数的函数，其名称结尾带有`A`或`W`，例如`CreateFileA`。换句话说，结尾的字符可以帮助你了解传递给函数的字符串类型（ANSI或Unicode）。在上述示例中，恶意软件调用`CreateFileA`来创建文件；结尾的字符`A`指定`CreateFile`函数接受ANSI字符串作为输入。你也会看到恶意软件使用如`CreateFileW`的API；结尾的`W`指定该函数接受Unicode字符串作为输入。在恶意软件分析中，当你遇到`CreateFileA`或`CreateFileW`等函数时，只需去掉结尾的`A`和`W`字符，使用`CreateFile`在MSDN中搜索该函数的文档。
+- en: 3.1.2 Extended API Functions
+  id: totrans-163
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 3.1.2 扩展API函数
+- en: You will often encounter function names with an `Ex` suffix in their names,
+    such as `RegCreateKeyEx` (which is an extended version of `RegCreateKey`). When
+    Microsoft updates a function that is incompatible with an old function, the updated
+    function has an `Ex` suffix added to its name.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你将经常遇到函数名以`Ex`后缀结尾的情况，例如`RegCreateKeyEx`（它是`RegCreateKey`的扩展版本）。当微软更新一个与旧版本不兼容的函数时，更新后的函数名称会添加`Ex`后缀。
+- en: 3.2 Windows API 32-Bit and 64-Bit Comparison
+  id: totrans-165
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 3.2 Windows API 32位与64位比较
+- en: 'Let''s look at an example of a 32-bit malware to understand how malware uses
+    multiple API functions to interact with the operating system, and let''s also
+    try to understand how to interpret disassembly code to understand the operations
+    performed by the malware. In the following disassembly output, the 32-bit malware
+    calls the `RegOpenKeyEx` API to open a handle to the `Run` registry key. Since
+    we are dealing with 32-bit malware, all the parameters to the `RegOpenKeyEx` API
+    are pushed onto the stack. As per the documentation at [https://msdn.microsoft.com/en-us/library/windows/desktop/ms724897(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724897(v=vs.85).aspx),
+    the output parameter `phkResult` is a pointer variable (output parameter is indicated
+    by the `_Out_` annotation) that receives the handle to the opened registry key
+    after the function call. Notice that at ➊, the address of `phkResult` is copied
+    into the `ecx` register, and at ➋, this address is passed as the fifth parameter
+    to the `RegOpenKeyEx` API:'
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们通过一个32位恶意软件的例子来理解恶意软件如何使用多个API函数与操作系统进行交互，同时也尝试理解如何解读反汇编代码来理解恶意软件执行的操作。在以下的反汇编输出中，32位恶意软件调用`RegOpenKeyEx`
+    API来打开一个指向`Run`注册表键的句柄。由于我们处理的是32位恶意软件，所有传递给`RegOpenKeyEx` API的参数都会被压入栈中。根据[https://msdn.microsoft.com/en-us/library/windows/desktop/ms724897(v=vs.85).aspx](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724897(v=vs.85).aspx)中的文档，输出参数`phkResult`是一个指针变量（输出参数由`_Out_`注释表示），在函数调用后接收打开的注册表键的句柄。注意，在➊位置，`phkResult`的地址被复制到`ecx`寄存器中，而在➋位置，这个地址作为第五个参数传递给`RegOpenKeyEx`
+    API：
+- en: '[PRE20]'
+  id: totrans-167
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE20]'
+- en: 'After the malware opens the handle to the `Run` registry key by calling `RegOpenKeyEx`,
+    the returned handle (stored in the `phkResult` variable ➌) is moved into the `ecx`
+    register and then passed as the first parameter ➍ to `RegSetValueExW`. From the
+    MSDN documentation for this API, you can tell that the malware uses the `RegSetValueEx`
+    API to set a value in the `Run` registry key (for persistence). The value that
+    it sets is passed as the second parameter ➎, which is the string `System`. The
+    data that it adds to the registry can be determined by examining the fifth parameter
+    ➏, which is passed in the `eax` register. From the previous instruction ➐, it
+    can be determined that `eax` holds the address of the variable `pszPath`. The
+    `pszPath` variable is populated with some content during runtime; so, just by
+    looking at the code, it''s hard to say what data the malware is adding to the
+    registry key (you can determine that by debugging the malware, which will be covered
+    in the next chapter). But, at this point, by using static code analysis (disassembly),
+    you can tell that malware adds an entry into the registry key for persistence:'
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在恶意软件通过调用`RegOpenKeyEx`打开`Run`注册表项的句柄后，返回的句柄（存储在`phkResult`变量中，位置在➌）被移动到`ecx`寄存器中，然后作为第一个参数传递给`RegSetValueExW`，位置在➍。根据该API的MSDN文档，可以看出恶意软件使用`RegSetValueEx`
+    API来设置`Run`注册表项中的一个值（用于持久化）。它设置的值作为第二个参数传递，位置在➎，这个值是字符串`System`。它添加到注册表中的数据可以通过检查第五个参数来确定，位置在➏，这个参数是通过`eax`寄存器传递的。从之前的指令➐可以看出，`eax`中保存了`pszPath`变量的地址。`pszPath`变量在运行时会被填充一些内容，因此仅通过查看代码，很难判断恶意软件正在向注册表项中添加哪些数据（你可以通过调试恶意软件来确定，下一章将讨论这一点）。但是，现阶段通过静态代码分析（反汇编），你可以知道恶意软件向注册表项中添加了一个条目以实现持久化：
+- en: '[PRE21]'
+  id: totrans-169
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE21]'
+- en: 'After adding the entry to the registry key, the malware closes the handle to
+    the registry key by passing the handle it acquired previously (which was stored
+    in the `phkResult` variable) to the `RegCloseKey` API function, as shown here:'
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在向注册表项中添加条目后，恶意软件通过将之前获取的句柄（存储在`phkResult`变量中）传递给`RegCloseKey` API函数，从而关闭该注册表项的句柄，如下所示：
+- en: '[PRE22]'
+  id: totrans-171
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE22]'
+- en: The preceding example demonstrates how malware makes use of multiple Windows
+    API functions to add an entry into the registry key, which will allow it to run
+    automatically when the computer reboots. You also saw how malware acquires a handle
+    to an object (such as the registry key) and then shares that handle with other
+    API functions to perform subsequent operations.
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的示例演示了恶意软件如何利用多个Windows API函数向注册表项中添加条目，从而在计算机重启时自动运行。你还看到了恶意软件如何获取对象（如注册表项）的句柄，并将该句柄与其他API函数共享，以执行后续操作。
+- en: 'When you are looking at the disassembled output of the function from 64-bit
+    malware, it might look different because of the way the parameters are passed
+    in the x64 architecture (this was covered in the previous chapter). The following
+    is an example of 64-bit malware calling the `CreateFile` function. In the previous
+    chapter, while discussing the x64 architecture, you learned that the first four
+    parameters are passed in registers (`rcx`,`rdx`, `r8`, and `r9`), and the rest
+    of the parameters are placed on the stack. In the following disassembly, notice
+    how the first parameter (`lpfilename`) is passed in the `rcx` register at ➊, the
+    second parameter in the `edx` register at ➋, the third parameter in the `r8` register
+    at ➌, and the fourth parameter in the `r9` register at ➍. The additional parameters
+    are placed on the stack (notice that there is no `push` instruction) using `mov`
+    instructions, at ➎ and ➏. Notice how IDA was able to recognize the parameters
+    and add a comment next to the instructions. The return value of this function
+    (which is the handle to the file) is moved from the `rax` register to the `rsi`
+    register at ➐:'
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当你查看来自64位恶意软件的反汇编输出时，由于x64架构中参数传递的方式，它看起来可能会有所不同（这一点在前一章中已经讲解过）。以下是一个64位恶意软件调用`CreateFile`函数的示例。在前一章中讨论x64架构时，你了解到前四个参数是通过寄存器（`rcx`、`rdx`、`r8`和`r9`）传递的，剩余的参数则被放置在堆栈上。在以下的反汇编中，注意第一个参数（`lpfilename`）是通过`rcx`寄存器传递的，位置在➊，第二个参数是通过`edx`寄存器传递的，位置在➋，第三个参数是通过`r8`寄存器传递的，位置在➌，第四个参数是通过`r9`寄存器传递的，位置在➍。额外的参数通过`mov`指令（注意没有使用`push`指令）被放置在堆栈上，位置在➎和➏。注意IDA如何能够识别这些参数，并在指令旁边添加注释。该函数的返回值（即文件句柄）从`rax`寄存器移动到`rsi`寄存器，位置在➐：
+- en: '[PRE23]'
+  id: totrans-174
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE23]'
+- en: 'In the following disassembly listing of `WriteFile` API, notice how the file
+    handle which was copied into the `rsi` register in the previous API call, is now
+    moved into the `rcx` register to pass it as the first parameter to the `WriteFile`
+    function at ➑. In the same manner, the other parameters are placed in the register
+    and on the stack, as shown here:'
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在下面的`WriteFile` API反汇编列表中，注意文件句柄在前一个API调用中被复制到`rsi`寄存器中，现被移动到`rcx`寄存器中，作为第一个参数传递给`WriteFile`函数，位于➑处。以相同的方式，其他参数也被放置到寄存器和栈上，如下所示：
+- en: '[PRE24]'
+  id: totrans-176
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE24]'
+- en: From the preceding example, you can see that the malware creates a file and
+    writes some content into the file, but when you are looking at the code statically, it
+    is not clear what file the malware creates or what content it writes to the file.
+    For example, to know the filename created by the program, you need to examine
+    the content of the address specified by the variable `lpFileName` (passed as an
+    argument to the `CreateFile`); but the `lpFileName` variable, in this case, is
+    not hardcoded, and is populated only when the program runs. In the next chapter,
+    you will learn the technique to execute the program in a controlled manner by
+    using a debugger, which allows you to inspect the contents of the variable (memory
+    locations).
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从上面的示例可以看出，恶意软件创建了一个文件并将一些内容写入该文件，但当你静态查看代码时，并不清楚恶意软件创建了哪个文件或写入了什么内容。例如，要知道程序创建的文件名，你需要检查由变量`lpFileName`指定的地址的内容（该地址作为参数传递给`CreateFile`）；但在这种情况下，`lpFileName`变量并不是硬编码的，只有在程序运行时才会填充。在下一章中，你将学习如何使用调试器以受控方式执行程序，从而查看变量的内容（内存位置）。
+- en: 4\. Patching Binary Using IDA
+  id: totrans-178
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 4. 修补二进制文件使用IDA
+- en: 'When performing malware analysis, you may want to modify the binary to change
+    its inner workings or reverse its logic to suit your needs. Using IDA, it is possible
+    to modify the *data* or *instructions* of a program. You can perform patching
+    by selecting Edit | Patch program menu, as shown in the following screenshot.
+    Using the submenu items, you can modify a *byte*, *word*, or *assembly instructions*.
+    A point to remember is that when you are using these menu options on the binary,
+    you are not really modifying the binary; the modification is made to the IDA database.
+    To apply the modification to the original binary, you need to use the Apply patches
+    to input file submenu item:'
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在进行恶意软件分析时，你可能需要修改二进制文件，以改变其内部工作原理或逆向其逻辑以适应你的需求。使用IDA，可以修改程序的*数据*或*指令*。你可以通过选择编辑
+    | 修补程序菜单来进行修补，如下图所示。通过子菜单项，你可以修改*字节*、*字*或*汇编指令*。需要记住的一点是，当你在二进制文件上使用这些菜单选项时，你实际上并没有修改二进制文件；修改是应用于IDA数据库的。要将修改应用于原始二进制文件，你需要使用应用补丁到输入文件子菜单项：
+- en: '![](../images/00117.jpeg)'
+  id: totrans-180
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00117.jpeg)'
+- en: 4.1 Patching Program Bytes
+  id: totrans-181
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 4.1 修补程序字节
+- en: 'Consider the code excerpt from the 32-bit malware DLL (*TDSS rootkit*), which
+    is performing a check to make sure that it is running under `spoolsv.exe`. This
+    check is performed using string comparison at ➊; if the string comparison fails,
+    then the code jumps to end of the function ➋ and returns from the function. To
+    be specific, this DLL generates malicious behavior only when it is loaded by `spoolsv.exe`; otherwise,
+    it just returns from the function:'
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 考虑下面的32位恶意DLL（*TDSS rootkit*）代码片段，它正在执行检查以确保它是在`spoolsv.exe`下运行的。这个检查通过字符串比较在➊处进行；如果字符串比较失败，代码将跳转到函数的末尾➋并从函数中返回。具体来说，这个DLL只有在被`spoolsv.exe`加载时才会生成恶意行为；否则，它只是从函数返回：
+- en: '[PRE25]'
+  id: totrans-183
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE25]'
+- en: 'Suppose you want the malicious DLL to generate the behavior on any other process,
+    such as `notepad.exe`. You can change the hardcoded string from `spoolsv.exe` to `notepad.exe`.
+    To do that, navigate to the hardcoded address by clicking on `aSpoolsv_exe`, which
+    will land you in the region shown here:'
+  id: totrans-184
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 假设你希望恶意DLL在任何其他进程中产生行为，比如`notepad.exe`。你可以将硬编码的字符串从`spoolsv.exe`改为`notepad.exe`。为此，点击`aSpoolsv_exe`，导航到硬编码地址，这将带你进入如图所示的区域：
+- en: '![](../images/00118.jpeg)'
+  id: totrans-185
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00118.jpeg)'
+- en: 'Now, place your mouse cursor on the variable name (`aSpoolsv_exe`). At this
+    point, the hex view window should be synchronized with this address. Now, clicking
+    on the Hex View-1 tab displays the hex and ASCII dump of this memory address.
+    To patch the bytes, select Edit | Patch program | Change byte; this will bring
+    up the patch bytes dialog shown in the following screenshot. You can modify the
+    original bytes by entering the new byte values in the Values field. The Address
+    field represents the virtual address of the cursor location, and the File offset
+    field specifies the offset in the file where the bytes reside in the binary. The Original value
+    field shows the original bytes at the current address; the values in this field
+    do not change, even if you modify the values:'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，将鼠标光标放在变量名（`aSpoolsv_exe`）上。这时，十六进制视图窗口应与此地址同步。现在，点击 **Hex View-1** 标签，显示此内存地址的十六进制和
+    ASCII 转储。要修补字节，选择 **编辑** | **修补程序** | **更改字节**；这将弹出修补字节的对话框，如下图所示。你可以通过在 **值**
+    字段中输入新的字节值来修改原始字节。**地址** 字段表示光标位置的虚拟地址，**文件偏移量** 字段指定字节在二进制文件中所在位置的偏移量。**原始值**
+    字段显示当前地址的原始字节，即使你修改了值，这个字段的值也不会改变：
+- en: '![](../images/00119.jpeg)'
+  id: totrans-187
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00119.jpeg)'
+- en: 'The modification that you make is applied to the IDA database; to apply the
+    changes to the original executable file, you can select Edit | Patch program |
+    Apply patches to the input file. The following screenshot shows the Apply patches
+    to input file dialog. When you click on **OK,** the changes will be applied to
+    the original file; you can keep a backup of the original file by checking the Create
+    backup option; in that case, it will save your original file with a `.bak` extension:'
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你所做的修改会应用到 IDA 数据库中；要将更改应用到原始可执行文件，可以选择 **编辑** | **修补程序** | **应用补丁到输入文件**。以下屏幕截图显示了
+    **应用补丁到输入文件** 对话框。当你点击 **确定** 时，更改将应用到原始文件；你可以通过勾选 **创建备份** 选项来保留原始文件的备份；在这种情况下，原始文件将保存为
+    `.bak` 扩展名：
+- en: '![](../images/00120.jpeg)'
+  id: totrans-189
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00120.jpeg)'
+- en: The preceding example demonstrated patching the bytes; in the same manner, you
+    can patch *one word* (2-byte) at a time by selecting Edit | Patch program | Change
+    word. You can also modify bytes from the *hex view* window, by right-clicking on
+    a byte and choosing Edit (*F2*), and you can apply the changes by right-clicking again and
+    by choosing Apply changes (*F2*).
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 前面的示例展示了如何修补字节；以相同的方式，你可以通过选择 **编辑** | **修补程序** | **更改字** 来一次修补 *一个字*（2字节）。你还可以通过右键单击字节并选择
+    **编辑**（*F2*）来从 *十六进制视图* 窗口修改字节，然后再次右键单击并选择 **应用更改**（*F2*）来应用更改。
+- en: 4.2 Patching Instructions
+  id: totrans-191
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 4.2 修补指令
+- en: 'In the previous example, the *TDSS **rootkit* DLL performed a check to see
+    if it is running under `spoolsv.exe`. We modified the bytes in the program so
+    that the DLL can run under `notepad.exe` instead of `spoolsv.exe`. What if you
+    wanted to reverse the logic so that DLL can run under any process (other than `spoolsv.exe`)?
+    To do that, we can change the `jnz` instruction to `jz` by selecting Edit | Patch
+    program | Assemble, as shown in the following screenshot. This will reverse the
+    logic and cause the program to return from the function without exhibiting any
+    behavior when the DLL is running under `spoolsv.exe`. Whereas when the DLL is
+    running under any other process, it exhibits malicious behavior. After changing
+    the instructions, when you click on OK, the instruction is assembled but the dialog
+    remains open, prompting you to assemble another instruction at the next address.
+    If you do not have any more instructions to assemble, you can click the Cancel
+    button. To make the changes to the original file, select Edit | Patch program
+    | Apply patches to input file and follow the steps mentioned previously:'
+  id: totrans-192
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在前面的示例中，*TDSS **rootkit* DLL 进行了检查，看它是否在 `spoolsv.exe` 下运行。我们修改了程序中的字节，使 DLL
+    可以在 `notepad.exe` 下运行，而不是 `spoolsv.exe`。如果你想反转逻辑，使 DLL 可以在任何进程下运行（而不是 `spoolsv.exe`）怎么办？为此，我们可以通过选择
+    **编辑** | **修补程序** | **汇编**，如下面的屏幕截图所示，将 `jnz` 指令改为 `jz`。这样将反转逻辑，并导致程序在 DLL 在 `spoolsv.exe`
+    下运行时不表现任何行为，而在 DLL 在任何其他进程下运行时则表现恶意行为。更改指令后，当你点击 **确定** 时，指令将被汇编，但对话框仍然保持打开状态，提示你在下一个地址汇编另一个指令。如果你没有更多指令要汇编，可以点击
+    **取消** 按钮。要将更改应用到原始文件，请选择 **编辑** | **修补程序** | **应用补丁到输入文件**，并按照之前提到的步骤操作：
+- en: '![](../images/00121.jpeg)'
+  id: totrans-193
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00121.jpeg)'
+- en: 'When you are patching an instruction, care needs to be taken to make sure that
+    the instruction alignment is correct; otherwise, the patched program may exhibit
+    unexpected behavior. If the new instruction is shorter than the instruction you
+    are replacing, then `nop` instructions can be inserted to keep the alignment intact.
+    If you are assembling a new instruction that is longer than the one that is being
+    replaced, IDA will overwrite the bytes of the subsequent instructions, which may
+    not be the behavior you want:'
+  id: totrans-194
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在修补指令时，需要确保指令对齐正确；否则，修补后的程序可能会表现出意想不到的行为。如果新的指令比你替换的指令短，可以插入`nop`指令来保持对齐不变。如果你正在组装的指令比被替换的指令长，IDA将覆盖后续指令的字节，这可能不是你想要的行为：
+- en: 5\. IDA Scripting and Plugins
+  id: totrans-195
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5. IDA脚本和插件
+- en: 'IDA offers scripting capabilities that give you access to the contents of an
+    IDA database. Using the scripting functionality, you can automate some of the
+    common tasks and complex analysis operations. IDA supports two scripting languages:
+    *IDC*, which is a native, built-in language (with syntax similar to C), and Python
+    scripting through *IDAPython*. In September 2017, Hex-Rays released a new version
+    of IDAPython API that is compatible with IDA 7.0 and later versions. This section
+    will give you a feel of the scripting capabilities using IDAPython; the IDAPython
+    scripts demonstrated in this section makes use of the new IDAPython API, which
+    means that if you are using older versions of IDA (lower than IDA 7.0), these
+    scripts will not work. After you have become familiar with IDA and the reverse
+    engineering concepts, you may want to automate tasks the following resources should
+    help you get started with *IDAPython *scripting:'
+  id: totrans-196
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA提供了脚本功能，可以访问IDA数据库的内容。通过脚本功能，你可以自动化一些常见任务和复杂的分析操作。IDA支持两种脚本语言：*IDC*，这是一种内建的原生语言（语法类似于C），以及通过*IDAPython*的Python脚本功能。2017年9月，Hex-Rays发布了兼容IDA
+    7.0及更高版本的IDAPython API新版本。本节将带你了解使用IDAPython的脚本功能；本节展示的IDAPython脚本利用了新的IDAPython
+    API，这意味着如果你使用的是较老版本的IDA（低于IDA 7.0），这些脚本将无法运行。在你熟悉IDA和逆向工程概念之后，你可能希望自动化任务，以下资源将帮助你开始使用*IDAPython*脚本：
+- en: '*The Beginner’s Guide to IDAPython* by Alexander Hanel: [https://leanpub.com/IDAPython-Book](https://leanpub.com/IDAPython-Book)'
+  id: totrans-197
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*《IDAPython初学者指南》* by Alexander Hanel：[https://leanpub.com/IDAPython-Book](https://leanpub.com/IDAPython-Book)'
+- en: '*Hex-Rays IDAPython documentation*: [https://www.hex-rays.com/products/ida/support/idapython_docs/](https://www.hex-rays.com/products/ida/support/idapython_docs/)'
+  id: totrans-198
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '*Hex-Rays IDAPython文档*：[https://www.hex-rays.com/products/ida/support/idapython_docs/](https://www.hex-rays.com/products/ida/support/idapython_docs/)'
+- en: 5.1 Executing IDA Scripts
+  id: totrans-199
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5.1 执行IDA脚本
+- en: 'Scripts can be executed in different ways. You can execute standalone *IDC*
+    or *IDAPython* scripts by choosing File | Script file. If you wish to execute
+    only a few statements instead of creating a script file, you can do that by selecting
+    File | Script Command (*Shift* + *F2*), then by choosing the appropriate scripting
+    language (IDC or Python) from the drop-down menu, shown as follows. After running
+    the following script commands, the virtual address of the current cursor location
+    and the disassembly text for the given address are displayed in the output window:'
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 脚本可以通过不同的方式执行。你可以通过选择文件 | 脚本文件来执行独立的*IDC*或*IDAPython*脚本。如果你只想执行少量语句而不是创建脚本文件，可以选择文件
+    | 脚本命令（*Shift* + *F2*），然后从下拉菜单中选择合适的脚本语言（IDC或Python），如下所示。运行以下脚本命令后，当前光标位置的虚拟地址和给定地址的反汇编文本将在输出窗口中显示：
+- en: '![](../images/00122.jpeg)'
+  id: totrans-201
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00122.jpeg)'
+- en: 'Another way to execute script commands is by typing the command in the IDA''s
+    command line, which is located beneath the *output* window, as shown here:'
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 执行脚本命令的另一种方式是直接在IDA的命令行中输入命令，该命令行位于*输出*窗口下方，如下所示：
+- en: '![](../images/00123.jpeg)'
+  id: totrans-203
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00123.jpeg)'
+- en: 5.2 IDAPython
+  id: totrans-204
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5.2 IDAPython
+- en: '*IDAPython* is a set of powerful Python bindings for IDA. It combines the power
+    of Python with the analysis features of IDA, allowing for more powerful scripting
+    capabilities. IDAPython consists of three modules: `idaapi`, which provides access
+    to the IDA API; `idautils`, which provides high-level utility functions for IDA;
+    and `idc`, an IDC compatibility module. Most of the IDAPython functions accept
+    an *address* as the parameter, and, while reading the IDAPython documentation,
+    you will find that the address is referred to as `ea`. Many IDAPython functions
+    return addresses; one common function is `idc.get_screen_ea()`, which gets the
+    address of the current cursor location:'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '*IDAPython* 是一套强大的 Python 绑定工具，适用于 IDA。它将 Python 的强大功能与 IDA 的分析特性结合起来，提供了更强大的脚本编写能力。IDAPython
+    包含三个模块：`idaapi`，用于访问 IDA API；`idautils`，提供 IDA 的高级实用功能；以及 `idc`，一个 IDC 兼容模块。大多数
+    IDAPython 函数接受 *地址* 作为参数，而在阅读 IDAPython 文档时，你会发现该地址通常被称为 `ea`。许多 IDAPython 函数会返回地址；一个常见的函数是
+    `idc.get_screen_ea()`，它获取当前光标位置的地址：'
+- en: '[PRE26]'
+  id: totrans-206
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE26]'
+- en: 'The following code snippet shows how you can pass the address returned by `idc.get_screen_ea()`
+    to the `idc.get_segm_name()` function to determine the name of the segment associated
+    with the address:'
+  id: totrans-207
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下代码片段展示了如何将 `idc.get_screen_ea()` 返回的地址传递给 `idc.get_segm_name()` 函数，以确定与该地址相关联的段的名称：
+- en: '[PRE27]'
+  id: totrans-208
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE27]'
+- en: 'In the following code snippet, the address returned by `idc.get_screen_ea()`
+    is passed to `idc.generate_disasm_line()` function to generate the disassembly
+    text:'
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下代码片段中，`idc.get_screen_ea()` 返回的地址被传递给 `idc.generate_disasm_line()` 函数，以生成反汇编文本：
+- en: '[PRE28]'
+  id: totrans-210
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE28]'
+- en: 'In the following code, the address returned by the `idc.get_screen_ea()` function
+    is passed to `idc.get_func_name()` to determine the name of the function associated
+    with the address. For more examples, refer to Alexander Hanel''s *The Beginner’s
+    Guide to* *IDAPython* book ([https://leanpub.com/IDAPython-Book](https://leanpub.com/IDAPython-Book)):'
+  id: totrans-211
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在以下代码中，`idc.get_screen_ea()` 函数返回的地址被传递给 `idc.get_func_name()`，以确定与该地址相关联的函数名称。更多示例，请参考
+    Alexander Hanel 的《*IDAPython 初学者指南*》一书（[https://leanpub.com/IDAPython-Book](https://leanpub.com/IDAPython-Book)）：
+- en: '[PRE29]'
+  id: totrans-212
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE29]'
+- en: During malware analysis, often, you will want to know if the malware imports
+    a specific function (or functions), such as `CreateFile`, and where in the code
+    the function is called. You can do that by using the *cross-references* feature
+    covered previously. To give you a feel for IDAPython, the following examples demonstrate
+    how to use IDAPython to check for the presence of the `CreateFile` API and to
+    identify cross-references to `CreateFile`.
+  id: totrans-213
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在恶意软件分析中，通常你会想知道恶意软件是否导入了特定的函数（或函数），例如 `CreateFile`，以及该函数在代码中被调用的位置。你可以通过之前介绍的
+    *交叉引用* 功能来实现这一点。为了让你更好地理解 IDAPython，以下示例演示了如何使用 IDAPython 检查 `CreateFile` API
+    的存在，并识别对 `CreateFile` 的交叉引用。
+- en: 5.2.1 Checking The Presence Of CreateFile API
+  id: totrans-214
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5.2.1 检查 CreateFile API 的存在
+- en: 'If you recall, upon disassembly, IDA tries to identify whether the disassembled
+    function is a library function or an import function by using pattern matching
+    algorithms. It also derives the list of names from the symbol table; such derived
+    names can be accessed by using the Names window (via View | Open subview | Names
+    or *Shift* + *F4*). The Names window contains the list of imported, exported,
+    and library functions, and named data locations. The following screenshot displays
+    the `CreateFileA` API functions in the Names window:'
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果你还记得，在反汇编过程中，IDA 会尝试通过使用模式匹配算法来判断反汇编函数是库函数还是导入函数。它还会从符号表中推导出函数名称列表；这些推导出的名称可以通过使用名称窗口来访问（通过视图
+    | 打开子视图 | 名称或 *Shift* + *F4*）。名称窗口包含了导入、导出、库函数和命名数据位置的列表。以下截图显示了名称窗口中的 `CreateFileA`
+    API 函数：
+- en: '![](../images/00124.jpeg)'
+  id: totrans-216
+  prefs: []
+  type: TYPE_IMG
+  zh: '![](../images/00124.jpeg)'
+- en: 'You can also programmatically access the named items. The following IDAPython
+    script checks for the presence of the `CreateFile` API function by iterating through
+    each named item:'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你还可以通过编程方式访问命名的项。以下 IDAPython 脚本通过迭代每个命名项来检查 `CreateFile` API 函数的存在：
+- en: '[PRE30]'
+  id: totrans-218
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE30]'
+- en: 'The preceding script calls the `idautils.Names()` function, which returns a
+    named item (tuple), containing the *virtual address* and the *name*. The named
+    item is iterated and checked for the presence of `CreateFile`. Running the preceding
+    script returns the address of the `CreateFileA` API, as shown in the following
+    snippet. Since the code for an imported function resides in a shared library (DLL)
+    that will only be loaded during runtime, the address (`0x407010`) listed in the
+    following snippet is the virtual address of the associated import table entry
+    (not the address where the code for the `CreateFileA` function can be found):'
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 上述脚本调用了 `idautils.Names()` 函数，该函数返回一个命名项（元组），其中包含*虚拟地址*和*名称*。对命名项进行迭代，并检查是否存在
+    `CreateFile`。运行该脚本返回 `CreateFileA` API 的地址，如下所示。在下面的代码片段中，导入函数的代码位于共享库（DLL）中，只有在运行时才会加载，因此以下代码片段中的地址
+    (`0x407010`) 是关联的导入表项的虚拟地址（而不是 `CreateFileA` 函数代码的地址）。
+- en: '[PRE31]'
+  id: totrans-220
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE31]'
+- en: 'Another method to determine the presence of the `CreateFileA` function is by
+    using the following code. The `idc.get_name_ea_simple()` function returns the
+    virtual address of `CreateFileA`. If `CreateFileA` does not exist, then it returns
+    a value of `-1` (`idaapi.BADADDR`):'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 确定 `CreateFileA` 函数是否存在的另一种方法是使用以下代码。`idc.get_name_ea_simple()` 函数返回 `CreateFileA`
+    的虚拟地址。如果 `CreateFileA` 不存在，则返回 `-1`（`idaapi.BADADDR`）：
+- en: '[PRE32]'
+  id: totrans-222
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE32]'
+- en: 5.2.2 Code Cross-References to CreateFile Using IDAPython
+  id: totrans-223
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5.2.2 使用 IDAPython 查找 `CreateFile` 的代码交叉引用
+- en: 'Having identified the reference to the `CreateFileA` function, let''s try to
+    identify *cross-references* to (*Xrefs to*) the `CreateFileA` function; this will
+    give us all the addresses where `CreateFileA` is called from. The following script
+    builds on the previous script and identifies the cross-references to the `CreateFileA`
+    function:'
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在识别了对 `CreateFileA` 函数的引用后，我们来尝试识别对 `CreateFileA` 函数的*交叉引用*（*Xrefs to*）；这将给出所有调用
+    `CreateFileA` 的地址。以下脚本在之前的基础上进行了扩展，识别了对 `CreateFileA` 函数的交叉引用：
+- en: '[PRE33]'
+  id: totrans-225
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE33]'
+- en: 'The following is the output generated as a result of running the preceding
+    script. The output displays all of the instructions that call the `CreateFileA`
+    API function:'
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 以下是运行前述脚本后的输出结果。输出显示了所有调用 `CreateFileA` API 函数的指令：
+- en: '[PRE34]'
+  id: totrans-227
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE34]'
+- en: 5.3 IDA Plugins
+  id: totrans-228
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 5.3 IDA 插件
+- en: IDA plugins greatly enhance the capabilities of IDA, and most of the third-party
+    software that are developed to be used with IDA are distributed in the form of
+    plugins. A commercial plugin that is of great value to a malware analyst and reverse
+    engineer is the *Hex-Rays Decompiler* ([https://www.hex-rays.com/products/decompiler/](https://www.hex-rays.com/products/decompiler/)).
+    This decompiles the processor code into a human-readable C-like pseudocode, making
+    it easier to read the code, and can speed up your analysis.
+  id: totrans-229
+  prefs: []
+  type: TYPE_NORMAL
+  zh: IDA 插件大大增强了 IDA 的功能，而且大多数为 IDA 开发的第三方软件都是以插件的形式分发的。对于恶意软件分析师和逆向工程师来说，一个非常有价值的商业插件是
+    *Hex-Rays Decompiler*（[https://www.hex-rays.com/products/decompiler/](https://www.hex-rays.com/products/decompiler/)）。这个反编译器将处理器代码转化为人类可读的类似
+    C 的伪代码，使得阅读代码更加容易，并且能够加快分析速度。
+- en: The best place to find some of the interesting plugins is the Hex-Rays plugin
+    contest page at [https://www.hex-rays.com/contests/index.shtml](https://www.hex-rays.com/contests/index.shtml).
+    You can also find a list of useful IDA plugins at [https://github.com/onethawt/idaplugins-list](https://github.com/onethawt/idaplugins-list).
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 查找一些有趣插件的最佳地点是 Hex-Rays 插件竞赛页面：[https://www.hex-rays.com/contests/index.shtml](https://www.hex-rays.com/contests/index.shtml)。你还可以在
+    [https://github.com/onethawt/idaplugins-list](https://github.com/onethawt/idaplugins-list)
+    上找到有用的 IDA 插件列表。
+- en: 6\. Summary
+  id: totrans-231
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 6. 总结
+- en: 'This chapter covered *IDA Pro*: its features, and how to use it to perform
+    static code analysis (disassembly). In this chapter, we also looked at some of
+    the concepts related to the Windows API. Combining the knowledge that you gained
+    from the previous chapter, and utilizing the features offered by IDA, can greatly
+    enhance your reverse engineering and malware analysis capabilities. Even though
+    disassembly allows us to understand what a program does, most variables are not
+    hardcoded and get populated only when a program is executing. In the next chapter,
+    you will learn how to execute malware in a controlled manner with the help of
+    a debugger, and you will also learn how to explore various aspects of a binary
+    while it is executing under a debugger.'
+  id: totrans-232
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章介绍了*IDA Pro*：它的特点以及如何使用它进行静态代码分析（反汇编）。在本章中，我们还介绍了一些与Windows API相关的概念。结合你从上一章获得的知识，并利用IDA提供的功能，可以大大增强你的逆向工程和恶意软件分析能力。尽管反汇编允许我们理解程序的功能，但大多数变量并不是硬编码的，它们只有在程序执行时才会被填充。在下一章中，你将学习如何借助调试器以受控方式执行恶意软件，并学习如何在程序在调试器下执行时探索二进制文件的各个方面。
